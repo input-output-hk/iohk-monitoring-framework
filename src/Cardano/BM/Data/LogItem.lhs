@@ -1,5 +1,5 @@
 
-\subsection{Cardano.BM.Data.LogItem
+\subsection{Cardano.BM.Data.LogItem}
 
 %if False
 \begin{code}
@@ -61,8 +61,7 @@ data LogSelection =
 \end{code}
 
 
-\subsubsection{LogObject}\label{code:LogObject}
-\label{code:LogPrims}\label{code:LogObject}
+\subsubsection{LogObject}\label{code:LogObject}\label{code:LogPrims}
 \begin{code}
 
 data LogPrims = LogMessage LogItem

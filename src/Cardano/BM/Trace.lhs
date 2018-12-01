@@ -47,8 +47,6 @@ import           System.IO.Unsafe (unsafePerformIO)
 
 import           Cardano.BM.BaseTrace
 import qualified Cardano.BM.Configuration as Config
--- import           Cardano.BM.Controller (, checkSeverity,
---                      findTraceTransformer, getNamedSeverity, setNamedSeverity)
 import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.Trace
@@ -102,6 +100,19 @@ locallock :: MVar ()
 locallock = unsafePerformIO $ newMVar ()
 \end{code}
 
+
+\subsubsection{Trace that forwards to the \nameref{code:Switchboard}}\label{code:mainTrace}
+
+Every |Trace| ends in the switchboard which then takes care of
+dispatching the messages to outputs
+
+\begin{code}
+mainTrace :: Switchboard.Switchboard -> TraceNamed IO
+mainTrace sb = BaseTrace $ Op $ \lognamed -> do
+    Switchboard.pass sb lognamed
+
+\end{code}
+
 \subsubsection{Concrete Trace on stdout}\label{code:stdoutTrace}
 
 This function returns a trace with an action of type "|(LogNamed LogObject) -> IO ()|"
@@ -120,15 +131,6 @@ stdoutTrace = BaseTrace $ Op $ \lognamed ->
                 output (lnName lognamed) $ toStrict (encodeToLazyText obj)
   where
     output nm msg = TIO.putStrLn $ nm <> " :: " <> msg
-
-\end{code}
-
-Every |Trace| ends in the switchboard which then takes care of
-dispatching the messages to outputs
-\begin{code}
-mainTrace :: Switchboard.Switchboard -> TraceNamed IO
-mainTrace sb = BaseTrace $ Op $ \lognamed -> do
-    Switchboard.pass sb lognamed
 
 \end{code}
 
@@ -280,8 +282,8 @@ traceNamedObject (ctx, logTrace) = traceWith (named logTrace (loggerName ctx))
 \end{code}
 
 \subsubsection{subTrace}\label{code:subTrace}
-Transforms the |Trace| given according to content of
-|TraceTransformerMap| using the logger name of the
+Transforms the |Trace| according to the
+|Configuration| using the logger name of the
 current |Trace| appended with the given name. If the
 empty |Text| is given as name then the logger name
 remains untouched.
@@ -289,7 +291,7 @@ remains untouched.
 subTrace :: MonadIO m => T.Text -> Trace m -> m (SubTrace, Trace m)
 subTrace name tr@(ctx, _) = do
     let newName = appendWithDot (loggerName ctx) name
-    traceTrafo0 <- liftIO $ Config.findTransformer (configuration ctx) newName
+    traceTrafo0 <- liftIO $ Config.findSubTrace (configuration ctx) newName
     let traceTrafo = case traceTrafo0 of Nothing -> Neutral; Just trafo -> trafo
     case traceTrafo of
         Neutral      -> do

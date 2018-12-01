@@ -1,5 +1,5 @@
 
-\subsection{Cardano.BM.Data.Configuration
+\subsection{Cardano.BM.Data.Configuration}
 
 %if False
 \begin{code}

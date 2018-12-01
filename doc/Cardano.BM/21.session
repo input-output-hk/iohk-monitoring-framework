@@ -1,0 +1,28 @@
+window_sizes 1433 855 337 1090 739 64
+cleanlooks_style
+diagrams
+  classdiagram_ref 128021 // Overview_Classes
+    983 714 100 A4-Landscape 0 0
+  active  collaborationdiagram_ref 161685 // Setup_Procedure
+    872 591 100 A4 0 0
+end
+show_stereotypes
+selected attribute_ref 134805 // cgOptions
+open
+  activity_ref 128021 // Concurrent_Trace
+  classview_ref 128277 // Counters
+  class_ref 128277 // BaseTrace
+  classview_ref 128149 // Configuration
+  classview_ref 134805 // EKG
+  classview_ref 134933 // TeeTrace
+  component_ref 128277 // LoggingSetup
+  component_ref 128149 // LoggingConfiguration
+  class_ref 129685 // Katip
+  class_ref 144533 // Backend
+  class_ref 129045 // ConfigurationView
+  class_ref 136981 // Configuration
+  classview_ref 148373 // Configuration Classes
+  
+  package_ref 148245 // Trace
+end
+end

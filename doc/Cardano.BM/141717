@@ -1,0 +1,171 @@
+format 221
+"Cardano.Shell" // Cardano.Shell
+  revision 1
+  modified_by 21 "axeld"
+  // class settings
+  
+  classdiagramsettings member_max_width 0 end
+  
+  classcompositediagramsettings end
+  
+  usecasediagramsettings end
+  
+  sequencediagramsettings end
+  
+  collaborationdiagramsettings end
+  
+  objectdiagramsettings end
+  
+  objectcompositediagramsettings end
+  
+  componentdiagramsettings package_name_in_tab yes
+   end
+  
+  deploymentdiagramsettings
+   end
+  
+  statediagramsettings
+   end
+  
+  activitydiagramsettings
+   end
+  
+  classview 135061 "Node-Shell"
+    
+    classdiagramsettings member_max_width 0 end
+    
+    classcompositediagramsettings end
+    
+    collaborationdiagramsettings end
+    
+    objectdiagramsettings end
+    
+    objectcompositediagramsettings end
+    
+    sequencediagramsettings end
+    
+    statediagramsettings
+     end
+    
+    
+    activitydiagramsettings
+     end
+    class 137109 "Shell"
+      visibility package 
+      cpp_decl ""
+      java_decl ""
+      php_decl ""
+      python_2_2 python_decl ""
+      idl_decl "${comment}${abstract}${custom}valuetype ${name}${inherit} {
+${members}};
+"
+      explicit_switch_type ""
+      mysql_decl ""
+      
+    end
+
+    class 137237 "CardanoConfiguration"
+      visibility package 
+      cpp_decl ""
+      java_decl ""
+      php_decl ""
+      python_2_2 python_decl ""
+      idl_decl "${comment}${abstract}${custom}valuetype ${name}${inherit} {
+${members}};
+"
+      explicit_switch_type ""
+      mysql_decl ""
+      
+    end
+
+    class 137365 "CardanoEnvironment"
+      visibility package 
+      cpp_decl ""
+      java_decl ""
+      php_decl ""
+      python_2_2 python_decl ""
+      idl_decl "${comment}${abstract}${custom}valuetype ${name}${inherit} {
+${members}};
+"
+      explicit_switch_type ""
+      mysql_decl ""
+      
+    end
+
+    class 137493 "CardanoFeature"
+      abstract visibility public 
+      cpp_decl ""
+      java_decl ""
+      php_decl ""
+      python_2_2 python_decl ""
+      idl_decl "${comment}${abstract}${custom}valuetype ${name}${inherit} {
+${members}};
+"
+      explicit_switch_type ""
+      mysql_decl ""
+      
+      port 128021 "env"
+	isService type class_ref 137365 // CardanoEnvironment
+      end
+
+      operation 137365 "parseConfiguration"
+	public return_type class_ref 137237 // CardanoConfiguration
+	nparams 0
+	
+	
+	
+	
+	idl_decl "  ${comment}${oneway}${type} ${name}${(}${)}${raisesnl}${raises};
+"
+      end
+
+      operation 137493 "start"
+	public explicit_return_type "void"
+	nparams 2
+	  param in name "env" type class_ref 137365 // CardanoEnvironment
+	  param in name "conf" type class_ref 137237 // CardanoConfiguration
+	
+	
+	
+	
+	idl_decl "  ${comment}${oneway}${type} ${name}${(}${d0} ${t0} ${p0}, ${d1} ${t1} ${p1}${)}${raisesnl}${raises};
+"
+      end
+
+      operation 137621 "cleanup"
+	public explicit_return_type "void"
+	nparams 0
+	
+	
+	
+	
+	idl_decl "  ${comment}${oneway}${type} ${name}${(}${)}${raisesnl}${raises};
+"
+      end
+    end
+
+    sequencediagram 135573 "Node-Shell Functionality"
+      sequencediagramsettings end
+      overlapping_bars size A4
+    end
+  end
+
+  componentview 128021 "Node-Shell"
+    //component diagram settings
+    componentdiagramsettings
+     end
+    componentdiagram 135445 "NodeShell"
+      componentdiagramsettings
+       end
+      size A4
+    end
+
+    component 128021 "Shell"
+      required_classes
+	class_ref 137237 // CardanoConfiguration
+	class_ref 137365 // CardanoEnvironment
+	class_ref 137493 // CardanoFeature
+      end
+    end
+  end
+end

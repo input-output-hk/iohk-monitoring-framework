@@ -1,5 +1,5 @@
 
-\subsection{Cardano.BM.Data.Severity
+\subsection{Cardano.BM.Data.Severity}
 
 %if False
 \begin{code}

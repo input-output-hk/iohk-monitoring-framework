@@ -36,16 +36,16 @@ import           Cardano.BM.Trace (Trace, logInfo, traceNamedObject,
 --   given as name then the logger name remains untouched.
 bracketObserveIO :: Trace IO -> Text -> IO t -> IO t
 bracketObserveIO logTrace0 name action = do
-    (traceTransformer, logTrace) <- subTrace name logTrace0
-    bracketObserveIO' traceTransformer logTrace action
+    (subTrace, logTrace) <- subTrace name logTrace0
+    bracketObserveIO' subTrace logTrace action
 
 bracketObserveIO' :: SubTrace -> Trace IO -> IO t -> IO t
 bracketObserveIO' NoTrace _ action = action
-bracketObserveIO' traceTransformer logTrace action = do
-    countersid <- observeOpen traceTransformer logTrace
+bracketObserveIO' subTrace logTrace action = do
+    countersid <- observeOpen subTrace logTrace
     -- run action
     t <- action
-    observeClose traceTransformer logTrace countersid []
+    observeClose subTrace logTrace countersid []
     pure t
 
 \end{code}
@@ -53,12 +53,12 @@ bracketObserveIO' traceTransformer logTrace action = do
 \begin{code}
 
 observeOpen :: SubTrace -> Trace IO -> IO CounterState
-observeOpen traceTransformer logTrace = do
+observeOpen subTrace logTrace = do
     identifier <- newUnique
     logInfo logTrace $ "Opening: " <> pack (show $ hashUnique identifier)
 
     -- take measurement
-    counters <- readCounters traceTransformer
+    counters <- readCounters subTrace
     let state = CounterState identifier counters
     -- send opening message to Trace
     traceNamedObject logTrace $ ObserveOpen state
@@ -69,11 +69,11 @@ observeOpen traceTransformer logTrace = do
 \begin{code}
 
 observeClose :: SubTrace -> Trace IO -> CounterState -> [LogObject] -> IO ()
-observeClose traceTransformer logTrace (CounterState identifier _) logObjects = do
+observeClose subTrace logTrace (CounterState identifier _) logObjects = do
     logInfo logTrace $ "Closing: " <> pack (show $ hashUnique identifier)
 
     -- take measurement
-    counters <- readCounters traceTransformer
+    counters <- readCounters subTrace
     -- send closing message to Trace
     traceNamedObject logTrace $ ObserveClose (CounterState identifier counters)
     -- trace the messages gathered from inside the action

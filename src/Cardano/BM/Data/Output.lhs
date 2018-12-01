@@ -1,5 +1,5 @@
 
-\subsection{Cardano.BM.Data.Output
+\subsection{Cardano.BM.Data.Output}
 
 %if False
 \begin{code}

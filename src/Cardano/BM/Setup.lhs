@@ -1,6 +1,13 @@
 
 \subsection{Cardano.BM.Setup}
 
+\begin{figure}[htp]
+\centering{
+  \includegraphics[scale=0.54]{SetupProcedure.pdf}
+}
+\caption{Setup procedure}
+\end{figure}
+
 %if False
 \begin{code}
 {-# LANGUAGE OverloadedStrings #-}
@@ -27,6 +34,8 @@ import           Cardano.BM.Trace (Trace, natTrace, mainTrace, subTrace)
 %endif
 
 \subsubsection{setupTrace}\label{code:setupTrace}
+Setup a new |Trace| (\nameref{code:Trace}) with either a given |Configuration| (\nameref{code:Configuration})
+or a |FilePath| to a configuration file.
 \begin{code}
 
 setupTrace :: MonadIO m => Either FilePath Config.Configuration -> Text -> m (Trace m)
@@ -56,7 +65,7 @@ withTrace cfg name action = do
 
 \end{code}
 
-\subsubsection{TraceContext}\label{code:TraceContext}
+\subsubsection{newContext}\label{code:newContext}
 \begin{code}
 newContext :: LoggerName -> Config.Configuration -> Severity -> IO TraceContext
 newContext name cfg sev = do

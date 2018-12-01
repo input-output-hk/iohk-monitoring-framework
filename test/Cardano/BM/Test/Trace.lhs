@@ -25,7 +25,7 @@ import           Data.Time.Units (Microsecond)
 import           Data.Unique (newUnique)
 
 import           Cardano.BM.Configuration (Configuration, inspectSeverity,
-                     minSeverity, setMinSeverity, setSeverity, setTransformer,
+                     minSeverity, setMinSeverity, setSeverity, setSubTrace,
                      setup)
 import           Cardano.BM.Counters (diffTimeObserved, getMonoClock)
 import           Cardano.BM.Data.Counter
@@ -37,7 +37,6 @@ import           Cardano.BM.Data.SubTrace
 import           Cardano.BM.Data.Trace
 import qualified Cardano.BM.Observer.Monadic as MonadicObserver
 import qualified Cardano.BM.Observer.STM as STMObserver
---import           Cardano.BM.Output.Switchboard (Switchboard, setup)
 import           Cardano.BM.Setup (newContext)
 import           Cardano.BM.Trace (Trace, appendName, logInfo, natTrace,
                      noTrace, stdoutTrace, subTrace, traceInTVarIO,
@@ -102,10 +101,10 @@ unit_tests = testGroup "Unit tests" [
 \subsubsection{Helper routines}
 \begin{code}
 data TraceConfiguration = TraceConfiguration
-    { tcOutputKind       :: OutputKind
-    , tcName             :: LoggerName
-    , tcTraceTransformer :: SubTrace
-    , tcSeverity         :: Severity
+    { tcOutputKind   :: OutputKind
+    , tcName         :: LoggerName
+    , tcSubTrace     :: SubTrace
+    , tcSeverity     :: Severity
     }
 
 setupTrace :: TraceConfiguration -> IO (Trace IO)
@@ -120,7 +119,7 @@ setupTrace (TraceConfiguration outk name trafo sev) = do
             Null               -> noTrace
 
     let logTrace = (ctx, logTrace0)
-    setTransformer (configuration ctx) name (Just trafo)
+    setSubTrace (configuration ctx) name (Just trafo)
     (_, logTrace') <- subTrace "" logTrace
     return logTrace'
 
@@ -128,7 +127,7 @@ setTransformer_ :: Trace IO -> LoggerName -> Maybe SubTrace -> IO ()
 setTransformer_ (ctx, _) name subtr = do
     let c = configuration ctx
         n = (loggerName ctx) <> "." <> name
-    setTransformer c n subtr
+    setSubTrace c n subtr
 
 setMinSeverity_ :: Configuration -> Severity -> IO ()
 setMinSeverity_ c s = do

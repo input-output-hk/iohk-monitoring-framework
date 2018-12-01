@@ -1,5 +1,5 @@
 
-\subsection{Cardano.BM.Data.SubTrace
+\subsection{Cardano.BM.Data.SubTrace}
 
 %if False
 \begin{code}

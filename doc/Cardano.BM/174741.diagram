@@ -1,0 +1,7 @@
+format 221
+
+classcanvas 128021 class_ref 136981 // Configuration
+  classdiagramsettings hide_attributes no hide_operations yes show_members_full_definition yes show_members_multiplicity yes show_members_initialization yes show_attribute_modifiers yes member_max_width 0 end
+  xyzwh 81 136 2000 283 161
+end
+end

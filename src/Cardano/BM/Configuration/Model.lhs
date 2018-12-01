@@ -17,8 +17,8 @@ module Cardano.BM.Configuration.Model
     , registerBackend
     , setDefaultBackends
     , getOption
-    , findTransformer
-    , setTransformer
+    , findSubTrace
+    , setSubTrace
     --, inspectOutput
     --, takedown
     ) where
@@ -36,13 +36,20 @@ import           Cardano.BM.Data.SubTrace
 \end{code}
 %endif
 
-The configuration is a singleton.
+\subsubsection{Configuration.Model}\label{code:Configuration}
+\begin{figure}[htp]
+\centering{
+  \includegraphics[scale=0.54]{ConfigurationModel.pdf}
+}
+\caption{Configuration model}\label{fig:configuration}
+\end{figure}
+
 \begin{code}
 type ConfigurationMVar = MVar ConfigurationInternal
 newtype Configuration = Configuration
     { getCG :: ConfigurationMVar }
 
--- Our internal state
+-- Our internal state; see {-"\nameref{fig:configuration}"-}
 data ConfigurationInternal = ConfigurationInternal
     { cgMapSeverity :: HM.HashMap Text Severity
     , cgMapOutput   :: HM.HashMap Text [Backend]
@@ -56,6 +63,7 @@ data ConfigurationInternal = ConfigurationInternal
 
 \end{code}
 
+\subsubsection{Backend relation}
 \begin{code}
 getBackends :: Configuration -> Text -> IO (Maybe [Backend])
 getBackends configuration name =
@@ -78,6 +86,7 @@ registerBackend _ _kn _f = pure () -- TODO
 
 \end{code}
 
+\subsubsection{Options}
 \begin{code}
 getOption :: Configuration -> Text -> IO (Maybe Text)
 getOption configuration name = do
@@ -88,6 +97,7 @@ getOption configuration name = do
 
 \end{code}
 
+\subsubsection{Global setting of minimum severity}
 \begin{code}
 minSeverity :: Configuration -> IO Severity
 minSeverity configuration = withMVar (getCG configuration) $ \cg ->
@@ -100,6 +110,7 @@ setMinSeverity configuration sev = do
 
 \end{code}
 
+\subsubsection{Relation of context name to minimum severity}
 \begin{code}
 inspectSeverity :: Configuration -> Text -> IO (Maybe Severity)
 inspectSeverity configuration name = do
@@ -114,19 +125,23 @@ setSeverity configuration name sev = do
 
 \end{code}
 
+\subsubsection{Relation of context name to SubTrace}
+A new context may contain a different type of |Trace|.
+The function |appendName| (\nameref{code:appendName}) will look up the |SubTrace| for the context's name.
 \begin{code}
-findTransformer :: Configuration -> Text -> IO (Maybe SubTrace)
-findTransformer configuration name = do
+findSubTrace :: Configuration -> Text -> IO (Maybe SubTrace)
+findSubTrace configuration name = do
     withMVar (getCG configuration) $ \cg ->
         return $ HM.lookup name (cgMapSubtrace cg)
 
-setTransformer :: Configuration -> Text -> Maybe SubTrace -> IO ()
-setTransformer configuration name trafo = do
+setSubTrace :: Configuration -> Text -> Maybe SubTrace -> IO ()
+setSubTrace configuration name trafo = do
     cg <- takeMVar (getCG configuration)
     putMVar (getCG configuration) $ cg { cgMapSubtrace = HM.alter (\_ -> trafo) name (cgMapSubtrace cg) }
 
 \end{code}
 
+\subsubsection{Configuration.Model.setup}
 \begin{code}
 setup :: FilePath -> IO Configuration
 setup _fp = do

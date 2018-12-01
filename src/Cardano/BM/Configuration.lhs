@@ -13,8 +13,8 @@ module Cardano.BM.Configuration
     , CM.getBackends
     , CM.registerBackend
     , CM.getOption
-    , CM.findTransformer
-    , CM.setTransformer
+    , CM.findSubTrace
+    , CM.setSubTrace
     , getOptionOrDefault
     , parseFrom
     ) where

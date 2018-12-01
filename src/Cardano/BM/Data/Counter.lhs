@@ -1,5 +1,5 @@
 
-\subsection{Cardano.BM.Data.Counter
+\subsection{Cardano.BM.Data.Counter}
 
 %if False
 \begin{code}

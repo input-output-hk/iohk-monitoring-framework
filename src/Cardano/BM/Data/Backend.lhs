@@ -1,5 +1,5 @@
 
-\subsection{Cardano.BM.Data.Backend
+\subsection{Cardano.BM.Data.Backend}
 
 %if False
 \begin{code}
@@ -22,7 +22,6 @@ import           Cardano.BM.Data.LogItem
 
 \subsubsection{BackendKind}\label{code:BackendKind}
 This identifies the backends that can be attached to the \nameref{code:Switchboard}.
-
 \begin{code}
 data BackendKind = AggregationBK
                  | EKGViewBK

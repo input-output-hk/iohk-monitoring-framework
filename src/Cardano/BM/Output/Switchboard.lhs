@@ -29,7 +29,7 @@ import qualified Cardano.BM.Output.Log
 \end{code}
 %endif
 
-\subsubsection{State representation}\label{code:Switchboard}
+\subsubsection{Switchboard}\label{code:Switchboard}
 The switchboard is a singleton.
 
 \begin{code}

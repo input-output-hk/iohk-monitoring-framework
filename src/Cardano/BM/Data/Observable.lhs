@@ -1,5 +1,5 @@
 
-\subsection{Cardano.BM.Data.Observable
+\subsection{Cardano.BM.Data.Observable}
 
 %if False
 \begin{code}
