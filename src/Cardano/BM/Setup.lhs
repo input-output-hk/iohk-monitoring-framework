@@ -9,6 +9,7 @@ module Cardano.BM.Setup
     (
       setupTrace
     , withTrace
+    , newContext
     ) where
 
 import           Control.Monad.IO.Class (MonadIO, liftIO)
@@ -20,7 +21,7 @@ import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.Severity
 import qualified Cardano.BM.Output.Switchboard
 import           Cardano.BM.Data.Trace
-import           Cardano.BM.Trace (Trace, natTrace, stdoutTrace, subTrace)
+import           Cardano.BM.Trace (Trace, natTrace, mainTrace, subTrace)
 
 \end{code}
 %endif
@@ -36,16 +37,11 @@ setupTrace (Right c) name = setupTrace_ c name
 
 setupTrace_ :: MonadIO m => Config.Configuration -> Text -> m (Trace m)
 setupTrace_ c name = do
-    _ <- liftIO $ Cardano.BM.Output.Switchboard.setup c
+    sb <- liftIO $ Cardano.BM.Output.Switchboard.setup c
     sev <- liftIO $ Config.minSeverity c
     ctx <- liftIO $ newContext name c sev
-    -- let logTrace0 = case outputKind of
-    --         StdOut             -> natTrace liftIO stdoutTrace
-    --         TVarList      tvar -> natTrace liftIO $ traceInTVarIO tvar
-    --         TVarListNamed tvar -> natTrace liftIO $ traceNamedInTVarIO tvar
-    --         Null               -> noTrace
 
-    let logTrace = (ctx, natTrace liftIO stdoutTrace)
+    let logTrace = (ctx, natTrace liftIO (mainTrace sb))
     (_, logTrace') <- subTrace "" logTrace
     return logTrace'
 

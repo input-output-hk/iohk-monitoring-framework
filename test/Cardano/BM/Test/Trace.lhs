@@ -16,7 +16,7 @@ import qualified Control.Monad.STM as STM
 
 import           Control.Concurrent (forkIO, threadDelay)
 import           Control.Monad (forM, forM_, void)
-import           Data.List (find)
+import           Control.Monad.IO.Class (liftIO)
 import           Data.Map (fromListWith, lookup)
 import           Data.Set (fromList)
 import           Data.Text (Text, append, pack)
@@ -24,7 +24,9 @@ import qualified Data.Text as T
 import           Data.Time.Units (Microsecond)
 import           Data.Unique (newUnique)
 
-import           Cardano.BM.Configuration (Configuration)
+import           Cardano.BM.Configuration (Configuration, inspectSeverity,
+                     minSeverity, setMinSeverity, setSeverity, setTransformer,
+                     setup)
 import           Cardano.BM.Counters (diffTimeObserved, getMonoClock)
 import           Cardano.BM.Data.Counter
 import           Cardano.BM.Data.LogItem
@@ -35,8 +37,11 @@ import           Cardano.BM.Data.SubTrace
 import           Cardano.BM.Data.Trace
 import qualified Cardano.BM.Observer.Monadic as MonadicObserver
 import qualified Cardano.BM.Observer.STM as STMObserver
-import           Cardano.BM.Setup (setupTrace)
-import           Cardano.BM.Trace (Trace, appendName, logInfo, subTrace)
+--import           Cardano.BM.Output.Switchboard (Switchboard, setup)
+import           Cardano.BM.Setup (newContext)
+import           Cardano.BM.Trace (Trace, appendName, logInfo, natTrace,
+                     noTrace, stdoutTrace, subTrace, traceInTVarIO,
+                     traceNamedInTVarIO)
 
 import           Test.Tasty (TestTree, testGroup)
 import           Test.Tasty.HUnit (Assertion, assertBool, testCase,
@@ -94,6 +99,47 @@ unit_tests = testGroup "Unit tests" [
 
 \end{code}
 
+\subsubsection{Helper routines}
+\begin{code}
+data TraceConfiguration = TraceConfiguration
+    { tcOutputKind       :: OutputKind
+    , tcName             :: LoggerName
+    , tcTraceTransformer :: SubTrace
+    , tcSeverity         :: Severity
+    }
+
+setupTrace :: TraceConfiguration -> IO (Trace IO)
+setupTrace (TraceConfiguration outk name trafo sev) = do
+    c <- liftIO $ Cardano.BM.Configuration.setup "some_file_path.yaml"
+    --_ <- liftIO $ Cardano.BM.Output.Switchboard.setup c
+    ctx <- liftIO $ newContext name c sev
+    let logTrace0 = case outk of
+            StdOut             -> natTrace liftIO stdoutTrace
+            TVarList      tvar -> natTrace liftIO $ traceInTVarIO tvar
+            TVarListNamed tvar -> natTrace liftIO $ traceNamedInTVarIO tvar
+            Null               -> noTrace
+
+    let logTrace = (ctx, logTrace0)
+    setTransformer (configuration ctx) name (Just trafo)
+    (_, logTrace') <- subTrace "" logTrace
+    return logTrace'
+
+setTransformer_ :: Trace IO -> LoggerName -> Maybe SubTrace -> IO ()
+setTransformer_ (ctx, _) name subtr = do
+    let c = configuration ctx
+        n = (loggerName ctx) <> "." <> name
+    setTransformer c n subtr
+
+setMinSeverity_ :: Configuration -> Severity -> IO ()
+setMinSeverity_ c s = do
+    setMinSeverity c s
+
+setNamedSeverity_ :: Configuration -> LoggerName -> Severity -> IO ()
+setNamedSeverity_ c n s = do
+    setSeverity c n (Just s)
+
+\end{code}
+
 \subsubsection{Example of using named contexts with |Trace|}
 \begin{code}
 example_with_named_contexts :: IO String
@@ -114,7 +160,7 @@ example_with_named_contexts = do
         logInfo tr ("let's see (1): " `append` msg)
         logTrace' <- appendName "inner-work-1" tr
         let observablesSet = fromList [MonotonicClock, MemoryStats]
-        insertInController logTrace' "STM-action" (ObservableTrace observablesSet)
+        setTransformer_ logTrace' "STM-action" (Just $ ObservableTrace observablesSet)
         _ <- STMObserver.bracketObserveIO logTrace' "STM-action" setVar_
         logInfo logTrace' "let's see: done."
 
@@ -164,9 +210,9 @@ timing_Observable_vs_Untimed = do
 
     assertBool ("Untimed consumed more time than ObservableTrace " ++ (show [t_untimed, t_observable]))
         (t_untimed < t_observable)
-    assertBool ("NoTrace consumed more time than ObservableTrace" ++ (show [t_notrace, t_untimed]))
+    assertBool ("NoTrace consumed more time than ObservableTrace" ++ (show [t_notrace, t_observable]))
         (t_notrace < t_observable)
-    assertBool ("NoTrace consumed more time than Untimed" ++ (show [t_notrace, t_observable]))
+    assertBool ("NoTrace consumed more time than Untimed" ++ (show [t_notrace, t_untimed]))
         (t_notrace < t_untimed)
   where
     observablesSet = fromList [MonotonicClock, MemoryStats]
@@ -186,11 +232,12 @@ unit_hierarchy = do
     logInfo trace0 "This should have been displayed!"
 
     -- subtrace of trace which traces nothing
-    insertInController trace0 "inner" NoTrace
+    setTransformer_ trace0 "inner" (Just NoTrace)
+
     (_, trace1) <- subTrace "inner" trace0
     logInfo trace1 "This should NOT have been displayed!"
 
-    insertInController trace1 "innermost" Neutral
+    setTransformer_ trace1 "innermost" (Just Neutral)
     (_, trace2) <- subTrace "innermost" trace1
     logInfo trace2 "This should NOT have been displayed also due to the trace one level above!"
 
@@ -211,16 +258,20 @@ with a lower severity. This minimum severity of the current trace can be changed
 unit_trace_min_severity :: Assertion
 unit_trace_min_severity = do
     msgs <- STM.newTVarIO []
-    trace <- setupTrace $ TraceConfiguration (TVarList msgs) "test min severity" Neutral Debug
+    trace@(ctx,_) <- setupTrace $ TraceConfiguration (TVarList msgs) "test min severity" Neutral Debug
     logInfo trace "Message #1"
 
     -- raise the minimum severity to Warning
-    setMinSeverity trace Warning
+    setMinSeverity_ (configuration ctx) Warning
+    msev <- Cardano.BM.Configuration.minSeverity (configuration ctx)
+    assertBool ("min severity should be Warning, but is " ++ (show msev))
+               (msev == Warning)
+
     -- this message will not be traced
     logInfo trace "Message #2"
 
     -- lower the minimum severity to Info
-    setMinSeverity trace Info
+    setMinSeverity_ (configuration ctx) Info
     -- this message is traced
     logInfo trace "Message #3"
 
@@ -249,12 +300,15 @@ unit_named_min_severity = do
     logInfo trace "Message #1"
 
     -- raise the minimum severity to Warning
-    setNamedSeverity ctx (loggerName ctx) Warning
+    setNamedSeverity_ (configuration ctx) (loggerName ctx) Warning
+    msev <- Cardano.BM.Configuration.inspectSeverity (configuration ctx) (loggerName ctx)
+    assertBool ("min severity should be Warning, but is " ++ (show msev))
+               (msev == Just Warning)
     -- this message will not be traced
     logInfo trace "Message #2"
 
     -- lower the minimum severity to Info
-    setNamedSeverity ctx (loggerName ctx) Info
+    setNamedSeverity_ (configuration ctx) (loggerName ctx) Info
     -- this message is traced
     logInfo trace "Message #3"
 
@@ -280,12 +334,12 @@ unit_hierarchy' (t1 : t2 : t3 : _) f = do
     logInfo trace1 "Message from level 1."
 
     -- subtrace of type 2
-    insertInController trace1 "inner" t2
+    setTransformer_ trace1 "inner" (Just t2)
     (_, trace2) <- subTrace "inner" trace1
     logInfo trace2 "Message from level 2."
 
     -- subsubtrace of type 3
-    insertInController trace2 "innermost" t3
+    setTransformer_ trace2 "innermost" (Just t3)
     _ <- STMObserver.bracketObserveIO trace2 "innermost" setVar_
     logInfo trace2 "Message from level 3."
     -- acquire the traced objects

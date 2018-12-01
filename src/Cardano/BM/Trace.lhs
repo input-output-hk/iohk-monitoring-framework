@@ -38,6 +38,7 @@ import           Control.Monad.IO.Class (MonadIO, liftIO)
 import qualified Control.Monad.STM as STM
 import           Data.Aeson.Text (encodeToLazyText)
 import           Data.Functor.Contravariant (Contravariant (..), Op (..))
+import           Data.Maybe (fromMaybe)
 import           Data.Monoid ((<>))
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
@@ -155,7 +156,10 @@ traceConditionally
     => TraceContext -> BaseTrace m LogObject -> LogObject
     -> m ()
 traceConditionally ctx logTrace msg@(LP (LogMessage item)) = do
-    let flag = (liSeverity item) >= (minSeverity ctx)
+    globminsev <- liftIO $ Config.minSeverity (configuration ctx)
+    globnamesev <- liftIO $ Config.inspectSeverity (configuration ctx) (loggerName ctx)
+    let minsev = max (minSeverity ctx) $ max globminsev (fromMaybe Debug globnamesev)
+        flag = (liSeverity item) >= minsev
     when flag $ traceWith logTrace msg
 traceConditionally _ logTrace logObject = traceWith logTrace logObject
 
@@ -295,7 +299,7 @@ subTrace name tr@(ctx, _) = do
                             tr' <- appendName name tr
                             return $ (traceTrafo, tr')
         NoTrace      -> return (traceTrafo, (ctx, BaseTrace $ Op $ \_ -> pure ()))
-        DropOpening  -> return (traceTrafo, (ctx, BaseTrace $ Op $ \lognamed ->
+        DropOpening  -> return (traceTrafo, (ctx, BaseTrace $ Op $ \lognamed -> do
             case lnItem lognamed of
                 ObserveOpen _ -> return ()
                 obj           -> traceNamedObject tr obj))

@@ -18,6 +18,7 @@ module Cardano.BM.Configuration.Model
     , setDefaultBackends
     , getOption
     , findTransformer
+    , setTransformer
     --, inspectOutput
     --, takedown
     ) where
@@ -101,7 +102,7 @@ setMinSeverity configuration sev = do
 
 \begin{code}
 inspectSeverity :: Configuration -> Text -> IO (Maybe Severity)
-inspectSeverity configuration name =
+inspectSeverity configuration name = do
     withMVar (getCG configuration) $ \cg ->
         return $ HM.lookup name (cgMapSeverity cg)
 
@@ -109,15 +110,20 @@ inspectSeverity configuration name =
 setSeverity :: Configuration -> Text -> Maybe Severity -> IO ()
 setSeverity configuration name sev = do
     cg <- takeMVar (getCG configuration)
-    putMVar (getCG configuration) $ cg { cgMapSeverity = HM.update (const sev) name (cgMapSeverity cg) }
+    putMVar (getCG configuration) $ cg { cgMapSeverity = HM.alter (\_ -> sev) name (cgMapSeverity cg) }
 
 \end{code}
 
 \begin{code}
 findTransformer :: Configuration -> Text -> IO (Maybe SubTrace)
-findTransformer configuration name =
+findTransformer configuration name = do
     withMVar (getCG configuration) $ \cg ->
         return $ HM.lookup name (cgMapSubtrace cg)
+
+setTransformer :: Configuration -> Text -> Maybe SubTrace -> IO ()
+setTransformer configuration name trafo = do
+    cg <- takeMVar (getCG configuration)
+    putMVar (getCG configuration) $ cg { cgMapSubtrace = HM.alter (\_ -> trafo) name (cgMapSubtrace cg) }
 
 \end{code}
 

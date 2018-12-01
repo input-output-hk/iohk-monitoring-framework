@@ -7,12 +7,14 @@ module Cardano.BM.Configuration
       CM.Configuration
     , CM.setup
     , CM.minSeverity
+    , CM.setMinSeverity
     , CM.inspectSeverity
     , CM.setSeverity
     , CM.getBackends
     , CM.registerBackend
     , CM.getOption
     , CM.findTransformer
+    , CM.setTransformer
     , getOptionOrDefault
     , parseFrom
     ) where

@@ -17,6 +17,8 @@ module Cardano.BM.Data.Configuration
   -- * tests
   , test_log_backend_1
   , test_log_backend_2
+  , test_conf_representation_1
+  , test_conf_representation_2
   )
   where
 
@@ -45,23 +47,17 @@ data Representation = Representation
     , hasEKG :: Maybe Port
     , hasGUI :: Maybe Port
     }
+    deriving (Generic, Show, ToJSON, FromJSON)
 
 \end{code}
 
 \subsubsection{RotationParameters}\label{code:RotationParameters}
 \begin{code}
 data RotationParameters = RotationParameters
-    { rpLogLimitBytes :: !Word64  -- ^ max size of file in bytes
-    , rpMaxAgeHours   :: !Word    -- ^ hours
-    , rpKeepFilesNum  :: !Word    -- ^ number of files to keep
-    } deriving (Generic, Show, Eq, ToJSON)
-
-instance FromJSON RotationParameters where
-    parseJSON = withObject "rotation params" $ \o -> do
-        rpLogLimitBytes  <- o .: "logLimit"
-        rpMaxAgeHours    <- o .:? "maxAge" .!= 24
-        rpKeepFilesNum   <- o .: "keepFiles"
-        return RotationParameters{..}
+    { rpLogLimitBytes :: !Word64  -- max size of file in bytes
+    , rpMaxAgeHours   :: !Word    -- hours
+    , rpKeepFilesNum  :: !Word    -- number of files to keep
+    } deriving (Generic, Show, Eq, FromJSON, ToJSON)
 
 \end{code}
 
@@ -78,7 +74,7 @@ data LogBackend = LogBackend
 
 \begin{code}
 test_log_backend_1 =
-    BS.putStrLn $ 
+    BS.putStrLn $
     encode $ LogBackend { lbKind = StdoutSK
                         , lbName = "test 1"
                         , lbTrace = Neutral
@@ -86,12 +82,25 @@ test_log_backend_1 =
                         }
 
 test_log_backend_2 =
-    BS.putStrLn $ 
+    BS.putStrLn $
     encode $ LogBackend { lbKind = StdoutSK
-                        , lbName = "test 1"
+                        , lbName = "test 2"
                         , lbTrace = ObservableTrace (fromList [ MonotonicClock
                                                               , MemoryStats
                                                               , ProcessStats ])
                         , lbSeverity = Info
                         }
+
+test_conf_representation_1 =
+    BS.putStrLn $
+    encode $ Representation
+        (RotationParameters 5000000 24 10)
+        [ LogBackend { lbKind = StdoutSK, lbName = "stdout"
+                     , lbTrace = UntimedTrace, lbSeverity = Info }
+        ]
+        (Just 12789)
+        (Just 18321)
+
+test_conf_representation_2 fp =
+    decodeFileThrow fp :: IO Representation
 \end{code}
