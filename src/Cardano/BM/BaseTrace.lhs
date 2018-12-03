@@ -21,7 +21,7 @@ import           Data.Functor.Contravariant (Contravariant (..), Op (..))
 A covariant is a functor: F A $\to$ F B \\
 A contravariant is a functor: F B $\to$ F A \\
 
-|Op a b| implements the dual to 'arrow' "|getOp :: b -> a|", which when applied
+|Op a b| implements the inverse to 'arrow' "|getOp :: b -> a|", which when applied
 to a |BaseTrace| of type "|Op (m ()) s|", yields "|s -> m ()|". In our case,
 |Op| accepts an action in a monad |m| with input type |LogNamed LogObject|
 (see 'Trace').

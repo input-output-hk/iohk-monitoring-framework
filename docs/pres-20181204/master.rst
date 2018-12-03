@@ -1,7 +1,10 @@
 :title: iohk-monitoring-framework
-:author: Alexander Diemand, Andreas Triantafyllos and Neil Davis
+:author: Alexander Diemand, Andreas Triantafyllos and Neil Davies
 :description: logging, benchmarking, monitoring
 :css: style.css
+
+:data-transition-duration: 1500
+:slide-numbers: false
 
 .. _projectURL: https://github.com/input-output-hk/iohk-monitoring-framework
 
@@ -10,19 +13,21 @@
   IOHK - logging, benchmarking, monitoring @ https://github.com/input-output-hk/iohk-monitoring-framework
 
 
-logging, benchmarking and monitoring
-====================================
+WIP logging, benchmarking and monitoring
+========================================
 
-Alexander Diemand, Andreas Triantafyllos, and Neil Davis
---------------------------------------------------------
+Alexander Diemand, Andreas Triantafyllos, and Neil Davies
+---------------------------------------------------------
 
 2018-12-04
 ..........
 
 ------
 
-logging
-=======
+1 logging
+=========
+
+Purpose: capture and output messages
 
 - message creation is hard-coded
 
@@ -32,8 +37,10 @@ logging
 
 - is routed in a statically programmed way
 
+.. class:: substep
 summary: quite static, transport-oriented, little performance price
 
+.. class:: substep
 What if we want to drop some of the messages that fill our logs?
 Or, increase the ``Severity`` of another message which seems to be important?
 
@@ -43,21 +50,44 @@ Or, increase the ``Severity`` of another message which seems to be important?
 
 ------
 
-trace
-=====
+:data-scale: 3
+:data-y: r1500
+
+1.1 trace
+=========
+
+* implemented as a `contravariant` Trace (thanks to Alexander Vieth)
+
+* we can build hierarchies: child traces forward to their parent
+
+* each `Trace` has its own behaviour: `NoTrace` .. 
+
+.. note:
+
+      where a `covariant` (`F A -> F B`) produces a value `B`,
+
+      a `contravariant` (`F B -> F A`) consumes it.
 
 ------
 
-benchmarking
-============
+:data-scale: 1
+:data-y: r-1500
+:data-x: r5000
+
+2 benchmarking
+==============
+
+Purpose: observe events and store them for later analysis
 
 - record events with exact timestamp
 
 - currently: formats as JSON and outputs directly to a file
 
-summary: lightweight, not decoupled, duplication of logging effort
+.. class:: substep
+- we will integrate this into our logging
 
-What if we want to stop recording some of the events?
+.. class:: substep
+What if we want to stop recording some of the events? Or, turn on others?
 
 .. note:
 
@@ -65,44 +95,52 @@ What if we want to stop recording some of the events?
 
 ------
 
-monitoring
-==========
+:data-y: r0
+:data-x: r5000
 
+3 monitoring
+============
+
+Purpose: analyse messages and once above a threshold (frequency, value)
+trigger a cascade of alarms
 
 ------
 
-configuration
-=============
+4 configuration
+===============
+
+Purpose: change behaviour of LoBeMo in a named context
 
 * changed at runtime
 
   * redirects output (output selection)
-  * overwrite `Severity`
+  * overwrites `Severity` (tbd)
+  * filters by `Severity`
   * defines `SubTrace`
 
 .. image:: ./ConfigurationModel.png
 
 ------
 
-output selection
-================
+:data-scale: 3
+:data-y: r1500
 
-Redirection of log messages and observables to different outputs
-according configuration:
+4.1 output selection
+====================
 
-* aggregation
+Redirection of log messages and observables to different outputs:
 
-* EKG
+aggregation | EKG | Katip
 
-* Katip
-
-  * files
-  * console
+.. image:: ./Activity.png
 
 ------
 
-information reduction
-=====================
+:data-scale: 3
+:data-y: r1500
+
+4.1.1 information reduction
+===========================
 
 * aggregation
 
@@ -110,8 +148,35 @@ information reduction
 
 ------
 
-requirements
-============
+:data-scale: 3
+:data-y: r1500
+
+4.1.2 EKG metrics view
+======================
+
+* defined standard metrics
+
+* our own metrics: labels and gauges
+
+------
+
+:data-scale: 3
+:data-y: r1500
+
+4.1.3 Katip log files
+=====================
+
+* ``katip`` based queue and scribes
+
+* log rotation
+
+------
+
+:data-y: r0
+:data-x: r5000
+
+5 requirements
+==============
 
 * Support
 
@@ -141,15 +206,28 @@ requirements
 
 ------
 
-performance and security considerations
-=======================================
+6 performance and security considerations
+=========================================
+
+* how much does capturing of metrics cost?
+
+* conditional compilation: can we exclude benchmarking code from end-user products?
 
 ------
 
-project overview
-================
+7 integration
+=============
 
-* literate Haskell
+* integration into ``node-shell``
+
+* integration into ``ouroboros-network``
+
+------
+
+8 project overview
+==================
+
+* literate Haskell (thanks to Andres for `lhs2TeX`)
 
     * documentation of source code
     * documentation of tests

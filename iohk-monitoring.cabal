@@ -2,6 +2,7 @@ name:                iohk-monitoring
 version:             0.1.0.0
 synopsis:            loggin, benchmarking and monitoring framework
 -- description:
+license:             MIT
 license-file:        LICENSE
 author:              Alexander Diemand, Andreas Triantafyllos
 maintainer:
@@ -49,7 +50,7 @@ library
   default-language:    Haskell2010
   default-extensions:  OverloadedStrings
   other-extensions:    OverloadedStrings
-  build-depends:       base,
+  build-depends:       base >= 4.11,
                        aeson,
                        array,
                        async,

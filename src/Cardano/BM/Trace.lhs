@@ -152,6 +152,11 @@ traceNamedInTVarIO tvar = BaseTrace $ Op $ \ln ->
 \end{code}
 
 \subsubsection{Check a log item's severity against the |Trace|'s minimum severity}\label{code:traceConditionally}
+\todo[inline]{do we need three different |minSeverity| defined?}
+
+We do a lookup of the global |minSeverity| in the configuration. And, a lookup of the |minSeverity| for the current named context. These values might have changed in the meanwhile.
+\newline
+A third filter is the |minSeverity| defined in the current context.
 \begin{code}
 traceConditionally
     :: (MonadIO m)
@@ -291,22 +296,22 @@ remains untouched.
 subTrace :: MonadIO m => T.Text -> Trace m -> m (SubTrace, Trace m)
 subTrace name tr@(ctx, _) = do
     let newName = appendWithDot (loggerName ctx) name
-    traceTrafo0 <- liftIO $ Config.findSubTrace (configuration ctx) newName
-    let traceTrafo = case traceTrafo0 of Nothing -> Neutral; Just trafo -> trafo
-    case traceTrafo of
+    subtrace0 <- liftIO $ Config.findSubTrace (configuration ctx) newName
+    let subtrace = case subtrace0 of Nothing -> Neutral; Just tr -> tr
+    case subtrace of
         Neutral      -> do
                             tr' <- appendName name tr
-                            return $ (traceTrafo, tr')
+                            return $ (subtrace, tr')
         UntimedTrace -> do
                             tr' <- appendName name tr
-                            return $ (traceTrafo, tr')
-        NoTrace      -> return (traceTrafo, (ctx, BaseTrace $ Op $ \_ -> pure ()))
-        DropOpening  -> return (traceTrafo, (ctx, BaseTrace $ Op $ \lognamed -> do
+                            return $ (subtrace, tr')
+        NoTrace      -> return (subtrace, (ctx, BaseTrace $ Op $ \_ -> pure ()))
+        DropOpening  -> return (subtrace, (ctx, BaseTrace $ Op $ \lognamed -> do
             case lnItem lognamed of
                 ObserveOpen _ -> return ()
                 obj           -> traceNamedObject tr obj))
         ObservableTrace _ -> do
                             tr' <- appendName name tr
-                            return $ (traceTrafo, tr')
+                            return $ (subtrace, tr')
 
 \end{code}
