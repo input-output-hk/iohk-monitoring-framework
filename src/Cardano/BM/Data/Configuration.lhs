@@ -11,7 +11,7 @@
 module Cardano.BM.Data.Configuration
   (
     Representation (..)
-  , Port 
+  , Port
   , LogBackend (..)
   , RotationParameters (..)
   -- * tests
@@ -103,4 +103,5 @@ test_conf_representation_1 =
 
 test_conf_representation_2 fp =
     decodeFileThrow fp :: IO Representation
+
 \end{code}

@@ -7,7 +7,7 @@
 {-# LANGUAGE DeriveGeneric  #-}
 
 module Cardano.BM.Data.SubTrace
-  ( 
+  (
     SubTrace (..)
   )
   where
@@ -30,4 +30,5 @@ data SubTrace = Neutral
               | DropOpening
               | ObservableTrace (Set ObservableInstance)
                 deriving (Generic, Show, FromJSON, ToJSON)
+
 \end{code}
