@@ -44,10 +44,10 @@ ImagePdf = OverviewModules.pdf SetupProcedure.pdf ConfigurationModel.pdf
 all: $(DOC1).pdf $(DOC2).pdf
 
 $(DOC1).tex: $(SOURCES)
-	cd ../src; lhs2TeX -v -o ../doc/$(DOC1).tex Code.lhs
+	cd ../src; lhs2TeX -v -o ../docs/$(DOC1).tex Code.lhs
 
 $(DOC2).tex: $(TESTS)
-	cd ../test; lhs2TeX -v -o ../doc/$(DOC2).tex Test.lhs
+	cd ../test; lhs2TeX -v -o ../docs/$(DOC2).tex Test.lhs
 
 $(DOC1).pdf: $(DOC1).tex $(ImagePdf)
 	latexmk -pdf -use-make $(DOC1).tex
