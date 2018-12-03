@@ -1,6 +1,7 @@
 with (import <nixpkgs> {});
 stdenv.mkDerivation {
   name = "docsEnv";
+  nativeBuildInputs = [ imagemagick ];
   buildInputs = [ haskellPackages.lhs2tex
                   (texlive.combine {
                     inherit (texlive)
