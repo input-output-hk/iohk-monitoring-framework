@@ -5,8 +5,8 @@ stdenv.mkDerivation {
                         haskellPackages.ghcid
                         zlib libiconv
                         ghc
+                        cabal2nix
                       ];
   buildInputs = [
                 ];
 }
-
