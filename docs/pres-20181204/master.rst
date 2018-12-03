@@ -129,6 +129,11 @@ requirements
 
 ------
 
+performance and security considerations
+=======================================
+
+------
+
 project overview
 ================
 
