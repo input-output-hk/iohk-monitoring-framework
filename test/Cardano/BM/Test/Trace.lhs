@@ -6,7 +6,8 @@
 {-# LANGUAGE LambdaCase #-}
 
 module Cardano.BM.Test.Trace (
-    tests
+    TraceConfiguration (..)
+  , tests
   ) where
 
 import           Prelude hiding (lookup)
@@ -328,7 +329,8 @@ unit_named_min_severity = do
 
 \begin{code}
 unit_hierarchy' :: [SubTrace] -> ([LogObject] -> Bool) -> Assertion
-unit_hierarchy' (t1 : t2 : t3 : _) f = do
+unit_hierarchy' subtraces f = do
+    let (t1 : t2 : t3 : _) = cycle subtraces
     msgs <- STM.newTVarIO []
     -- create trace of type 1
     trace1 <- setupTrace $ TraceConfiguration (TVarList msgs) "test" t1 Debug

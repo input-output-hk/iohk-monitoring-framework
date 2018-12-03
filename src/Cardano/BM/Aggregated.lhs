@@ -1,3 +1,4 @@
+
 \subsection{Cardano.BM.Aggregated}
 
 \begin{code}
@@ -65,5 +66,5 @@ updateAggregation v (Just (Aggregated (Stats _min _max _count _sumA _sumB)
                      , fsum_B=(_dsumB + delta * delta)
                      }
                    }
-\end{code}
 
+\end{code}

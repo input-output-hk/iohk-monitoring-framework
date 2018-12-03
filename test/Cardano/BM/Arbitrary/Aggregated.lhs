@@ -25,4 +25,5 @@ instance Arbitrary Aggregated where
         return $ Aggregated (Stats (minimum vs) (maximum vs) (toInteger $ length vs) (sum vs) (sum2 vs))
                             (last vs)
                             (Stats (minimum $ delta vs) (maximum $ delta vs) (toInteger $ length vs) (sum $ delta vs) (sum2 $ delta vs))
+
 \end{code}

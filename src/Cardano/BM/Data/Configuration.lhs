@@ -73,6 +73,7 @@ data LogBackend = LogBackend
 \end{code}
 
 \begin{code}
+test_log_backend_1 :: IO ()
 test_log_backend_1 =
     BS.putStrLn $
     encode $ LogBackend { lbKind = StdoutSK
@@ -81,6 +82,7 @@ test_log_backend_1 =
                         , lbSeverity = Info
                         }
 
+test_log_backend_2 :: IO ()
 test_log_backend_2 =
     BS.putStrLn $
     encode $ LogBackend { lbKind = StdoutSK
@@ -91,6 +93,7 @@ test_log_backend_2 =
                         , lbSeverity = Info
                         }
 
+test_conf_representation_1 :: IO ()
 test_conf_representation_1 =
     BS.putStrLn $
     encode $ Representation
@@ -101,7 +104,8 @@ test_conf_representation_1 =
         (Just 12789)
         (Just 18321)
 
+test_conf_representation_2 :: FilePath -> IO Representation
 test_conf_representation_2 fp =
-    decodeFileThrow fp :: IO Representation
+    decodeFileThrow fp
 
 \end{code}
