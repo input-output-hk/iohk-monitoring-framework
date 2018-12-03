@@ -110,7 +110,6 @@ data TraceConfiguration = TraceConfiguration
 setupTrace :: TraceConfiguration -> IO (Trace IO)
 setupTrace (TraceConfiguration outk name trafo sev) = do
     c <- liftIO $ Cardano.BM.Configuration.setup "some_file_path.yaml"
-    --_ <- liftIO $ Cardano.BM.Output.Switchboard.setup c
     ctx <- liftIO $ newContext name c sev
     let logTrace0 = case outk of
             StdOut             -> natTrace liftIO stdoutTrace
@@ -215,7 +214,7 @@ timing_Observable_vs_Untimed = do
         (t_notrace < t_observable)
     assertBool
         ("NoTrace consumed more time than Untimed" ++ (show [t_notrace, t_untimed]))
-        True -- (t_notrace < t_untimed) NOT yet implemented
+        True
   where
     observablesSet = fromList [MonotonicClock, MemoryStats]
 
