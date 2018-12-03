@@ -43,6 +43,11 @@ Or, increase the ``Severity`` of another message which seems to be important?
 
 ------
 
+trace
+=====
+
+------
+
 benchmarking
 ============
 
@@ -69,6 +74,13 @@ monitoring
 configuration
 =============
 
+* changed at runtime
+
+  * redirects output (output selection)
+  * overwrite `Severity`
+  * defines `SubTrace`
+
+.. image:: ./ConfigurationModel.png
 
 ------
 
