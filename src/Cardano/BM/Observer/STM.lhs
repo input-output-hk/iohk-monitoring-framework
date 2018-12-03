@@ -33,17 +33,17 @@ stmWithLog action = action
 
 bracketObserveIO :: Trace IO -> Text -> STM.STM t -> IO t
 bracketObserveIO logTrace0 name action = do
-    (subTrace, logTrace) <- subTrace name logTrace0
-    bracketObserveIO' subTrace logTrace action
+    (subtrace, logTrace) <- subTrace name logTrace0
+    bracketObserveIO' subtrace logTrace action
 
 bracketObserveIO' :: SubTrace -> Trace IO -> STM.STM t -> IO t
 bracketObserveIO' NoTrace _ action =
     STM.atomically action
-bracketObserveIO' subTrace logTrace action = do
-    countersid <- observeOpen subTrace logTrace
+bracketObserveIO' subtrace logTrace action = do
+    countersid <- observeOpen subtrace logTrace
     -- run action, returns result only
     t <- STM.atomically action
-    observeClose subTrace logTrace countersid []
+    observeClose subtrace logTrace countersid []
     pure t
 
 \end{code}
@@ -53,18 +53,18 @@ bracketObserveIO' subTrace logTrace action = do
 
 bracketObserveLogIO :: Trace IO -> Text -> STM.STM (t,[LogObject]) -> IO t
 bracketObserveLogIO logTrace0 name action = do
-    (subTrace, logTrace) <- subTrace name logTrace0
-    bracketObserveLogIO' subTrace logTrace action
+    (subtrace, logTrace) <- subTrace name logTrace0
+    bracketObserveLogIO' subtrace logTrace action
 
 bracketObserveLogIO' :: SubTrace -> Trace IO -> STM.STM (t,[LogObject]) -> IO t
 bracketObserveLogIO' NoTrace _ action = do
     (t, _) <- STM.atomically $ stmWithLog action
     pure t
-bracketObserveLogIO' subTrace logTrace action = do
-    countersid <- observeOpen subTrace logTrace
+bracketObserveLogIO' subtrace logTrace action = do
+    countersid <- observeOpen subtrace logTrace
     -- run action, return result and log items
     (t, as) <- STM.atomically $ stmWithLog action
-    observeClose subTrace logTrace countersid as
+    observeClose subtrace logTrace countersid as
     pure t
 
 \end{code}

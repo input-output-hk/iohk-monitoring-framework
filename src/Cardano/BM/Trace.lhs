@@ -297,7 +297,7 @@ subTrace :: MonadIO m => T.Text -> Trace m -> m (SubTrace, Trace m)
 subTrace name tr@(ctx, _) = do
     let newName = appendWithDot (loggerName ctx) name
     subtrace0 <- liftIO $ Config.findSubTrace (configuration ctx) newName
-    let subtrace = case subtrace0 of Nothing -> Neutral; Just tr -> tr
+    let subtrace = case subtrace0 of Nothing -> Neutral; Just str -> str
     case subtrace of
         Neutral      -> do
                             tr' <- appendName name tr

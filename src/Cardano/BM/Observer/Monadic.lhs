@@ -36,16 +36,16 @@ import           Cardano.BM.Trace (Trace, logInfo, traceNamedObject,
 --   given as name then the logger name remains untouched.
 bracketObserveIO :: Trace IO -> Text -> IO t -> IO t
 bracketObserveIO logTrace0 name action = do
-    (subTrace, logTrace) <- subTrace name logTrace0
-    bracketObserveIO' subTrace logTrace action
+    (subtrace, logTrace) <- subTrace name logTrace0
+    bracketObserveIO' subtrace logTrace action
 
 bracketObserveIO' :: SubTrace -> Trace IO -> IO t -> IO t
 bracketObserveIO' NoTrace _ action = action
-bracketObserveIO' subTrace logTrace action = do
-    countersid <- observeOpen subTrace logTrace
+bracketObserveIO' subtrace logTrace action = do
+    countersid <- observeOpen subtrace logTrace
     -- run action
     t <- action
-    observeClose subTrace logTrace countersid []
+    observeClose subtrace logTrace countersid []
     pure t
 
 \end{code}
@@ -53,12 +53,12 @@ bracketObserveIO' subTrace logTrace action = do
 \begin{code}
 
 observeOpen :: SubTrace -> Trace IO -> IO CounterState
-observeOpen subTrace logTrace = do
+observeOpen subtrace logTrace = do
     identifier <- newUnique
     logInfo logTrace $ "Opening: " <> pack (show $ hashUnique identifier)
 
     -- take measurement
-    counters <- readCounters subTrace
+    counters <- readCounters subtrace
     let state = CounterState identifier counters
     -- send opening message to Trace
     traceNamedObject logTrace $ ObserveOpen state
@@ -69,11 +69,11 @@ observeOpen subTrace logTrace = do
 \begin{code}
 
 observeClose :: SubTrace -> Trace IO -> CounterState -> [LogObject] -> IO ()
-observeClose subTrace logTrace (CounterState identifier _) logObjects = do
+observeClose subtrace logTrace (CounterState identifier _) logObjects = do
     logInfo logTrace $ "Closing: " <> pack (show $ hashUnique identifier)
 
     -- take measurement
-    counters <- readCounters subTrace
+    counters <- readCounters subtrace
     -- send closing message to Trace
     traceNamedObject logTrace $ ObserveClose (CounterState identifier counters)
     -- trace the messages gathered from inside the action
