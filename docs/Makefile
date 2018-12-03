@@ -12,7 +12,6 @@ SOURCES = ../src/Code.lhs \
 					../src/Cardano/BM/Counters/Common.lhs \
 					../src/Cardano/BM/Counters/Dummy.lhs \
 					../src/Cardano/BM/Counters/Linux.lhs \
-					../src/Cardano/BM/Data.lhs \
 					../src/Cardano/BM/Data/Backend.lhs \
 					../src/Cardano/BM/Data/Configuration.lhs \
 					../src/Cardano/BM/Data/Counter.lhs \
