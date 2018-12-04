@@ -24,25 +24,37 @@ Alexander Diemand, Andreas Triantafyllos, and Neil Davies
 
 ------
 
+Aim
+===
+
+- combine logging and benchmarking
+
+- add monitoring on top
+
+- runtime configuration
+
+- adaptable to needs of various stakeholders
+
+------
+
 1 logging
 =========
 
 Purpose: capture and output messages
 
-- message creation is hard-coded
+- static message creation ``(Severity, String)``
 
-- defines a ``Severity`` at call site
+  - ``logInfo "this is a message"``
 
-- decoupled: entered in queue; calling thread returns
+- fast - decoupled via message queue
 
-- is routed in a statically programmed way
-
-.. class:: substep
-summary: quite static, transport-oriented, little performance price
+- backend - routed in a statically programmed way
 
 .. class:: substep
-What if we want to drop some of the messages that fill our logs?
-Or, increase the ``Severity`` of another message which seems to be important?
+
+   What if we want to drop some of the messages?
+
+   Or, increase the ``Severity`` of a particular message?
 
 .. note:
 
@@ -52,15 +64,26 @@ Or, increase the ``Severity`` of another message which seems to be important?
 
 :data-scale: 3
 :data-y: r1500
+:data-x: r750
 
 1.1 trace
 =========
 
-* implemented as a `contravariant` Trace (thanks to Alexander Vieth)
+- implemented as a Contravariant_ ``Trace`` (thanks to Alexander Vieth)
 
-* we can build hierarchies: child traces forward to their parent
+- not in monad stack, but passed as an argument
 
-* each `Trace` has its own behaviour: `NoTrace` .. 
+  - ``logInfo logTrace "this is a message"``
+
+- New: we can build hierarchies, where child traces forward to their parent
+
+- each `Trace` has its own behaviour: ``NoTrace`` .. 
+
+  - example in: Trace.subTrace_
+
+.. _Contravariant: https://hackage.haskell.org/package/contravariant-1.5/docs/Data-Functor-Contravariant.html
+
+.. _Trace.subTrace: https://github.com/input-output-hk/iohk-monitoring-framework/blob/40eb8eb172037d85949f533efecfcffab54e136a/src/Cardano/BM/Trace.lhs#L296
 
 .. note:
 
@@ -77,16 +100,18 @@ Or, increase the ``Severity`` of another message which seems to be important?
 2 benchmarking
 ==============
 
-Purpose: observe events and store them for later analysis
+Purpose: observe events and prepare them for later analysis
 
-- record events with exact timestamp
+- record events with exact timestamps
 
-- currently: formats as JSON and outputs directly to a file
+- currently: JSON format directly output to a file
 
 .. class:: substep
+
 - we will integrate this into our logging
 
 .. class:: substep
+
 What if we want to stop recording some of the events? Or, turn on others?
 
 .. note:
@@ -95,7 +120,27 @@ What if we want to stop recording some of the events? Or, turn on others?
 
 ------
 
-:data-y: r0
+:data-scale: 3
+:data-y: r1500
+:data-x: r750
+
+2.1 observables
+===============
+
+- bracket ``STM`` (Observer.STM_) and ``Monad`` (Observer.Monad_) actions
+
+- record O/S metrics: Counters.Linux_
+
+.. _Counters.Linux: https://github.com/input-output-hk/iohk-monitoring-framework/blob/40eb8eb172037d85949f533efecfcffab54e136a/src/Cardano/BM/Counters/Linux.lhs#L36
+
+.. _Observer.STM: https://github.com/input-output-hk/iohk-monitoring-framework/blob/40eb8eb172037d85949f533efecfcffab54e136a/src/Cardano/BM/Observer/STM.lhs#L31
+
+.. _Observer.Monad: https://github.com/input-output-hk/iohk-monitoring-framework/blob/40eb8eb172037d85949f533efecfcffab54e136a/src/Cardano/BM/Observer/Monadic.lhs#L37
+
+------
+
+:data-scale: 1
+:data-y: r-1500
 :data-x: r5000
 
 3 monitoring
@@ -104,7 +149,11 @@ What if we want to stop recording some of the events? Or, turn on others?
 Purpose: analyse messages and once above a threshold (frequency, value)
 trigger a cascade of alarms
 
+* <tbd>
+
 ------
+
+:data-y: r0
 
 4 configuration
 ===============
@@ -142,14 +191,18 @@ aggregation | EKG | Katip
 4.1.1 information reduction
 ===========================
 
-* aggregation
+* Aggregation_
 
-* filtering
+* filtering: traceConditionally_
+
+.. _Aggregation: https://github.com/input-output-hk/iohk-monitoring-framework/blob/40eb8eb172037d85949f533efecfcffab54e136a/src/Cardano/BM/Aggregated.lhs#L13
+
+.. _traceConditionally: https://github.com/input-output-hk/iohk-monitoring-framework/blob/40eb8eb172037d85949f533efecfcffab54e136a/src/Cardano/BM/Trace.lhs#L154
 
 ------
 
-:data-scale: 3
-:data-y: r1500
+:data-y: r0
+:data-x: r2200
 
 4.1.2 EKG metrics view
 ======================
@@ -160,9 +213,6 @@ aggregation | EKG | Katip
 
 ------
 
-:data-scale: 3
-:data-y: r1500
-
 4.1.3 Katip log files
 =====================
 
@@ -172,15 +222,31 @@ aggregation | EKG | Katip
 
 ------
 
-:data-y: r0
+:data-scale: 1
+:data-y: r-3000
 :data-x: r5000
 
-5 requirements
-==============
+5 actual
+========
+
+- requirements
+
+- performance & security
+
+- integration, PoC
+
+------
+
+:data-scale: .75
+:data-y: r500
+:data-x: r1000
+
+5.1 requirements
+================
+
 
 * Support
 
-   * faces clients
    * reduced size of logs
    * automated log analysis
 
@@ -206,8 +272,12 @@ aggregation | EKG | Katip
 
 ------
 
-6 performance and security considerations
-=========================================
+:data-scale: .5
+:data-y: r0
+:data-x: r1000
+
+5.2 performance and security considerations
+===========================================
 
 * how much does capturing of metrics cost?
 
@@ -215,24 +285,34 @@ aggregation | EKG | Katip
 
 ------
 
-7 integration
-=============
+:data-scale: .2
+:data-y: r0
+:data-x: r400
+
+5.3 integration
+===============
 
 * integration into ``node-shell``
 
-* integration into ``ouroboros-network``
+* PoC in ``ouroboros-network``
 
 ------
 
+:data-scale: 1
+:data-y: r-1500
+:data-x: r3000
+
 8 project overview
 ==================
+
+    >> projectURL_ <<
 
 * literate Haskell (thanks to Andres for `lhs2TeX`)
 
     * documentation of source code
     * documentation of tests
 
-* some UML
+* this presentation_
 
 * we still need help for:
 
@@ -240,7 +320,7 @@ aggregation | EKG | Katip
     * ``buildkite`` CI setup
 
 
---> projectURL_
+.. _presentation: https://input-output-hk.github.io/iohk-monitoring-framework/
 
 ------
 

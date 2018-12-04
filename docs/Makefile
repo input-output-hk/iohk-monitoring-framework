@@ -49,10 +49,10 @@ $(DOC2).tex: $(TESTS)
 	cd ../test; lhs2TeX -v -o ../docs/$(DOC2).tex Test.lhs
 
 $(DOC1).pdf: $(DOC1).tex $(ImagePdf)
-	latexmk -pdf -use-make $(DOC1).tex
+	latexmk -pdf -pdflatex="pdflatex -interaction=nonstopmode" -use-make $(DOC1).tex
 
 $(DOC2).pdf: $(DOC2).tex
-	latexmk -pdf -use-make $(DOC2).tex
+	latexmk -pdf -pdflatex="pdflatex -interaction=nonstopmode" -use-make $(DOC2).tex
 
 OverviewModules.pdf: OverviewModules.png
 	convert $< $@
