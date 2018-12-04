@@ -1,7 +1,7 @@
 
 \subsection{BaseTrace}
 
-%if False
+%if style == newcode
 \begin{code}
 {-# LANGUAGE RankNTypes        #-}
 

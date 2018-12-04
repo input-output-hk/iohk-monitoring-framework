@@ -1,7 +1,7 @@
 \subsection{Cardano.BM.Output.Aggregation}
 \label{module:Cardano.BM.Output.Aggregation}
 
-%if False
+%if style == newcode
 \begin{code}
 {-# LANGUAGE OverloadedStrings #-}
 

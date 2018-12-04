@@ -1,7 +1,7 @@
 
 \subsection{Trace}
 
-%if False
+%if style == newcode
 \begin{code}
 {-# LANGUAGE LambdaCase #-}
 

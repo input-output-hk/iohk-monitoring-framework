@@ -93,7 +93,7 @@ that one module replaces the other in the namespace, thus refines its interface.
 
 \section{Code listings}
 
-%if False
+%if style == newcode
 \begin{code}
 module Code
 where

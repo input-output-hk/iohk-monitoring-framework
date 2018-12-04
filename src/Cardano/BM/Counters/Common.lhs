@@ -3,7 +3,7 @@
 
 Common functions that serve |readCounters| on all platforms.
 
-%if False
+%if style == newcode
 \begin{code}
 module Cardano.BM.Counters.Common
     (

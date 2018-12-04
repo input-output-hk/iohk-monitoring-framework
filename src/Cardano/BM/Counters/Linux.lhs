@@ -1,7 +1,7 @@
 
 \subsection{Cardano.BM.Counters.Linux}
 
-%if False
+%if style == newcode
 \begin{code}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}

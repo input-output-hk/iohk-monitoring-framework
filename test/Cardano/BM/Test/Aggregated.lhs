@@ -1,7 +1,7 @@
 
 \subsection{Testing aggregation}
 
-%if False
+%if style == newcode
 \begin{code}
 module Cardano.BM.Test.Aggregated (
     tests

@@ -1,10 +1,9 @@
 
-%if False
+%if style /= newcode
 
 % defines special rendering of specific words
 % color codes adapted from "lhs2texhl"
 
-%endif
 
 % use package color
 \definecolor{syntax}{RGB}{0, 0, 0}
@@ -27,5 +26,5 @@
 
 %subst comment a = "{\color{comment}\text{\tt -- " a " }}"
 
-
+%endif
 

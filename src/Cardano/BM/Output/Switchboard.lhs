@@ -1,6 +1,6 @@
 \subsection{Cardano.BM.Output.Switchboard}\label{sec:Switchboard}
 
-%if False
+%if style == newcode
 \begin{code}
 {-# LANGUAGE OverloadedStrings #-}
 

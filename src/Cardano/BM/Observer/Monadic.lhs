@@ -1,7 +1,7 @@
 
 \subsection{Cardano.BM.Observer.Monadic}
 
-%if False
+%if style == newcode
 \begin{code}
 {-# LANGUAGE OverloadedStrings #-}
 

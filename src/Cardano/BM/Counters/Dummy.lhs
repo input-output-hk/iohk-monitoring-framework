@@ -8,7 +8,7 @@ The only supported measurement is monotonic clock time for now.
 
 \todo[inline]{we could well imagine that some day we support all platforms}
 
-%if False
+%if style == newcode
 \begin{code}
 module Cardano.BM.Counters.Dummy
     (

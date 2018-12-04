@@ -1,7 +1,7 @@
 
 \subsection{Cardano.BM.Trace}
 
-%if False
+%if style == newcode
 \begin{code}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes        #-}
@@ -90,7 +90,7 @@ named trace name = contramap (LogNamed name) trace
 \end{code}
 
 \todo[inline]{TODO remove |locallock|}
-%if False
+%if style == newcode
 \begin{code}
 {-# NOINLINE locallock #-}
 \end{code}
@@ -226,7 +226,7 @@ logErrorUnsafeP logTrace   = traceNamedItem logTrace PublicUnsafe Error
 
 \end{code}
 
-%if False
+%if style == newcode
 \begin{spec}
 
 {-

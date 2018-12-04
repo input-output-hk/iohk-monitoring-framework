@@ -2,7 +2,7 @@
 \subsection{Cardano.BM.Output.EKGView}
 \label{module:Cardano.BM.Output.EKGView}
 
-%if False
+%if style == newcode
 \begin{code}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}

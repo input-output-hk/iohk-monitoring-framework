@@ -1,7 +1,7 @@
 
 \subsection{Cardano.BM.Data.Output}
 
-%if False
+%if style == newcode
 \begin{code}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric  #-}

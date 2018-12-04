@@ -1,7 +1,7 @@
 \subsection{Cardano.BM.Configuration.Model}
 \label{module:Cardano.BM.Configuration.Model}
 
-%if False
+%if style == newcode
 \begin{code}
 {-# LANGUAGE OverloadedStrings   #-}
 

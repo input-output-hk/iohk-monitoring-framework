@@ -8,7 +8,7 @@
 \caption{Setup procedure}
 \end{figure}
 
-%if False
+%if style == newcode
 \begin{code}
 {-# LANGUAGE OverloadedStrings #-}
 

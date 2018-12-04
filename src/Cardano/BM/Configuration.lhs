@@ -1,6 +1,6 @@
 \subsection{Cardano.BM.Configuration}
 
-%if False
+%if style == newcode
 \begin{code}
 module Cardano.BM.Configuration
     (

@@ -1,7 +1,7 @@
 
 \subsection{Cardano.BM.Data.Backend}
 
-%if False
+%if style == newcode
 \begin{code}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric  #-}

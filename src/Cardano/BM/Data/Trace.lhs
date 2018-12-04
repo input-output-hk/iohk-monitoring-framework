@@ -1,7 +1,7 @@
 
 \subsection{Cardano.BM.Data.Trace}
 
-%if False
+%if style == newcode
 \begin{code}
 
 module Cardano.BM.Data.Trace
