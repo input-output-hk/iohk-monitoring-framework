@@ -31,6 +31,8 @@ Aim
 
 - add monitoring on top
 
+- provide means for micro-benchmarks
+
 - runtime configuration
 
 - adaptable to needs of various stakeholders
@@ -46,7 +48,7 @@ Purpose: capture and output messages
 
   - ``logInfo "this is a message"``
 
-- fast - decoupled via message queue
+- non-blocking, low overhead - decoupled via message queue
 
 - backend - routed in a statically programmed way
 
@@ -64,7 +66,7 @@ Purpose: capture and output messages
 
 :data-scale: 3
 :data-y: r1500
-:data-x: r750
+:data-x: r1250
 
 1.1 trace
 =========
@@ -75,7 +77,13 @@ Purpose: capture and output messages
 
   - ``logInfo logTrace "this is a message"``
 
-- New: we can build hierarchies, where child traces forward to their parent
+- New: we can build hierarchies 
+
+   - captures call graph
+
+   - parents can decide how their child traces are processed
+
+   - runtime configurable
 
 - each `Trace` has its own behaviour: ``NoTrace`` .. 
 
@@ -100,7 +108,7 @@ Purpose: capture and output messages
 2 benchmarking
 ==============
 
-Purpose: observe events and prepare them for later analysis
+Purpose: observe outcomes and events, and prepare them for later analysis
 
 - record events with exact timestamps
 
@@ -127,9 +135,13 @@ What if we want to stop recording some of the events? Or, turn on others?
 2.1 observables
 ===============
 
+Outcomes have a starting and terminating time point.
+
 - bracket ``STM`` (Observer.STM_) and ``Monad`` (Observer.Monad_) actions
 
 - record O/S metrics: Counters.Linux_
+
+  - calculate rate of change, durations, ..
 
 .. _Counters.Linux: https://github.com/input-output-hk/iohk-monitoring-framework/blob/40eb8eb172037d85949f533efecfcffab54e136a/src/Cardano/BM/Counters/Linux.lhs#L36
 
@@ -149,7 +161,13 @@ What if we want to stop recording some of the events? Or, turn on others?
 Purpose: analyse messages and once above a threshold (frequency, value)
 trigger a cascade of alarms
 
-* <tbd>
+- built on observables, outcomes, events
+
+  - processing the stream of them
+
+  - aggregates statistics
+
+  - tracking thresholds
 
 ------
 
@@ -158,7 +176,7 @@ trigger a cascade of alarms
 4 configuration
 ===============
 
-Purpose: change behaviour of LoBeMo in a named context
+Purpose: change behaviour of `LoBeMo` in a named context
 
 * changed at runtime
 
@@ -226,8 +244,8 @@ aggregation | EKG | Katip
 :data-y: r-3000
 :data-x: r5000
 
-5 actual
-========
+5  ...
+======
 
 - requirements
 
@@ -241,9 +259,8 @@ aggregation | EKG | Katip
 :data-y: r500
 :data-x: r1000
 
-5.1 requirements
-================
-
+5.1 #logging-requirements
+================================
 
 * Support
 
@@ -279,9 +296,13 @@ aggregation | EKG | Katip
 5.2 performance and security considerations
 ===========================================
 
-* how much does capturing of metrics cost?
+- how much does capturing of metrics cost?
 
-* conditional compilation: can we exclude benchmarking code from end-user products?
+- conditional compilation: can we exclude/disable benchmarking code from end-user products?
+
+  - high-end users (exchanges, enterprises)
+
+  - wallet users
 
 ------
 
@@ -291,6 +312,8 @@ aggregation | EKG | Katip
 
 5.3 integration
 ===============
+
+* enable micro-benchmarks in ``Cardano``
 
 * integration into ``node-shell``
 
