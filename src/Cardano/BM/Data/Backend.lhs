@@ -13,6 +13,7 @@ module Cardano.BM.Data.Backend
   )
   where
 
+import           Data.Aeson (FromJSON)
 import           GHC.Generics (Generic)
 
 import           Cardano.BM.Data.LogItem
@@ -27,7 +28,7 @@ data BackendKind = AggregationBK
                  | EKGViewBK
                  | KatipBK
                  | DevNullBK
-                 deriving (Generic, Eq, Show)
+                 deriving (Generic, Eq, Show, FromJSON)
 
 \end{code}
 
@@ -46,4 +47,3 @@ a \nameref{code:NamedLogItem}.
 data Backend = MkBackend { pass' :: NamedLogItem -> IO () }
 
 \end{code}
-

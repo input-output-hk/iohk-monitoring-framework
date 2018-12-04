@@ -39,7 +39,7 @@ getOptionOrDefault cg name def = do
 \end{code}
 
 \begin{code}
-parseFrom ::  FilePath -> IO (CM.Configuration)
+parseFrom :: FilePath -> IO (CM.Configuration)
 parseFrom fp = CM.setup fp
 
 \end{code}

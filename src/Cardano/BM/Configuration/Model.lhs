@@ -23,11 +23,13 @@ module Cardano.BM.Configuration.Model
     --, takedown
     ) where
 
+import           Control.Monad.Catch (throwM)
 import           Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar,
                      takeMVar, withMVar)
-import qualified Data.Aeson as Aeson
+import           Data.Aeson ((.:?), (.!=))
 import qualified Data.HashMap.Strict as HM
 import           Data.Text (Text, pack)
+import           Data.Yaml as Y
 
 import           Cardano.BM.Data.Backend
 import           Cardano.BM.Data.Severity
@@ -54,14 +56,34 @@ data ConfigurationInternal = ConfigurationInternal
     { cgMapSeverity :: HM.HashMap Text Severity
     , cgMapOutput   :: HM.HashMap Text [Backend]
     , cgMapSubtrace :: HM.HashMap Text SubTrace
-    , cgOptions     :: HM.HashMap Text Aeson.Object
+    , cgOptions     :: HM.HashMap Text Object
     , cgMinSeverity :: Severity
     , cgDefBackends :: [Backend]
     }
 --    options:  config.logrotation = { maxFiles = 10; maxSize = 5000000 }
 --              config.logprefix = { path = "/mnt/disk/spacy" }
 
+instance FromJSON ConfigurationInternal where
+    parseJSON = withObject "config" $ \o -> do
+        listSeverity <- o .:? "severity_map" .!= []
+        let listOutput = []
+        listSubtrace <- o .:? "subtrace_map" .!= []
+        listOptions  <- o .:? "options"      .!= []
+        minSeverity  <- o .:? "min_severity" .!= Info
+        let defaultBackends = []
+
+        return $ ConfigurationInternal
+                    { cgMapSeverity = HM.fromList listSeverity
+                    , cgMapOutput   = HM.fromList listOutput
+                    , cgMapSubtrace = HM.fromList listSubtrace
+                    , cgOptions     = HM.fromList listOptions
+                    , cgMinSeverity = minSeverity
+                    , cgDefBackends = defaultBackends
+                    }
+
 \end{code}
+\todo[inline]{TODO |listOutput   <- o .:? "output_map"   .!= []|}
+\todo[inline]{TODO |defaultBackendKinds <- o .:? "default_backends" .!= []|}
 
 \subsubsection{Backend relation}
 \begin{code}
@@ -142,7 +164,14 @@ setSubTrace configuration name trafo = do
 \end{code}
 
 \subsubsection{Configuration.Model.setup}
+
+The following function parses a file for the standard logging configuration.
+Exceptions about opening the file (non existent/permissions) are thrown.
 \begin{code}
+parseInternalConfiguration :: FilePath -> IO ConfigurationInternal
+parseInternalConfiguration path =
+    either throwM return =<< Y.decodeFileEither path
+
 setup :: FilePath -> IO Configuration
 setup _fp = do
     cgref <- newEmptyMVar

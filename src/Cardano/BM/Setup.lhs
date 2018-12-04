@@ -39,8 +39,8 @@ or a |FilePath| to a configuration file.
 \begin{code}
 
 setupTrace :: MonadIO m => Either FilePath Config.Configuration -> Text -> m (Trace m)
-setupTrace (Left cfgfp) name = do
-    c <- liftIO $ Config.setup cfgfp
+setupTrace (Left cfgFile) name = do
+    c <- liftIO $ Config.setup cfgFile
     setupTrace_ c name
 setupTrace (Right c) name = setupTrace_ c name
 
@@ -76,4 +76,3 @@ newContext name cfg sev = do
       }
 
 \end{code}
-
