@@ -1,13 +1,15 @@
-window_sizes 1433 855 337 1090 739 64
+window_sizes 1754 1176 337 1411 1060 64
 cleanlooks_style
 diagrams
   classdiagram_ref 128021 // Overview_Classes
-    983 714 100 A4-Landscape 0 0
-  active  collaborationdiagram_ref 161685 // Setup_Procedure
+    983 714 100 A4-Landscape 165 0
+  collaborationdiagram_ref 161685 // Setup_Procedure
     872 591 100 A4 0 0
+  active  classdiagram_ref 174741 // Configuration_Model
+    748 848 100 A4 0 0
 end
 show_stereotypes
-selected attribute_ref 134805 // cgOptions
+selected class_ref 130197 // LoggerName
 open
   activity_ref 128021 // Concurrent_Trace
   classview_ref 128277 // Counters
@@ -19,8 +21,13 @@ open
   component_ref 128149 // LoggingConfiguration
   class_ref 129685 // Katip
   class_ref 144533 // Backend
-  class_ref 129045 // ConfigurationView
-  class_ref 136981 // Configuration
+  attribute_ref 134933 // cgMinSeverity
+  attribute_ref 128021 // cgMapSeverity
+  attribute_ref 128149 // cgMapBackend
+  attribute_ref 148629 // cgSetupBackends
+  attribute_ref 141589 // cgMapScribe
+  attribute_ref 141717 // cgDefScribes
+  class_ref 184597 // Scribe
   classview_ref 148373 // Configuration Classes
   
   package_ref 148245 // Trace

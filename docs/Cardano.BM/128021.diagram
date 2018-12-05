@@ -22,7 +22,7 @@ classcanvas 128789 class_ref 128789 // STMObserver
 end
 classcanvas 128917 class_ref 128917 // Aggregation
   classdiagramsettings member_max_width 0 end
-  xyz 623.801 711.038 2000
+  xyz 615.801 681.038 2000
 end
 classcanvas 129045 class_ref 129045 // ConfigurationView
   classdiagramsettings member_max_width 0 end
@@ -62,7 +62,7 @@ classcanvas 132629 class_ref 130197 // LoggerName
 end
 classcanvas 133013 class_ref 136981 // Configuration
   classdiagramsettings hide_attributes no member_max_width 0 end
-  xyzwh 206.336 95.4927 2000 153 147
+  xyzwh 206.336 95.4927 2000 153 211
 end
 classcanvas 133525 class_ref 144021 // LogObject
   classdiagramsettings member_max_width 0 end
@@ -198,7 +198,7 @@ relationcanvas 135573 relation_ref 151317 // <generalisation>
 end
 relationcanvas 135701 relation_ref 151445 // <generalisation>
   geometry VHV unfixed
-  from ref 128917 z 2006 to point 669 645
+  from ref 128917 z 2006 to point 662 645
   line 136853 z 2006 to point 595 645
   line 136981 z 2006 to ref 134805
   no_role_a no_role_b

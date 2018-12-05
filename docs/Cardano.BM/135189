@@ -1,6 +1,6 @@
 format 221
 "Data" // Cardano.BM::Data
-  revision 6
+  revision 8
   modified_by 21 "axeld"
   // class settings
   
@@ -143,6 +143,13 @@ ${inlines}
       explicit_switch_type ""
       mysql_decl ""
       
+      classrelation 201237 // <association>
+	relation_ref 193045 // <association>
+      end
+
+      classrelation 202005 // <association>
+	relation_ref 200085 // <association>
+      end
     end
 
     class 136981 "Configuration"
@@ -180,28 +187,13 @@ ${members}};
 "
       end
 
-      attribute 128021 "cgMapSeverity"
-	private type class_ref 151189 // Map
-	init_value "Text -> Severity"
+      attribute 134933 "cgMinSeverity"
+	private type class_ref 130069 // Severity
 	cpp_decl ""
 	java_decl ""
 	php_decl ""
 	python_decl ""
 	idl_decl "  ${comment}${visibility}${type} ${name};
-"
-	mysql_decl ""
-	MysqlColumn
-      end
-
-      attribute 128149 "cgMapOutput"
-	private type class_ref 151189 // Map
-	multiplicity "*"
-	init_value "Text -> [Backend]"
-	cpp_decl ""
-	java_decl ""
-	php_decl ""
-	python_decl ""
-	idl_decl "  ${comment}${readonly}${attribute}${stereotype}<${type}> ${name};
 "
 	mysql_decl ""
 	MysqlColumn
@@ -233,9 +225,22 @@ ${members}};
 "
       end
 
+      attribute 128021 "cgMapSeverity"
+	private type class_ref 151189 // Map
+	init_value "LoggerName -> Severity"
+	cpp_decl ""
+	java_decl ""
+	php_decl ""
+	python_decl ""
+	idl_decl "  ${comment}${visibility}${type} ${name};
+"
+	mysql_decl ""
+	MysqlColumn
+      end
+
       attribute 134677 "cgMapSubtrace"
 	private type class_ref 151189 // Map
-	init_value "Text -> SubTrace"
+	init_value "LoggerName -> SubTrace"
 	cpp_decl ""
 	java_decl ""
 	php_decl ""
@@ -259,8 +264,48 @@ ${members}};
 	MysqlColumn
       end
 
-      attribute 134933 "cgMinSeverity"
-	private type class_ref 130069 // Severity
+      attribute 128149 "cgMapBackend"
+	private type class_ref 151189 // Map
+	init_value "LoggerName -> [Backend]"
+	cpp_decl ""
+	java_decl ""
+	php_decl ""
+	python_decl ""
+	idl_decl "  ${comment}${readonly}${attribute}${type} ${name};
+"
+	mysql_decl ""
+	MysqlColumn
+      end
+
+      attribute 135061 "cgDefBackends"
+	private type class_ref 144533 // Backend
+	multiplicity "*"
+	cpp_decl ""
+	java_decl ""
+	php_decl ""
+	python_decl ""
+	idl_decl "  ${comment}${readonly}${attribute}${stereotype}<${type}> ${name};
+"
+	mysql_decl ""
+	MysqlColumn
+      end
+
+      attribute 148629 "cgSetupBackends"
+	private type class_ref 144533 // Backend
+	multiplicity "*"
+	cpp_decl ""
+	java_decl ""
+	php_decl ""
+	python_decl ""
+	idl_decl "  ${comment}${readonly}${attribute}${stereotype}<${type}> ${name};
+"
+	mysql_decl ""
+	MysqlColumn
+      end
+
+      attribute 141589 "cgMapScribe"
+	private type class_ref 151189 // Map
+	init_value "LoggerName -> [ScribeId]"
 	cpp_decl ""
 	java_decl ""
 	php_decl ""
@@ -271,8 +316,21 @@ ${members}};
 	MysqlColumn
       end
 
-      attribute 135061 "cgDefBackends"
-	private type class_ref 144533 // Backend
+      attribute 141717 "cgDefScribes"
+	private explicit_type "ScribeId"
+	multiplicity "*"
+	cpp_decl ""
+	java_decl ""
+	php_decl ""
+	python_decl ""
+	idl_decl "  ${comment}${readonly}${attribute}${stereotype}<${type}> ${name};
+"
+	mysql_decl ""
+	MysqlColumn
+      end
+
+      attribute 148373 "cgSetupScribes"
+	private type class_ref 184597 // Scribe
 	multiplicity "*"
 	cpp_decl ""
 	java_decl ""
@@ -336,6 +394,71 @@ ${inlines}
 	idl_decl "  ${comment}${oneway}${type} ${name}${(}${)}${raisesnl}${raises};
 "
       end
+
+      classrelation 201877 // <association>
+	relation 200085 ----
+	  stereotype "cgMapSeverity"
+	  a role_name "" multiplicity "*" private
+	    idl "  ${comment}${visibility}${stereotype}<${type}> ${name};
+"
+	    classrelation_ref 201877 // <association>
+	  b role_name "" private
+	    idl "  ${comment}${visibility}${type} ${name};
+"
+	    classrelation_ref 202005 // <association>
+      end
+
+      classrelation 202133 // <association>
+	relation 200213 ----
+	  stereotype "cgMapBackend"
+	  a role_name "" multiplicity "*" private
+	    idl "  ${comment}${visibility}${stereotype}<${type}> ${name};
+"
+	    classrelation_ref 202133 // <association>
+	  b role_name "" private
+	    idl "  ${comment}${visibility}${type} ${name};
+"
+	    classrelation_ref 202261 // <association>
+      end
+
+      classrelation 202389 // <association>
+	relation 200341 ----
+	  stereotype "cgMapSubtrace"
+	  a role_name "" private
+	    idl "  ${comment}${visibility}${type} ${name};
+"
+	    classrelation_ref 202389 // <association>
+	  b role_name "" private
+	    idl "  ${comment}${visibility}${type} ${name};
+"
+	    classrelation_ref 202517 // <association>
+      end
+
+      classrelation 202645 // <association>
+	relation 200469 ----
+	  stereotype "cgOptions"
+	  a role_name "" private
+	    idl "  ${comment}${visibility}${type} ${name};
+"
+	    classrelation_ref 202645 // <association>
+	  b role_name "" private
+	    idl "  ${comment}${visibility}${type} ${name};
+"
+	    classrelation_ref 202773 // <association>
+      end
+
+      classrelation 202901 // <association>
+	relation 200597 ----
+	  stereotype "cgMapScribe"
+	  a role_name "" multiplicity "*" private
+	    idl "  ${comment}${visibility}${stereotype}<${type}> ${name};
+"
+	    classrelation_ref 202901 // <association>
+	  b role_name "" private
+	    idl "  ${comment}${visibility}${type} ${name};
+"
+	    classrelation_ref 203029 // <association>
+      end
     end
 
     class 144661 "MessageQueue"
@@ -353,7 +476,6 @@ ${members}};
       classrelation 153109 // <aggregation>
 	relation_ref 152597 // <aggregation>
       end
-
     end
 
     class 151189 "Map"
@@ -385,8 +507,137 @@ ${members}};
     end
 
     classdiagram 174741 "Configuration_Model"
-      classdiagramsettings member_max_width 0 end
+      classdiagramsettings draw_all_relations no hide_operations yes member_max_width 0 end
       size A4
+    end
+
+    class 184213 "Text"
+      visibility package 
+      cpp_decl ""
+      java_decl ""
+      php_decl ""
+      python_2_2 python_decl ""
+      idl_decl "${comment}${abstract}${custom}valuetype ${name}${inherit} {
+${members}};
+"
+      explicit_switch_type ""
+      mysql_decl ""
+      
+      classrelation 194197 // minSeverity (<association>)
+	relation 193045 ----
+	  a role_name "minSeverity" multiplicity "1" private
+	    idl "  ${comment}${visibility}${type} ${name};
+"
+	    classrelation_ref 194197 // minSeverity (<association>)
+	  b role_name "" private
+	    classrelation_ref 201237 // <association>
+      end
+
+      classrelation 194325 // backends (<association>)
+	relation 193173 ----
+	  a role_name "backends" multiplicity "*" private
+	    idl "  ${comment}${visibility}${stereotype}<${type}> ${name};
+"
+	    classrelation_ref 194325 // backends (<association>)
+	  b role_name "" private
+	    classrelation_ref 201365 // <association>
+      end
+
+      classrelation 194453 // subtrace (<association>)
+	relation 193301 ----
+	  a role_name "subtrace" multiplicity "1" private
+	    idl "  ${comment}${visibility}${type} ${name};
+"
+	    classrelation_ref 194453 // subtrace (<association>)
+	  b role_name "" private
+	    classrelation_ref 201493 // <association>
+      end
+
+      classrelation 194581 // options (<association>)
+	relation 193429 ----
+	  a role_name "options" multiplicity "1" private
+	    idl "  ${comment}${visibility}${type} ${name};
+"
+	    classrelation_ref 194581 // options (<association>)
+	  b role_name "" private
+	    classrelation_ref 201621 // <association>
+      end
+
+      classrelation 194709 // scribes (<association>)
+	relation 193557 ----
+	  a role_name "scribes" multiplicity "*" private
+	    idl "  ${comment}${visibility}${stereotype}<${type}> ${name};
+"
+	    classrelation_ref 194709 // scribes (<association>)
+	  b role_name "" private
+	    classrelation_ref 201749 // <association>
+      end
+    end
+
+    class 184341 "SubTrace"
+      visibility package 
+      cpp_decl ""
+      java_decl ""
+      php_decl ""
+      python_2_2 python_decl ""
+      idl_decl "${comment}${abstract}${custom}valuetype ${name}${inherit} {
+${members}};
+"
+      explicit_switch_type ""
+      mysql_decl ""
+      
+      classrelation 201493 // <association>
+	relation_ref 193301 // <association>
+      end
+
+      classrelation 202517 // <association>
+	relation_ref 200341 // <association>
+      end
+    end
+
+    class 184597 "Scribe"
+      visibility package 
+      cpp_decl ""
+      java_decl ""
+      php_decl ""
+      python_2_2 python_decl ""
+      idl_decl "${comment}${abstract}${custom}valuetype ${name}${inherit} {
+${members}};
+"
+      explicit_switch_type ""
+      mysql_decl ""
+      
+      attribute 141845 "name"
+	private explicit_type "string"
+	cpp_decl ""
+	java_decl ""
+	php_decl ""
+	python_decl ""
+	idl_decl "  ${comment}${visibility}${type} ${name};
+"
+	mysql_decl ""
+	MysqlColumn
+      end
+
+      classrelation 201749 // <association>
+	relation_ref 193557 // <association>
+      end
+
+      attribute 148501 "fpath"
+	private explicit_type "string"
+	cpp_decl ""
+	java_decl ""
+	php_decl ""
+	python_decl ""
+	idl_decl "  ${comment}${visibility}${type} ${name};
+"
+	mysql_decl ""
+	MysqlColumn
+      end
+
+      classrelation 203029 // <association>
+	relation_ref 200597 // <association>
+      end
     end
   end
 end

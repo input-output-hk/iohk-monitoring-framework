@@ -9,6 +9,7 @@ module Cardano.BM.Configuration.Model
     (
       Configuration
     , setup
+    , empty
     , minSeverity
     , setMinSeverity
     , inspectSeverity
@@ -16,6 +17,10 @@ module Cardano.BM.Configuration.Model
     , getBackends
     , registerBackend
     , setDefaultBackends
+    , setSetupBackends
+    , getScribes
+    , setDefaultScribes
+    , setSetupScribes
     , getOption
     , findSubTrace
     , setSubTrace
@@ -23,15 +28,15 @@ module Cardano.BM.Configuration.Model
     --, takedown
     ) where
 
-import           Control.Monad.Catch (throwM)
 import           Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar,
                      takeMVar, withMVar)
-import           Data.Aeson ((.:?), (.!=))
 import qualified Data.HashMap.Strict as HM
 import           Data.Text (Text, pack)
 import           Data.Yaml as Y
 
 import           Cardano.BM.Data.Backend
+import           Cardano.BM.Data.LogItem (LoggerName)
+import           Cardano.BM.Data.Output (ScribeDefinition, ScribeId)
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.SubTrace
 
@@ -53,48 +58,34 @@ newtype Configuration = Configuration
 
 -- Our internal state; see {-"\nameref{fig:configuration}"-}
 data ConfigurationInternal = ConfigurationInternal
-    { cgMapSeverity :: HM.HashMap Text Severity
-    , cgMapOutput   :: HM.HashMap Text [Backend]
-    , cgMapSubtrace :: HM.HashMap Text SubTrace
-    , cgOptions     :: HM.HashMap Text Object
-    , cgMinSeverity :: Severity
-    , cgDefBackends :: [Backend]
+    { cgMinSeverity   :: Severity
+    , cgMapSeverity   :: HM.HashMap LoggerName Severity
+    , cgMapSubtrace   :: HM.HashMap LoggerName SubTrace
+    , cgOptions       :: HM.HashMap LoggerName Object
+    , cgMapBackend    :: HM.HashMap LoggerName [Backend]
+    , cgDefBackends   :: [Backend]
+    , cgSetupBackends :: [BackendKind]
+    , cgMapScribe     :: HM.HashMap LoggerName [ScribeId]
+    , cgDefScribes    :: [ScribeId]
+    , cgSetupScribes  :: [ScribeDefinition]
     }
---    options:  config.logrotation = { maxFiles = 10; maxSize = 5000000 }
---              config.logprefix = { path = "/mnt/disk/spacy" }
-
-instance FromJSON ConfigurationInternal where
-    parseJSON = withObject "config" $ \o -> do
-        listSeverity <- o .:? "severity_map" .!= []
-        let listOutput = []
-        listSubtrace <- o .:? "subtrace_map" .!= []
-        listOptions  <- o .:? "options"      .!= []
-        minSeverity  <- o .:? "min_severity" .!= Info
-        let defaultBackends = []
-
-        return $ ConfigurationInternal
-                    { cgMapSeverity = HM.fromList listSeverity
-                    , cgMapOutput   = HM.fromList listOutput
-                    , cgMapSubtrace = HM.fromList listSubtrace
-                    , cgOptions     = HM.fromList listOptions
-                    , cgMinSeverity = minSeverity
-                    , cgDefBackends = defaultBackends
-                    }
 
 \end{code}
 \todo[inline]{TODO |listOutput   <- o .:? "output_map"   .!= []|}
 \todo[inline]{TODO |defaultBackendKinds <- o .:? "default_backends" .!= []|}
 
-\subsubsection{Backend relation}
+\subsubsection{Backends configured in the |Switchboard|}
+For a given context name return the list of backends configured,
+or, in case no such configuration exists, return the default backends.
 \begin{code}
-getBackends :: Configuration -> Text -> IO (Maybe [Backend])
+getBackends :: Configuration -> LoggerName -> IO [Backend]
 getBackends configuration name =
     withMVar (getCG configuration) $ \cg -> do
-        let outs = HM.lookup name (cgMapOutput cg)
+        let outs = HM.lookup name (cgMapBackend cg)
         case outs of
             Nothing -> do
-                return $ Just (cgDefBackends cg)
-            Just os -> return $ Just os
+                return (cgDefBackends cg)
+            Just os -> return $ os
 
 setDefaultBackends :: Configuration -> [Backend] -> IO ()
 setDefaultBackends configuration bes = do
@@ -105,6 +96,47 @@ registerBackend :: Configuration -> Text -> Maybe Backend -> IO ()
 registerBackend _ _kn _f = pure () -- TODO
   --  registerBackend "some" (Just Backend { pass' = Katip.pass (show StdoutSK) })
   --  registerBackend "severe.error" (Just Backend { pass' = Katip.pass "StdoutSK::severe.log") })
+
+\end{code}
+
+\subsubsection{Backends to be setup by the |Switchboard|}
+Defines the list of |Backend|s that need to be setup by the |Switchboard|.
+\begin{code}
+setSetupBackends :: Configuration -> [BackendKind] -> IO ()
+setSetupBackends configuration bes = do
+    cg <- takeMVar (getCG configuration)
+    putMVar (getCG configuration) $ cg { cgSetupBackends = bes }
+
+\end{code}
+
+
+\subsubsection{Scribes configured in the |Log| backend}
+For a given context name return the list of scribes to output to,
+or, in case no such configuration exists, return the default scribes to use.
+\begin{code}
+getScribes :: Configuration -> LoggerName -> IO [ScribeId]
+getScribes configuration name =
+    withMVar (getCG configuration) $ \cg -> do
+        let outs = HM.lookup name (cgMapScribe cg)
+        case outs of
+            Nothing -> do
+                return (cgDefScribes cg)
+            Just os -> return $ os
+
+setDefaultScribes :: Configuration -> [ScribeId] -> IO ()
+setDefaultScribes configuration scs = do
+    cg <- takeMVar (getCG configuration)
+    putMVar (getCG configuration) $ cg { cgDefScribes = scs }
+
+\end{code}
+
+\subsubsection{Scribes to be setup in the |Log| backend}
+Defines the list of |Scribe|s that need to be setup in the |Log| backend.
+\begin{code}
+setSetupScribes :: Configuration -> [ScribeDefinition] -> IO ()
+setSetupScribes configuration sds = do
+    cg <- takeMVar (getCG configuration)
+    putMVar (getCG configuration) $ cg { cgSetupScribes = sds }
 
 \end{code}
 
@@ -164,18 +196,17 @@ setSubTrace configuration name trafo = do
 \end{code}
 
 \subsubsection{Configuration.Model.setup}
-
-The following function parses a file for the standard logging configuration.
-Exceptions about opening the file (non existent/permissions) are thrown.
 \begin{code}
-parseInternalConfiguration :: FilePath -> IO ConfigurationInternal
-parseInternalConfiguration path =
-    either throwM return =<< Y.decodeFileEither path
-
 setup :: FilePath -> IO Configuration
 setup _fp = do
+    c <- empty
+    -- r <- parseRepresentation
+    return c
+
+empty :: IO Configuration
+empty = do
     cgref <- newEmptyMVar
-    putMVar cgref $ ConfigurationInternal HM.empty HM.empty HM.empty HM.empty Debug []
+    putMVar cgref $ ConfigurationInternal Debug HM.empty HM.empty HM.empty HM.empty [] [] HM.empty [] []
     return $ Configuration cgref
 
 \end{code}

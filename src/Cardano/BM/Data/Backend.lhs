@@ -13,7 +13,7 @@ module Cardano.BM.Data.Backend
   )
   where
 
-import           Data.Aeson (FromJSON)
+import           Data.Aeson (FromJSON, ToJSON)
 import           GHC.Generics (Generic)
 
 import           Cardano.BM.Data.LogItem
@@ -28,7 +28,7 @@ data BackendKind = AggregationBK
                  | EKGViewBK
                  | KatipBK
                  | DevNullBK
-                 deriving (Generic, Eq, Show, FromJSON)
+                 deriving (Generic, Eq, Show, ToJSON, FromJSON)
 
 \end{code}
 

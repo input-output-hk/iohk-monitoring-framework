@@ -1,6 +1,6 @@
 format 221
 "Cardano.BM"
-  revision 3
+  revision 4
   modified_by 21 "axeld"
 
 
@@ -53,4 +53,6 @@ format 221
   package_ref 134805 // System.Remote.Monitoring (EKG)
 
   package_ref 141717 // Cardano.Shell
+
+  package_ref 154901 // Aeson
 end

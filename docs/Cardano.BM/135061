@@ -1,6 +1,6 @@
 format 221
 "Output" // Cardano.BM::Output
-  revision 8
+  revision 9
   modified_by 21 "axeld"
   // class settings
   
@@ -281,6 +281,14 @@ ${members}};
 	    classrelation_ref 160277 // config (<aggregation>)
 	  b role_name "" package
 	    classrelation_ref 160405 // <aggregation>
+      end
+
+      classrelation 201365 // <association>
+	relation_ref 193173 // <association>
+      end
+
+      classrelation 202261 // <association>
+	relation_ref 200213 // <association>
       end
     end
 

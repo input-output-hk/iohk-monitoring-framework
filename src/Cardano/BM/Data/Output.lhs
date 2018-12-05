@@ -10,13 +10,17 @@ module Cardano.BM.Data.Output
   ( 
     OutputKind (..)
   , ScribeKind (..)
+  , ScribeId
+  , ScribeDefinition (..)
   )
   where
 
 import qualified Control.Concurrent.STM.TVar as STM
 import           Data.Aeson (FromJSON (..), ToJSON)
+import           Data.Text (Text)
 
 import           Cardano.BM.Data.LogItem
+import           Cardano.BM.Data.Rotation
 
 import           GHC.Generics (Generic)
 
@@ -40,7 +44,26 @@ data ScribeKind = FileTextSK
                 | FileJsonSK
                 | StdoutSK
                 | StderrSK
-                | DevNullSK
                 deriving (Generic, Eq, Show, FromJSON, ToJSON)
+  
+\end{code}
+
+\subsubsection{ScribeId}\label{code:ScribeId}
+A scribe is identified by |ScribeKind x Filename|
+\begin{code}
+type ScribeId = Text -- (ScribeKind, Filename)
+  
+\end{code}
+
+\subsubsection{ScribeDefinition}\label{code:ScribeDefinition}
+This identifies katip's scribes by type.
+\begin{code}
+data ScribeDefinition = ScribeDefinition
+  {
+    scKind     :: ScribeKind
+  , scName     :: Text
+  , scRotation :: Maybe RotationParameters
+  }
+  deriving (Generic, Eq, Show, FromJSON, ToJSON)
 
 \end{code}

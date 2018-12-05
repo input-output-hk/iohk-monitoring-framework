@@ -3,17 +3,17 @@
 
 %if style == newcode
 \begin{code}
-{-# LANGUAGE DeriveAnyClass    #-}
-{-# LANGUAGE DeriveGeneric     #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE DeriveAnyClass      #-}
+{-# LANGUAGE DeriveGeneric       #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE RecordWildCards     #-}
 
 module Cardano.BM.Data.Configuration
   (
     Representation (..)
   , Port
-  , LogBackend (..)
-  , RotationParameters (..)
+  , parseRepresentation
   -- * tests
   , test_log_backend_1
   , test_log_backend_2
@@ -22,17 +22,16 @@ module Cardano.BM.Data.Configuration
   )
   where
 
-import           Data.Set (fromList)
 import qualified Data.ByteString.Char8 as BS
-import           Data.Yaml as Y
+import qualified Data.HashMap.Strict as HM
+import           Data.Text (Text)
+import           Data.Yaml
 import           GHC.Generics
-import           GHC.Word (Word64)
 
-import           Cardano.BM.Data.LogItem
-import           Cardano.BM.Data.Observable
+import           Cardano.BM.Data.Backend
 import           Cardano.BM.Data.Output
 import           Cardano.BM.Data.Severity
-import           Cardano.BM.Data.SubTrace
+import           Cardano.BM.Data.Rotation
 
 \end{code}
 %endif
@@ -41,34 +40,44 @@ import           Cardano.BM.Data.SubTrace
 \begin{code}
 type Port = Int
 data Representation = Representation
-    {
-      rotation :: RotationParameters
-    , backends :: [LogBackend]
-    , hasEKG :: Maybe Port
-    , hasGUI :: Maybe Port
+    { minSeverity     :: Severity
+    , rotation        :: RotationParameters
+    , setupScribes    :: [ScribeDefinition]
+    , defaultScribes  :: [(ScribeKind,Text)]
+    , setupBackends   :: [BackendKind]
+    , defaultBackends :: [BackendKind]
+    , hasEKG          :: Maybe Port
+    , hasGUI          :: Maybe Port
+    , options         :: HM.HashMap Text Object
     }
     deriving (Generic, Show, ToJSON, FromJSON)
 
 \end{code}
 
-\subsubsection{RotationParameters}\label{code:RotationParameters}
+\subsubsection{parseRepresentation}\label{code:parseRepresentation}
 \begin{code}
-data RotationParameters = RotationParameters
-    { rpLogLimitBytes :: !Word64  -- max size of file in bytes
-    , rpMaxAgeHours   :: !Word    -- hours
-    , rpKeepFilesNum  :: !Word    -- number of files to keep
-    } deriving (Generic, Show, Eq, FromJSON, ToJSON)
+parseRepresentation :: FilePath -> IO Representation
+parseRepresentation fp = do
+    repr :: Representation <- decodeFileThrow fp
+    return $ implicit_fill_representation repr
 
 \end{code}
 
-\subsubsection{LogBackend}\label{code:LogBackend}
+after parsing the representation we implicitly correct it.
 \begin{code}
-data LogBackend = LogBackend
-    { lbKind     :: ScribeKind
-    , lbName     :: LoggerName
-    , lbTrace    :: SubTrace
-    , lbSeverity :: Severity
-    } deriving (Generic, Show, FromJSON, ToJSON)
+implicit_fill_representation :: Representation -> Representation
+implicit_fill_representation =
+    union_setup_and_usage_scribes .
+    union_setup_and_usage_backends .
+    filter_duplicates_from_backends .
+    filter_duplicates_from_scribes .
+    add_katip_if_any_scribes
+  where
+    union_setup_and_usage_scribes r = r
+    union_setup_and_usage_backends r = r
+    filter_duplicates_from_backends r = r
+    filter_duplicates_from_scribes r = r
+    add_katip_if_any_scribes r = r
 
 \end{code}
 
@@ -76,36 +85,45 @@ data LogBackend = LogBackend
 test_log_backend_1 :: IO ()
 test_log_backend_1 =
     BS.putStrLn $
-    encode $ LogBackend { lbKind = StdoutSK
-                        , lbName = "test 1"
-                        , lbTrace = Neutral
-                        , lbSeverity = Info
+    encode $ ScribeDefinition { scKind = StdoutSK
+                        , scName = "testlog"
+                        , scRotation = Nothing
                         }
 
 test_log_backend_2 :: IO ()
 test_log_backend_2 =
     BS.putStrLn $
-    encode $ LogBackend { lbKind = StdoutSK
-                        , lbName = "test 2"
-                        , lbTrace = ObservableTrace (fromList [ MonotonicClock
-                                                              , MemoryStats
-                                                              , ProcessStats ])
-                        , lbSeverity = Info
+    encode $ ScribeDefinition { scKind = StdoutSK
+                        , scName = "testlog"
+                        , scRotation = Just $ RotationParameters 5000000 24 10
                         }
 
 test_conf_representation_1 :: IO ()
 test_conf_representation_1 =
     BS.putStrLn $
     encode $ Representation
-        (RotationParameters 5000000 24 10)
-        [ LogBackend { lbKind = StdoutSK, lbName = "stdout"
-                     , lbTrace = UntimedTrace, lbSeverity = Info }
-        ]
-        (Just 12789)
-        (Just 18321)
+        { minSeverity = Info
+        , rotation = RotationParameters 5000000 24 10
+        , setupScribes =
+            [ ScribeDefinition { scName = "stdout"
+                            , scKind = StdoutSK
+                            , scRotation = Nothing }
+            ]
+        , defaultScribes = [(StdoutSK, "stdout")]
+        , setupBackends = [ EKGViewBK, KatipBK ]
+        , defaultBackends = [ KatipBK ]
+        , hasGUI = Just 12789
+        , hasEKG = Just 18321
+        , options = 
+            HM.fromList [ ("test1", (HM.singleton "value" "object1"))
+                        , ("test2", (HM.singleton "value" "object2")) ]
+    }
 
-test_conf_representation_2 :: FilePath -> IO Representation
-test_conf_representation_2 fp =
-    decodeFileThrow fp
+test_conf_representation_2 :: FilePath -> IO ()
+test_conf_representation_2 fp = do
+    repr :: Representation <- decodeFileThrow fp
+
+    BS.putStrLn $ encode repr
+
 
 \end{code}

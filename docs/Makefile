@@ -18,6 +18,7 @@ SOURCES = ../src/Code.lhs \
 					../src/Cardano/BM/Data/LogItem.lhs \
 					../src/Cardano/BM/Data/Observable.lhs \
 					../src/Cardano/BM/Data/Output.lhs \
+					../src/Cardano/BM/Data/Rotation.lhs \
 					../src/Cardano/BM/Data/Severity.lhs \
 					../src/Cardano/BM/Data/SubTrace.lhs \
 					../src/Cardano/BM/Data/Trace.lhs \
