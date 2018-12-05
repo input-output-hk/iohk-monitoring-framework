@@ -3,7 +3,7 @@ let
     packageOverrides = pkgs: rec {
       haskellPackages = pkgs.haskell.packages.ghc843.override {
         overrides = haskellPackagesNew: haskellPackagesOld: rec {
-          iohk-monitoring = haskellPackagesNew.callPackage ./iohk-monitoring.nix { };
+          iohk-monitoring = pkgs.haskell.lib.dontHaddock (haskellPackagesNew.callPackage ./iohk-monitoring.nix { });
         };
       };
     };
