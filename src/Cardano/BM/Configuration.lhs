@@ -11,12 +11,10 @@ module Cardano.BM.Configuration
     , CM.inspectSeverity
     , CM.setSeverity
     , CM.getBackends
-    , CM.registerBackend
     , CM.getOption
     , CM.findSubTrace
     , CM.setSubTrace
     , getOptionOrDefault
-    , parseFrom
     ) where
 
 import           Data.Text (Text)
@@ -35,11 +33,5 @@ getOptionOrDefault cg name def = do
     case opt of
         Nothing -> return def
         Just o -> return o
-
-\end{code}
-
-\begin{code}
-parseFrom :: FilePath -> IO (CM.Configuration)
-parseFrom fp = CM.setup fp
 
 \end{code}

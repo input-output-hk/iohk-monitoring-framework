@@ -4,20 +4,25 @@
 
 This framework provides logging, benchmarking and monitoring.
 
-## overview
-
-![Overview of modules](docs/OverviewModules.png)
-
 ## documentation
 
 Documentation of the [source code](docs/IOHK-Monitoring-code.pdf) and
 [tests](docs/IOHK-Monitoring-tests.pdf) are available in PDF format.
+
+## module dependencies
+
+![Overview of modules](docs/OverviewModules.png)
 
 ## building
 
 `cabal new-build`
 
 `cabal new-test`
+
+## examples
+
+in directory `examples` are these examples:
+* `simple`  -  run with `cabal new-exec example-simple`
 
 ## development
 

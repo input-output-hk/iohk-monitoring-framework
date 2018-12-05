@@ -15,16 +15,17 @@ module Cardano.BM.Configuration.Model
     , inspectSeverity
     , setSeverity
     , getBackends
-    , registerBackend
+    , setBackend
+    , getDefaultBackends
     , setDefaultBackends
     , setSetupBackends
     , getScribes
     , setDefaultScribes
     , setSetupScribes
+    , getSetupScribes
     , getOption
     , findSubTrace
     , setSubTrace
-    --, inspectOutput
     --, takedown
     ) where
 
@@ -61,9 +62,9 @@ data ConfigurationInternal = ConfigurationInternal
     { cgMinSeverity   :: Severity
     , cgMapSeverity   :: HM.HashMap LoggerName Severity
     , cgMapSubtrace   :: HM.HashMap LoggerName SubTrace
-    , cgOptions       :: HM.HashMap LoggerName Object
-    , cgMapBackend    :: HM.HashMap LoggerName [Backend]
-    , cgDefBackends   :: [Backend]
+    , cgOptions       :: HM.HashMap Text Object
+    , cgMapBackend    :: HM.HashMap LoggerName [BackendKind]
+    , cgDefBackendKs  :: [BackendKind]
     , cgSetupBackends :: [BackendKind]
     , cgMapScribe     :: HM.HashMap LoggerName [ScribeId]
     , cgDefScribes    :: [ScribeId]
@@ -78,24 +79,29 @@ data ConfigurationInternal = ConfigurationInternal
 For a given context name return the list of backends configured,
 or, in case no such configuration exists, return the default backends.
 \begin{code}
-getBackends :: Configuration -> LoggerName -> IO [Backend]
+getBackends :: Configuration -> LoggerName -> IO [BackendKind]
 getBackends configuration name =
     withMVar (getCG configuration) $ \cg -> do
         let outs = HM.lookup name (cgMapBackend cg)
         case outs of
             Nothing -> do
-                return (cgDefBackends cg)
-            Just os -> return $ os
+                return (cgDefBackendKs cg)
+            Just os -> return $ os  -- TODO in (cgDefBackendKs cg)
 
-setDefaultBackends :: Configuration -> [Backend] -> IO ()
+getDefaultBackends :: Configuration -> IO [BackendKind]
+getDefaultBackends configuration =
+    withMVar (getCG configuration) $ \cg -> do
+        return (cgDefBackendKs cg)
+
+setDefaultBackends :: Configuration -> [BackendKind] -> IO ()
 setDefaultBackends configuration bes = do
     cg <- takeMVar (getCG configuration)
-    putMVar (getCG configuration) $ cg { cgDefBackends = bes }
+    putMVar (getCG configuration) $ cg { cgDefBackendKs = bes }
 
-registerBackend :: Configuration -> Text -> Maybe Backend -> IO ()
-registerBackend _ _kn _f = pure () -- TODO
-  --  registerBackend "some" (Just Backend { pass' = Katip.pass (show StdoutSK) })
-  --  registerBackend "severe.error" (Just Backend { pass' = Katip.pass "StdoutSK::severe.log") })
+setBackend :: Configuration -> LoggerName -> Maybe [BackendKind] -> IO ()
+setBackend configuration name be = do
+    cg <- takeMVar (getCG configuration)
+    putMVar (getCG configuration) $ cg { cgMapBackend = HM.alter (\_ -> be) name (cgMapBackend cg) }
 
 \end{code}
 
@@ -138,6 +144,11 @@ setSetupScribes configuration sds = do
     cg <- takeMVar (getCG configuration)
     putMVar (getCG configuration) $ cg { cgSetupScribes = sds }
 
+getSetupScribes :: Configuration -> IO [ScribeDefinition]
+getSetupScribes configuration =
+    withMVar (getCG configuration) $ \cg -> do
+        return $ cgSetupScribes cg
+
 \end{code}
 
 \subsubsection{Options}
@@ -171,7 +182,6 @@ inspectSeverity configuration name = do
     withMVar (getCG configuration) $ \cg ->
         return $ HM.lookup name (cgMapSeverity cg)
 
--- if Maybe Severity given is Nothing then the entry for this name is deleted.
 setSeverity :: Configuration -> Text -> Maybe Severity -> IO ()
 setSeverity configuration name sev = do
     cg <- takeMVar (getCG configuration)

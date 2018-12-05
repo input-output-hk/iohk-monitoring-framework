@@ -26,7 +26,7 @@ defaultConfigStdout = do
     c <- CM.empty
     CM.setMinSeverity c Debug
     CM.setSetupBackends c [KatipBK]
-    -- setDefaultBackends c [MkBackend { pass' = Cardano.BM.Output.Log.passN (pack "StdoutSK::stdout") }]
+    CM.setDefaultBackends c [KatipBK]
     CM.setSetupScribes c [ ScribeDefinition {
                               scName = "stdout"
                             , scKind = StdoutSK

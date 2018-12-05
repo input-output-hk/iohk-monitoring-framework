@@ -18,8 +18,7 @@ module Cardano.BM.Output.Log
     (
       Log
     , setup
-    --, pass
-    , passN
+    , pass
     --, takedown
     , example
     ) where
@@ -53,7 +52,7 @@ import qualified Katip.Core as KC
 import           Katip.Scribes.Handle (brackets)
 
 import qualified Cardano.BM.Configuration as Config
-import           Cardano.BM.Configuration.Model (setDefaultBackends)
+import           Cardano.BM.Configuration.Model (getScribes, getSetupScribes)
 import           Cardano.BM.Data.Backend
 import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.Output
@@ -70,13 +69,17 @@ newtype Log = Log
 
 -- Our internal state
 data KatipInternal = KatipInternal
-    { kLogEnv    :: K.LogEnv }
+    { kLogEnv       :: K.LogEnv
+    , configuration :: Config.Configuration }
 
 \end{code}
 
 \begin{code}
 instance HasPass Log where
-    pass _ _ = pure () -- error "use passN"
+    pass katip item = do
+        c <- withMVar (getK katip) $ \k -> return (configuration k)
+        selscribes <- getScribes c (lnName item)
+        forM_ selscribes $ \sc -> passN sc katip item
 
 \end{code}
 
@@ -87,39 +90,45 @@ setup config = do
     cfoKey <- Config.getOptionOrDefault config (pack "cfokey") (pack "<unknown>")
     -- TODO setup katip
     le0 <- K.initLogEnv
-                (K.Namespace ["ouroboros-bm"])
+                (K.Namespace ["iohk"])
                 (fromString $ (unpack cfoKey) <> ":" <> showVersion mockVersion)
     -- request a new time 'getCurrentTime' at most 100 times a second
     timer <- mkAutoUpdate defaultUpdateSettings { updateAction = getCurrentTime, updateFreq = 10000 }
     let le1 = updateEnv le0 timer
-    stdoutScribe <- mkStdoutScribeJson K.V0
-    le <- register [(StdoutSK, "stdout", stdoutScribe)] le1
+    scribes <- getSetupScribes config
+
+    le <- register scribes le1
+        -- stdoutScribe <- mkStdoutScribeJson K.V0
+        -- le <- register [(StdoutSK, "stdout", stdoutScribe)] le1
 
     kref <- newEmptyMVar
-    putMVar kref $ KatipInternal le
-    let katipref = Log kref
-    setDefaultBackends config
-        [ MkBackend {pass' = Cardano.BM.Output.Log.passN (pack (show StdoutSK  )) katipref}
-        , MkBackend {pass' = Cardano.BM.Output.Log.passN (pack (show FileTextSK)) katipref}
-        , MkBackend {pass' = Cardano.BM.Output.Log.passN (pack (show FileJsonSK)) katipref}
-        ]
+    putMVar kref $ KatipInternal le config
 
-    return katipref
+    return $ Log kref
   where
     updateEnv :: K.LogEnv -> IO UTCTime -> K.LogEnv
     updateEnv le timer =
         le { K._logEnvTimer = timer, K._logEnvHost = "hostname" }
-    register :: [(ScribeKind, Text, K.Scribe)] -> K.LogEnv -> IO K.LogEnv
+    register :: [ScribeDefinition] -> K.LogEnv -> IO K.LogEnv
     register [] le = return le
-    register ((kind, name, scribe) : scs) le =
-        let name' = pack (show kind) <> "::" <> name in
-        register scs =<< K.registerScribe name' scribe scribeSettings le
+    register (defsc : dscs) le = do
+        let kind = scKind defsc
+            name = scName defsc
+            name' = pack (show kind) <> "::" <> name
+        scr <- createScribe kind name
+        register dscs =<< K.registerScribe name' scr scribeSettings le
     mockVersion :: Version
     mockVersion = Version [0,1,0,0] []
     scribeSettings :: KC.ScribeSettings
-    scribeSettings = KC.ScribeSettings bufferSize
-      where
-        bufferSize = 5000  -- size of the queue (in log items)
+    scribeSettings = 
+        let bufferSize = 5000  -- size of the queue (in log items)
+        in
+        KC.ScribeSettings bufferSize
+    createScribe FileTextSK name = mkTextFileScribe  (FileDescription $ unpack name) False
+    createScribe FileJsonSK name = mkJsonFileScribe  (FileDescription $ unpack name) False
+    createScribe StdoutSK _ = mkStdoutScribe
+    createScribe StderrSK _ = mkStderrScribe
+
 
 \end{code}
 
@@ -157,13 +166,16 @@ instance KC.LogItem (Maybe LogObject) where
 
 \end{code}
 
+\subsubsection{Log.passN}\label{code:passN}
+The following function copies the |NamedLogItem| to the queues of all scribes
+that match on their name. This function is non-blocking.
 \begin{code}
 passN :: Text -> Log -> NamedLogItem -> IO ()
-passN backend katip namedLogItem = withMVar (getK katip) $ \k -> do
+passN backend katip namedLogItem = do
+    env <- withMVar (getK katip) $ \k -> return (kLogEnv k)
     -- TODO go through list of registered scribes
     --      and put into queue of scribe if backend kind matches
     --      compare start of name of scribe to (show backend <> "::")
-    let env = kLogEnv k
     forM_ (Map.toList $ K._logEnvScribes env) $
           \(scName, (KC.ScribeHandle _ shChan)) ->
               -- check start of name to match |ScribeKind|
@@ -196,18 +208,44 @@ passN backend katip namedLogItem = withMVar (getK katip) $ \k -> do
 
 \subsubsection{Scribes}
 \begin{code}
-mkStdoutScribe :: K.Verbosity -> IO K.Scribe
+mkStdoutScribe :: IO K.Scribe
 mkStdoutScribe = mkTextFileScribeH stdout True
 
-mkStdoutScribeJson :: K.Verbosity -> IO K.Scribe
-mkStdoutScribeJson = mkJsonFileScribeH stdout True
-
-mkStderrScribe :: K.Verbosity -> IO K.Scribe
+mkStderrScribe :: IO K.Scribe
 mkStderrScribe = mkTextFileScribeH stderr True
 
-mkJsonFileScribeH :: Handle -> Bool -> K.Verbosity -> IO K.Scribe
-mkJsonFileScribeH handler color verb = do
-    mkFileScribeH handler formatter color verb
+mkTextFileScribeH :: Handle -> Bool -> IO K.Scribe
+mkTextFileScribeH handler color = do
+    mkFileScribeH handler formatter color
+  where
+    formatter h colorize verbosity item =
+        TIO.hPutStrLn h $! toLazyText $ formatItem colorize verbosity item
+
+mkFileScribeH
+    :: Handle
+    -> (forall a . K.LogItem a => Handle -> Bool -> K.Verbosity -> K.Item a -> IO ())
+    -> Bool
+    -> IO K.Scribe
+mkFileScribeH h formatter colorize = do
+    hSetBuffering h LineBuffering
+    locklocal <- newMVar ()
+    let logger :: forall a. K.LogItem a =>  K.Item a -> IO ()
+        logger item = withMVar locklocal $ \_ ->
+                        formatter h colorize K.V0 item
+    pure $ K.Scribe logger (hClose h)
+
+mkTextFileScribe :: FileDescription -> Bool -> IO K.Scribe
+mkTextFileScribe fdesc colorize = do
+    mkFileScribe fdesc formatter colorize
+  where
+    formatter :: Handle -> Bool -> K.Verbosity -> K.Item a -> IO ()
+    formatter hdl colorize' v' item = do
+        let tmsg = toLazyText $ formatItem colorize' v' item
+        TIO.hPutStrLn hdl tmsg
+
+mkJsonFileScribe :: FileDescription -> Bool -> IO K.Scribe
+mkJsonFileScribe fdesc colorize = do
+    mkFileScribe fdesc formatter colorize
   where
     formatter :: (K.LogItem a) => Handle -> Bool -> K.Verbosity -> K.Item a -> IO ()
     formatter h _ verbosity item = do
@@ -219,44 +257,12 @@ mkJsonFileScribeH handler color verb = do
                                          }
         TIO.hPutStrLn h (encodeToLazyText tmsg)
 
-mkTextFileScribeH :: Handle -> Bool -> K.Verbosity -> IO K.Scribe
-mkTextFileScribeH handler color verb = do
-    mkFileScribeH handler formatter color verb
-  where
-    formatter h colorize verbosity item =
-        TIO.hPutStrLn h $! toLazyText $ formatItem colorize verbosity item
-
-mkFileScribeH
-    :: Handle
-    -> (forall a . K.LogItem a => Handle -> Bool -> K.Verbosity -> K.Item a -> IO ())  -- format and output function
-    -> Bool  -- whether the output is colourized
-    -> K.Verbosity
-    -> IO K.Scribe
-mkFileScribeH h formatter colorize verbosity = do
-    hSetBuffering h LineBuffering
-    locklocal <- newMVar ()
-    let logger :: forall a. K.LogItem a =>  K.Item a -> IO ()
-        logger item = withMVar locklocal $ \_ ->
-                        formatter h colorize verbosity item
-    pure $ K.Scribe logger (hClose h)
-
-mkTextFileScribe :: FileDescription -> Bool -> Severity -> K.Verbosity -> IO K.Scribe
-mkTextFileScribe fdesc colorize s v = do
-    mkFileScribe fdesc formatter colorize s v
-  where
-    formatter :: Handle -> Bool -> K.Verbosity -> K.Item a -> IO ()
-    formatter hdl colorize' v' item = do
-        let tmsg = toLazyText $ formatItem colorize' v' item
-        TIO.hPutStrLn hdl tmsg
-
 mkFileScribe
     :: FileDescription
-    -> (forall a . K.LogItem a => Handle -> Bool -> K.Verbosity -> K.Item a -> IO ())  -- format and output function, returns written bytes
-    -> Bool  -- whether the output is colourized
-    -> Severity
-    -> K.Verbosity
+    -> (forall a . K.LogItem a => Handle -> Bool -> K.Verbosity -> K.Item a -> IO ())
+    -> Bool
     -> IO K.Scribe
-mkFileScribe fdesc formatter colorize _ v = do
+mkFileScribe fdesc formatter colorize = do
     let prefixDir = prefixPath fdesc
     (createDirectoryIfMissing True prefixDir)
         `catchIO` (prtoutException ("cannot log prefix directory: " ++ prefixDir))
@@ -273,7 +279,7 @@ mkFileScribe fdesc formatter colorize _ v = do
     let logger :: forall a. K.LogItem a => K.Item a -> IO ()
         logger item =
               withMVar scribestate $ \handler ->
-                  formatter handler colorize v item
+                  formatter handler colorize K.V0 item
     return $ K.Scribe logger finalizer
 
 \end{code}

@@ -55,7 +55,7 @@ main = defaultMain tests
 
 tests :: TestTree
 tests =
-  testGroup "ouroboros-bm"
+  testGroup "iohk-monitoring"
   [ Cardano.BM.Test.Aggregated.tests
   , Cardano.BM.Test.STM.tests
   , Cardano.BM.Test.Trace.tests

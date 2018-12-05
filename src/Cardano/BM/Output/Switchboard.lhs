@@ -17,9 +17,11 @@ import           Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar,
                      withMVar)
 import           Control.Concurrent.STM (STM, atomically)
 import qualified Control.Concurrent.STM.TBQueue as TBQ
-import           Control.Monad (forM_)
+import           Control.Monad (forM_, when)
 
 import           Cardano.BM.Configuration (Configuration)
+import           Cardano.BM.Configuration.Model (getBackends,
+                     getDefaultBackends)
 import           Cardano.BM.Data.Backend
 import           Cardano.BM.Data.LogItem
 import qualified Cardano.BM.Output.Aggregation
@@ -39,9 +41,10 @@ newtype Switchboard = Switchboard
 
 -- Our internal state
 data SwitchboardInternal = SwitchboardInternal
-    { sbQueue    :: TBQ.TBQueue (Maybe NamedLogItem)
-    , sbDispatch :: Async.Async ()
-    , sbBackends :: [Backend]
+    { sbQueue       :: TBQ.TBQueue (Maybe NamedLogItem)
+    , sbDispatch    :: Async.Async ()
+    , sbBackends    :: [(BackendKind, Backend)]
+    , configuration :: Configuration
     }
 
 \end{code}
@@ -53,18 +56,13 @@ TODO: the backends should be connected according to configuration.
 \begin{code}
 setup :: Configuration -> IO Switchboard
 setup cfg = do
-    ekgv <- Cardano.BM.Output.EKGView.setup cfg
-    aggr <- Cardano.BM.Output.Aggregation.setup cfg
-    logs <- Cardano.BM.Output.Log.setup cfg
-    -- TODO connect backends according to configuration
-    let bs = [ MkBackend {pass' = Cardano.BM.Output.Log.passN "StdoutSK" logs}
-             , MkBackend {pass' = Cardano.BM.Output.EKGView.pass ekgv}
-             , MkBackend {pass' = Cardano.BM.Output.Aggregation.pass aggr} ]
+    backends <- getDefaultBackends cfg
+    bs <- setupBackends cfg [] backends
 
     sbref <- newEmptyMVar
     q <- atomically $ TBQ.newTBQueue 2048
     d <- spawnDispatcher sbref q
-    putMVar sbref $ SwitchboardInternal q d bs
+    putMVar sbref $ SwitchboardInternal q d bs cfg
     return $ Switchboard sbref
   where
     spawnDispatcher :: SwitchboardMVar -> TBQ.TBQueue (Maybe NamedLogItem) -> IO (Async.Async ())
@@ -74,13 +72,30 @@ setup cfg = do
             nli' <- atomically $ TBQ.readTBQueue queue
             case nli' of
                 Just nli -> do
-                    putStrLn $ "dispatcher read: " ++ (show nli)
-                    withMVar switchboard $ \sb ->
-                        forM_ (sbBackends sb) (dispatch nli)
+                    withMVar switchboard $ \sb -> do
+                        selbes <- getBackends (configuration sb) (lnName nli)
+                        forM_ (sbBackends sb) ( \(bek, be) ->
+                            when (bek `elem` selbes) (dispatch nli be) )
                     qProc
                 Nothing -> return ()   -- end dispatcher
         dispatch :: NamedLogItem -> Backend -> IO ()
         dispatch nli backend = (pass' backend) nli
+
+    setupBackends :: Configuration -> [(BackendKind,Backend)] -> [BackendKind] -> IO [(BackendKind,Backend)]
+    setupBackends _ acc [] = return acc
+    setupBackends c acc (bk : bes) = do
+        be' <- setupBackend' bk c
+        setupBackends c ((bk,be') : acc) bes
+    setupBackend' :: BackendKind -> Configuration -> IO Backend
+    setupBackend' EKGViewBK c = do
+        be <- Cardano.BM.Output.EKGView.setup c
+        return $ MkBackend { pass'=Cardano.BM.Output.EKGView.pass be }
+    setupBackend' AggregationBK c = do
+        be <- Cardano.BM.Output.Aggregation.setup c
+        return $ MkBackend { pass'=Cardano.BM.Output.Aggregation.pass be }
+    setupBackend' KatipBK c = do
+        be <- Cardano.BM.Output.Log.setup c
+        return $ MkBackend { pass'=Cardano.BM.Output.Log.pass be }
 
 \end{code}
 
@@ -97,7 +112,6 @@ instance HasPass Switchboard where
                 if not nocapacity
                 then TBQ.writeTBQueue q (Just i)
                 else return ()
-        putStrLn $ "Cardano.BM.Output.Switchboard.pass " ++ (show item)
         withMVar (getSB switchboard) $ \sb ->
             atomically $ writequeue (sbQueue sb) item
 
