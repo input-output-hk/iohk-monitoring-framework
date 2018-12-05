@@ -1,5 +1,8 @@
 let
-   config = {
+  addRealTimeTestLogs = drv: overrideCabal drv (attrs: {
+    testTarget = "--show-details=streaming";
+  });
+  config = {
     packageOverrides = pkgs: rec {
       haskellPackages = pkgs.haskell.packages.ghc843.override {
         overrides = haskellPackagesNew: haskellPackagesOld: rec {
@@ -15,5 +18,5 @@ let
 
   pkgs = import nixpkgs { inherit config; };
 in
-  { iohk-monitoring = pkgs.haskellPackages.iohk-monitoring;
+  { iohk-monitoring = addRealTimeTestLogs pkgs.haskellPackages.iohk-monitoring;
   }
