@@ -29,6 +29,7 @@ import           Cardano.BM.Configuration (Configuration, inspectSeverity,
                      minSeverity, setMinSeverity, setSeverity, setSubTrace,
                      setup)
 import           Cardano.BM.Counters (diffTimeObserved, getMonoClock)
+import qualified Cardano.BM.BaseTrace as BaseTrace
 import           Cardano.BM.Data.Counter
 import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.Observable
@@ -39,9 +40,8 @@ import           Cardano.BM.Data.Trace
 import qualified Cardano.BM.Observer.Monadic as MonadicObserver
 import qualified Cardano.BM.Observer.STM as STMObserver
 import           Cardano.BM.Setup (newContext)
-import           Cardano.BM.Trace (Trace, appendName, logInfo, natTrace,
-                     noTrace, stdoutTrace, subTrace, traceInTVarIO,
-                     traceNamedInTVarIO)
+import           Cardano.BM.Trace (Trace, appendName, logInfo, noTrace,
+                     stdoutTrace, subTrace, traceInTVarIO, traceNamedInTVarIO)
 
 import           Test.Tasty (TestTree, testGroup)
 import           Test.Tasty.HUnit (Assertion, assertBool, testCase,
@@ -113,14 +113,13 @@ setupTrace (TraceConfiguration outk name trafo sev) = do
     c <- liftIO $ Cardano.BM.Configuration.setup "some_file_path.yaml"
     ctx <- liftIO $ newContext name c sev
     let logTrace0 = case outk of
-            StdOut             -> natTrace liftIO stdoutTrace
-            TVarList      tvar -> natTrace liftIO $ traceInTVarIO tvar
-            TVarListNamed tvar -> natTrace liftIO $ traceNamedInTVarIO tvar
+            StdOut             -> BaseTrace.natTrace liftIO stdoutTrace
+            TVarList      tvar -> BaseTrace.natTrace liftIO $ traceInTVarIO tvar
+            TVarListNamed tvar -> BaseTrace.natTrace liftIO $ traceNamedInTVarIO tvar
             Null               -> noTrace
 
-    let logTrace = (ctx, logTrace0)
     setSubTrace (configuration ctx) name (Just trafo)
-    (_, logTrace') <- subTrace "" logTrace
+    (_, logTrace') <- subTrace "" (ctx, logTrace0)
     return logTrace'
 
 setTransformer_ :: Trace IO -> LoggerName -> Maybe SubTrace -> IO ()

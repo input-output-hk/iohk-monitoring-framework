@@ -10,7 +10,7 @@ module Cardano.BM.Trace
     (
       Trace
     , stdoutTrace
-    , noTrace
+    , BaseTrace.noTrace
     , mainTrace
     , traceInTVar
     , traceInTVarIO
@@ -45,7 +45,7 @@ import qualified Data.Text.IO as TIO
 import           Data.Text.Lazy (toStrict)
 import           System.IO.Unsafe (unsafePerformIO)
 
-import           Cardano.BM.BaseTrace
+import qualified Cardano.BM.BaseTrace as BaseTrace
 import qualified Cardano.BM.Configuration as Config
 import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.Severity
@@ -55,6 +55,14 @@ import           Cardano.BM.Data.SubTrace
 
 \end{code}
 %endif
+
+\subsubsection{Utilities}
+Natural transformation from monad |m| to monad |n|.
+\begin{code}
+natTrace :: (forall x . m x -> n x) -> Trace m -> Trace n
+natTrace nat (ctx, trace) = (ctx, BaseTrace.natTrace nat trace)
+
+\end{code}
 
 \subsubsection{Enter new named context}\label{code:appendName}
 The context name is created and checked that its size is below a limit
@@ -84,7 +92,7 @@ appendWithDot xs newName = T.take 50 $ xs <> "." <> newName
 
 \begin{code}
 -- return a BaseTrace from a TraceNamed
-named :: BaseTrace m (LogNamed i) -> LoggerName -> BaseTrace m i
+named :: BaseTrace.BaseTrace m (LogNamed i) -> LoggerName -> BaseTrace.BaseTrace m i
 named trace name = contramap (LogNamed name) trace
 
 \end{code}
@@ -103,12 +111,12 @@ locallock = unsafePerformIO $ newMVar ()
 
 \subsubsection{Trace that forwards to the \nameref{code:Switchboard}}\label{code:mainTrace}
 
-Every |Trace| ends in the switchboard which then takes care of
+Every |Trace| ends in the \nameref{code:Switchboard} which then takes care of
 dispatching the messages to outputs
 
 \begin{code}
 mainTrace :: Switchboard.Switchboard -> TraceNamed IO
-mainTrace sb = BaseTrace $ Op $ \lognamed -> do
+mainTrace sb = BaseTrace.BaseTrace $ Op $ \lognamed -> do
     Switchboard.pass sb lognamed
 
 \end{code}
@@ -121,7 +129,7 @@ to the console.
 
 \begin{code}
 stdoutTrace :: TraceNamed IO
-stdoutTrace = BaseTrace $ Op $ \lognamed ->
+stdoutTrace = BaseTrace.BaseTrace $ Op $ \lognamed ->
     case lnItem lognamed of
         LP (LogMessage logItem) ->
             withMVar locallock $ \_ ->
@@ -138,15 +146,15 @@ stdoutTrace = BaseTrace $ Op $ \lognamed ->
 \subsubsection{Concrete Trace into a |TVar|}\label{code:traceInTVar}\label{code:traceInTVarIO}
 
 \begin{code}
-traceInTVar :: STM.TVar [a] -> BaseTrace STM.STM a
-traceInTVar tvar = BaseTrace $ Op $ \a -> STM.modifyTVar tvar ((:) a)
+traceInTVar :: STM.TVar [a] -> BaseTrace.BaseTrace STM.STM a
+traceInTVar tvar = BaseTrace.BaseTrace $ Op $ \a -> STM.modifyTVar tvar ((:) a)
 
 traceInTVarIO :: STM.TVar [LogObject] -> TraceNamed IO
-traceInTVarIO tvar = BaseTrace $ Op $ \ln ->
+traceInTVarIO tvar = BaseTrace.BaseTrace $ Op $ \ln ->
                          STM.atomically $ STM.modifyTVar tvar ((:) (lnItem ln))
 
 traceNamedInTVarIO :: STM.TVar [LogNamed LogObject] -> TraceNamed IO
-traceNamedInTVarIO tvar = BaseTrace $ Op $ \ln ->
+traceNamedInTVarIO tvar = BaseTrace.BaseTrace $ Op $ \ln ->
                          STM.atomically $ STM.modifyTVar tvar ((:) ln)
 
 \end{code}
@@ -160,15 +168,15 @@ A third filter is the |minSeverity| defined in the current context.
 \begin{code}
 traceConditionally
     :: (MonadIO m)
-    => TraceContext -> BaseTrace m LogObject -> LogObject
+    => TraceContext -> BaseTrace.BaseTrace m LogObject -> LogObject
     -> m ()
 traceConditionally ctx logTrace msg@(LP (LogMessage item)) = do
     globminsev <- liftIO $ Config.minSeverity (configuration ctx)
     globnamesev <- liftIO $ Config.inspectSeverity (configuration ctx) (loggerName ctx)
     let minsev = max (minSeverity ctx) $ max globminsev (fromMaybe Debug globnamesev)
         flag = (liSeverity item) >= minsev
-    when flag $ traceWith logTrace msg
-traceConditionally _ logTrace logObject = traceWith logTrace logObject
+    when flag $ BaseTrace.traceWith logTrace msg
+traceConditionally _ logTrace logObject = BaseTrace.traceWith logTrace logObject
 
 \end{code}
 
@@ -282,7 +290,7 @@ traceNamedObject
     :: Trace m
     -> LogObject
     -> m ()
-traceNamedObject (ctx, logTrace) = traceWith (named logTrace (loggerName ctx))
+traceNamedObject (ctx, logTrace) = BaseTrace.traceWith (named logTrace (loggerName ctx))
 
 \end{code}
 
@@ -305,8 +313,8 @@ subTrace name tr@(ctx, _) = do
         UntimedTrace -> do
                             tr' <- appendName name tr
                             return $ (subtrace, tr')
-        NoTrace      -> return (subtrace, (ctx, BaseTrace $ Op $ \_ -> pure ()))
-        DropOpening  -> return (subtrace, (ctx, BaseTrace $ Op $ \lognamed -> do
+        NoTrace      -> return (subtrace, (ctx, BaseTrace.BaseTrace $ Op $ \_ -> pure ()))
+        DropOpening  -> return (subtrace, (ctx, BaseTrace.BaseTrace $ Op $ \lognamed -> do
             case lnItem lognamed of
                 ObserveOpen _ -> return ()
                 obj           -> traceNamedObject tr obj))
