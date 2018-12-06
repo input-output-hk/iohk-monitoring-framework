@@ -50,7 +50,7 @@ setupTrace_ c name = do
     sev <- liftIO $ Config.minSeverity c
     ctx <- liftIO $ newContext name c sev
 
-    let logTrace = (ctx, natTrace liftIO (mainTrace sb))
+    let logTrace = natTrace liftIO (ctx, mainTrace sb)
     (_, logTrace') <- subTrace "" logTrace
     return logTrace'
 
