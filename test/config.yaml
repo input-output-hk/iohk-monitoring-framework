@@ -1,0 +1,38 @@
+# this is a test configuration
+
+minSeverity: Info
+
+rotation:
+  rpLogLimitBytes: 5000000
+  rpKeepFilesNum:  10
+  rpMaxAgeHours:   24
+
+setupScribes:
+  - scKind: StdoutSK
+    scName: stdout
+    scRotation: null
+  - scKind: FileTextSK
+    scName: "testlog"
+    scRotation: 
+      rpLogLimitBytes: 25000000
+      rpKeepFilesNum:  3
+      rpMaxAgeHours:   24
+
+defaultScribes:
+  - - StdoutSK
+    - stdout
+
+setupBackends:
+  - AggregationBK
+#  - EKGViewBK
+  - KatipBK
+
+defaultBackends:
+  - KatipBK
+
+# hasGUI: 18321
+hasEKG: 12789
+
+options:
+  cfokey:
+    value: "Release-1.0.0"

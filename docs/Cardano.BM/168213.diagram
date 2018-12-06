@@ -1,0 +1,130 @@
+format 221
+
+packagecanvas 128021 
+  package_ref 128021 // Cardano.BM
+    xyzwh 18 13 2000 807 559
+end
+packagecanvas 128405 
+  package_ref 134933 // Observer
+    xyzwh 195 49 2005 455 239
+end
+packagecanvas 128533 
+  package_ref 148373 // Configuration
+    xyzwh 514 352 2005 227 155
+end
+packagecanvas 128661 
+  package_ref 135061 // Output
+    xyzwh 44 314 2005 405 217
+end
+classcanvas 129685 class_ref 129685 // Katip
+  classdiagramsettings member_max_width 0 end
+  xyz 176 456 2010
+end
+classcanvas 129813 class_ref 129173 // EKGView
+  classdiagramsettings member_max_width 0 end
+  xyz 315 360 2010
+end
+classcanvas 129941 class_ref 128917 // Aggregation
+  classdiagramsettings member_max_width 0 end
+  xyz 310 449 2010
+end
+classcanvas 130069 class_ref 144277 // Switchboard
+  classdiagramsettings member_max_width 0 end
+  xyz 130 359 2016
+end
+classcanvas 130965 class_ref 128277 // BaseTrace
+  classdiagramsettings member_max_width 0 end
+  xyz 230 86 2010
+end
+classcanvas 131093 class_ref 128021 // Trace
+  classdiagramsettings member_max_width 0 end
+  xyz 246 156 2022
+end
+classcanvas 131477 class_ref 128789 // STMObserver
+  classdiagramsettings member_max_width 0 end
+  xyz 386 168 2010
+end
+classcanvas 131605 class_ref 128661 // MonadicObserver
+  classdiagramsettings member_max_width 0 end
+  xyz 373 103 2010
+end
+classcanvas 131733 class_ref 170773 // Configuration
+  classdiagramsettings member_max_width 0 end
+  xyzwh 546 387 2010 111 39
+end
+classcanvas 131861 class_ref 170901 // ConfigurationView
+  classdiagramsettings member_max_width 0 end
+  xyzwh 586 453 2010 141 39
+end
+classcanvas 132117 class_ref 129301 // Counters
+  classdiagramsettings member_max_width 0 end
+  xyz 547 90 2010
+end
+classcanvas 132245 class_ref 130325 // Counter
+  classdiagramsettings member_max_width 0 end
+  xyz 551 178 2010
+end
+classcanvas 132629 class_ref 129941 // TraceContext
+  classdiagramsettings member_max_width 0 end
+  xyz 243 214 2011
+end
+classcanvas 132757 class_ref 144533 // Backend
+  classdiagramsettings hide_operations no member_max_width 0 end
+  xyz 60 435 2010
+end
+simplerelationcanvas 129301 simplerelation_ref 128149
+  from ref 128661 z 2006 to ref 128533
+end
+simplerelationcanvas 129429 simplerelation_ref 128277
+  from ref 128405 z 2006 to ref 128533
+end
+relationcanvas 130197 relation_ref 150677 // <unidirectional association>
+  from ref 130069 z 2017 to ref 129685
+  no_role_a no_role_b
+  no_multiplicity_a no_multiplicity_b
+end
+relationcanvas 130325 relation_ref 150805 // <unidirectional association>
+  from ref 130069 z 2017 to ref 129813
+  no_role_a no_role_b
+  no_multiplicity_a no_multiplicity_b
+end
+relationcanvas 130453 relation_ref 150933 // <unidirectional association>
+  from ref 130069 z 2017 to ref 129941
+  no_role_a no_role_b
+  no_multiplicity_a no_multiplicity_b
+end
+relationcanvas 130581 relation_ref 151573 // <dependency>
+  from ref 130069 z 2017 to ref 129941
+  no_role_a no_role_b
+  no_multiplicity_a no_multiplicity_b
+end
+relationcanvas 130709 relation_ref 151701 // <dependency>
+  from ref 130069 z 2017 to ref 129813
+  no_role_a no_role_b
+  no_multiplicity_a no_multiplicity_b
+end
+relationcanvas 130837 relation_ref 151829 // <dependency>
+  from ref 130069 z 2017 to ref 129685
+  no_role_a no_role_b
+  no_multiplicity_a no_multiplicity_b
+end
+relationcanvas 131221 relation_ref 128149 // <generalisation>
+  from ref 131093 z 2023 to ref 130965
+  no_role_a no_role_b
+  no_multiplicity_a no_multiplicity_b
+end
+relationcanvas 131989 relation_ref 179349 // <dependency>
+  from ref 131861 z 2011 to ref 131733
+  no_role_a no_role_b
+  no_multiplicity_a no_multiplicity_b
+end
+relationcanvas 132501 relation_ref 179605 // <composition>
+  from ref 132117 z 2011 to ref 132245
+  no_role_a no_role_b
+  no_multiplicity_a no_multiplicity_b
+end
+simplerelationcanvas 132885 simplerelation_ref 134933
+  decenter_end 619
+  from ref 128405 z 2006 to ref 128661
+end
+end

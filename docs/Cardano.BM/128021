@@ -1,0 +1,618 @@
+format 221
+"Cardano.BM" // Cardano.BM
+  revision 18
+  modified_by 21 "axeld"
+  // class settings
+  
+  classdiagramsettings member_max_width 0 gradient horiz end
+  
+  classcompositediagramsettings end
+  
+  usecasediagramsettings end
+  
+  sequencediagramsettings end
+  
+  collaborationdiagramsettings end
+  
+  objectdiagramsettings end
+  
+  objectcompositediagramsettings end
+  
+  componentdiagramsettings
+   end
+  
+  deploymentdiagramsettings
+   end
+  
+  statediagramsettings
+   end
+  
+  activitydiagramsettings
+   end
+  
+  class_color lightblue note_color lightyellow 
+  classview 128021 "Overview"
+    
+    classdiagramsettings member_max_width 0 end
+    
+    classcompositediagramsettings end
+    
+    collaborationdiagramsettings end
+    
+    objectdiagramsettings end
+    
+    objectcompositediagramsettings end
+    
+    sequencediagramsettings end
+    
+    statediagramsettings
+     end
+    
+    
+    activitydiagramsettings
+     end
+    classdiagram 128021 "Overview_Classes"
+      stereotype "Diagram"
+      classdiagramsettings draw_all_relations no hide_attributes yes hide_operations yes member_max_width 0 end
+      size A4-Landscape
+    end
+
+    class 129813 "User"
+      visibility package 
+      cpp_decl "${comment}${template}class ${name}${inherit} {
+${members}};
+${inlines}
+"
+      java_decl ""
+      php_decl ""
+      python_2_2 python_decl ""
+      idl_decl ""
+      explicit_switch_type ""
+      mysql_decl ""
+      
+    end
+
+    classinstance 128021 "Setup"
+      type class_ref 128149 // Setup
+      attributes
+        end
+      relations
+        end
+    end
+
+    activity 128021 "Concurrent_Trace"
+      activitydiagram 155157 "Activity"
+	stereotype "Diagram"
+	activitydiagramsettings draw_all_relations no
+	 end
+	size A4
+      end
+    end
+
+    activity 128277 "observe STM"
+      specification operation_ref 128917 // observeIO
+      activitynode 128277 initial_node ""
+	flow 128533 "observeIO"
+	  on activityaction_ref 128277 // activity action STM action
+	end
+      end
+
+      activitynode 128405 activity_final ""
+	stereotype "NamedLogItem"
+      end
+
+      activityaction 128277 "STM action"
+	opaque_action
+	flow 128661 "<flow>"
+	  on activityobject_ref 128149 // activity object LogObject
+	end
+      end
+
+      activityaction 128405 "Trace"
+	opaque_action
+	flow 133269 "<flow>"
+	  on activityobject_ref 128661 // activity object LogObject
+	end
+      end
+
+      activityobject 128149 "LogObject"
+	 explicit_type ""
+	unordered 
+	flow 128789 "<flow>"
+	  on activityaction_ref 128405 // activity action Trace
+	end
+      end
+
+      activityobject 128661 "LogObject"
+	 explicit_type ""
+	unordered 
+	flow 133397 "<flow>"
+	  on activityaction_ref 129685 // activity action Trace'
+	end
+
+	flow 141333 "<flow>"
+	  on activityaction_ref 129685 // activity action Trace'
+	end
+      end
+
+      activityaction 129685 "Trace'"
+	opaque_action
+	flow 133525 "pass"
+	  on activitynode_ref 128405 // activity_final
+	end
+
+	flow 141461 "<flow>"
+	  on activityobject_ref 135317 // activity object NamedLogItem
+	end
+      end
+
+      activityaction 136341 "Switchboard"
+	opaque_action
+	flow 141717 "<flow>"
+	  on activitynode_ref 128405 // activity_final
+	end
+      end
+
+      activityobject 135317 "NamedLogItem"
+	 explicit_type ""
+	unordered 
+	flow 141589 "pass"
+	  on activityaction_ref 136341 // activity action Switchboard
+	end
+      end
+    end
+
+    activity 128149 "logging"
+      specification operation_ref 129301 // logInfo
+      activityaction 128021 "Trace"
+	opaque_action
+	flow 140693 "<flow>"
+	  on activityobject_ref 128021 // activity object LogObject
+	end
+      end
+
+      activitynode 128021 initial_node ""
+	flow 140565 "logInfo"
+	  on activityaction_ref 128021 // activity action Trace
+	end
+      end
+
+      activitynode 128149 activity_final ""
+	stereotype "NamedLogItem"
+      end
+
+      activityaction 128149 "Trace'"
+	opaque_action
+	flow 140949 "<flow>"
+	  on activityobject_ref 128789 // activity object NamedLogItem
+	end
+      end
+
+      activityobject 128021 "LogObject"
+	 explicit_type ""
+	unordered 
+	flow 140821 "<flow>"
+	  on activityaction_ref 128149 // activity action Trace'
+	end
+      end
+
+      activityobject 128789 "NamedLogItem"
+	 explicit_type ""
+	unordered 
+	flow 141077 "pass"
+	  on activityaction_ref 136213 // activity action Switchboard
+	end
+      end
+
+      activityaction 136213 "Switchboard"
+	opaque_action
+	flow 141205 "<flow>"
+	  on activitynode_ref 128149 // activity_final
+	end
+      end
+    end
+
+    activity 128405 "Processing"
+      specification operation_ref 144405 // pass
+      activitynode 128533 initial_node ""
+	stereotype "NamedLogItem"
+	flow 131093 "<flow>"
+	  on activityobject_ref 128277 // activity object incoming
+	end
+      end
+
+      activityaction 128661 "Dispatch"
+	stereotype "Switchboard"
+	opaque_action
+	flow 132629 "<flow>"
+	  on activitynode_ref 128789 // decision
+	end
+      end
+
+      activitynode 128661 fork "queue"
+	stereotype "MessageQueue"
+	flow 129173 "<flow>"
+	  on activityaction_ref 128661 // activity action Dispatch
+	end
+      end
+
+      activitynode 128789 decision ""
+	flow 132117 "pass'"
+	  on activityaction_ref 128917 // activity action EKGView
+	end
+
+	flow 148757 "pass'"
+	  on activityaction_ref 129045 // activity action Aggregation
+	end
+
+	flow 149269 "pass'"
+	  on activityaction_ref 129173 // activity action Katip
+	end
+      end
+
+      activityaction 128917 "EKGView"
+	call_operation_action
+	operation_ref 144405 // pass
+	pin 128277 "" type class_ref 144533 // Backend
+	  unordered 
+	  in
+	end
+
+	pin 128405 "nli" type class_ref 157717 // NamedLogItem
+	  unordered 
+	  in
+	end
+      end
+
+      activityaction 129045 "Aggregation"
+	call_operation_action
+	operation_ref 144405 // pass
+	pin 128021 "" type class_ref 144533 // Backend
+	  unordered 
+	  in
+	end
+
+	pin 128149 "nli" type class_ref 157717 // NamedLogItem
+	  unordered 
+	  in
+	end
+
+	flow 150037 "<flow>"
+	  on activityaction_ref 143125 // activity action Dispatch'
+	end
+
+	flow 150293 "<flow>"
+	  on activityaction_ref 143381 // activity action StateStore
+	end
+      end
+
+      activityaction 129173 "Katip"
+	call_operation_action
+	operation_ref 144405 // pass
+	pin 128533 "" type class_ref 144533 // Backend
+	  unordered 
+	  in
+	end
+
+	pin 128661 "nli" type class_ref 157717 // NamedLogItem
+	  unordered 
+	  in
+	end
+
+	flow 149525 "<flow>"
+	  on activityobject_ref 128533 // activity object katip
+	end
+      end
+
+      activityobject 128277 "incoming"
+	 type class_ref 144661 // MessageQueue
+	unordered 
+	flow 131349 "<flow>"
+	  on activitynode_ref 128661 // fork
+	end
+      end
+
+      activityobject 128533 "katip"
+	 type class_ref 144661 // MessageQueue
+	unordered 
+	flow 132373 "<flow>"
+	  on activitynode_ref 129429 // fork
+	end
+      end
+
+      activitynode 129429 fork ""
+	flow 149397 "<flow>"
+	  on activitynode_ref 129557 // decision
+	end
+      end
+
+      activitynode 129557 decision ""
+	flow 132885 "<flow>"
+	  on activityaction_ref 129301 // activity action StdoutBE
+	end
+
+	flow 133013 "<flow>"
+	  on activityaction_ref 129429 // activity action FileTextBE
+	end
+
+	flow 133141 "<flow>"
+	  on activityaction_ref 129557 // activity action FileJsonBE
+	end
+      end
+
+      activityaction 129301 "StdoutBE"
+	opaque_action
+      end
+
+      activityaction 129429 "FileTextBE"
+	opaque_action
+      end
+
+      activityaction 129557 "FileJsonBE"
+	opaque_action
+      end
+
+      activityaction 143125 "Dispatch'"
+	opaque_action
+	flow 149653 "<flow>"
+	  on activitynode_ref 136341 // decision
+	end
+      end
+
+      activitynode 136341 decision ""
+	flow 149781 "<flow>"
+	  on activityaction_ref 128917 // activity action EKGView
+	end
+
+	flow 149909 "<flow>"
+	  on activityaction_ref 129173 // activity action Katip
+	end
+      end
+
+      activityaction 143381 "StateStore"
+	opaque_action
+      end
+    end
+
+    collaborationdiagram 161685 "Setup_Procedure"
+      stereotype "Diagram"
+      collaborationdiagramsettings end
+      size A4
+    end
+
+    classdiagram 168213 "Subsystems"
+      classdiagramsettings draw_all_relations no hide_attributes yes hide_operations yes member_max_width 0 end
+      size A4
+    end
+
+    class 177429 "Stdout"
+      visibility package 
+      cpp_decl ""
+      java_decl ""
+      php_decl ""
+      python_2_2 python_decl ""
+      idl_decl "${comment}${abstract}${custom}valuetype ${name}${inherit} {
+${members}};
+"
+      explicit_switch_type ""
+      mysql_decl ""
+      
+    end
+
+    class 177557 "TextLog"
+      visibility package 
+      cpp_decl ""
+      java_decl ""
+      php_decl ""
+      python_2_2 python_decl ""
+      idl_decl "${comment}${abstract}${custom}valuetype ${name}${inherit} {
+${members}};
+"
+      explicit_switch_type ""
+      mysql_decl ""
+      
+    end
+
+    class 177685 "JsonLog"
+      visibility package 
+      cpp_decl ""
+      java_decl ""
+      php_decl ""
+      python_2_2 python_decl ""
+      idl_decl "${comment}${abstract}${custom}valuetype ${name}${inherit} {
+${members}};
+"
+      explicit_switch_type ""
+      mysql_decl ""
+      
+    end
+  end
+
+  package_ref 134933 // Observer
+
+  classview 128149 "Configuration"
+    
+    classdiagramsettings member_max_width 0 end
+    
+    classcompositediagramsettings end
+    
+    collaborationdiagramsettings end
+    
+    objectdiagramsettings end
+    
+    objectcompositediagramsettings end
+    
+    sequencediagramsettings end
+    
+    statediagramsettings
+     end
+    
+    
+    activitydiagramsettings
+     end
+    collaborationdiagram 128149 "Configuration_Apply_SeverityFilter"
+      stereotype "Diagram"
+      collaborationdiagramsettings show_hierarchical_rank yes end
+      size A4
+    end
+
+    collaborationdiagram 128405 "Configuration_Update_SeverityFilter"
+      stereotype "Diagram"
+      collaborationdiagramsettings end
+      size A4
+    end
+
+    collaborationdiagram 135317 "Configuration_Update_OutputSelection"
+      stereotype "Diagram"
+      collaborationdiagramsettings end
+      size A4
+    end
+  end
+
+  classview 134805 "EKG"
+    
+    classdiagramsettings member_max_width 0 end
+    
+    classcompositediagramsettings end
+    
+    collaborationdiagramsettings end
+    
+    objectdiagramsettings end
+    
+    objectcompositediagramsettings end
+    
+    sequencediagramsettings end
+    
+    statediagramsettings
+     end
+    
+    
+    activitydiagramsettings
+     end
+  end
+
+  classview 134933 "TeeTrace"
+    
+    classdiagramsettings member_max_width 0 end
+    
+    classcompositediagramsettings end
+    
+    collaborationdiagramsettings end
+    
+    objectdiagramsettings end
+    
+    objectcompositediagramsettings end
+    
+    sequencediagramsettings end
+    
+    statediagramsettings
+     end
+    
+    
+    activitydiagramsettings
+     end
+  end
+
+  componentview 134549 "Overall_Components"
+    //component diagram settings
+    componentdiagramsettings
+     end
+    componentdiagram 142101 "Component View"
+      stereotype "Diagram"
+      componentdiagramsettings draw_all_relations no
+       end
+      size A4
+    end
+
+    component 128277 "LoggingSetup"
+      provided_classes
+	class_ref 137493 // CardanoFeature
+      end
+    end
+
+    component 128149 "LoggingConfiguration"
+      provided_classes
+	class_ref 137237 // CardanoConfiguration
+      end
+    end
+
+    component 134805 "Trace"
+      realizing_classes
+	class_ref 128021 // Trace
+      end
+      provided_classes
+	class_ref 144021 // LogObject
+      end
+      required_classes
+	class_ref 144021 // LogObject
+	class_ref 129941 // TraceContext
+      end
+    end
+
+    component 134933 "Katip"
+      realizing_classes
+	class_ref 144405 // KatipOFF
+      end
+      provided_classes
+	class_ref 129685 // Katip
+      end
+      required_classes
+	class_ref 157717 // NamedLogItem
+      end
+    end
+
+    component 135061 "Switchboard"
+      realizing_classes
+	class_ref 144277 // Switchboard
+      end
+      provided_classes
+	class_ref 157717 // NamedLogItem
+      end
+      required_classes
+	class_ref 136981 // Configuration
+	class_ref 157717 // NamedLogItem
+      end
+    end
+
+    component 135189 "Aggregator"
+      realizing_classes
+	class_ref 128917 // Aggregation
+      end
+      provided_classes
+	class_ref 157717 // NamedLogItem
+      end
+      required_classes
+	class_ref 157717 // NamedLogItem
+      end
+    end
+
+    component 135445 "EKGView"
+      realizing_classes
+	class_ref 129173 // EKGView
+      end
+      provided_classes
+	class_ref 129173 // EKGView
+      end
+      required_classes
+	class_ref 157717 // NamedLogItem
+      end
+    end
+
+    component 141973 "Trace'"
+      provided_classes
+	class_ref 157717 // NamedLogItem
+      end
+      required_classes
+	class_ref 144021 // LogObject
+      end
+    end
+  end
+
+  package_ref 135061 // Output
+
+  package_ref 135189 // Data
+
+  package_ref 148373 // Configuration
+
+  package_ref 148245 // Trace
+end

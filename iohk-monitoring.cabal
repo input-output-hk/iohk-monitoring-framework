@@ -1,0 +1,130 @@
+name:                iohk-monitoring
+version:             0.1.0.0
+synopsis:            loggin, benchmarking and monitoring framework
+-- description:
+license:             MIT
+license-file:        LICENSE
+author:              Alexander Diemand, Andreas Triantafyllos
+maintainer:
+copyright:           2018 IOHK
+category:            Benchmarking
+build-type:          Simple
+extra-source-files:  CHANGELOG.md, README.md
+cabal-version:       >=1.10
+
+library
+  hs-source-dirs:      src
+  exposed-modules:
+                       Cardano.BM.Aggregated
+                       Cardano.BM.BaseTrace
+
+                       Cardano.BM.Configuration
+                       Cardano.BM.Configuration.Model
+                       Cardano.BM.Configuration.Static
+
+                       Cardano.BM.Counters
+                       Cardano.BM.Counters.Common
+                       Cardano.BM.Counters.Dummy
+                       Cardano.BM.Counters.Linux
+
+                       Cardano.BM.Data.Backend
+                       Cardano.BM.Data.Configuration
+                       Cardano.BM.Data.Counter
+                       Cardano.BM.Data.LogItem
+                       Cardano.BM.Data.Observable
+                       Cardano.BM.Data.Output
+                       Cardano.BM.Data.Rotation
+                       Cardano.BM.Data.Severity
+                       Cardano.BM.Data.SubTrace
+                       Cardano.BM.Data.Trace
+
+                       Cardano.BM.Observer.Monadic
+                       Cardano.BM.Observer.STM
+
+                       Cardano.BM.Output.Aggregation
+                       Cardano.BM.Output.EKGView
+                       Cardano.BM.Output.Log
+                       Cardano.BM.Output.Switchboard
+
+                       Cardano.BM.Setup
+                       Cardano.BM.Trace
+  other-modules:
+  default-language:    Haskell2010
+  default-extensions:  OverloadedStrings
+  other-extensions:    OverloadedStrings
+  build-depends:       base >= 4.11,
+                       aeson,
+                       array,
+                       async,
+                       auto-update,
+                       bytestring,
+                       clock,
+                       containers,
+                       contravariant,
+                       directory,
+                       ekg,
+                       ekg-core,
+                       exceptions,
+                       filepath,
+                       katip,
+                       lens,
+                       mtl,
+                       safe-exceptions,
+                       stm,
+                       template-haskell,
+                       text,
+                       time,
+                       time-units,
+                       transformers,
+                       unix,
+                       unordered-containers,
+                       yaml
+
+  ghc-options:         -Wall
+                       -fno-ignore-asserts
+
+test-suite tests
+  type:                exitcode-stdio-1.0
+  hs-source-dirs:      test
+  main-is:             Test.lhs
+  other-modules:       Cardano.BM.Test.Trace
+                       Cardano.BM.Test.Aggregated
+                       Cardano.BM.Test.STM
+                       Cardano.BM.Arbitrary.Aggregated
+  default-language:    Haskell2010
+  default-extensions:  OverloadedStrings
+  build-depends:       base,
+                       iohk-monitoring,
+
+                       array,
+                       bytestring,
+                       clock,
+                       containers,
+                       mtl,
+                       process,
+                       QuickCheck,
+                       random,
+                       semigroups,
+                       stm,
+                       tasty,
+                       tasty-hunit,
+                       tasty-quickcheck,
+                       text,
+                       time,
+                       time-units,
+                       transformers,
+                       void
+  ghc-options:         -Wall
+
+executable example-simple
+  hs-source-dirs:      examples/simple
+  main-is:             Main.hs
+  default-language:    Haskell2010
+  ghc-options:         -threaded -Wall -O2 "-with-rtsopts=-T"
+  other-modules:
+  build-depends:       base,
+                       iohk-monitoring,
+                       async,
+                       bytestring,
+                       mtl,
+                       unix

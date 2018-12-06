@@ -1,0 +1,353 @@
+format 221
+
+activitycanvas 128021 activity_ref 128149 // logging
+  
+  xyzwh 9 18 2000 333 261
+end
+activityactioncanvas 128149 activityaction_ref 128021 // activity action Trace
+  
+  show_opaque_action_definition default
+  xyzwh 110 76 2005 81 41
+end
+activitynodecanvas 128277 activitynode_ref 128021 // initial_node
+  xyz 24 85 2005
+end
+activitynodecanvas 128405 activitynode_ref 128149 // activity_final
+  xyz 227 231 2005
+end
+activityactioncanvas 128661 activityaction_ref 128149 // activity action Trace'
+  
+  show_opaque_action_definition default
+  xyzwh 228 154 2005 79 41
+end
+activityobjectcanvas 128917 activityobject_ref 128021 // activity object LogObject
+  
+  xyzwh 225 82 2005 81 31
+end
+activitycanvas 129429 activity_ref 128277 // observe STM
+  
+  xyzwh 359 16 2000 391 261
+end
+activitynodecanvas 129557 activitynode_ref 128277 // initial_node
+  xyz 691 87 2005
+end
+activitynodecanvas 129685 activitynode_ref 128405 // activity_final
+  xyz 390 222 2005
+end
+activityactioncanvas 129813 activityaction_ref 128277 // activity action STM action
+  
+  show_opaque_action_definition default
+  xyzwh 539 74 2005 91 45
+end
+activityactioncanvas 129941 activityaction_ref 128405 // activity action Trace
+  
+  show_opaque_action_definition default
+  xyzwh 408 144 2005 91 45
+end
+activityobjectcanvas 130069 activityobject_ref 128149 // activity object LogObject
+  
+  xyzwh 412 83 2005 81 31
+end
+activitycanvas 130837 activity_ref 128405 // Processing
+  
+  xyzwh 11 292 2000 683 635
+end
+activitynodecanvas 130965 activitynode_ref 128533 // initial_node
+  xyz 155 332 2005
+end
+activityactioncanvas 131221 activityaction_ref 128661 // activity action Dispatch
+  
+  show_opaque_action_definition default
+  color lightmediumgreen
+  xyzwh 246 429 2005 128 59
+end
+activitynodecanvas 131349 activitynode_ref 128661 // fork
+   xyzwh 409 373 2005 15 37
+end
+activitynodecanvas 131477 activitynode_ref 128789 // decision
+  xyz 299 529 2005
+end
+activityactioncanvas 132117 activityaction_ref 128917 // activity action EKGView
+  
+  show_opaque_action_definition default
+  color verylightorange
+  xyzwh 294 603 2005 91 40
+  pins
+    pincanvas 139029 pin_ref 128277 // 
+      xyzwh 284 609 2007 11 11 label_xy 243 600
+    end
+    pincanvas 139157 pin_ref 128405 // nli
+      xyzwh 284 626 2007 11 11 label_xy 259 617
+    end
+  end
+end
+activityactioncanvas 132245 activityaction_ref 129045 // activity action Aggregation
+  
+  show_opaque_action_definition default
+  color verylightorange
+  xyzwh 496 602 2005 99 40
+  pins
+    pincanvas 138773 pin_ref 128021 // 
+      xyzwh 486 608 2007 11 11 label_xy 445 599
+    end
+    pincanvas 138901 pin_ref 128149 // nli
+      xyzwh 486 619 2007 11 11 label_xy 461 616
+    end
+  end
+end
+activityactioncanvas 132885 activityaction_ref 129173 // activity action Katip
+  
+  show_opaque_action_definition default
+  color verylightorange
+  xyzwh 95 607 2005 101 40
+  pins
+    pincanvas 141333 pin_ref 128533 // 
+      xyzwh 85 613 2007 11 11 label_xy 44 604
+    end
+    pincanvas 141461 pin_ref 128661 // nli
+      xyzwh 85 630 2007 11 11 label_xy 60 621
+    end
+  end
+end
+activityobjectcanvas 135445 activityobject_ref 128277 // activity object incoming
+  
+  xyzwh 254 319 2005 115 45
+end
+activityobjectcanvas 136597 activityobject_ref 128533 // activity object katip
+  
+  xyzwh 90 674 2005 115 45
+end
+activitynodecanvas 137109 activitynode_ref 129429 // fork
+   xyzwh 236 722 2010 15 35
+end
+activitynodecanvas 137621 activitynode_ref 129557 // decision
+  xyz 179 772 2005
+end
+activityactioncanvas 137749 activityaction_ref 129301 // activity action StdoutBE
+  
+  show_opaque_action_definition default
+  xyzwh 322 800 2005 101 40
+end
+activityactioncanvas 137877 activityaction_ref 129429 // activity action FileTextBE
+  
+  show_opaque_action_definition default
+  xyzwh 224 853 2005 101 40
+end
+activityactioncanvas 138005 activityaction_ref 129557 // activity action FileJsonBE
+  
+  show_opaque_action_definition default
+  xyzwh 73 841 2005 101 40
+end
+activityobjectcanvas 139413 activityobject_ref 128661 // activity object LogObject
+  
+  xyzwh 533 152 2011 81 31
+end
+activityactioncanvas 140053 activityaction_ref 129685 // activity action Trace'
+  
+  show_opaque_action_definition default
+  xyzwh 640 149 2005 91 43
+end
+activityobjectcanvas 140821 activityobject_ref 128789 // activity object NamedLogItem
+  
+  xyzwh 48 159 2010 113 31
+end
+activityactioncanvas 142229 activityaction_ref 136213 // activity action Switchboard
+  
+  show_opaque_action_definition default
+  xyzwh 58 223 2005 95 41
+end
+activityactioncanvas 142741 activityaction_ref 136341 // activity action Switchboard
+  
+  show_opaque_action_definition default
+  xyzwh 462 214 2005 100 40
+end
+activityobjectcanvas 142997 activityobject_ref 135317 // activity object NamedLogItem
+  
+  xyzwh 633 216 2005 113 31
+end
+activityactioncanvas 145173 activityaction_ref 143125 // activity action Dispatch'
+  
+  show_opaque_action_definition default
+  color lightmediumgreen
+  xyzwh 500 702 2011 91 40
+end
+activitynodecanvas 146197 activitynode_ref 136341 // decision
+  xyz 355 701 2005
+end
+activityactioncanvas 147093 activityaction_ref 143381 // activity action StateStore
+  
+  show_opaque_action_definition default
+  xyzwh 583 540 2010 88 44
+end
+flowcanvas 130197 flow_ref 128533 // observeIO
+  
+  from ref 129557 z 2006 label "observeIO" xyz 638 71 2006 to ref 129813
+   write_horizontally default
+end
+flowcanvas 130325 flow_ref 128661 // <flow>
+  
+  from ref 129813 z 2006 to ref 130069
+   write_horizontally default
+end
+flowcanvas 130453 flow_ref 128789 // <flow>
+  
+  from ref 130069 z 2006 to ref 129941
+   write_horizontally default
+end
+flowcanvas 131733 flow_ref 129173 // <flow>
+  decenter_begin 648
+  
+  from ref 131349 z 2006 to ref 131221
+   write_horizontally default
+end
+flowcanvas 135573 flow_ref 131093 // <flow>
+  
+  from ref 130965 z 2006 to ref 135445
+   write_horizontally default
+end
+flowcanvas 135829 flow_ref 131349 // <flow>
+  decenter_end 257
+  
+  from ref 135445 z 2006 to ref 131349
+   write_horizontally default
+end
+flowcanvas 136853 flow_ref 132117 // pass'
+  decenter_begin 640
+  
+  from ref 131477 z 2006 label "pass'" xyz 329 572 2006 to ref 132117
+   write_horizontally default
+end
+flowcanvas 137237 flow_ref 132373 // <flow>
+  decenter_end 314
+  
+  from ref 136597 z 2011 to ref 137109
+   write_horizontally default
+end
+flowcanvas 137493 flow_ref 132629 // <flow>
+  
+  from ref 131221 z 2006 to ref 131477
+   write_horizontally default
+end
+flowcanvas 138261 flow_ref 132885 // <flow>
+  decenter_begin 540
+  
+  from ref 137621 z 2006 to ref 137749
+   write_horizontally default
+end
+flowcanvas 138389 flow_ref 133013 // <flow>
+  decenter_begin 675
+  
+  from ref 137621 z 2006 to ref 137877
+   write_horizontally default
+end
+flowcanvas 138517 flow_ref 133141 // <flow>
+  decenter_begin 756
+  decenter_end 722
+  
+  from ref 137621 z 2006 to ref 138005
+   write_horizontally default
+end
+flowcanvas 139541 flow_ref 133269 // <flow>
+  
+  from ref 129941 z 2012 to ref 139413
+   write_horizontally default
+end
+flowcanvas 141717 flow_ref 140565 // logInfo
+  
+  from ref 128277 z 2006 label "logInfo" xyz 52 76 2006 to ref 128149
+   write_horizontally default
+end
+flowcanvas 141845 flow_ref 140693 // <flow>
+  
+  from ref 128149 z 2006 to ref 128917
+   write_horizontally default
+end
+flowcanvas 141973 flow_ref 140821 // <flow>
+  
+  from ref 128917 z 2006 to ref 128661
+   write_horizontally default
+end
+flowcanvas 142101 flow_ref 140949 // <flow>
+  
+  from ref 128661 z 2011 to ref 140821
+   write_horizontally default
+end
+flowcanvas 142357 flow_ref 141077 // pass
+  
+  from ref 140821 z 2011 label "pass" xyz 89 199 2011 to ref 142229
+   write_horizontally default
+end
+flowcanvas 142485 flow_ref 141205 // <flow>
+  
+  from ref 142229 z 2006 to ref 128405
+   write_horizontally default
+end
+flowcanvas 142869 flow_ref 141333 // <flow>
+  
+  from ref 139413 z 2012 to ref 140053
+   write_horizontally default
+end
+flowcanvas 143125 flow_ref 141461 // <flow>
+  
+  from ref 140053 z 2006 to ref 142997
+   write_horizontally default
+end
+flowcanvas 143253 flow_ref 141589 // pass
+  
+  from ref 142997 z 2006 label "pass" xyz 582 215 2006 to ref 142741
+   write_horizontally default
+end
+flowcanvas 143381 flow_ref 141717 // <flow>
+  
+  from ref 142741 z 2006 to ref 129685
+   write_horizontally default
+end
+flowcanvas 144277 flow_ref 148757 // pass'
+  decenter_begin 270
+  
+  from ref 131477 z 2006 label "pass'" xyz 375 543 2006 to ref 132245
+   write_horizontally default
+end
+flowcanvas 145429 flow_ref 149269 // pass'
+  
+  from ref 131477 z 2006 label "pass'" xyz 214 560 2006 to ref 132885
+   write_horizontally default
+end
+flowcanvas 145557 flow_ref 149397 // <flow>
+  decenter_begin 742
+  
+  from ref 137109 z 2011 to ref 137621
+   write_horizontally default
+end
+flowcanvas 146069 flow_ref 149525 // <flow>
+  
+  from ref 132885 z 2006 to ref 136597
+   write_horizontally default
+end
+flowcanvas 146325 flow_ref 149653 // <flow>
+  decenter_end 513
+  
+  from ref 145173 z 2012 to ref 146197
+   write_horizontally default
+end
+flowcanvas 146453 flow_ref 149781 // <flow>
+  
+  from ref 146197 z 2006 to ref 132117
+   write_horizontally default
+end
+flowcanvas 146581 flow_ref 149909 // <flow>
+  
+  from ref 146197 z 2006 to ref 132885
+   write_horizontally default
+end
+flowcanvas 146709 flow_ref 150037 // <flow>
+  
+  from ref 132245 z 2012 to ref 145173
+   write_horizontally default
+end
+flowcanvas 147221 flow_ref 150293 // <flow>
+  
+  from ref 132245 z 2011 to ref 147093
+   write_horizontally default
+end
+end

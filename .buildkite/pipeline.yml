@@ -1,0 +1,14 @@
+steps:
+  - label: "make TeX documentation"
+    command: "cd docs; nix-shell --run make"
+    agents:
+      "system=x86_64-linux"
+    artifact_paths: "docs/IOHK-Monitoring-*.pdf ; docs/IOHK-Monitoring-*.log"
+    timeout: 5
+
+  - label: "nix build"
+    command: "nix-build release.nix"
+    agents:
+      "system=x86_64-linux"
+    artifact_paths: "**/*-tests.log"
+    timeout: 15
