@@ -86,7 +86,7 @@ implicit_fill_representation =
         case hasEKG r of
         Nothing -> r
         Just _  -> r {setupBackends = setupBackends r <> [EKGViewBK]}
-    add_katip_if_any_scribes r = 
+    add_katip_if_any_scribes r =
         if (any (not) [null $ setupScribes r, null $ defaultScribes r])
         then r {setupBackends = setupBackends r <> [KatipBK]}
         else r
