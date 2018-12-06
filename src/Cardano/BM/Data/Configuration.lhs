@@ -114,7 +114,7 @@ test_conf_representation_1 =
         , defaultBackends = [ KatipBK ]
         , hasGUI = Just 12789
         , hasEKG = Just 18321
-        , options = 
+        , options =
             HM.fromList [ ("test1", (HM.singleton "value" "object1"))
                         , ("test2", (HM.singleton "value" "object2")) ]
     }
@@ -124,6 +124,5 @@ test_conf_representation_2 fp = do
     repr :: Representation <- decodeFileThrow fp
 
     BS.putStrLn $ encode repr
-
 
 \end{code}

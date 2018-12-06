@@ -7,7 +7,7 @@
 {-# LANGUAGE DeriveGeneric  #-}
 
 module Cardano.BM.Data.Observable
-  ( 
+  (
     ObservableInstance (..)
   )
   where
@@ -26,4 +26,5 @@ data ObservableInstance = MonotonicClock
                         | ProcessStats
                         | IOStats
                           deriving (Generic, Eq, Ord, Show, FromJSON, ToJSON)
+
 \end{code}

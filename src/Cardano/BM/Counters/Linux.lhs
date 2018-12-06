@@ -426,5 +426,5 @@ readProcIO = do
   where
     colnames :: [Text]
     colnames = [ "rchar","wchar","syscr","syscw","rbytes","wbytes","cxwbytes" ]
-\end{code}
 
+\end{code}

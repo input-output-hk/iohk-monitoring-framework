@@ -1,3 +1,4 @@
+
 \subsection{Cardano.BM.Output.Switchboard}\label{sec:Switchboard}
 
 %if style == newcode

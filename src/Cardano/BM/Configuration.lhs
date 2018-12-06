@@ -1,3 +1,4 @@
+
 \subsection{Cardano.BM.Configuration}
 
 %if style == newcode

@@ -1,3 +1,4 @@
+
 \subsection{Cardano.BM.Configuration.Static}
 \label{module:Cardano.BM.Configuration.Static}
 

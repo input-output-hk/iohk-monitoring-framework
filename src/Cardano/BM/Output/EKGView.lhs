@@ -91,4 +91,3 @@ instance HasPass EKGView where
             Just ekg' -> putMVar (getEV ekgview) ekg'
 
 \end{code}
-

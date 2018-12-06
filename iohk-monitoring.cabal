@@ -128,4 +128,3 @@ executable example-simple
                        bytestring,
                        mtl,
                        unix
-
