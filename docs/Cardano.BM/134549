@@ -1,6 +1,6 @@
 format 221
 "Katip" // Katip
-  revision 1
+  revision 2
   modified_by 21 "axeld"
   // class settings
   
@@ -30,4 +30,38 @@ format 221
   activitydiagramsettings
    end
   
+  classview 161429 "Katip classes"
+    
+    classdiagramsettings member_max_width 0 end
+    
+    classcompositediagramsettings end
+    
+    collaborationdiagramsettings end
+    
+    objectdiagramsettings end
+    
+    objectcompositediagramsettings end
+    
+    sequencediagramsettings end
+    
+    statediagramsettings
+     end
+    
+    
+    activitydiagramsettings
+     end
+    class 191637 "Scribe"
+      visibility package 
+      cpp_decl ""
+      java_decl ""
+      php_decl ""
+      python_2_2 python_decl ""
+      idl_decl "${comment}${abstract}${custom}valuetype ${name}${inherit} {
+${members}};
+"
+      explicit_switch_type ""
+      mysql_decl ""
+      
+    end
+  end
 end

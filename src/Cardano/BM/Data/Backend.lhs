@@ -27,7 +27,7 @@ This identifies the backends that can be attached to the \nameref{code:Switchboa
 data BackendKind = AggregationBK
                  | EKGViewBK
                  | KatipBK
-                 deriving (Generic, Eq, Show, ToJSON, FromJSON)
+                 deriving (Generic, Eq, Ord, Show, ToJSON, FromJSON)
 
 \end{code}
 

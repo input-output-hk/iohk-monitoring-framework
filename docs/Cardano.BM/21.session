@@ -2,14 +2,14 @@ window_sizes 1754 1176 337 1411 1060 64
 cleanlooks_style
 diagrams
   classdiagram_ref 128021 // Overview_Classes
-    983 714 100 A4-Landscape 165 0
+    983 776 100 A4-Landscape 115 0
   collaborationdiagram_ref 161685 // Setup_Procedure
     872 591 100 A4 0 0
   active  classdiagram_ref 174741 // Configuration_Model
     748 848 100 A4 0 0
 end
 show_stereotypes
-selected class_ref 130197 // LoggerName
+selected class_ref 191765 // ScribeId
 open
   activity_ref 128021 // Concurrent_Trace
   classview_ref 128277 // Counters
@@ -19,17 +19,11 @@ open
   classview_ref 134933 // TeeTrace
   component_ref 128277 // LoggingSetup
   component_ref 128149 // LoggingConfiguration
-  class_ref 129685 // Katip
-  class_ref 144533 // Backend
-  attribute_ref 134933 // cgMinSeverity
-  attribute_ref 128021 // cgMapSeverity
-  attribute_ref 128149 // cgMapBackend
-  attribute_ref 148629 // cgSetupBackends
-  attribute_ref 141589 // cgMapScribe
-  attribute_ref 141717 // cgDefScribes
-  class_ref 184597 // Scribe
+  classview_ref 141717 // Output Classes
+  class_ref 191765 // ScribeId
   classview_ref 148373 // Configuration Classes
   
   package_ref 148245 // Trace
+  classview_ref 161429 // Katip classes
 end
 end

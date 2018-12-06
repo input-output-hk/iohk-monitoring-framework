@@ -26,6 +26,6 @@ data RotationParameters = RotationParameters
     { rpLogLimitBytes :: !Word64  -- max size of file in bytes
     , rpMaxAgeHours   :: !Word    -- hours
     , rpKeepFilesNum  :: !Word    -- number of files to keep
-    } deriving (Generic, Show, Eq, FromJSON, ToJSON)
+    } deriving (Generic, Show, Eq, Ord, FromJSON, ToJSON)
 
 \end{code}

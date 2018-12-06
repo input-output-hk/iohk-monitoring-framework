@@ -44,7 +44,7 @@ data ScribeKind = FileTextSK
                 | FileJsonSK
                 | StdoutSK
                 | StderrSK
-                deriving (Generic, Eq, Show, FromJSON, ToJSON)
+                deriving (Generic, Eq, Ord, Show, FromJSON, ToJSON)
   
 \end{code}
 
@@ -64,6 +64,6 @@ data ScribeDefinition = ScribeDefinition
   , scName     :: Text
   , scRotation :: Maybe RotationParameters
   }
-  deriving (Generic, Eq, Show, FromJSON, ToJSON)
+  deriving (Generic, Eq, Ord, Show, FromJSON, ToJSON)
 
 \end{code}

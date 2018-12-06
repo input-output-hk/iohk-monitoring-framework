@@ -18,7 +18,7 @@ module Cardano.BM.Data.LogItem
   )
   where
 
-import           Data.Aeson (FromJSON (..), ToJSON)
+import           Data.Aeson (FromJSON, ToJSON)
 import           Data.Text (Text)
 
 import           GHC.Generics (Generic)
@@ -29,11 +29,12 @@ import           Cardano.BM.Data.Severity
 \end{code}
 %endif
 
+\subsubsection{LoggerName}\label{code:LoggerName}
 \begin{code}
 type LoggerName = Text
 \end{code}
 
-\subsubsection{Type of a logged item}\label{code:NamedLogItem}
+\subsubsection{NamedLogItem}\label{code:NamedLogItem}
 \begin{code}
 type NamedLogItem = LogNamed LogObject
 
@@ -76,7 +77,7 @@ data LogObject = LP LogPrims
 \end{code}
 
 \subsubsection{LogNamed}\label{code:LogNamed}
-A |LogNamed| contains of a list of context names and some log item.
+A |LogNamed| contains of a context name and some log item.
 \begin{code}
 
 data LogNamed item = LogNamed

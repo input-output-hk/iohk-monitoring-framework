@@ -1,6 +1,8 @@
 
 \subsection{Cardano.BM.Data.Configuration}
 
+Data structure to help parsing configuration files.
+
 %if style == newcode
 \begin{code}
 {-# LANGUAGE DeriveAnyClass      #-}
@@ -25,6 +27,7 @@ module Cardano.BM.Data.Configuration
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.HashMap.Strict as HM
 import           Data.Text (Text)
+import qualified Data.Set as Set
 import           Data.Yaml
 import           GHC.Generics
 
@@ -63,24 +66,37 @@ parseRepresentation fp = do
 
 \end{code}
 
-after parsing the representation we implicitly correct it.
+after parsing the configuration representation we implicitly correct it.
 \begin{code}
 implicit_fill_representation :: Representation -> Representation
 implicit_fill_representation =
-    union_setup_and_usage_scribes .
-    union_setup_and_usage_backends .
     filter_duplicates_from_backends .
     filter_duplicates_from_scribes .
+    union_setup_and_usage_backends .
+    add_ekgview_if_port_defined .
     add_katip_if_any_scribes
   where
-    union_setup_and_usage_scribes r = r
-    union_setup_and_usage_backends r = r
-    filter_duplicates_from_backends r = r
-    filter_duplicates_from_scribes r = r
-    add_katip_if_any_scribes r = r
+    filter_duplicates_from_backends r =
+        r {setupBackends = mkUniq $ setupBackends r}
+    filter_duplicates_from_scribes r =
+        r {setupScribes = mkUniq $ setupScribes r}
+    union_setup_and_usage_backends r =
+        r {setupBackends = setupBackends r <> defaultBackends r}
+    add_ekgview_if_port_defined r =
+        case hasEKG r of
+        Nothing -> r
+        Just _  -> r {setupBackends = setupBackends r <> [EKGViewBK]}
+    add_katip_if_any_scribes r = 
+        if (any (not) [null $ setupScribes r, null $ defaultScribes r])
+        then r {setupBackends = setupBackends r <> [KatipBK]}
+        else r
+    mkUniq :: Ord a => [a] -> [a]
+    mkUniq = Set.toList . Set.fromList
 
 \end{code}
 
+% only visible in Haskell
+%if style == newcode
 \begin{code}
 test_log_backend_1 :: IO ()
 test_log_backend_1 =
@@ -121,8 +137,8 @@ test_conf_representation_1 =
 
 test_conf_representation_2 :: FilePath -> IO ()
 test_conf_representation_2 fp = do
-    repr :: Representation <- decodeFileThrow fp
-
+    repr <- parseRepresentation fp
     BS.putStrLn $ encode repr
 
 \end{code}
+%endif

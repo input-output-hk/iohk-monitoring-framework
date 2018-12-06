@@ -73,8 +73,6 @@ data ConfigurationInternal = ConfigurationInternal
     }
 
 \end{code}
-\todo[inline]{TODO |listOutput   <- o .:? "output_map"   .!= []|}
-\todo[inline]{TODO |defaultBackendKinds <- o .:? "default_backends" .!= []|}
 
 \subsubsection{Backends configured in the |Switchboard|}
 For a given context name return the list of backends configured,

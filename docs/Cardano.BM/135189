@@ -1,6 +1,6 @@
 format 221
 "Data" // Cardano.BM::Data
-  revision 8
+  revision 9
   modified_by 21 "axeld"
   // class settings
   
@@ -50,6 +50,32 @@ format 221
     
     activitydiagramsettings
      end
+    class 191125 "BackendKind"
+      visibility package stereotype "enum"
+      cpp_decl "${comment}enum ${name} {
+${items}};
+"
+      java_decl "${comment}${@}${visibility}${static}${final}${abstract}enum ${name}${implements} {
+${items};
+${members}}
+"
+      php_decl "${comment}${visibility}final class ${name} {
+${items}}
+"
+      python_2_2 python_decl "class ${name}:
+${docstring}${members}
+"
+      idl_decl "${comment}enum ${name} {
+${items}};
+"
+      explicit_switch_type ""
+      mysql_decl ""
+      
+      classrelation 209685 // <association>
+	relation_ref 207125 // <association>
+      end
+    end
+
     class 129045 "ConfigurationView"
       visibility package stereotype "View"
       cpp_decl "${comment}${template}class ${name}${inherit} {
@@ -266,7 +292,7 @@ ${members}};
 
       attribute 128149 "cgMapBackend"
 	private type class_ref 151189 // Map
-	init_value "LoggerName -> [Backend]"
+	init_value "LoggerName -> [BackendKind]"
 	cpp_decl ""
 	java_decl ""
 	php_decl ""
@@ -278,7 +304,7 @@ ${members}};
       end
 
       attribute 135061 "cgDefBackends"
-	private type class_ref 144533 // Backend
+	private type class_ref 191125 // BackendKind
 	multiplicity "*"
 	cpp_decl ""
 	java_decl ""
@@ -291,7 +317,7 @@ ${members}};
       end
 
       attribute 148629 "cgSetupBackends"
-	private type class_ref 144533 // Backend
+	private type class_ref 191125 // BackendKind
 	multiplicity "*"
 	cpp_decl ""
 	java_decl ""
@@ -330,7 +356,7 @@ ${members}};
       end
 
       attribute 148373 "cgSetupScribes"
-	private type class_ref 184597 // Scribe
+	private type class_ref 191381 // ScribeDefinition
 	multiplicity "*"
 	cpp_decl ""
 	java_decl ""
@@ -447,17 +473,28 @@ ${inlines}
 	    classrelation_ref 202773 // <association>
       end
 
-      classrelation 202901 // <association>
-	relation 200597 ----
+      classrelation 209557 // <association>
+	relation 207125 ----
+	  stereotype "cgMapBackend"
+	  a role_name "" multiplicity "*" private
+	    idl "  ${comment}${visibility}${stereotype}<${type}> ${name};
+"
+	    classrelation_ref 209557 // <association>
+	  b role_name "" private
+	    classrelation_ref 209685 // <association>
+      end
+
+      classrelation 209813 // <association>
+	relation 207253 ----
 	  stereotype "cgMapScribe"
 	  a role_name "" multiplicity "*" private
 	    idl "  ${comment}${visibility}${stereotype}<${type}> ${name};
 "
-	    classrelation_ref 202901 // <association>
+	    classrelation_ref 209813 // <association>
 	  b role_name "" private
 	    idl "  ${comment}${visibility}${type} ${name};
 "
-	    classrelation_ref 203029 // <association>
+	    classrelation_ref 209941 // <association>
       end
     end
 
@@ -563,15 +600,6 @@ ${members}};
 	    classrelation_ref 201621 // <association>
       end
 
-      classrelation 194709 // scribes (<association>)
-	relation 193557 ----
-	  a role_name "scribes" multiplicity "*" private
-	    idl "  ${comment}${visibility}${stereotype}<${type}> ${name};
-"
-	    classrelation_ref 194709 // scribes (<association>)
-	  b role_name "" private
-	    classrelation_ref 201749 // <association>
-      end
     end
 
     class 184341 "SubTrace"
@@ -595,7 +623,30 @@ ${members}};
       end
     end
 
-    class 184597 "Scribe"
+    class 191253 "ScribeKind"
+      visibility package stereotype "enum"
+      cpp_decl "${comment}enum ${name} {
+${items}};
+"
+      java_decl "${comment}${@}${visibility}${static}${final}${abstract}enum ${name}${implements} {
+${items};
+${members}}
+"
+      php_decl "${comment}${visibility}final class ${name} {
+${items}}
+"
+      python_2_2 python_decl "class ${name}:
+${docstring}${members}
+"
+      idl_decl "${comment}enum ${name} {
+${items}};
+"
+      explicit_switch_type ""
+      mysql_decl ""
+      
+    end
+
+    class 191381 "ScribeDefinition"
       visibility package 
       cpp_decl ""
       java_decl ""
@@ -607,7 +658,19 @@ ${members}};
       explicit_switch_type ""
       mysql_decl ""
       
-      attribute 141845 "name"
+      attribute 155157 "kind"
+	private type class_ref 191253 // ScribeKind
+	cpp_decl ""
+	java_decl ""
+	php_decl ""
+	python_decl ""
+	idl_decl "  ${comment}${visibility}${type} ${name};
+"
+	mysql_decl ""
+	MysqlColumn
+      end
+
+      attribute 155285 "name"
 	private explicit_type "string"
 	cpp_decl ""
 	java_decl ""
@@ -619,11 +682,46 @@ ${members}};
 	MysqlColumn
       end
 
-      classrelation 201749 // <association>
-	relation_ref 193557 // <association>
+      attribute 155413 "rotation"
+	private type class_ref 191509 // RotationParameters
+	cpp_decl ""
+	java_decl ""
+	php_decl ""
+	python_decl ""
+	idl_decl "  ${comment}${visibility}${type} ${name};
+"
+	mysql_decl ""
+	MysqlColumn
       end
+    end
 
-      attribute 148501 "fpath"
+    class 191509 "RotationParameters"
+      visibility package 
+      cpp_decl ""
+      java_decl ""
+      php_decl ""
+      python_2_2 python_decl ""
+      idl_decl "${comment}${abstract}${custom}valuetype ${name}${inherit} {
+${members}};
+"
+      explicit_switch_type ""
+      mysql_decl ""
+      
+    end
+
+    class 191765 "ScribeId"
+      visibility package 
+      cpp_decl ""
+      java_decl ""
+      php_decl ""
+      python_2_2 python_decl ""
+      idl_decl "${comment}${abstract}${custom}valuetype ${name}${inherit} {
+${members}};
+"
+      explicit_switch_type ""
+      mysql_decl ""
+      
+      attribute 155541 "name"
 	private explicit_type "string"
 	cpp_decl ""
 	java_decl ""
@@ -635,8 +733,20 @@ ${members}};
 	MysqlColumn
       end
 
-      classrelation 203029 // <association>
-	relation_ref 200597 // <association>
+      attribute 155669 "kind"
+	private type class_ref 191253 // ScribeKind
+	cpp_decl ""
+	java_decl ""
+	php_decl ""
+	python_decl ""
+	idl_decl "  ${comment}${visibility}${type} ${name};
+"
+	mysql_decl ""
+	MysqlColumn
+      end
+
+      classrelation 209941 // <association>
+	relation_ref 207253 // <association>
       end
     end
   end
