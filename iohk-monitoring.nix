@@ -20,7 +20,7 @@ mkDerivation {
     random semigroups stm tasty tasty-hunit tasty-quickcheck text time
     time-units transformers void
   ];
-  description = "loggin, benchmarking and monitoring framework";
+  description = "logging, benchmarking and monitoring framework";
   license = stdenv.lib.licenses.mit; #unfree;
   hydraPlatforms = stdenv.lib.platforms.none;
 }
