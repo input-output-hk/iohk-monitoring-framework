@@ -22,6 +22,6 @@ main = do
     logWarning tr "this is a warning!"
     logError   tr "this is an error!"
 
-    threadDelay (fromIntegral 80000)
+    threadDelay 80000
 
     return ()
