@@ -95,7 +95,7 @@ setup cfg = do
         be <- Cardano.BM.Output.EKGView.setup c
         return $ MkBackend
                     { bPass = Cardano.BM.Output.EKGView.pass be
-                    , bTerminate = return ()
+                    , bTerminate = Cardano.BM.Output.EKGView.takedown be
                     }
     setupBackend' AggregationBK c = do
         be <- Cardano.BM.Output.Aggregation.setup c

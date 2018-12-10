@@ -40,7 +40,8 @@ class HasPass t where
 
 \subsubsection{Backend}\label{code:Backend}
 A backend is referenced through the function |bPass| which accepts
-a \nameref{code:NamedLogItem}.
+a \nameref{code:NamedLogItem} and a terminating function |bTerminate|
+which is responsible for closing the specific backend.
 
 \begin{code}
 data Backend = MkBackend
