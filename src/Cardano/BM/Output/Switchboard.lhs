@@ -78,9 +78,12 @@ setup cfg = do
                         forM_ (sbBackends sb) ( \(bek, be) ->
                             when (bek `elem` selbes) (dispatch nli be) )
                     qProc
-                Nothing -> return ()   -- end dispatcher
+                Nothing ->
+                    withMVar switchboard $ \sb ->
+                        forM_ (sbBackends sb) $ \(_, backend) ->
+                            bTerminate backend
         dispatch :: NamedLogItem -> Backend -> IO ()
-        dispatch nli backend = (pass' backend) nli
+        dispatch nli backend = (bPass backend) nli
 
     setupBackends :: Configuration -> [(BackendKind,Backend)] -> [BackendKind] -> IO [(BackendKind,Backend)]
     setupBackends _ acc [] = return acc
@@ -90,13 +93,22 @@ setup cfg = do
     setupBackend' :: BackendKind -> Configuration -> IO Backend
     setupBackend' EKGViewBK c = do
         be <- Cardano.BM.Output.EKGView.setup c
-        return $ MkBackend { pass'=Cardano.BM.Output.EKGView.pass be }
+        return $ MkBackend
+                    { bPass = Cardano.BM.Output.EKGView.pass be
+                    , bTerminate = return ()
+                    }
     setupBackend' AggregationBK c = do
         be <- Cardano.BM.Output.Aggregation.setup c
-        return $ MkBackend { pass'=Cardano.BM.Output.Aggregation.pass be }
+        return $ MkBackend
+                    { bPass = Cardano.BM.Output.Aggregation.pass be
+                    , bTerminate = return ()
+                    }
     setupBackend' KatipBK c = do
         be <- Cardano.BM.Output.Log.setup c
-        return $ MkBackend { pass'=Cardano.BM.Output.Log.pass be }
+        return $ MkBackend
+                    { bPass = Cardano.BM.Output.Log.pass be
+                    , bTerminate = Cardano.BM.Output.Log.takedown be
+                    }
 
 \end{code}
 

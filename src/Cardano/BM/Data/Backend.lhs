@@ -39,10 +39,13 @@ class HasPass t where
 \end{code}
 
 \subsubsection{Backend}\label{code:Backend}
-A backend is referenced through the function |pass'| which accepts
+A backend is referenced through the function |bPass| which accepts
 a \nameref{code:NamedLogItem}.
 
 \begin{code}
-data Backend = MkBackend { pass' :: NamedLogItem -> IO () }
+data Backend = MkBackend
+    { bPass      :: NamedLogItem -> IO ()
+    , bTerminate :: IO ()
+    }
 
 \end{code}

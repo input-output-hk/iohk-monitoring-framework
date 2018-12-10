@@ -19,7 +19,7 @@ module Cardano.BM.Output.Log
       Log
     , setup
     , pass
-    --, takedown
+    , takedown
     , example
     ) where
 
@@ -29,7 +29,7 @@ import           Control.Concurrent.MVar (MVar, newEmptyMVar, newMVar, putMVar,
                      withMVar)
 import           Control.Exception (Exception (..))
 import           Control.Exception.Safe (catchIO)
-import           Control.Monad (forM_)
+import           Control.Monad (forM_, void)
 import           Control.Lens ((^.))
 import           Data.Aeson.Text (encodeToLazyText)
 import qualified Data.Map as Map
@@ -120,7 +120,7 @@ setup config = do
     mockVersion :: Version
     mockVersion = Version [0,1,0,0] []
     scribeSettings :: KC.ScribeSettings
-    scribeSettings = 
+    scribeSettings =
         let bufferSize = 5000  -- size of the queue (in log items)
         in
         KC.ScribeSettings bufferSize
@@ -129,6 +129,14 @@ setup config = do
     createScribe StdoutSK _ = mkStdoutScribe
     createScribe StderrSK _ = mkStderrScribe
 
+\end{code}
+
+Finalize |katip| and its scribes
+\begin{code}
+takedown :: Log -> IO ()
+takedown katip = do
+    le <- withMVar (getK katip) $ \k -> return (kLogEnv k)
+    void $ K.closeScribes le
 
 \end{code}
 
