@@ -12,9 +12,10 @@ module Cardano.BM.Output.EKGView
       EKGView
     , setup
     , pass
-    --, takedown
+    , takedown
     ) where
 
+import           Control.Concurrent (killThread)
 import           Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar,
                      takeMVar)
 import qualified Data.HashMap.Strict as HM
@@ -23,7 +24,7 @@ import           Data.Text (Text)
 import qualified System.Metrics.Gauge as Gauge
 import qualified System.Metrics.Label as Label
 import           System.Remote.Monitoring (Server, forkServer, getGauge,
-                     getLabel)
+                     getLabel, serverThreadId)
 
 import           Cardano.BM.Configuration (Configuration)
 import           Cardano.BM.Data.Backend
@@ -89,5 +90,10 @@ instance HasPass EKGView where
         case upd of
             Nothing   -> putMVar (getEV ekgview) ekg
             Just ekg' -> putMVar (getEV ekgview) ekg'
+
+takedown :: EKGView -> IO ()
+takedown ekgview = do
+    ekg <- takeMVar $ getEV ekgview
+    killThread $ serverThreadId $ _ekgServer ekg
 
 \end{code}
