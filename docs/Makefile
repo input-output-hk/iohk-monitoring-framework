@@ -46,7 +46,7 @@ all: $(DOC1).pdf $(DOC2).pdf
 $(DOC1).tex: $(SOURCES)
 	cd ../src; lhs2TeX -v -o ../docs/$(DOC1).tex Code.lhs
 
-$(DOC2).tex: $(TESTS)
+$(DOC2).tex: $(TESTS) test-coverage.tex
 	cd ../test; lhs2TeX -v -o ../docs/$(DOC2).tex Test.lhs
 
 $(DOC1).pdf: $(DOC1).tex $(ImagePdf)
