@@ -11,11 +11,12 @@ module Cardano.BM.Output.Aggregation
       setup
     , pass
     , inspect
-    --, takedown
+    , takedown
     ) where
 
 import           Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar,
-                     takeMVar, withMVar)
+                     takeMVar, withMVar, tryTakeMVar)
+import           Control.Monad (void)
 import qualified Data.HashMap.Strict as HM
 import           Data.Text (Text)
 
@@ -75,3 +76,11 @@ pass agg item = do
 
 \end{code}
 
+\begin{code}
+takedown :: Aggregation -> IO ()
+takedown = clearMVar . getAg
+
+clearMVar :: MVar a -> IO ()
+clearMVar = void . tryTakeMVar
+
+\end{code}
