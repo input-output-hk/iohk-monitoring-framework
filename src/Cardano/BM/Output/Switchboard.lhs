@@ -101,7 +101,7 @@ setup cfg = do
         be <- Cardano.BM.Output.Aggregation.setup c
         return $ MkBackend
                     { bPass = Cardano.BM.Output.Aggregation.pass be
-                    , bTerminate = return ()
+                    , bTerminate = Cardano.BM.Output.Aggregation.takedown be
                     }
     setupBackend' KatipBK c = do
         be <- Cardano.BM.Output.Log.setup c
