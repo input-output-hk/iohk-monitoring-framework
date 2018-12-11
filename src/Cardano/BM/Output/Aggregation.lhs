@@ -72,7 +72,10 @@ pass agg switchboardQueue item = do
         Just aggregated -> do
             -- forward the aggregated message to Switchboard
             atomically $ TBQ.writeTBQueue switchboardQueue $
-                Just $ item { lnItem = AggregatedMessage aggregated }
+                Just $ LogNamed
+                            { lnName = (lnName item) <> ".aggregated"
+                            , lnItem = AggregatedMessage aggregated
+                            }
             putStrLn $ "Forwarded to Switchboard q: " ++ show aggregated
     putMVar (getAg agg) $ AggregationInternal updatedMap (agSome ag)
   where
