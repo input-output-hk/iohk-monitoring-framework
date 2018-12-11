@@ -92,10 +92,10 @@ unit_tests = testGroup "Unit tests" [
         observeOpenWithoutMeasures = any $ \case
             ObserveOpen (CounterState _ counters) -> counters == []
             _ -> False
-        observeOpenWithMeasures :: [LogObject] -> Bool
+{-      observeOpenWithMeasures :: [LogObject] -> Bool
         observeOpenWithMeasures = any $ \case
             ObserveOpen (CounterState _ counters) -> not $ null counters
-            _ -> False
+            _ -> False  -}
 
 \end{code}
 
@@ -119,7 +119,7 @@ setupTrace (TraceConfiguration outk name trafo sev) = do
             Null               -> noTrace
 
     setSubTrace (configuration ctx) name (Just trafo)
-    (_, logTrace') <- subTrace "" (ctx, logTrace0)
+    logTrace' <- subTrace "" (ctx, logTrace0)
     return logTrace'
 
 setTransformer_ :: Trace IO -> LoggerName -> Maybe SubTrace -> IO ()
@@ -235,11 +235,11 @@ unit_hierarchy = do
     -- subtrace of trace which traces nothing
     setTransformer_ trace0 "inner" (Just NoTrace)
 
-    (_, trace1) <- subTrace "inner" trace0
+    trace1 <- subTrace "inner" trace0
     logInfo trace1 "This should NOT have been displayed!"
 
     setTransformer_ trace1 "innermost" (Just Neutral)
-    (_, trace2) <- subTrace "innermost" trace1
+    trace2 <- subTrace "innermost" trace1
     logInfo trace2 "This should NOT have been displayed also due to the trace one level above!"
 
     -- acquire the traced objects
@@ -337,7 +337,7 @@ unit_hierarchy' subtraces f = do
 
     -- subtrace of type 2
     setTransformer_ trace1 "inner" (Just t2)
-    (_, trace2) <- subTrace "inner" trace1
+    trace2 <- subTrace "inner" trace1
     logInfo trace2 "Message from level 2."
 
     -- subsubtrace of type 3

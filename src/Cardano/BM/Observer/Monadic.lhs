@@ -24,34 +24,34 @@ import           Cardano.BM.Data.Counter
 import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.SubTrace
 import           Cardano.BM.Counters (readCounters)
-import           Cardano.BM.Trace (Trace, logInfo, traceNamedObject,
-                     subTrace)
+import           Cardano.BM.Trace (Trace, logInfo, subTrace, traceNamedObject,
+                     typeofTrace)
 \end{code}
 %endif
 
+\subsubsection{Monadic.bracketObserverIO}
+Observes an |IO| action and adds a name to the logger
+name of the passed in |Trace|. An empty |Text| leaves
+the logger name untouched.
 \begin{code}
-
---   Observes an action and adds name given in the logger
---   name of the given |Trace|. If the empty |Text| is
---   given as name then the logger name remains untouched.
 bracketObserveIO :: Trace IO -> Text -> IO t -> IO t
 bracketObserveIO logTrace0 name action = do
-    (subtrace, logTrace) <- subTrace name logTrace0
-    bracketObserveIO' subtrace logTrace action
-
-bracketObserveIO' :: SubTrace -> Trace IO -> IO t -> IO t
-bracketObserveIO' NoTrace _ action = action
-bracketObserveIO' subtrace logTrace action = do
-    countersid <- observeOpen subtrace logTrace
-    -- run action
-    t <- action
-    observeClose subtrace logTrace countersid []
-    pure t
+    logTrace <- subTrace name logTrace0
+    bracketObserveIO' (typeofTrace logTrace) logTrace action
+  where
+    bracketObserveIO' :: SubTrace -> Trace IO -> IO t -> IO t
+    bracketObserveIO' NoTrace _ act = act
+    bracketObserveIO' subtrace logTrace act = do
+        countersid <- observeOpen subtrace logTrace
+        -- run action
+        t <- act
+        observeClose subtrace logTrace countersid []
+        pure t
 
 \end{code}
 
+\subsubsection{observerOpen}\label{observeOpen}
 \begin{code}
-
 observeOpen :: SubTrace -> Trace IO -> IO CounterState
 observeOpen subtrace logTrace = do
     identifier <- newUnique
@@ -66,8 +66,8 @@ observeOpen subtrace logTrace = do
 
 \end{code}
 
+\subsubsection{observeClose}\label{observeClose}
 \begin{code}
-
 observeClose :: SubTrace -> Trace IO -> CounterState -> [LogObject] -> IO ()
 observeClose subtrace logTrace (CounterState identifier _) logObjects = do
     logInfo logTrace $ "Closing: " <> pack (show $ hashUnique identifier)
