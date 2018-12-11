@@ -16,6 +16,8 @@ module Cardano.BM.Output.Aggregation
 
 import           Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar,
                      takeMVar, withMVar, tryTakeMVar)
+import           Control.Concurrent.STM (atomically)
+import qualified Control.Concurrent.STM.TBQueue as TBQ
 import           Control.Monad (void)
 import qualified Data.HashMap.Strict as HM
 import           Data.Text (Text)
@@ -60,12 +62,21 @@ setup _ = do
 \end{code}
 
 \begin{code}
-pass :: Aggregation -> NamedLogItem -> IO ()
-pass agg item = do
+pass :: Aggregation -> TBQ.TBQueue (Maybe NamedLogItem) -> NamedLogItem -> IO ()
+pass agg switchboardQueue item = do
     ag <- takeMVar (getAg agg)
-    putMVar (getAg agg) $ AggregationInternal (updated $ agMap ag) (agSome ag)
+    let updatedMap = update $ agMap ag
+    case HM.lookup (lnName item) updatedMap of
+        Nothing ->
+            return ()
+        Just aggregated -> do
+            -- forward the aggregated message to Switchboard
+            atomically $ TBQ.writeTBQueue switchboardQueue $
+                Just $ item { lnItem = AggregatedMessage aggregated }
+            putStrLn $ "Forwarded to Switchboard q: " ++ show aggregated
+    putMVar (getAg agg) $ AggregationInternal updatedMap (agSome ag)
   where
-    updated agmap = pass' (lnItem item) (lnName item) agmap
+    update agmap = pass' (lnItem item) (lnName item) agmap
     pass' :: LogObject -> LoggerName -> HM.HashMap Text Aggregated -> HM.HashMap Text Aggregated
     pass' (LP (LogValue iname value)) logname agmap =
         let name = logname <> "." <> iname

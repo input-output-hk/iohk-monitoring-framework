@@ -25,6 +25,7 @@ import           GHC.Generics (Generic)
 
 import           Cardano.BM.Data.Counter
 import           Cardano.BM.Data.Severity
+import           Cardano.BM.Aggregated (Aggregated(..))
 
 \end{code}
 %endif
@@ -72,6 +73,7 @@ data LogPrims = LogMessage LogItem
 data LogObject = LP LogPrims
                | ObserveOpen CounterState
                | ObserveClose CounterState
+               | AggregatedMessage Aggregated
                | KillPill
                  deriving (Generic, Show, ToJSON)
 
