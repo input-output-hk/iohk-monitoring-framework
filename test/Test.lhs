@@ -42,7 +42,6 @@ abstract ...
 Test coverage is calculated as the fraction of functions which are called from test routines.
 This percentage is calculated by the tool |hpc| with a call to 
 \begin{verbatim}cabal new-test\end{verbatim}
-\newline
 Add to a local \tt{cabal.project.local} file these lines:
 \newline
 \begin{tabular}{l r}
