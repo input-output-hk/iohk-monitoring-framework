@@ -20,6 +20,8 @@ module Cardano.BM.Trace
     -- * utils
     , natTrace
     , subTrace
+    , typeofTrace
+    , updateTracetype
     -- * log functions
     , traceNamedObject
     , traceNamedItem
@@ -63,6 +65,21 @@ natTrace :: (forall x . m x -> n x) -> Trace m -> Trace n
 natTrace nat (ctx, trace) = (ctx, BaseTrace.natTrace nat trace)
 
 \end{code}
+
+Access type of |Trace|.
+\begin{code}
+typeofTrace :: Trace m -> SubTrace
+typeofTrace (ctx, _) = tracetype ctx
+
+\end{code}
+
+Update type of |Trace|.
+\begin{code}
+updateTracetype :: SubTrace -> Trace m -> Trace m
+updateTracetype subtr (ctx, tr) = (ctx {tracetype=subtr}, tr)
+
+\end{code}
+
 
 \subsubsection{Enter new named context}\label{code:appendName}
 The context name is created and checked that its size is below a limit
@@ -295,13 +312,13 @@ traceNamedObject (ctx, logTrace) = BaseTrace.traceWith (named logTrace (loggerNa
 \end{code}
 
 \subsubsection{subTrace}\label{code:subTrace}
-Transforms the |Trace| according to the
+Transforms the input |Trace| according to the
 |Configuration| using the logger name of the
-current |Trace| appended with the given name. If the
-empty |Text| is given as name then the logger name
+current |Trace| appended with the new name. If the
+empty |Text| is passed, then the logger name
 remains untouched.
 \begin{code}
-subTrace :: MonadIO m => T.Text -> Trace m -> m (SubTrace, Trace m)
+subTrace :: MonadIO m => T.Text -> Trace m -> m (Trace m)
 subTrace name tr@(ctx, _) = do
     let newName = appendWithDot (loggerName ctx) name
     subtrace0 <- liftIO $ Config.findSubTrace (configuration ctx) newName
@@ -309,17 +326,17 @@ subTrace name tr@(ctx, _) = do
     case subtrace of
         Neutral      -> do
                             tr' <- appendName name tr
-                            return $ (subtrace, tr')
+                            return $ updateTracetype subtrace tr'
         UntimedTrace -> do
                             tr' <- appendName name tr
-                            return $ (subtrace, tr')
-        NoTrace      -> return (subtrace, (ctx, BaseTrace.BaseTrace $ Op $ \_ -> pure ()))
-        DropOpening  -> return (subtrace, (ctx, BaseTrace.BaseTrace $ Op $ \lognamed -> do
+                            return $ updateTracetype subtrace tr'
+        NoTrace      -> return $ updateTracetype subtrace (ctx, BaseTrace.BaseTrace $ Op $ \_ -> pure ())
+        DropOpening  -> return $ updateTracetype subtrace (ctx, BaseTrace.BaseTrace $ Op $ \lognamed -> do
             case lnItem lognamed of
                 ObserveOpen _ -> return ()
-                obj           -> traceNamedObject tr obj))
+                obj           -> traceNamedObject tr obj )
         ObservableTrace _ -> do
                             tr' <- appendName name tr
-                            return $ (subtrace, tr')
+                            return $ updateTracetype subtrace tr'
 
 \end{code}

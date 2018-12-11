@@ -15,6 +15,7 @@ import           Cardano.BM.BaseTrace
 import           Cardano.BM.Configuration (Configuration)
 import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.Severity
+import           Cardano.BM.Data.SubTrace
 
 \end{code}
 %endif
@@ -39,9 +40,10 @@ in the |TraceContext|.
 \begin{code}
 
 data TraceContext = TraceContext {
-      loggerName :: LoggerName
+      loggerName    :: LoggerName
     , configuration :: Configuration
-    , minSeverity :: Severity
+    , tracetype     :: SubTrace
+    , minSeverity   :: Severity
     }
 
 \end{code}
