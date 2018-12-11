@@ -136,6 +136,10 @@ mainTrace :: Switchboard.Switchboard -> TraceNamed IO
 mainTrace sb = BaseTrace.BaseTrace $ Op $ \lognamed -> do
     Switchboard.pass sb lognamed
 
+takedownSwitchboard :: Trace IO -> IO ()
+takedownSwitchboard trace = do
+    traceNamedObject trace KillPill
+
 \end{code}
 
 \subsubsection{Concrete Trace on stdout}\label{code:stdoutTrace}

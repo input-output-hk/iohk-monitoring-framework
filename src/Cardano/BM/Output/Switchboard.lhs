@@ -10,15 +10,15 @@ module Cardano.BM.Output.Switchboard
       Switchboard
     , setup
     , pass
-    , takedown
     ) where
 
 import qualified Control.Concurrent.Async as Async
 import           Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar,
                      withMVar)
-import           Control.Concurrent.STM (STM, atomically)
+import           Control.Concurrent.STM (atomically)
 import qualified Control.Concurrent.STM.TBQueue as TBQ
 import           Control.Monad (forM_, when)
+import           Control.Monad.Catch (throwM)
 
 import           Cardano.BM.Configuration (Configuration)
 import           Cardano.BM.Configuration.Model (getBackends,
@@ -119,29 +119,25 @@ then processed by the dispatcher.
 \begin{code}
 instance HasPass Switchboard where
     pass switchboard item = do
-        let writequeue :: TBQ.TBQueue (Maybe NamedLogItem) -> NamedLogItem -> STM ()
-            writequeue q i = do
-                nocapacity <- TBQ.isFullTBQueue q
-                if not nocapacity
-                then TBQ.writeTBQueue q (Just i)
-                else return ()
+        let writequeue :: TBQ.TBQueue (Maybe NamedLogItem) -> NamedLogItem -> IO ()
+            writequeue q i =
+                case lnItem i of
+                    KillPill -> do
+                        -- if KillPill received then kill all backends and
+                        -- switchboard terminates.
+                        d <- withMVar (getSB switchboard) (\sb ->
+                                return (sbDispatch sb))
+                        -- send terminating item to the queue
+                        atomically $ TBQ.writeTBQueue q Nothing
+                        -- wait for the dispatcher to exit
+                        res <- Async.waitCatch d
+                        either throwM return res
+                    _  -> do
+                        nocapacity <- atomically $ TBQ.isFullTBQueue q
+                        if not nocapacity
+                        then atomically $ TBQ.writeTBQueue q (Just i)
+                        else return ()
         withMVar (getSB switchboard) $ \sb ->
-            atomically $ writequeue (sbQueue sb) item
-
-\end{code}
-
-\subsubsection{Halting the switchboard}
-The queue is flushed before the dispatcher terminates.
-
-\begin{code}
-takedown :: Switchboard -> IO ()
-takedown switchboard = do
-    (q, d) <- withMVar (getSB switchboard) $ \sb ->
-                   return (sbQueue sb, sbDispatch sb)
-    -- send terminating item to the queue
-    atomically $ TBQ.writeTBQueue q Nothing
-    -- wait for the dispatcher to exit
-    _ <- Async.waitCatch d
-    return ()
+            writequeue (sbQueue sb) item
 
 \end{code}
