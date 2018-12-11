@@ -37,5 +37,4 @@ defaultConfigStdout = do
     CM.setDefaultScribes c ["StdoutSK::stdout"]
     return c
 
-
 \end{code}

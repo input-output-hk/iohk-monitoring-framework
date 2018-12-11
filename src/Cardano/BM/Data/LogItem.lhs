@@ -72,6 +72,7 @@ data LogPrims = LogMessage LogItem
 data LogObject = LP LogPrims
                | ObserveOpen CounterState
                | ObserveClose CounterState
+               | KillPill
                  deriving (Generic, Show, ToJSON)
 
 \end{code}

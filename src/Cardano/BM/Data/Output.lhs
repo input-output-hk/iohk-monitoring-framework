@@ -7,7 +7,7 @@
 {-# LANGUAGE DeriveGeneric  #-}
 
 module Cardano.BM.Data.Output
-  ( 
+  (
     OutputKind (..)
   , ScribeKind (..)
   , ScribeId
@@ -45,14 +45,14 @@ data ScribeKind = FileTextSK
                 | StdoutSK
                 | StderrSK
                 deriving (Generic, Eq, Ord, Show, FromJSON, ToJSON)
-  
+
 \end{code}
 
 \subsubsection{ScribeId}\label{code:ScribeId}
 A scribe is identified by |ScribeKind x Filename|
 \begin{code}
 type ScribeId = Text -- (ScribeKind, Filename)
-  
+
 \end{code}
 
 \subsubsection{ScribeDefinition}\label{code:ScribeDefinition}
