@@ -90,12 +90,8 @@ unit_tests = testGroup "Unit tests" [
             _                                                       -> False
         observeOpenWithoutMeasures :: [LogObject] -> Bool
         observeOpenWithoutMeasures = any $ \case
-            ObserveOpen (CounterState _ counters) -> counters == []
+            ObserveOpen (CounterState _ counters) -> null counters
             _ -> False
-{-      observeOpenWithMeasures :: [LogObject] -> Bool
-        observeOpenWithMeasures = any $ \case
-            ObserveOpen (CounterState _ counters) -> not $ null counters
-            _ -> False  -}
 
 \end{code}
 
