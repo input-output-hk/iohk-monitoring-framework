@@ -74,6 +74,7 @@ import           Test.Tasty
 import qualified Cardano.BM.Test.Aggregated (tests)
 import qualified Cardano.BM.Test.STM (tests)
 import qualified Cardano.BM.Test.Trace (tests)
+import qualified Cardano.BM.Test.Configuration (tests)
 
 main :: IO ()
 main = defaultMain tests
@@ -84,6 +85,7 @@ tests =
   [ Cardano.BM.Test.Aggregated.tests
   , Cardano.BM.Test.STM.tests
   , Cardano.BM.Test.Trace.tests
+  , Cardano.BM.Test.Configuration.tests
   ]
 \end{code}
 
@@ -92,5 +94,6 @@ tests =
 %include Cardano/BM/Test/Aggregated.lhs
 %include Cardano/BM/Test/STM.lhs
 %include Cardano/BM/Test/Trace.lhs
+%include Cardano/BM/Test/Configuration.lhs
 
 \end{document}

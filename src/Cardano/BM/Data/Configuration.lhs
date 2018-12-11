@@ -16,15 +16,9 @@ module Cardano.BM.Data.Configuration
     Representation (..)
   , Port
   , parseRepresentation
-  -- * tests
-  , test_log_backend_1
-  , test_log_backend_2
-  , test_conf_representation_1
-  , test_conf_representation_2
   )
   where
 
-import qualified Data.ByteString.Char8 as BS
 import qualified Data.HashMap.Strict as HM
 import           Data.Text (Text)
 import qualified Data.Set as Set
@@ -94,51 +88,3 @@ implicit_fill_representation =
     mkUniq = Set.toList . Set.fromList
 
 \end{code}
-
-% only visible in Haskell
-%if style == newcode
-\begin{code}
-test_log_backend_1 :: IO ()
-test_log_backend_1 =
-    BS.putStrLn $
-    encode $ ScribeDefinition { scKind = StdoutSK
-                        , scName = "testlog"
-                        , scRotation = Nothing
-                        }
-
-test_log_backend_2 :: IO ()
-test_log_backend_2 =
-    BS.putStrLn $
-    encode $ ScribeDefinition { scKind = StdoutSK
-                        , scName = "testlog"
-                        , scRotation = Just $ RotationParameters 5000000 24 10
-                        }
-
-test_conf_representation_1 :: IO ()
-test_conf_representation_1 =
-    BS.putStrLn $
-    encode $ Representation
-        { minSeverity = Info
-        , rotation = RotationParameters 5000000 24 10
-        , setupScribes =
-            [ ScribeDefinition { scName = "stdout"
-                            , scKind = StdoutSK
-                            , scRotation = Nothing }
-            ]
-        , defaultScribes = [(StdoutSK, "stdout")]
-        , setupBackends = [ EKGViewBK, KatipBK ]
-        , defaultBackends = [ KatipBK ]
-        , hasGUI = Just 12789
-        , hasEKG = Just 18321
-        , options =
-            HM.fromList [ ("test1", (HM.singleton "value" "object1"))
-                        , ("test2", (HM.singleton "value" "object2")) ]
-    }
-
-test_conf_representation_2 :: FilePath -> IO ()
-test_conf_representation_2 fp = do
-    repr <- parseRepresentation fp
-    BS.putStrLn $ encode repr
-
-\end{code}
-%endif
