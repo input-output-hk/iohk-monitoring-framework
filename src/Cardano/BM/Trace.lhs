@@ -31,6 +31,7 @@ module Cardano.BM.Trace
     , logNotice,  logNoticeS,  logNoticeP,  logNoticeUnsafeP
     , logWarning, logWarningS, logWarningP, logWarningUnsafeP
 
+    ,takedownSwitchboard
     ) where
 
 import           Control.Concurrent.MVar (MVar, newMVar, withMVar)

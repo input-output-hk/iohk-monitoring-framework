@@ -57,11 +57,12 @@ TODO: the backends should be connected according to configuration.
 \begin{code}
 setup :: Configuration -> IO Switchboard
 setup cfg = do
+    q <- atomically $ TBQ.newTBQueue 2048
+
     backends <- getDefaultBackends cfg
-    bs <- setupBackends cfg [] backends
+    bs <- setupBackends cfg [] backends q
 
     sbref <- newEmptyMVar
-    q <- atomically $ TBQ.newTBQueue 2048
     d <- spawnDispatcher sbref q
     putMVar sbref $ SwitchboardInternal q d bs cfg
     return $ Switchboard sbref
@@ -72,12 +73,23 @@ setup cfg = do
         qProc = do
             nli' <- atomically $ TBQ.readTBQueue queue
             case nli' of
-                Just nli -> do
-                    withMVar switchboard $ \sb -> do
-                        selbes <- getBackends (configuration sb) (lnName nli)
-                        forM_ (sbBackends sb) ( \(bek, be) ->
-                            when (bek `elem` selbes) (dispatch nli be) )
-                    qProc
+                Just nli ->
+                    case lnItem nli of
+                        AggregatedMessage _aggregated -> do
+                            withMVar switchboard $ \sb -> do
+                                selectedBackends <- getBackends (configuration sb) (lnName nli)
+                                let dropAggrBackends = filter (/= AggregationBK) selectedBackends
+                                forM_ (sbBackends sb) ( \(bek, be) ->
+                                    when (bek `elem` dropAggrBackends) (dispatch nli be) )
+                            qProc
+                        _ -> do
+                            withMVar switchboard $ \sb -> do
+                                selectedBackends <- getBackends (configuration sb) (lnName nli)
+                                forM_ (sbBackends sb) ( \(bek, be) ->
+                                    when (bek `elem` selectedBackends) (dispatch nli be) )
+                            qProc
+                -- if Nothing is in the queue then every backend is terminated
+                -- and Switchboard stops.
                 Nothing ->
                     withMVar switchboard $ \sb ->
                         forM_ (sbBackends sb) $ \(_, backend) ->
@@ -85,25 +97,29 @@ setup cfg = do
         dispatch :: NamedLogItem -> Backend -> IO ()
         dispatch nli backend = (bPass backend) nli
 
-    setupBackends :: Configuration -> [(BackendKind,Backend)] -> [BackendKind] -> IO [(BackendKind,Backend)]
-    setupBackends _ acc [] = return acc
-    setupBackends c acc (bk : bes) = do
-        be' <- setupBackend' bk c
-        setupBackends c ((bk,be') : acc) bes
-    setupBackend' :: BackendKind -> Configuration -> IO Backend
-    setupBackend' EKGViewBK c = do
+    setupBackends :: Configuration
+                  -> [(BackendKind,Backend)]
+                  -> [BackendKind]
+                  -> TBQ.TBQueue (Maybe NamedLogItem)
+                  -> IO [(BackendKind,Backend)]
+    setupBackends _ acc [] _ = return acc
+    setupBackends c acc (bk : bes) q = do
+        be' <- setupBackend' bk c q
+        setupBackends c ((bk,be') : acc) bes q
+    setupBackend' :: BackendKind -> Configuration -> TBQ.TBQueue (Maybe NamedLogItem) -> IO Backend
+    setupBackend' EKGViewBK c _ = do
         be <- Cardano.BM.Output.EKGView.setup c
         return $ MkBackend
                     { bPass = Cardano.BM.Output.EKGView.pass be
                     , bTerminate = Cardano.BM.Output.EKGView.takedown be
                     }
-    setupBackend' AggregationBK c = do
+    setupBackend' AggregationBK c q = do
         be <- Cardano.BM.Output.Aggregation.setup c
         return $ MkBackend
-                    { bPass = Cardano.BM.Output.Aggregation.pass be
+                    { bPass = Cardano.BM.Output.Aggregation.pass be q
                     , bTerminate = Cardano.BM.Output.Aggregation.takedown be
                     }
-    setupBackend' KatipBK c = do
+    setupBackend' KatipBK c _ = do
         be <- Cardano.BM.Output.Log.setup c
         return $ MkBackend
                     { bPass = Cardano.BM.Output.Log.pass be

@@ -2,12 +2,18 @@
 \subsection{Cardano.BM.Aggregated}
 
 \begin{code}
+{-# LANGUAGE DeriveAnyClass     #-}
+{-# LANGUAGE DeriveGeneric      #-}
+{-# LANGUAGE StandaloneDeriving #-}
 module Cardano.BM.Aggregated
   (
     Aggregated (..)
   , Stats (..)
   , updateAggregation
   ) where
+
+import           GHC.Generics (Generic)
+import           Data.Aeson (ToJSON)
 \end{code}
 
 \begin{code}
@@ -18,13 +24,13 @@ data Stats = Stats {
     fcount :: Integer,
     fsum_A :: Integer,
     fsum_B :: Integer
-    } deriving (Show, Eq)
+    } deriving (Show, Eq, Generic, ToJSON)
 
 data Aggregated = Aggregated {
     fstats :: Stats,
     flast  :: Integer,
     fdelta :: Stats
-    } deriving (Show, Eq)
+    } deriving (Show, Eq, Generic, ToJSON)
 \end{code}
 
 \subsubsection{Update aggregation}
