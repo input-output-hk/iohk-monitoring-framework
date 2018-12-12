@@ -26,8 +26,8 @@ import           Data.Time.Units (Microsecond)
 import           Data.Unique (newUnique)
 
 import           Cardano.BM.Configuration (Configuration, inspectSeverity,
-                     minSeverity, setMinSeverity, setSeverity, setSubTrace,
-                     setup)
+                     minSeverity, setMinSeverity, setSeverity, setSubTrace)
+import           Cardano.BM.Configuration.Model (empty)
 import           Cardano.BM.Counters (diffTimeObserved, getMonoClock)
 import qualified Cardano.BM.BaseTrace as BaseTrace
 import           Cardano.BM.Data.Counter
@@ -106,7 +106,7 @@ data TraceConfiguration = TraceConfiguration
 
 setupTrace :: TraceConfiguration -> IO (Trace IO)
 setupTrace (TraceConfiguration outk name trafo sev) = do
-    c <- liftIO $ Cardano.BM.Configuration.setup "some_file_path.yaml"
+    c <- liftIO $ Cardano.BM.Configuration.Model.empty
     ctx <- liftIO $ newContext name c sev
     let logTrace0 = case outk of
             StdOut             -> BaseTrace.natTrace liftIO stdoutTrace

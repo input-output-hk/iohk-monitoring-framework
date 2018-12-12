@@ -20,7 +20,6 @@ module Cardano.BM.Output.Log
     , setup
     , pass
     , takedown
-    , example
     ) where
 
 import           Control.AutoUpdate (UpdateSettings (..), defaultUpdateSettings,
@@ -140,7 +139,7 @@ takedown katip = do
 
 \end{code}
 
-\begin{code}
+\begin{spec}
 example :: IO ()
 example = do
     config <- Config.setup "from_some_path.yaml"
@@ -157,7 +156,7 @@ example = do
                                             { lnName = "test"
                                             , lnItem = LP $ LogValue "cpu-no" 1
                                             }
-\end{code}
+\end{spec}
 
 \begin{code}
 -- useful instances for katip
