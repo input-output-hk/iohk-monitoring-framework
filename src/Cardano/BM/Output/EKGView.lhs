@@ -26,14 +26,15 @@ import qualified System.Metrics.Label as Label
 import           System.Remote.Monitoring (Server, forkServer, getGauge,
                      getLabel, serverThreadId)
 
-import           Cardano.BM.Configuration (Configuration)
+import           Cardano.BM.Configuration (Configuration, getEKGport)
 import           Cardano.BM.Data.Backend
 import           Cardano.BM.Data.LogItem
 
 \end{code}
 %endif
 
-The ekgview is a singleton.
+\subsubsection{Structure of EKGView}\label{code:EKGView}
+The |EKGView| is a singleton.
 \begin{code}
 type EKGViewMVar = MVar EKGViewInternal
 newtype EKGView = EKGView
@@ -43,21 +44,28 @@ newtype EKGView = EKGView
 data EKGViewInternal = EKGViewInternal
     { evGauges  :: HM.HashMap Text Gauge.Gauge
     , evLabels  :: HM.HashMap Text Label.Label
-    , _ekgServer :: Server
+    , evServer :: Server
     }
 
 \end{code}
 
+\subsubsection{Setup and start EKG view}\label{code:EKGView.setup}
 \begin{code}
 setup :: Configuration -> IO EKGView
-setup _ = do
+setup c = do
     evref <- newEmptyMVar
-    ehdl <- forkServer "127.0.0.1" 16543
-    putMVar evref $ EKGViewInternal HM.empty HM.empty ehdl
+    evport <- getEKGport c
+    ehdl <- forkServer "127.0.0.1" evport
+    putMVar evref $ EKGViewInternal
+                    { evGauges = HM.empty
+                    , evLabels = HM.empty
+                    , evServer = ehdl
+                    }
     return $ EKGView evref
 
 \end{code}
 
+\subsubsection{Show message in EKG view}\label{code:EKGView.pass}
 \begin{code}
 instance HasPass EKGView where
     pass ekgview item =
@@ -91,9 +99,22 @@ instance HasPass EKGView where
             Nothing   -> putMVar (getEV ekgview) ekg
             Just ekg' -> putMVar (getEV ekgview) ekg'
 
+\end{code}
+
+\subsubsection{Terminate EKG view}\label{code:EKGView.takedown}
+\begin{code}
 takedown :: EKGView -> IO ()
 takedown ekgview = do
     ekg <- takeMVar $ getEV ekgview
-    killThread $ serverThreadId $ _ekgServer ekg
+    killThread $ serverThreadId $ evServer ekg
 
 \end{code}
+
+\subsubsection{Interactive testing |EKGView|}
+\begin{spec}
+c <- Cardano.BM.Configuration.setup "test/config.yaml"
+ev <- Cardano.BM.Output.EKGView.setup c
+
+pass ev $ LogNamed "test.questions" (LP (LogValue "answer" 42))
+pass ev $ LogNamed "test.monitor023" (LP (LogMessage (LogItem Public Warning "!!!! ALARM !!!!")))
+\end{spec}

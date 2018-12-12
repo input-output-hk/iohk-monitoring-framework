@@ -27,6 +27,8 @@ module Cardano.BM.Configuration.Model
     , getOption
     , findSubTrace
     , setSubTrace
+    , getEKGport
+    , getGUIport
     --, takedown
     ) where
 
@@ -37,6 +39,7 @@ import           Data.Text (Text, pack)
 import           Data.Yaml as Y
 
 import           Cardano.BM.Data.Backend
+import qualified Cardano.BM.Data.Configuration as R
 import           Cardano.BM.Data.LogItem (LoggerName)
 import           Cardano.BM.Data.Output (ScribeDefinition, ScribeId)
 import           Cardano.BM.Data.Severity
@@ -70,6 +73,8 @@ data ConfigurationInternal = ConfigurationInternal
     , cgMapScribe     :: HM.HashMap LoggerName [ScribeId]
     , cgDefScribes    :: [ScribeId]
     , cgSetupScribes  :: [ScribeDefinition]
+    , cgPortEKG       :: Int
+    , cgPortGUI       :: Int
     }
 
 \end{code}
@@ -150,6 +155,19 @@ getSetupScribes configuration =
 
 \end{code}
 
+\begin{code}
+getEKGport :: Configuration -> IO Int
+getEKGport configuration =
+    withMVar (getCG configuration) $ \cg -> do
+        return $ cgPortEKG cg
+
+getGUIport :: Configuration -> IO Int
+getGUIport configuration =
+    withMVar (getCG configuration) $ \cg -> do
+        return $ cgPortGUI cg
+
+\end{code}
+
 \subsubsection{Options}
 \begin{code}
 getOption :: Configuration -> Text -> IO (Maybe Text)
@@ -207,15 +225,37 @@ setSubTrace configuration name trafo = do
 \subsubsection{Configuration.Model.setup}
 \begin{code}
 setup :: FilePath -> IO Configuration
-setup _fp = do
-    c <- empty
-    -- r <- parseRepresentation
-    return c
+setup fp = do
+    r <- R.parseRepresentation fp
+    cgref <- newEmptyMVar
+    putMVar cgref $ ConfigurationInternal
+        { cgMinSeverity = R.minSeverity r
+        , cgMapSeverity = HM.empty
+        , cgMapSubtrace = HM.empty
+        , cgOptions = R.options r
+        , cgMapBackend = HM.empty
+        , cgDefBackendKs = R.defaultBackends r
+        , cgSetupBackends = R.setupBackends r
+        , cgMapScribe = HM.empty
+        , cgDefScribes = r_defaultScribes r
+        , cgSetupScribes = R.setupScribes r
+        , cgPortEKG = r_hasEKG r
+        , cgPortGUI = r_hasGUI r
+        }
+    return $ Configuration cgref
+  where
+    r_hasEKG r = case (R.hasEKG r) of
+                       Nothing -> 0
+                       Just p  -> p
+    r_hasGUI r = case (R.hasGUI r) of
+                       Nothing -> 0
+                       Just p  -> p
+    r_defaultScribes r = map (\(k,n) -> pack(show k) <> "::" <> n) (R.defaultScribes r)
 
 empty :: IO Configuration
 empty = do
     cgref <- newEmptyMVar
-    putMVar cgref $ ConfigurationInternal Debug HM.empty HM.empty HM.empty HM.empty [] [] HM.empty [] []
+    putMVar cgref $ ConfigurationInternal Debug HM.empty HM.empty HM.empty HM.empty [] [] HM.empty [] [] 0 0
     return $ Configuration cgref
 
 \end{code}
