@@ -65,8 +65,8 @@ setup _ = do
 pass :: Aggregation -> TBQ.TBQueue (Maybe NamedLogItem) -> NamedLogItem -> IO ()
 pass agg switchboardQueue item = do
     ag <- takeMVar (getAg agg)
-    let updatedMap = update $ agMap ag
-    case HM.lookup (lnName item) updatedMap of
+    let (updatedMap, newAggregated) = update $ agMap ag
+    case newAggregated of
         Nothing ->
             return ()
         Just aggregated -> do
@@ -80,13 +80,16 @@ pass agg switchboardQueue item = do
     putMVar (getAg agg) $ AggregationInternal updatedMap (agSome ag)
   where
     update agmap = pass' (lnItem item) (lnName item) agmap
-    pass' :: LogObject -> LoggerName -> HM.HashMap Text Aggregated -> HM.HashMap Text Aggregated
+    pass' :: LogObject -> LoggerName -> HM.HashMap Text Aggregated -> (HM.HashMap Text Aggregated, Maybe Aggregated)
     pass' (LP (LogValue iname value)) logname agmap =
         let name = logname <> "." <> iname
+            maybeAggregated = updateAggregation value $ HM.lookup name agmap
         in
-        HM.alter (\m -> updateAggregation value m) name agmap
+        -- use of HM.alter so that in future we can clear the Agrregated
+        -- by using as alter's arg a function which returns Nothing.
+        (HM.alter (const $ maybeAggregated) name agmap, maybeAggregated)
     -- TODO for text messages aggregate on delta of timestamps
-    pass' _ _ agmap = agmap
+    pass' _ _ agmap = (agmap, Nothing)
 
 \end{code}
 
