@@ -155,6 +155,7 @@ getSetupScribes configuration =
 
 \end{code}
 
+\subsubsection{Access port numbers of EKG, GUI}
 \begin{code}
 getEKGport :: Configuration -> IO Int
 getEKGport configuration =
@@ -222,7 +223,9 @@ setSubTrace configuration name trafo = do
 
 \end{code}
 
-\subsubsection{Configuration.Model.setup}
+\subsubsection{Parse configuration from file}
+Parse the configuration into an internal representation first. Then, fill in |Configuration|
+from it in a second step after refinement.
 \begin{code}
 setup :: FilePath -> IO Configuration
 setup fp = do
@@ -252,6 +255,10 @@ setup fp = do
                        Just p  -> p
     r_defaultScribes r = map (\(k,n) -> pack(show k) <> "::" <> n) (R.defaultScribes r)
 
+\end{code}
+
+\subsubsection{Setup empty configuration}
+\begin{code}
 empty :: IO Configuration
 empty = do
     cgref <- newEmptyMVar
