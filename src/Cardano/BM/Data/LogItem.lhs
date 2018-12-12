@@ -72,6 +72,7 @@ data LogPrims = LogMessage LogItem
 
 data LogObject = LP LogPrims
                | ObserveOpen CounterState
+               | ObserveDiff CounterState
                | ObserveClose CounterState
                | AggregatedMessage Aggregated
                | KillPill

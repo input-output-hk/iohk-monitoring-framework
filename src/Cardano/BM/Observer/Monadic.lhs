@@ -20,9 +20,9 @@ import           Data.Text
 import           Data.Unique (hashUnique, newUnique)
 
 
-import           Cardano.BM.Data.Counter
-import           Cardano.BM.Data.LogItem
-import           Cardano.BM.Data.SubTrace
+import           Cardano.BM.Data.Counter (CounterState (..), diffCounters)
+import           Cardano.BM.Data.LogItem (LogObject (..))
+import           Cardano.BM.Data.SubTrace (SubTrace (NoTrace))
 import           Cardano.BM.Counters (readCounters)
 import           Cardano.BM.Trace (Trace, logInfo, subTrace, traceNamedObject,
                      typeofTrace)
@@ -69,13 +69,19 @@ observeOpen subtrace logTrace = do
 \subsubsection{observeClose}\label{observeClose}
 \begin{code}
 observeClose :: SubTrace -> Trace IO -> CounterState -> [LogObject] -> IO ()
-observeClose subtrace logTrace (CounterState identifier _) logObjects = do
+observeClose subtrace logTrace initState logObjects = do
+    let identifier = csIdentifier initState
+        initialCounters = csCounters initState
+
     logInfo logTrace $ "Closing: " <> pack (show $ hashUnique identifier)
 
     -- take measurement
     counters <- readCounters subtrace
     -- send closing message to Trace
     traceNamedObject logTrace $ ObserveClose (CounterState identifier counters)
+    -- send diff message to Trace
+    traceNamedObject logTrace $
+        ObserveDiff (CounterState identifier (diffCounters initialCounters counters))
     -- trace the messages gathered from inside the action
     forM_ logObjects $ traceNamedObject logTrace
 
