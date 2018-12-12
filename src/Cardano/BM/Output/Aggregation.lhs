@@ -69,14 +69,13 @@ pass agg switchboardQueue item = do
     case newAggregated of
         Nothing ->
             return ()
-        Just aggregated -> do
+        Just aggregated ->
             -- forward the aggregated message to Switchboard
             atomically $ TBQ.writeTBQueue switchboardQueue $
                 Just $ LogNamed
                             { lnName = (lnName item) <> ".aggregated"
                             , lnItem = AggregatedMessage aggregated
                             }
-            putStrLn $ "Forwarded to Switchboard q: " ++ show aggregated
     putMVar (getAg agg) $ AggregationInternal updatedMap (agSome ag)
   where
     update agmap = pass' (lnItem item) (lnName item) agmap
