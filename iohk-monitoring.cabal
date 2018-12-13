@@ -14,7 +14,8 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs:      src
-  exposed-modules:
+  exposed-modules:     Paths_iohk_monitoring
+
                        Cardano.BM.Aggregated
                        Cardano.BM.BaseTrace
 
