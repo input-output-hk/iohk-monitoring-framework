@@ -44,8 +44,6 @@ newtype Switchboard = Switchboard
 data SwitchboardInternal = SwitchboardInternal
     { sbQueue       :: TBQ.TBQueue (Maybe NamedLogItem)
     , sbDispatch    :: Async.Async ()
-    , sbBackends    :: [(BackendKind, Backend)]
-    , configuration :: Configuration
     }
 
 \end{code}
@@ -63,12 +61,12 @@ setup cfg = do
     bs <- setupBackends cfg [] backends q
 
     sbref <- newEmptyMVar
-    d <- spawnDispatcher sbref q
-    putMVar sbref $ SwitchboardInternal q d bs cfg
+    d <- spawnDispatcher cfg bs q
+    putMVar sbref $ SwitchboardInternal q d
     return $ Switchboard sbref
   where
-    spawnDispatcher :: SwitchboardMVar -> TBQ.TBQueue (Maybe NamedLogItem) -> IO (Async.Async ())
-    spawnDispatcher switchboard queue = Async.async qProc
+    spawnDispatcher :: Configuration -> [(BackendKind, Backend)] -> TBQ.TBQueue (Maybe NamedLogItem) -> IO (Async.Async ())
+    spawnDispatcher config backends queue = Async.async qProc
       where
         qProc = do
             nli' <- atomically $ TBQ.readTBQueue queue
@@ -76,24 +74,21 @@ setup cfg = do
                 Just nli ->
                     case lnItem nli of
                         AggregatedMessage _ _aggregated -> do
-                            withMVar switchboard $ \sb -> do
-                                selectedBackends <- getBackends (configuration sb) (lnName nli)
-                                let dropAggrBackends = filter (/= AggregationBK) selectedBackends
-                                forM_ (sbBackends sb) ( \(bek, be) ->
-                                    when (bek `elem` dropAggrBackends) (dispatch nli be) )
+                            selectedBackends <- getBackends config (lnName nli)
+                            let dropAggrBackends = filter (/= AggregationBK) selectedBackends
+                            forM_ backends ( \(bek, be) ->
+                                when (bek `elem` dropAggrBackends) (dispatch nli be) )
                             qProc
                         _ -> do
-                            withMVar switchboard $ \sb -> do
-                                selectedBackends <- getBackends (configuration sb) (lnName nli)
-                                forM_ (sbBackends sb) ( \(bek, be) ->
-                                    when (bek `elem` selectedBackends) (dispatch nli be) )
+                            selectedBackends <- getBackends config (lnName nli)
+                            forM_ backends ( \(bek, be) ->
+                                when (bek `elem` selectedBackends) (dispatch nli be) )
                             qProc
-                -- if Nothing is in the queue then every backend is terminated
-                -- and Switchboard stops.
+                -- if Nothing is in the queue then every backend needs to be terminated
+                -- and the dispatcher exits, the |Switchboard| stops.
                 Nothing ->
-                    withMVar switchboard $ \sb ->
-                        forM_ (sbBackends sb) $ \(_, backend) ->
-                            bTerminate backend
+                    forM_ backends $ \(_, backend) ->
+                        bTerminate backend
         dispatch :: NamedLogItem -> Backend -> IO ()
         dispatch nli backend = (bPass backend) nli
 
