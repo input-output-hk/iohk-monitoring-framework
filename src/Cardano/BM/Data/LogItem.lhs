@@ -74,7 +74,7 @@ data LogObject = LP LogPrims
                | ObserveOpen CounterState
                | ObserveDiff CounterState
                | ObserveClose CounterState
-               | AggregatedMessage Aggregated
+               | AggregatedMessage Text Aggregated
                | KillPill
                  deriving (Generic, Show, ToJSON)
 
