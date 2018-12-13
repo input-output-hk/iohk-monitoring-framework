@@ -65,30 +65,36 @@ setup _ = do
 pass :: Aggregation -> TBQ.TBQueue (Maybe NamedLogItem) -> NamedLogItem -> IO ()
 pass agg switchboardQueue item = do
     ag <- takeMVar (getAg agg)
-    let (updatedMap, newAggregated) = update $ agMap ag
-    case newAggregated of
-        Nothing ->
-            return ()
-        Just aggregated ->
+    let (updatedMap, maybeAggregatedMsg) = update (lnItem item) (lnName item) (agMap ag)
+    case maybeAggregatedMsg of
+        Just aggregatedMsg@(AggregatedMessage _ _) ->
             -- forward the aggregated message to Switchboard
             atomically $ TBQ.writeTBQueue switchboardQueue $
                 Just $ LogNamed
                             { lnName = (lnName item) <> ".aggregated"
-                            , lnItem = AggregatedMessage aggregated
+                            , lnItem = aggregatedMsg
                             }
+        _ -> return ()
     putMVar (getAg agg) $ AggregationInternal updatedMap (agSome ag)
   where
-    update agmap = pass' (lnItem item) (lnName item) agmap
-    pass' :: LogObject -> LoggerName -> HM.HashMap Text Aggregated -> (HM.HashMap Text Aggregated, Maybe Aggregated)
-    pass' (LP (LogValue iname value)) logname agmap =
+    update :: LogObject
+           -> LoggerName
+           -> HM.HashMap Text Aggregated
+           -> (HM.HashMap Text Aggregated, Maybe LogObject)
+    update (LP (LogValue iname value)) logname agmap =
         let name = logname <> "." <> iname
             maybeAggregated = updateAggregation value $ HM.lookup name agmap
+            aggregatedMessage = case maybeAggregated of
+                                    Nothing ->
+                                        Nothing
+                                    Just aggregated ->
+                                        Just $ AggregatedMessage iname aggregated
         in
         -- use of HM.alter so that in future we can clear the Agrregated
         -- by using as alter's arg a function which returns Nothing.
-        (HM.alter (const $ maybeAggregated) name agmap, maybeAggregated)
+        (HM.alter (const $ maybeAggregated) name agmap, aggregatedMessage)
     -- TODO for text messages aggregate on delta of timestamps
-    pass' _ _ agmap = (agmap, Nothing)
+    update _ _ agmap = (agmap, Nothing)
 
 \end{code}
 

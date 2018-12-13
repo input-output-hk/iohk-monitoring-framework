@@ -75,7 +75,7 @@ setup cfg = do
             case nli' of
                 Just nli ->
                     case lnItem nli of
-                        AggregatedMessage _aggregated -> do
+                        AggregatedMessage _ _aggregated -> do
                             withMVar switchboard $ \sb -> do
                                 selectedBackends <- getBackends (configuration sb) (lnName nli)
                                 let dropAggrBackends = filter (/= AggregationBK) selectedBackends

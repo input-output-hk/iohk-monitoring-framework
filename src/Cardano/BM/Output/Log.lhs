@@ -192,8 +192,8 @@ passN backend katip namedLogItem = do
                     let (sev, msg, payload) = case item of
                                 (LP (LogMessage logItem)) ->
                                      (liSeverity logItem, liPayload logItem, Nothing)
-                                (AggregatedMessage aggregated) ->
-                                     (Info, pack (show aggregated), Nothing)
+                                (AggregatedMessage name aggregated) ->
+                                     (Info, pack (show name ++ ": " ++ show aggregated), Nothing)
                                 _ -> (Info, "", Just item)
                     threadIdText <- KC.mkThreadIdText <$> myThreadId
                     let ns = lnName namedLogItem
