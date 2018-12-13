@@ -19,12 +19,15 @@ import           Control.Concurrent (killThread)
 import           Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar,
                      takeMVar)
 import qualified Data.HashMap.Strict as HM
-import           Data.Text (Text)
+import           Data.Text (Text, pack)
+import           Data.Version (showVersion)
 
 import qualified System.Metrics.Gauge as Gauge
 import qualified System.Metrics.Label as Label
 import           System.Remote.Monitoring (Server, forkServer, getGauge,
                      getLabel, serverThreadId)
+
+import           Paths_iohk_monitoring (version)
 
 import           Cardano.BM.Configuration (Configuration, getEKGport)
 import           Cardano.BM.Data.Backend
@@ -56,6 +59,8 @@ setup c = do
     evref <- newEmptyMVar
     evport <- getEKGport c
     ehdl <- forkServer "127.0.0.1" evport
+    ekghdl <- getLabel "iohk-monitoring version" ehdl
+    Label.set ekghdl $ pack(showVersion version)
     putMVar evref $ EKGViewInternal
                     { evGauges = HM.empty
                     , evLabels = HM.empty
