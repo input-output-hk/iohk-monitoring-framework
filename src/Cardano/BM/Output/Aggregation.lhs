@@ -15,7 +15,7 @@ module Cardano.BM.Output.Aggregation
     ) where
 
 import qualified Control.Concurrent.Async as Async
-import           Control.Concurrent.MVar (MVar, modifyMVar_, newEmptyMVar,
+import           Control.Concurrent.MVar (MVar, newEmptyMVar,
                      putMVar, readMVar, takeMVar, tryTakeMVar, withMVar)
 import           Control.Concurrent.STM (atomically)
 import qualified Control.Concurrent.STM.TBQueue as TBQ
@@ -25,6 +25,7 @@ import           Data.Text (Text)
 
 import           Cardano.BM.Aggregated (Aggregated (..), updateAggregation)
 import           Cardano.BM.Configuration (Configuration)
+import           Cardano.BM.Data.Counter (Counter (..), CounterState (..))
 import           Cardano.BM.Data.LogItem
 
 \end{code}
@@ -76,25 +77,18 @@ spawnDispatcher :: AggregationMVar
                 -> TBQ.TBQueue (Maybe NamedLogItem)
                 -> TBQ.TBQueue (Maybe NamedLogItem)
                 -> IO (Async.Async ())
-spawnDispatcher agg aggregationQueue switchboardQueue = Async.async qProc
+spawnDispatcher agg {-map-} aggregationQueue switchboardQueue = Async.async qProc
   where
-    qProc = do
+    qProc {-map-} = do
         maybeItem <- atomically $ TBQ.readTBQueue aggregationQueue
         case maybeItem of
             Just item -> do
                 aggregation <- takeMVar agg
-                let (updatedMap, maybeAggregatedMsg) =
+                let (updatedMap, msgs) =
                         update (lnItem item) (lnName item) (agMap aggregation)
-                case maybeAggregatedMsg of
-                    Just aggregatedMsg@(AggregatedMessage _ _) ->
-                        -- forward the aggregated message to Switchboard
-                        atomically $ TBQ.writeTBQueue switchboardQueue $
-                            Just $ LogNamed
-                                        { lnName = (lnName item) <> ".aggregated"
-                                        , lnItem = aggregatedMsg
-                                        }
-                    _ -> return ()
                 putMVar agg $ aggregation { agMap = updatedMap }
+                -- send Aggregated messages back to Switchboard
+                sendAggregated msgs switchboardQueue (lnName item)
                 qProc
             -- if Nothing is in the queue then every backend is terminated
             -- and Aggregation stops.
@@ -103,22 +97,111 @@ spawnDispatcher agg aggregationQueue switchboardQueue = Async.async qProc
     update :: LogObject
            -> LoggerName
            -> HM.HashMap Text Aggregated
-           -> (HM.HashMap Text Aggregated, Maybe LogObject)
+           -> (HM.HashMap Text Aggregated, [LogObject])
     update (LP (LogValue iname value)) logname agmap =
         let name = logname <> "." <> iname
             maybeAggregated = updateAggregation value $ HM.lookup name agmap
             aggregatedMessage = case maybeAggregated of
                                     Nothing ->
-                                        Nothing
+                                        []
                                     Just aggregated ->
-                                        Just $ AggregatedMessage iname aggregated
+                                        [AggregatedMessage iname aggregated]
         in
         -- use of HM.alter so that in future we can clear the Agrregated
         -- by using as alter's arg a function which returns Nothing.
         (HM.alter (const $ maybeAggregated) name agmap, aggregatedMessage)
+    update (ObserveDiff counterState) logname agmap =
+        let
+            counters = csCounters counterState
+            (mapNew, msgs) = updateCounter counters logname agmap []
+        in
+            (mapNew, reverse msgs)
+            -- (agmap, [])
     -- TODO for text messages aggregate on delta of timestamps
-    -- update (ObserveDiff counterState) logname agmap = undefined -- forM_ (csCounters counterState)
-    update _ _ agmap = (agmap, Nothing)
+    update _ _ agmap = (agmap, [])
+
+    updateCounter :: [Counter]
+                  -> LoggerName
+                  -> HM.HashMap Text Aggregated
+                  -> [LogObject]
+                  -> (HM.HashMap Text Aggregated, [LogObject])
+    updateCounter [] _ aggrMap msgs = (aggrMap, msgs)
+    updateCounter ((MonotonicClockTime name value) :cs) logname aggrMap msgs =
+        let
+            fullname = logname <> "." <> name
+            maybeAggregated = updateAggregation (toInteger value) $ HM.lookup fullname aggrMap
+            aggregatedMessage = case maybeAggregated of
+                                    Nothing ->
+                                        error "This should not have happened!"
+                                    Just aggregated ->
+                                        AggregatedMessage name aggregated
+            updatedMap = HM.alter (const $ maybeAggregated) fullname aggrMap
+        in
+            updateCounter cs logname updatedMap (aggregatedMessage :msgs)
+        -- updateCounter cs logname aggrMap msgs
+    updateCounter ((MemoryCounter      name value) :cs) logname aggrMap msgs =
+        let
+            fullname = logname <> "." <> name
+            maybeAggregated = updateAggregation value $ HM.lookup fullname aggrMap
+            aggregatedMessage = case maybeAggregated of
+                                    Nothing ->
+                                        error "This should not have happened!"
+                                    Just aggregated ->
+                                        AggregatedMessage name aggregated
+            updatedMap = HM.alter (const $ maybeAggregated) fullname aggrMap
+        in
+            updateCounter cs logname updatedMap (aggregatedMessage :msgs)
+    updateCounter ((StatInfo           name value) :cs) logname aggrMap msgs =
+        let
+            fullname = logname <> "." <> name
+            maybeAggregated = updateAggregation value $ HM.lookup fullname aggrMap
+            aggregatedMessage = case maybeAggregated of
+                                    Nothing ->
+                                        error "This should not have happened!"
+                                    Just aggregated ->
+                                        AggregatedMessage name aggregated
+            updatedMap = HM.alter (const $ maybeAggregated) fullname aggrMap
+        in
+            updateCounter cs logname updatedMap (aggregatedMessage :msgs)
+    updateCounter ((IOCounter          name value) :cs) logname aggrMap msgs =
+        let
+            fullname = logname <> "." <> name
+            maybeAggregated = updateAggregation value $ HM.lookup fullname aggrMap
+            aggregatedMessage = case maybeAggregated of
+                                    Nothing ->
+                                        error "This should not have happened!"
+                                    Just aggregated ->
+                                        AggregatedMessage name aggregated
+            updatedMap = HM.alter (const $ maybeAggregated) fullname aggrMap
+        in
+            updateCounter cs logname updatedMap (aggregatedMessage :msgs)
+    updateCounter ((CpuCounter         name value) :cs) logname aggrMap msgs =
+        let
+            fullname = logname <> "." <> name
+            maybeAggregated = updateAggregation value $ HM.lookup fullname aggrMap
+            aggregatedMessage = case maybeAggregated of
+                                    Nothing ->
+                                        error "This should not have happened!"
+                                    Just aggregated ->
+                                        AggregatedMessage name aggregated
+            updatedMap = HM.alter (const $ maybeAggregated) fullname aggrMap
+        in
+            updateCounter cs logname updatedMap (aggregatedMessage :msgs)
+
+    sendAggregated :: [LogObject] -> TBQ.TBQueue (Maybe NamedLogItem) -> Text -> IO ()
+    sendAggregated [] _ _ = return ()
+    sendAggregated (aggregatedMsg@(AggregatedMessage _ _) : ms) sbQueue logname = do
+        -- forward the aggregated message to Switchboard
+        atomically $ TBQ.writeTBQueue sbQueue $
+            Just $ LogNamed
+                        { lnName = logname <> ".aggregated"
+                        , lnItem = aggregatedMsg
+                        }
+        sendAggregated ms sbQueue logname
+    -- ingnore messages that are not of type AggregatedMessage
+    sendAggregated (_ : ms) sbQueue logname =
+        sendAggregated ms sbQueue logname
+
 
 \end{code}
 
