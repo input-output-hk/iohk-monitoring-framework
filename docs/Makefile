@@ -59,7 +59,7 @@ $(DOC2).pdf: $(DOC2).tex
 	latexmk -pdf -use-make $<
 
 test-coverage.tex: ../dist-newstyle/build/x86_64-osx/ghc-8.6.2/iohk-monitoring-0.1.0.0/hpc/vanilla/html/iohk-monitoring-0.1.0.0/hpc_index_fun.html
-	cd prochpc; cabal new-exec prochpc ../$< > ../$@
+	if [ -e $< ]; then cd prochpc; cabal new-exec prochpc ../$< > ../$@ ; fi
 
 OverviewModules.pdf: OverviewModules.png
 	convert $< $@
