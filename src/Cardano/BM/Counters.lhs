@@ -46,12 +46,11 @@ diffTimeObserved (CounterState id0 startCounters) (CounterState id1 endCounters)
       else error "these clocks are not from the same experiment"
   where
     getMonotonicTime counters = case (filter isMonotonicClockCounter counters) of
-        [(MonotonicClockTime _ micros)] -> micros
-        _                               -> error "A time measurement is missing!"
+        [(Counter MonotonicClockTime _ micros)] -> fromInteger micros
+        _                                       -> error "A time measurement is missing!"
 
     isMonotonicClockCounter :: Counter -> Bool
-    isMonotonicClockCounter (MonotonicClockTime _ _) = True
-    isMonotonicClockCounter _                        = False
+    isMonotonicClockCounter = (MonotonicClockTime ==) . cType
 
 \end{code}
 

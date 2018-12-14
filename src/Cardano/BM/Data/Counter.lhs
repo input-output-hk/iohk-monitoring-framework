@@ -9,6 +9,7 @@
 
 module Cardano.BM.Data.Counter
   ( Counter (..)
+  , CounterType (..)
   , CounterState (..)
   , diffCounters
   , nameCounter
@@ -36,25 +37,20 @@ data Counter = Counter
                 , cValue :: Integer
                 }
                deriving (Eq, Show, Generic, ToJSON)
-data CounterType = MonotonicClockTime                
+
+data CounterType = MonotonicClockTime
                  | MemoryCounter
                  | StatInfo
                  | IOCounter
                  | CpuCounter
                    deriving (Eq, Show, Generic, ToJSON)
--- data Counter = MonotonicClockTime Text Integer
---              | MemoryCounter Text Integer
---              | StatInfo Text Integer
---              | IOCounter Text Integer
---              | CpuCounter Text Integer
---                deriving (Eq, Show, Generic, ToJSON)
 
 nameCounter :: Counter -> Text
-nameCounter (MonotonicClockTime _ _) = "Time"
-nameCounter (MemoryCounter _ _)      = "Mem"
-nameCounter (StatInfo _ _)           = "Stat"
-nameCounter (IOCounter  _ _)         = "IO"
-nameCounter (CpuCounter _ _)         = "Cpu"
+nameCounter (Counter MonotonicClockTime _ _) = "Time"
+nameCounter (Counter MemoryCounter      _ _) = "Mem"
+nameCounter (Counter StatInfo           _ _) = "Stat"
+nameCounter (Counter IOCounter          _ _) = "IO"
+nameCounter (Counter CpuCounter         _ _) = "Cpu"
 
 instance ToJSON Microsecond where
     toJSON     = toJSON     . toMicroseconds
@@ -80,19 +76,19 @@ instance Show CounterState where
 
 diffCounters :: [Counter] -> [Counter] -> [Counter]
 diffCounters openings closings =
-    getMonotonicClockTimeDiff openings closings ++
-    getCountersDiff openings closings isMemoryCounter MemoryCounter ++
-    getCountersDiff openings closings isStatInfo      StatInfo      ++
-    getCountersDiff openings closings isIOCounter     IOCounter     ++
-    getCountersDiff openings closings isCpuCounter    CpuCounter
+    getCountersDiff openings closings MonotonicClockTime ++
+    getCountersDiff openings closings MemoryCounter      ++
+    getCountersDiff openings closings StatInfo           ++
+    getCountersDiff openings closings IOCounter          ++
+    getCountersDiff openings closings CpuCounter
   where
     getCountersDiff :: [Counter]
                     -> [Counter]
-                    -> (Counter -> Bool)
-                    -> (Text -> Integer -> Counter)
+                    -> CounterType
                     -> [Counter]
-    getCountersDiff as bs predicate constructor =
+    getCountersDiff as bs counterType =
         let
+            predicate = (counterType ==) . cType
             as' = filter predicate as
             bs' = filter predicate bs
             aPairs = getPairs as'
@@ -101,51 +97,10 @@ diffCounters openings closings =
             catMaybes $ (flip map) aPairs $ \(name, startValue) ->
                 case HM.lookup name bPairs of
                     Nothing       -> Nothing
-                    Just endValue -> Just (constructor name (endValue - startValue))
+                    Just endValue -> Just (Counter counterType name (endValue - startValue))
           where
             getPairs :: [Counter] -> [(Text, Integer)]
-            getPairs (MonotonicClockTime _ _ : xs) =         getPairs xs
-            getPairs (MemoryCounter      t v : xs) = (t,v) : getPairs xs
-            getPairs (StatInfo           t v : xs) = (t,v) : getPairs xs
-            getPairs (IOCounter          t v : xs) = (t,v) : getPairs xs
-            getPairs (CpuCounter         t v : xs) = (t,v) : getPairs xs
+            getPairs (Counter _ t v : xs) = (t,v) : getPairs xs
             getPairs _ = []
-
-    getMonotonicClockTimeDiff :: [Counter] -> [Counter] -> [Counter]
-    getMonotonicClockTimeDiff as bs =
-        let
-            as' = filter isMonotonicClockTime as
-            bs' = filter isMonotonicClockTime bs
-            aPairs = getPairs as'
-            bPairs = HM.fromList $ getPairs bs'
-        in
-            catMaybes $ (flip map) aPairs $ \(name, startValue) ->
-                case HM.lookup name bPairs of
-                    Nothing       -> Nothing
-                    Just endValue -> Just (MonotonicClockTime name (endValue - startValue))
-          where
-            getPairs :: [Counter] -> [(Text, Microsecond)]
-            getPairs (MonotonicClockTime t v : xs) = (t,v) : getPairs xs
-            getPairs _                             = []
-
-    isMonotonicClockTime :: Counter -> Bool
-    isMonotonicClockTime (MonotonicClockTime _ _) = True
-    isMonotonicClockTime _                        = False
-
-    isMemoryCounter :: Counter -> Bool
-    isMemoryCounter (MemoryCounter _ _) = True
-    isMemoryCounter _                   = False
-
-    isStatInfo :: Counter -> Bool
-    isStatInfo (StatInfo _ _) = True
-    isStatInfo _              = False
-
-    isIOCounter :: Counter -> Bool
-    isIOCounter (IOCounter _ _) = True
-    isIOCounter _               = False
-
-    isCpuCounter :: Counter -> Bool
-    isCpuCounter (CpuCounter _ _) = True
-    isCpuCounter _                = False
 
 \end{code}

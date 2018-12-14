@@ -26,7 +26,7 @@ import           Data.Text (Text)
 
 import           Cardano.BM.Aggregated (Aggregated (..), updateAggregation)
 import           Cardano.BM.Configuration (Configuration)
-import           Cardano.BM.Data.Counter (Counter (..), CounterState (..))
+import           Cardano.BM.Data.Counter (Counter (..), CounterState (..), nameCounter)
 import           Cardano.BM.Data.LogItem
 
 \end{code}
@@ -127,63 +127,16 @@ spawnDispatcher agg {-map-} aggregationQueue switchboardQueue = Async.async qPro
                   -> [LogObject]
                   -> (HM.HashMap Text Aggregated, [LogObject])
     updateCounter [] _ aggrMap msgs = (aggrMap, msgs)
-    updateCounter ((MonotonicClockTime name value) :cs) logname aggrMap msgs =
+    updateCounter (counter : cs) logname aggrMap msgs =
         let
+            name = cName counter
             fullname = logname <> "." <> name
-            maybeAggregated = updateAggregation (toInteger value) $ HM.lookup fullname aggrMap
+            maybeAggregated = updateAggregation (cValue counter) $ HM.lookup fullname aggrMap
             aggregatedMessage = case maybeAggregated of
                                     Nothing ->
                                         error "This should not have happened!"
                                     Just aggregated ->
-                                        AggregatedMessage name aggregated
-            updatedMap = HM.alter (const $ maybeAggregated) fullname aggrMap
-        in
-            updateCounter cs logname updatedMap (aggregatedMessage :msgs)
-    updateCounter ((MemoryCounter      name value) :cs) logname aggrMap msgs =
-        let
-            fullname = logname <> "." <> name
-            maybeAggregated = updateAggregation value $ HM.lookup fullname aggrMap
-            aggregatedMessage = case maybeAggregated of
-                                    Nothing ->
-                                        error "This should not have happened!"
-                                    Just aggregated ->
-                                        AggregatedMessage name aggregated
-            updatedMap = HM.alter (const $ maybeAggregated) fullname aggrMap
-        in
-            updateCounter cs logname updatedMap (aggregatedMessage :msgs)
-    updateCounter ((StatInfo           name value) :cs) logname aggrMap msgs =
-        let
-            fullname = logname <> "." <> name
-            maybeAggregated = updateAggregation value $ HM.lookup fullname aggrMap
-            aggregatedMessage = case maybeAggregated of
-                                    Nothing ->
-                                        error "This should not have happened!"
-                                    Just aggregated ->
-                                        AggregatedMessage name aggregated
-            updatedMap = HM.alter (const $ maybeAggregated) fullname aggrMap
-        in
-            updateCounter cs logname updatedMap (aggregatedMessage :msgs)
-    updateCounter ((IOCounter          name value) :cs) logname aggrMap msgs =
-        let
-            fullname = logname <> "." <> name
-            maybeAggregated = updateAggregation value $ HM.lookup fullname aggrMap
-            aggregatedMessage = case maybeAggregated of
-                                    Nothing ->
-                                        error "This should not have happened!"
-                                    Just aggregated ->
-                                        AggregatedMessage name aggregated
-            updatedMap = HM.alter (const $ maybeAggregated) fullname aggrMap
-        in
-            updateCounter cs logname updatedMap (aggregatedMessage :msgs)
-    updateCounter ((CpuCounter         name value) :cs) logname aggrMap msgs =
-        let
-            fullname = logname <> "." <> name
-            maybeAggregated = updateAggregation value $ HM.lookup fullname aggrMap
-            aggregatedMessage = case maybeAggregated of
-                                    Nothing ->
-                                        error "This should not have happened!"
-                                    Just aggregated ->
-                                        AggregatedMessage name aggregated
+                                        AggregatedMessage ((nameCounter counter) <> "." <> name) aggregated
             updatedMap = HM.alter (const $ maybeAggregated) fullname aggrMap
         in
             updateCounter cs logname updatedMap (aggregatedMessage :msgs)

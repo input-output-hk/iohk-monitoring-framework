@@ -98,7 +98,7 @@ readProcStatM = do
     pid <- getProcessID
     ps0 <- readProcList (pathProcStatM pid)
     ps <- return $ zip colnames ps0
-    forM ps (\(n,i) -> return $ MemoryCounter n i)
+    forM ps (\(n,i) -> return $ Counter MemoryCounter n i)
   where
     colnames :: [Text]
     colnames = ["size","resident","shared","text","unused","data","unused"]
@@ -345,7 +345,7 @@ readProcStats = do
     pid <- getProcessID
     ps0 <- readProcList (pathProcStat pid)
     ps <- return $ zip colnames ps0
-    forM ps (\(n,i) -> return $ StatInfo n i)
+    forM ps (\(n,i) -> return $ Counter StatInfo n i)
   where
     colnames :: [Text]
     colnames = [ "pid","unused","unused","ppid","pgrp","session","ttynr","tpgid","flags","minflt"
@@ -422,7 +422,7 @@ readProcIO = do
     pid <- getProcessID
     ps0 <- readProcList (pathProcIO pid)
     ps <- return $ zip colnames ps0
-    forM ps (\(n,i) -> return $ IOCounter n i)
+    forM ps (\(n,i) -> return $ Counter IOCounter n i)
   where
     colnames :: [Text]
     colnames = [ "rchar","wchar","syscr","syscw","rbytes","wbytes","cxwbytes" ]

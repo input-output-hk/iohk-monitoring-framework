@@ -29,6 +29,6 @@ nominalTimeToMicroseconds = fromMicroseconds . toInteger . (`div` 1000)
 getMonoClock :: IO [Counter]
 getMonoClock = do
     t <- getMonotonicTimeNSec
-    return [ MonotonicClockTime "monoclock" $ nominalTimeToMicroseconds t ]
-\end{code}
+    return [ Counter MonotonicClockTime "monoclock" $ toInteger $ nominalTimeToMicroseconds t ]
 
+\end{code}
