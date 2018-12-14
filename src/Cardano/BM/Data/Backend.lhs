@@ -22,7 +22,7 @@ import           Cardano.BM.Configuration.Model (Configuration)
 \end{code}
 %endif
 
-\subsubsection{Accepts a \nameref{code:NamedLogItem}}\label{code:HasPass}
+\subsubsection{Accepts a \nameref{code:NamedLogItem}}\label{code:IsEffectuator}
 \begin{code}
 class IsEffectuator t where
     effectuate  :: t -> NamedLogItem -> IO ()

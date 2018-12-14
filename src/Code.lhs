@@ -114,6 +114,7 @@ where
 %include Cardano/BM/Counters/Dummy.lhs
 %include Cardano/BM/Counters/Linux.lhs
 
+%include Cardano/BM/Data/Aggregated.lhs
 %include Cardano/BM/Data/Backend.lhs
 %include Cardano/BM/Data/Configuration.lhs
 %include Cardano/BM/Data/Counter.lhs
@@ -126,8 +127,6 @@ where
 
 %include Cardano/BM/Configuration.lhs
 %include Cardano/BM/Configuration/Model.lhs
-
-%include Cardano/BM/Aggregated.lhs
 
 %include Cardano/BM/Output/Switchboard.lhs
 %include Cardano/BM/Output/Log.lhs

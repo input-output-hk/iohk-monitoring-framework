@@ -1,11 +1,12 @@
 
-\subsection{Cardano.BM.Aggregated}
+\subsection{Cardano.BM.Data.Aggregated}
 
+%if style == newcode
 \begin{code}
 {-# LANGUAGE DeriveAnyClass     #-}
 {-# LANGUAGE DeriveGeneric      #-}
 {-# LANGUAGE StandaloneDeriving #-}
-module Cardano.BM.Aggregated
+module Cardano.BM.Data.Aggregated
   (
     Aggregated (..)
   , Stats (..)
@@ -15,9 +16,10 @@ module Cardano.BM.Aggregated
 import           GHC.Generics (Generic)
 import           Data.Aeson (ToJSON)
 \end{code}
+%endif
 
+\subsubsection{Stats}\label{code:Stats}
 \begin{code}
-
 data Stats = Stats {
     fmin   :: Integer,
     fmax   :: Integer,
@@ -26,6 +28,10 @@ data Stats = Stats {
     fsum_B :: Integer
     } deriving (Show, Eq, Generic, ToJSON)
 
+\end{code}
+
+\subsubsection{Aggregated}\label{code:Aggregated}
+\begin{code}
 data Aggregated = Aggregated {
     fstats :: Stats,
     flast  :: Integer,
@@ -33,7 +39,7 @@ data Aggregated = Aggregated {
     } deriving (Show, Eq, Generic, ToJSON)
 \end{code}
 
-\subsubsection{Update aggregation}
+\subsubsection{Update aggregation}\label{code:updateAggregation}
 
 We distinguish an unitialized from an already initialized aggregation:
 

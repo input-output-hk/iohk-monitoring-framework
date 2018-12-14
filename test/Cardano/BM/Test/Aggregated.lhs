@@ -7,8 +7,8 @@ module Cardano.BM.Test.Aggregated (
     tests
   ) where
 
-import           Cardano.BM.Aggregated
 import           Cardano.BM.Arbitrary.Aggregated ()
+import           Cardano.BM.Data.Aggregated
 
 import           Test.Tasty
 import           Test.Tasty.HUnit

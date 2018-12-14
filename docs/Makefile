@@ -3,7 +3,6 @@ DOC2 = IOHK-Monitoring-tests
 
 SOURCES = ../src/Code.lhs \
 					../src/Cardano/BM/ \
-					../src/Cardano/BM/Aggregated.lhs \
 					../src/Cardano/BM/BaseTrace.lhs \
 					../src/Cardano/BM/Configuration.lhs \
 					../src/Cardano/BM/Configuration/Model.lhs \
@@ -12,6 +11,7 @@ SOURCES = ../src/Code.lhs \
 					../src/Cardano/BM/Counters/Common.lhs \
 					../src/Cardano/BM/Counters/Dummy.lhs \
 					../src/Cardano/BM/Counters/Linux.lhs \
+					../src/Cardano/BM/Data/Aggregated.lhs \
 					../src/Cardano/BM/Data/Backend.lhs \
 					../src/Cardano/BM/Data/BackendKind.lhs \
 					../src/Cardano/BM/Data/Configuration.lhs \

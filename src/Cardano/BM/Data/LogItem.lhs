@@ -23,9 +23,9 @@ import           Data.Text (Text)
 
 import           GHC.Generics (Generic)
 
+import           Cardano.BM.Data.Aggregated (Aggregated(..))
 import           Cardano.BM.Data.Counter
 import           Cardano.BM.Data.Severity
-import           Cardano.BM.Aggregated (Aggregated(..))
 
 \end{code}
 %endif
