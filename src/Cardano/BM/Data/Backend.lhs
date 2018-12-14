@@ -5,6 +5,7 @@
 \begin{code}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric  #-}
+{-# LANGUAGE RankNTypes     #-}
 
 module Cardano.BM.Data.Backend
   ( Backend (..)
@@ -35,6 +36,17 @@ data BackendKind = AggregationBK
 \begin{code}
 class HasPass t where
     pass :: t -> NamedLogItem -> IO ()
+
+class IsBackend t where
+    typeof :: BackendKind
+    setup :: Configuration -> IO ()
+    terminate :: t -> IO ()
+    pass :: t -> NamedLogItem -> IO ()
+    passfrom :: forall s . (HasPass s) => t -> NamedLogItem -> s -> IO ()
+    default passfrom t nli _ = pass t nli
+
+instance (IsBackend t) => HasPass t where
+    pass = pass
 
 \end{code}
 
