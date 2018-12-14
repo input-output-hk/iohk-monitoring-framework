@@ -162,7 +162,7 @@ example_with_named_contexts = do
 
 \subsubsection{Show effect of turning off observables}\label{timing_Observable_vs_Untimed}
 \begin{code}
-run_timed_action :: Trace IO -> IO (Microsecond)
+run_timed_action :: Trace IO -> IO Microsecond
 run_timed_action logTrace = do
     runid <- newUnique
     t0 <- getMonoClock
