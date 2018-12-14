@@ -1,7 +1,10 @@
 
 \subsection{\tt{instance} Arbitrary Aggregated}
 
+%if style == newcode
 \begin{code}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 module Cardano.BM.Arbitrary.Aggregated
 
 where
@@ -10,6 +13,7 @@ import           Test.QuickCheck
 
 import           Cardano.BM.Aggregated
 \end{code}
+%endif
 
 We define an instance of |Arbitrary| for an |Aggregated| which lets |QuickCheck|
 generate arbitrary instances of |Aggregated|.

@@ -17,9 +17,9 @@
 module Cardano.BM.Output.Log
     (
       Log
-    , setup
-    , pass
-    , takedown
+    , effectuate
+    , realize
+    , unrealize
     ) where
 
 import           Control.AutoUpdate (UpdateSettings (..), defaultUpdateSettings,
@@ -61,82 +61,75 @@ import           Cardano.BM.Data.Severity
 \end{code}
 %endif
 
-Log is a singleton.
+\subsubsection{Internal representation}\label{code:Log}
 \begin{code}
-type KatipMVar = MVar KatipInternal
+type LogMVar = MVar LogInternal
 newtype Log = Log
-    { getK :: KatipMVar }
+    { getK :: LogMVar }
 
--- Our internal state
-data KatipInternal = KatipInternal
+data LogInternal = LogInternal
     { kLogEnv       :: K.LogEnv
     , configuration :: Config.Configuration }
 
 \end{code}
 
+\subsubsection{Log implements |effectuate|}
 \begin{code}
-instance HasPass Log where
-    pass katip item = do
+instance IsEffectuator Log where
+    effectuate katip item = do
         c <- withMVar (getK katip) $ \k -> return (configuration k)
         selscribes <- getScribes c (lnName item)
         forM_ selscribes $ \sc -> passN sc katip item
 
 \end{code}
 
-Setup |katip| and its scribes according to the configuration
+\subsubsection{Log implements backend functions}
 \begin{code}
-setup :: Config.Configuration -> IO Log
-setup config = do
-    cfoKey <- Config.getOptionOrDefault config (pack "cfokey") (pack "<unknown>")
-    -- TODO setup katip
-    le0 <- K.initLogEnv
-                (K.Namespace ["iohk"])
-                (fromString $ (unpack cfoKey) <> ":" <> showVersion mockVersion)
-    -- request a new time 'getCurrentTime' at most 100 times a second
-    timer <- mkAutoUpdate defaultUpdateSettings { updateAction = getCurrentTime, updateFreq = 10000 }
-    let le1 = updateEnv le0 timer
-    scribes <- getSetupScribes config
+instance IsBackend Log where
+    typeof _ = KatipBK
 
-    le <- register scribes le1
-        -- stdoutScribe <- mkStdoutScribeJson K.V0
-        -- le <- register [(StdoutSK, "stdout", stdoutScribe)] le1
+    realize config = do
+        let updateEnv :: K.LogEnv -> IO UTCTime -> K.LogEnv
+            updateEnv le timer =
+                le { K._logEnvTimer = timer, K._logEnvHost = "hostname" }
+            register :: [ScribeDefinition] -> K.LogEnv -> IO K.LogEnv
+            register [] le = return le
+            register (defsc : dscs) le = do
+                let kind = scKind defsc
+                    name = scName defsc
+                    name' = pack (show kind) <> "::" <> name
+                scr <- createScribe kind name
+                register dscs =<< K.registerScribe name' scr scribeSettings le
+            mockVersion :: Version
+            mockVersion = Version [0,1,0,0] []
+            scribeSettings :: KC.ScribeSettings
+            scribeSettings =
+                let bufferSize = 5000  -- size of the queue (in log items)
+                in
+                KC.ScribeSettings bufferSize
+            createScribe FileTextSK name = mkTextFileScribe  (FileDescription $ unpack name) False
+            createScribe FileJsonSK name = mkJsonFileScribe  (FileDescription $ unpack name) False
+            createScribe StdoutSK _ = mkStdoutScribe
+            createScribe StderrSK _ = mkStderrScribe
 
-    kref <- newEmptyMVar
-    putMVar kref $ KatipInternal le config
+        cfoKey <- Config.getOptionOrDefault config (pack "cfokey") (pack "<unknown>")
+        le0 <- K.initLogEnv
+                    (K.Namespace ["iohk"])
+                    (fromString $ (unpack cfoKey) <> ":" <> showVersion mockVersion)
+        -- request a new time 'getCurrentTime' at most 100 times a second
+        timer <- mkAutoUpdate defaultUpdateSettings { updateAction = getCurrentTime, updateFreq = 10000 }
+        let le1 = updateEnv le0 timer
+        scribes <- getSetupScribes config
+        le <- register scribes le1
 
-    return $ Log kref
-  where
-    updateEnv :: K.LogEnv -> IO UTCTime -> K.LogEnv
-    updateEnv le timer =
-        le { K._logEnvTimer = timer, K._logEnvHost = "hostname" }
-    register :: [ScribeDefinition] -> K.LogEnv -> IO K.LogEnv
-    register [] le = return le
-    register (defsc : dscs) le = do
-        let kind = scKind defsc
-            name = scName defsc
-            name' = pack (show kind) <> "::" <> name
-        scr <- createScribe kind name
-        register dscs =<< K.registerScribe name' scr scribeSettings le
-    mockVersion :: Version
-    mockVersion = Version [0,1,0,0] []
-    scribeSettings :: KC.ScribeSettings
-    scribeSettings =
-        let bufferSize = 5000  -- size of the queue (in log items)
-        in
-        KC.ScribeSettings bufferSize
-    createScribe FileTextSK name = mkTextFileScribe  (FileDescription $ unpack name) False
-    createScribe FileJsonSK name = mkJsonFileScribe  (FileDescription $ unpack name) False
-    createScribe StdoutSK _ = mkStdoutScribe
-    createScribe StderrSK _ = mkStderrScribe
+        kref <- newEmptyMVar
+        putMVar kref $ LogInternal le config
 
-\end{code}
+        return $ Log kref
 
-Finalize |katip| and its scribes
-\begin{code}
-takedown :: Log -> IO ()
-takedown katip = do
-    le <- withMVar (getK katip) $ \k -> return (kLogEnv k)
-    void $ K.closeScribes le
+    unrealize katip = do
+        le <- withMVar (getK katip) $ \k -> return (kLogEnv k)
+        void $ K.closeScribes le
 
 \end{code}
 
@@ -176,14 +169,13 @@ instance KC.LogItem (Maybe LogObject) where
 
 \subsubsection{Log.passN}\label{code:passN}
 The following function copies the |NamedLogItem| to the queues of all scribes
-that match on their name. This function is non-blocking.
+that match on their name.
+Compare start of name of scribe to |(show backend <> "::")|.
+This function is non-blocking.
 \begin{code}
 passN :: Text -> Log -> NamedLogItem -> IO ()
 passN backend katip namedLogItem = do
     env <- withMVar (getK katip) $ \k -> return (kLogEnv k)
-    -- TODO go through list of registered scribes
-    --      and put into queue of scribe if backend kind matches
-    --      compare start of name of scribe to (show backend <> "::")
     forM_ (Map.toList $ K._logEnvScribes env) $
           \(scName, (KC.ScribeHandle _ shChan)) ->
               -- check start of name to match |ScribeKind|

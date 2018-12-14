@@ -25,7 +25,7 @@ import qualified Data.Set as Set
 import           Data.Yaml
 import           GHC.Generics
 
-import           Cardano.BM.Data.Backend
+import           Cardano.BM.Data.BackendKind
 import           Cardano.BM.Data.Output
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.Rotation
@@ -64,6 +64,7 @@ after parsing the configuration representation we implicitly correct it.
 \begin{code}
 implicit_fill_representation :: Representation -> Representation
 implicit_fill_representation =
+    remove_ekgview_if_not_defined .
     filter_duplicates_from_backends .
     filter_duplicates_from_scribes .
     union_setup_and_usage_backends .
@@ -76,12 +77,18 @@ implicit_fill_representation =
         r {setupScribes = mkUniq $ setupScribes r}
     union_setup_and_usage_backends r =
         r {setupBackends = setupBackends r <> defaultBackends r}
+    remove_ekgview_if_not_defined r =
+        case hasEKG r of
+        Nothing -> r { defaultBackends = filter (\bk -> bk /= EKGViewBK) (defaultBackends r)
+                     , setupBackends = filter (\bk -> bk /= EKGViewBK) (setupBackends r)
+                     }
+        Just _  -> r
     add_ekgview_if_port_defined r =
         case hasEKG r of
         Nothing -> r
         Just _  -> r {setupBackends = setupBackends r <> [EKGViewBK]}
     add_katip_if_any_scribes r =
-        if (any (not) [null $ setupScribes r, null $ defaultScribes r])
+        if (any not [null $ setupScribes r, null $ defaultScribes r])
         then r {setupBackends = setupBackends r <> [KatipBK]}
         else r
     mkUniq :: Ord a => [a] -> [a]

@@ -47,7 +47,7 @@ setupTrace (Right c) name = setupTrace_ c name
 
 setupTrace_ :: MonadIO m => Config.Configuration -> Text -> m (Trace m)
 setupTrace_ c name = do
-    sb <- liftIO $ Switchboard.setup c
+    sb <- liftIO $ Switchboard.realize c
     sev <- liftIO $ Config.minSeverity c
     ctx <- liftIO $ newContext name c sev
 

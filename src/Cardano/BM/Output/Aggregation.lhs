@@ -7,9 +7,11 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module Cardano.BM.Output.Aggregation
-    ( setup
-    , pass
-    , takedown
+    (
+      Aggregation
+    , effectuate
+    , realizefrom
+    , unrealize
     ) where
 
 import qualified Control.Concurrent.Async as Async
@@ -23,20 +25,19 @@ import qualified Data.HashMap.Strict as HM
 import           Data.Text (Text)
 
 import           Cardano.BM.Aggregated (Aggregated (..), updateAggregation)
-import           Cardano.BM.Configuration (Configuration)
+import           Cardano.BM.Data.Backend
 import           Cardano.BM.Data.Counter (Counter (..), CounterState (..), nameCounter)
 import           Cardano.BM.Data.LogItem
 
 \end{code}
 %endif
 
-The aggregation is a singleton.
+\subsubsection{Internal representation}\label{code:Aggregation}
 \begin{code}
 type AggregationMVar = MVar AggregationInternal
 newtype Aggregation = Aggregation
     { getAg :: AggregationMVar }
 
--- Our internal state
 data AggregationInternal = AggregationInternal
     { agQueue    :: TBQ.TBQueue (Maybe NamedLogItem)
     , agDispatch :: Async.Async ()
@@ -44,37 +45,64 @@ data AggregationInternal = AggregationInternal
 
 \end{code}
 
-\todo[inline]{TODO inspect function to get the Aggregated of a specific name
-maybe
-inspect :: TBQ.Queue -> Text -> IO ()
-inspect q agg name = send to queue a special message asking for the map
-}
-
+\subsubsection{Relation from context name to aggregated statistics}
+We keep the aggregated values (\nameref{code:Aggregated}) for a named context in a |HashMap|.
 \begin{code}
-setup :: Configuration -> TBQ.TBQueue (Maybe NamedLogItem) -> IO Aggregation
-setup _ switchboardQueue = do
-    aggref <- newEmptyMVar
-    aggregationQueue <- atomically $ TBQ.newTBQueue 2048
-    dispatcher <- spawnDispatcher HM.empty aggregationQueue switchboardQueue
-    putMVar aggref $ AggregationInternal aggregationQueue dispatcher
-    return $ Aggregation aggref
+type AggregationMap = HM.HashMap Text Aggregated
 
 \end{code}
 
-Pass the item to the Aggregation queue.
-\begin{code}
-pass :: Aggregation -> NamedLogItem -> IO ()
-pass agg item = do
-    ag <- readMVar (getAg agg) -- this will block. would it be better if the Queue was setup in the Switchboard
-    -- so as to have it here as an argument?
-    let aggregationQueue = agQueue ag
-    atomically $ TBQ.writeTBQueue aggregationQueue $ Just item
+\subsubsection{|Aggregation| implements |effectuate|}
 
-spawnDispatcher :: HM.HashMap Text Aggregated
+|Aggregation| is an \nameref{code:IsEffectuator}
+Enter the log item into the |Aggregation| queue.
+\begin{code}
+instance IsEffectuator Aggregation where
+    effectuate agg item = do
+        ag <- readMVar (getAg agg)
+        atomically $ TBQ.writeTBQueue (agQueue ag) $ Just item
+
+\end{code}
+
+\subsubsection{|Aggregation| implements |Backend| functions}
+
+|Aggregation| is an \nameref{code:IsBackend}
+\begin{code}
+instance IsBackend Aggregation where
+    typeof _ = AggregationBK
+
+    realize _ = error "Aggregation cannot be instantiated by 'realize'"
+
+    realizefrom _ switchboard = do
+        aggref <- newEmptyMVar
+        aggregationQueue <- atomically $ TBQ.newTBQueue 2048
+        dispatcher <- spawnDispatcher HM.empty aggregationQueue switchboard
+        putMVar aggref $ AggregationInternal aggregationQueue dispatcher
+        return $ Aggregation aggref
+
+    unrealize aggregation = do
+        let clearMVar :: MVar a -> IO ()
+            clearMVar = void . tryTakeMVar
+
+        (dispatcher, queue) <- withMVar (getAg aggregation) (\ag ->
+                            return (agDispatch ag, agQueue ag))
+        -- send terminating item to the queue
+        atomically $ TBQ.writeTBQueue queue Nothing
+        -- wait for the dispatcher to exit
+        res <- Async.waitCatch dispatcher
+        either throwM return res
+        (clearMVar . getAg) aggregation
+
+\end{code}
+
+\subsubsection{Asynchrouniously reading log items from the queue and their processing}
+\begin{code}
+spawnDispatcher :: IsEffectuator e
+                => AggregationMap
                 -> TBQ.TBQueue (Maybe NamedLogItem)
-                -> TBQ.TBQueue (Maybe NamedLogItem)
+                -> e
                 -> IO (Async.Async ())
-spawnDispatcher aggMap aggregationQueue switchboardQueue = Async.async $ qProc aggMap
+spawnDispatcher aggMap aggregationQueue switchboard = Async.async $ qProc aggMap
   where
     qProc aggregatedMap = do
         maybeItem <- atomically $ TBQ.readTBQueue aggregationQueue
@@ -82,12 +110,9 @@ spawnDispatcher aggMap aggregationQueue switchboardQueue = Async.async $ qProc a
             Just item -> do
                 let (updatedMap, msgs) =
                         update (lnItem item) (lnName item) aggregatedMap
-                -- send Aggregated messages back to Switchboard
-                sendAggregated msgs switchboardQueue (lnName item)
+                sendAggregated msgs switchboard (lnName item)
                 qProc updatedMap
-            -- if Nothing is in the queue then every backend is terminated
-            -- and Aggregation stops.
-            Nothing -> return () -- maybe check the Queue for messages came after Nothing
+            Nothing -> return ()
 
     update :: LogObject
            -> LoggerName
@@ -134,36 +159,19 @@ spawnDispatcher aggMap aggregationQueue switchboardQueue = Async.async $ qProc a
         in
             updateCounter cs logname updatedMap (aggregatedMessage :msgs)
 
-    sendAggregated :: [LogObject] -> TBQ.TBQueue (Maybe NamedLogItem) -> Text -> IO ()
+    sendAggregated :: IsEffectuator e => [LogObject] -> e -> Text -> IO ()
     sendAggregated [] _ _ = return ()
-    sendAggregated (aggregatedMsg@(AggregatedMessage _ _) : ms) sbQueue logname = do
+    sendAggregated (aggregatedMsg@(AggregatedMessage _ _) : ms) sb logname = do
         -- forward the aggregated message to Switchboard
-        atomically $ TBQ.writeTBQueue sbQueue $
-            Just $ LogNamed
+        effectuate sb $
+                    LogNamed
                         { lnName = logname <> ".aggregated"
                         , lnItem = aggregatedMsg
                         }
-        sendAggregated ms sbQueue logname
-    -- ingnore messages that are not of type AggregatedMessage
-    sendAggregated (_ : ms) sbQueue logname =
-        sendAggregated ms sbQueue logname
+        sendAggregated ms sb logname
+    -- ingnore all other messages that are not of type AggregatedMessage
+    sendAggregated (_ : ms) sb logname =
+        sendAggregated ms sb logname
 
-
-\end{code}
-
-\begin{code}
-takedown :: Aggregation -> IO ()
-takedown aggregation = do
-    (dispatcher, queue) <- withMVar (getAg aggregation) (\ag ->
-                           return (agDispatch ag, agQueue ag))
-    -- send terminating item to the queue
-    atomically $ TBQ.writeTBQueue queue Nothing
-    -- wait for the dispatcher to exit
-    res <- Async.waitCatch dispatcher
-    either throwM return res
-    (clearMVar . getAg) aggregation
-
-clearMVar :: MVar a -> IO ()
-clearMVar = void . tryTakeMVar
 
 \end{code}

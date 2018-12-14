@@ -18,8 +18,6 @@ defaultfp = "../../dist-newstyle/build/x86_64-osx/ghc-8.6.2/iohk-monitoring-0.1.
 findRows :: Cursor -> [Cursor]
 findRows = element "body" >=> child >=> element "table" >=> child >=> element "tr" >=> child
 
--- >=> element "td" >=> child >=> element "tt" >=> child >=> element "a" >=> child
-
 extractModules :: Cursor -> [T.Text]
 extractModules = -- T.append "@ " $ T.concat $
     element "td" >=> child >=> element "tt" >=> child >=> element "a" >=> child >=> content
@@ -60,5 +58,5 @@ main = do
         let a' = f $ take 12 as
         in
         showby12 (drop 12 as) f (a' : acc)
-    prepModule (a : _) = T.drop 1 . snd $ T.breakOn "/" a
+    prepModule (a : _) = T.replace "_" "\\_" $ T.drop 1 . snd $ T.breakOn "/" a
     prepScore (_ : _ : a : _) = T.replace "%" "\\%" a

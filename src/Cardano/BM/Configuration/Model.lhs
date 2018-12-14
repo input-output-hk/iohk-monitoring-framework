@@ -38,7 +38,7 @@ import qualified Data.HashMap.Strict as HM
 import           Data.Text (Text, pack)
 import           Data.Yaml as Y
 
-import           Cardano.BM.Data.Backend
+import           Cardano.BM.Data.BackendKind
 import qualified Cardano.BM.Data.Configuration as R
 import           Cardano.BM.Data.LogItem (LoggerName)
 import           Cardano.BM.Data.Output (ScribeDefinition, ScribeId)
