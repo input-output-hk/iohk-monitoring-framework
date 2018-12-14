@@ -7,16 +7,14 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module Cardano.BM.Output.Aggregation
-    (
-      setup
+    ( setup
     , pass
-    , inspect
     , takedown
     ) where
 
 import qualified Control.Concurrent.Async as Async
 import           Control.Concurrent.MVar (MVar, newEmptyMVar,
-                     putMVar, readMVar, takeMVar, tryTakeMVar, withMVar)
+                     putMVar, readMVar, tryTakeMVar, withMVar)
 import           Control.Concurrent.STM (atomically)
 import qualified Control.Concurrent.STM.TBQueue as TBQ
 import           Control.Monad (void)
@@ -40,27 +38,25 @@ newtype Aggregation = Aggregation
 
 -- Our internal state
 data AggregationInternal = AggregationInternal
-    { agMap      :: HM.HashMap Text Aggregated
-    , agQueue    :: TBQ.TBQueue (Maybe NamedLogItem)
+    { agQueue    :: TBQ.TBQueue (Maybe NamedLogItem)
     , agDispatch :: Async.Async ()
     }
 
 \end{code}
 
-\begin{code}
-inspect :: Aggregation -> Text -> IO (Maybe Aggregated)
-inspect agg name =
-    withMVar (getAg agg) $ \ag ->
-        return $ HM.lookup name (agMap ag)
-\end{code}
+\todo[inline]{TODO inspect function to get the Aggregated of a specific name
+maybe
+inspect :: TBQ.Queue -> Text -> IO ()
+inspect q agg name = send to queue a special message asking for the map
+}
 
 \begin{code}
 setup :: Configuration -> TBQ.TBQueue (Maybe NamedLogItem) -> IO Aggregation
 setup _ switchboardQueue = do
     aggref <- newEmptyMVar
     aggregationQueue <- atomically $ TBQ.newTBQueue 2048
-    dispatcher <- spawnDispatcher aggref aggregationQueue switchboardQueue
-    putMVar aggref $ AggregationInternal HM.empty aggregationQueue dispatcher
+    dispatcher <- spawnDispatcher HM.empty aggregationQueue switchboardQueue
+    putMVar aggref $ AggregationInternal aggregationQueue dispatcher
     return $ Aggregation aggref
 
 \end{code}
@@ -74,23 +70,21 @@ pass agg item = do
     let aggregationQueue = agQueue ag
     atomically $ TBQ.writeTBQueue aggregationQueue $ Just item
 
-spawnDispatcher :: AggregationMVar
+spawnDispatcher :: HM.HashMap Text Aggregated
                 -> TBQ.TBQueue (Maybe NamedLogItem)
                 -> TBQ.TBQueue (Maybe NamedLogItem)
                 -> IO (Async.Async ())
-spawnDispatcher agg {-map-} aggregationQueue switchboardQueue = Async.async qProc
+spawnDispatcher aggMap aggregationQueue switchboardQueue = Async.async $ qProc aggMap
   where
-    qProc {-map-} = do
+    qProc aggregatedMap = do
         maybeItem <- atomically $ TBQ.readTBQueue aggregationQueue
         case maybeItem of
             Just item -> do
-                aggregation <- takeMVar agg
                 let (updatedMap, msgs) =
-                        update (lnItem item) (lnName item) (agMap aggregation)
-                putMVar agg $ aggregation { agMap = updatedMap }
+                        update (lnItem item) (lnName item) aggregatedMap
                 -- send Aggregated messages back to Switchboard
                 sendAggregated msgs switchboardQueue (lnName item)
-                qProc
+                qProc updatedMap
             -- if Nothing is in the queue then every backend is terminated
             -- and Aggregation stops.
             Nothing -> return () -- maybe check the Queue for messages came after Nothing
@@ -117,7 +111,6 @@ spawnDispatcher agg {-map-} aggregationQueue switchboardQueue = Async.async qPro
             (mapNew, msgs) = updateCounter counters logname agmap []
         in
             (mapNew, reverse msgs)
-            -- (agmap, [])
     -- TODO for text messages aggregate on delta of timestamps
     update _ _ agmap = (agmap, [])
 
