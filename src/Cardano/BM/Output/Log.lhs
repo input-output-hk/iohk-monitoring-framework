@@ -32,6 +32,7 @@ import           Control.Monad (forM_, void)
 import           Control.Lens ((^.))
 import           Data.Aeson.Text (encodeToLazyText)
 import qualified Data.Map as Map
+import           Data.Maybe (isNothing)
 import           Data.String (fromString)
 import           Data.Text (Text, isPrefixOf, pack, unpack)
 import           Data.Text.Lazy.Builder (Builder, fromText, toLazyText)
@@ -194,25 +195,28 @@ passN backend katip namedLogItem = do
                                      (liSeverity logItem, liPayload logItem, Nothing)
                                 (AggregatedMessage name aggregated) ->
                                      (Info, pack (show name ++ ": " ++ show aggregated), Nothing)
-                                _ -> (Info, "", Just item)
-                    threadIdText <- KC.mkThreadIdText <$> myThreadId
-                    let ns = lnName namedLogItem
-                    itemTime <- env ^. KC.logEnvTimer
-                    let itemKatip = K.Item {
-                              _itemApp       = env ^. KC.logEnvApp
-                            , _itemEnv       = env ^. KC.logEnvEnv
-                            , _itemSeverity  = sev2klog sev
-                            , _itemThread    = threadIdText
-                            , _itemHost      = env ^. KC.logEnvHost
-                            , _itemProcess   = env ^. KC.logEnvPid
-                            , _itemPayload   = payload
-                            , _itemMessage   = K.logStr msg
-                            , _itemTime      = itemTime
-                            , _itemNamespace = (env ^. KC.logEnvApp) <> (K.Namespace [ns])
-                            , _itemLoc       = Nothing
-                            }
-                    atomically $ KC.tryWriteTBQueue shChan (KC.NewItem itemKatip)
-                else return False
+                                _ -> (Info, "", (Nothing :: Maybe LogObject))
+                    if (msg == "") && (isNothing payload)
+                    then return ()
+                    else do
+                        threadIdText <- KC.mkThreadIdText <$> myThreadId
+                        let ns = lnName namedLogItem
+                        itemTime <- env ^. KC.logEnvTimer
+                        let itemKatip = K.Item {
+                                _itemApp       = env ^. KC.logEnvApp
+                                , _itemEnv       = env ^. KC.logEnvEnv
+                                , _itemSeverity  = sev2klog sev
+                                , _itemThread    = threadIdText
+                                , _itemHost      = env ^. KC.logEnvHost
+                                , _itemProcess   = env ^. KC.logEnvPid
+                                , _itemPayload   = payload
+                                , _itemMessage   = K.logStr msg
+                                , _itemTime      = itemTime
+                                , _itemNamespace = (env ^. KC.logEnvApp) <> (K.Namespace [ns])
+                                , _itemLoc       = Nothing
+                                }
+                        void $ atomically $ KC.tryWriteTBQueue shChan (KC.NewItem itemKatip)
+                else return ()
 \end{code}
 
 \subsubsection{Scribes}
