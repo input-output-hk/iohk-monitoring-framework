@@ -76,31 +76,26 @@ instance Show CounterState where
 
 diffCounters :: [Counter] -> [Counter] -> [Counter]
 diffCounters openings closings =
-    getCountersDiff openings closings MonotonicClockTime ++
-    getCountersDiff openings closings MemoryCounter      ++
-    getCountersDiff openings closings StatInfo           ++
-    getCountersDiff openings closings IOCounter          ++
-    getCountersDiff openings closings CpuCounter
+    getCountersDiff openings closings
   where
     getCountersDiff :: [Counter]
                     -> [Counter]
-                    -> CounterType
                     -> [Counter]
-    getCountersDiff as bs counterType =
+    getCountersDiff as bs =
         let
-            predicate = (counterType ==) . cType
-            as' = filter predicate as
-            bs' = filter predicate bs
-            aPairs = getPairs as'
-            bPairs = HM.fromList $ getPairs bs'
+            getName counter = nameCounter counter <> cName counter
+
+            asNames = map getName as
+            aPairs = zip asNames as
+
+            bsNames = map getName bs
+            bs' = zip bsNames bs
+            bPairs = HM.fromList bs'
         in
-            catMaybes $ (flip map) aPairs $ \(name, startValue) ->
+            catMaybes $ (flip map) aPairs $ \(name, Counter _ _ startValue) ->
                 case HM.lookup name bPairs of
                     Nothing       -> Nothing
-                    Just endValue -> Just (Counter counterType name (endValue - startValue))
-          where
-            getPairs :: [Counter] -> [(Text, Integer)]
-            getPairs (Counter _ t v : xs) = (t,v) : getPairs xs
-            getPairs _ = []
+                    Just counter  -> let endValue = cValue counter
+                                     in Just counter {cValue = endValue - startValue}
 
 \end{code}
