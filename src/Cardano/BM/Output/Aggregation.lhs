@@ -20,6 +20,7 @@ import           Control.Concurrent.MVar (MVar, newEmptyMVar,
 import           Control.Concurrent.STM (atomically)
 import qualified Control.Concurrent.STM.TBQueue as TBQ
 import           Control.Monad (void)
+import           Control.Monad.Catch (throwM)
 import qualified Data.HashMap.Strict as HM
 import           Data.Text (Text)
 
@@ -138,7 +139,6 @@ spawnDispatcher agg {-map-} aggregationQueue switchboardQueue = Async.async qPro
             updatedMap = HM.alter (const $ maybeAggregated) fullname aggrMap
         in
             updateCounter cs logname updatedMap (aggregatedMessage :msgs)
-        -- updateCounter cs logname aggrMap msgs
     updateCounter ((MemoryCounter      name value) :cs) logname aggrMap msgs =
         let
             fullname = logname <> "." <> name
@@ -207,7 +207,15 @@ spawnDispatcher agg {-map-} aggregationQueue switchboardQueue = Async.async qPro
 
 \begin{code}
 takedown :: Aggregation -> IO ()
-takedown = clearMVar . getAg --TODO waitCatch dispatcher
+takedown aggregation = do
+    (dispatcher, queue) <- withMVar (getAg aggregation) (\ag ->
+                           return (agDispatch ag, agQueue ag))
+    -- send terminating item to the queue
+    atomically $ TBQ.writeTBQueue queue Nothing
+    -- wait for the dispatcher to exit
+    res <- Async.waitCatch dispatcher
+    either throwM return res
+    (clearMVar . getAg) aggregation
 
 clearMVar :: MVar a -> IO ()
 clearMVar = void . tryTakeMVar
