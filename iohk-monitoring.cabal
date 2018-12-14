@@ -9,7 +9,7 @@ maintainer:
 copyright:           2018 IOHK
 category:            Benchmarking
 build-type:          Simple
-extra-source-files:  CHANGELOG.md, README.md
+extra-source-files:  README.md
 cabal-version:       >=1.10
 
 library
