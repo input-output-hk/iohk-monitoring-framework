@@ -12,10 +12,9 @@ module Cardano.BM.Test.Configuration (
 import qualified Data.HashMap.Strict as HM
 import           Data.Yaml
 
--- import qualified Cardano.BM.Configuration as Config
 import           Cardano.BM.Data.Configuration
 
-import           Cardano.BM.Data.Backend
+import           Cardano.BM.Data.BackendKind
 import           Cardano.BM.Data.Output
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.Rotation
@@ -44,6 +43,8 @@ unit_tests :: TestTree
 unit_tests = testGroup "Unit tests" [
         testCase "static_representation" unit_Configuration_static_representation
       , testCase "parsed_representation" unit_Configuration_parsed_representation
+      , testCase "include_EKG_if_defined" unit_Configuration_check_EKG_positive
+      , testCase "not_include_EKG_if_ndef" unit_Configuration_check_EKG_negative
     ]
 
 \end{code}
@@ -56,6 +57,81 @@ prop_Configuration_minimal = True
 \end{code}
 
 \subsubsection{Unit tests}
+
+The configuration file only indicates that EKG is listening on port nnnnn. Infer that
+|EKGViewBK| needs to be started as a backend.
+
+\begin{code}
+unit_Configuration_check_EKG_positive :: Assertion
+unit_Configuration_check_EKG_positive = do
+    let c = [ "rotation:"
+            , "  rpLogLimitBytes: 5000000"
+            , "  rpKeepFilesNum: 10"
+            , "  rpMaxAgeHours: 24"
+            , "minSeverity: Info"
+            , "defaultBackends:"
+            , "  - KatipBK"
+            , "setupBackends:"
+            , "  - KatipBK"
+            , "defaultScribes:"
+            , "- - StdoutSK"
+            , "  - stdout"
+            , "setupScribes:"
+            , "- scName: stdout"
+            , "  scRotation: null"
+            , "  scKind: StdoutSK"
+            , "hasEKG: 18321"
+            , "options:"
+            , "  test:"
+            , "    value: nothing"
+            ]
+        fp = "/tmp/test_ekgv_config.yaml"
+    writeFile fp $ unlines c
+    repr <- parseRepresentation fp
+
+    assertBool "expecting EKGViewBK to be setup" $
+        EKGViewBK `elem` (setupBackends repr)
+
+\end{code}
+
+If there is no port defined for EKG, then do not start it even if present in the config.
+\begin{code}
+unit_Configuration_check_EKG_negative :: Assertion
+unit_Configuration_check_EKG_negative = do
+    let c = [ "rotation:"
+            , "  rpLogLimitBytes: 5000000"
+            , "  rpKeepFilesNum: 10"
+            , "  rpMaxAgeHours: 24"
+            , "minSeverity: Info"
+            , "defaultBackends:"
+            , "  - KatipBK"
+            , "  - EKGViewBK"
+            , "setupBackends:"
+            , "  - KatipBK"
+            , "  - EKGViewBK"
+            , "defaultScribes:"
+            , "- - StdoutSK"
+            , "  - stdout"
+            , "setupScribes:"
+            , "- scName: stdout"
+            , "  scRotation: null"
+            , "  scKind: StdoutSK"
+            , "###hasEKG: 18321"
+            , "options:"
+            , "  test:"
+            , "    value: nothing"
+            ]
+        fp = "/tmp/test_ekgv_config.yaml"
+    writeFile fp $ unlines c
+    repr <- parseRepresentation fp
+
+    assertBool "EKGViewBK shall not be setup" $
+        not $ EKGViewBK `elem` (setupBackends repr)
+    assertBool "EKGViewBK shall not receive messages" $
+        not $ EKGViewBK `elem` (defaultBackends repr)
+
+\end{code}
+
 \begin{code}
 unit_Configuration_static_representation :: Assertion
 unit_Configuration_static_representation =
@@ -83,7 +159,8 @@ unit_Configuration_static_representation =
                  \  rpKeepFilesNum: 10\n\
                  \  rpMaxAgeHours: 24\n\
                  \defaultBackends:\n\
-                 \- KatipBK\nsetupBackends:\n\
+                 \- KatipBK\n\
+                 \setupBackends:\n\
                  \- EKGViewBK\n\
                  \- KatipBK\n\
                  \hasGUI: 12789\n\

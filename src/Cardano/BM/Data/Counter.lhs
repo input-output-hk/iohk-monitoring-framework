@@ -32,10 +32,10 @@ import           GHC.Generics (Generic)
 \subsubsection{Counter}\label{code:Counter}
 \begin{code}
 data Counter = Counter
-                { cType :: CounterType
-                , cName :: Text
-                , cValue :: Integer
-                }
+               { cType  :: CounterType
+               , cName  :: Text
+               , cValue :: Integer
+               }
                deriving (Eq, Show, Generic, ToJSON)
 
 data CounterType = MonotonicClockTime
@@ -74,6 +74,10 @@ instance Show CounterState where
     show cs = (show . hashUnique) (csIdentifier cs)
            <> " => " <> (show $ csCounters cs)
 
+\end{code}
+
+\subsubsection{Difference between counters}\label{code:diffCounters}
+\begin{code}
 diffCounters :: [Counter] -> [Counter] -> [Counter]
 diffCounters openings closings =
     getCountersDiff openings closings

@@ -12,10 +12,9 @@ module Cardano.BM.Configuration.Static
     ) where
 
 import qualified Cardano.BM.Configuration.Model as CM
-import           Cardano.BM.Data.Backend
+import           Cardano.BM.Data.BackendKind
 import           Cardano.BM.Data.Output
 import           Cardano.BM.Data.Severity
---import           Cardano.BM.Output.Log (passN)
 
 \end{code}
 %endif

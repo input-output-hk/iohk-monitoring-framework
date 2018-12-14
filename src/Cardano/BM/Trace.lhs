@@ -30,8 +30,6 @@ module Cardano.BM.Trace
     , logInfo,    logInfoS,    logInfoP,    logInfoUnsafeP
     , logNotice,  logNoticeS,  logNoticeP,  logNoticeUnsafeP
     , logWarning, logWarningS, logWarningP, logWarningUnsafeP
-
-    ,takedownSwitchboard
     ) where
 
 import           Control.Concurrent.MVar (MVar, newMVar, withMVar)
@@ -135,11 +133,7 @@ dispatching the messages to outputs
 \begin{code}
 mainTrace :: Switchboard.Switchboard -> TraceNamed IO
 mainTrace sb = BaseTrace.BaseTrace $ Op $ \lognamed -> do
-    Switchboard.pass sb lognamed
-
-takedownSwitchboard :: Trace IO -> IO ()
-takedownSwitchboard trace = do
-    traceNamedObject trace KillPill
+    Switchboard.effectuate sb lognamed
 
 \end{code}
 

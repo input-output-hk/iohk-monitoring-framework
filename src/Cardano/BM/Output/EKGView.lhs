@@ -10,9 +10,9 @@
 module Cardano.BM.Output.EKGView
     (
       EKGView
-    , setup
-    , pass
-    , takedown
+    , effectuate
+    , realize
+    , unrealize
     ) where
 
 import           Control.Concurrent (killThread)
@@ -29,7 +29,7 @@ import           System.Remote.Monitoring (Server, forkServer, getGauge,
 
 import           Paths_iohk_monitoring (version)
 
-import           Cardano.BM.Configuration (Configuration, getEKGport)
+import           Cardano.BM.Configuration (getEKGport)
 import           Cardano.BM.Data.Backend
 import           Cardano.BM.Data.LogItem
 
@@ -37,13 +37,11 @@ import           Cardano.BM.Data.LogItem
 %endif
 
 \subsubsection{Structure of EKGView}\label{code:EKGView}
-The |EKGView| is a singleton.
 \begin{code}
 type EKGViewMVar = MVar EKGViewInternal
 newtype EKGView = EKGView
     { getEV :: EKGViewMVar }
 
--- Our internal state
 data EKGViewInternal = EKGViewInternal
     { evGauges  :: HM.HashMap Text Gauge.Gauge
     , evLabels  :: HM.HashMap Text Label.Label
@@ -52,28 +50,10 @@ data EKGViewInternal = EKGViewInternal
 
 \end{code}
 
-\subsubsection{Setup and start EKG view}\label{code:EKGView.setup}
+\subsubsection{EKG view is an effectuator}
 \begin{code}
-setup :: Configuration -> IO EKGView
-setup c = do
-    evref <- newEmptyMVar
-    evport <- getEKGport c
-    ehdl <- forkServer "127.0.0.1" evport
-    ekghdl <- getLabel "iohk-monitoring version" ehdl
-    Label.set ekghdl $ pack(showVersion version)
-    putMVar evref $ EKGViewInternal
-                    { evGauges = HM.empty
-                    , evLabels = HM.empty
-                    , evServer = ehdl
-                    }
-    return $ EKGView evref
-
-\end{code}
-
-\subsubsection{Show message in EKG view}\label{code:EKGView.pass}
-\begin{code}
-instance HasPass EKGView where
-    pass ekgview item =
+instance IsEffectuator EKGView where
+    effectuate ekgview item =
         let update :: LogObject -> LoggerName -> EKGViewInternal -> IO (Maybe EKGViewInternal)
             update (LP (LogMessage logitem)) logname ekg@(EKGViewInternal _ labels server) =
                 case HM.lookup logname labels of
@@ -106,20 +86,39 @@ instance HasPass EKGView where
 
 \end{code}
 
-\subsubsection{Terminate EKG view}\label{code:EKGView.takedown}
+\subsubsection{|EKGView| implements |Backend| functions}
+
+|EKGView| is an \nameref{code:IsBackend}
 \begin{code}
-takedown :: EKGView -> IO ()
-takedown ekgview = do
-    ekg <- takeMVar $ getEV ekgview
-    killThread $ serverThreadId $ evServer ekg
+instance IsBackend EKGView where
+    typeof _ = EKGViewBK
+    
+    realize config = do
+        evref <- newEmptyMVar
+        evport <- getEKGport config
+        ehdl <- forkServer "127.0.0.1" evport
+        ekghdl <- getLabel "iohk-monitoring version" ehdl
+        Label.set ekghdl $ pack(showVersion version)
+        putMVar evref $ EKGViewInternal
+                        { evGauges = HM.empty
+                        , evLabels = HM.empty
+                        , evServer = ehdl
+                        }
+        return $ EKGView evref
+
+    unrealize ekgview = do
+        ekg <- takeMVar $ getEV ekgview
+        killThread $ serverThreadId $ evServer ekg
 
 \end{code}
 
 \subsubsection{Interactive testing |EKGView|}
 \begin{spec}
-c <- Cardano.BM.Configuration.setup "test/config.yaml"
-ev <- Cardano.BM.Output.EKGView.setup c
+test :: IO ()
+test = do
+    c <- Cardano.BM.Configuration.setup "test/config.yaml"
+    ev <- Cardano.BM.Output.EKGView.realize c
 
-pass ev $ LogNamed "test.questions" (LP (LogValue "answer" 42))
-pass ev $ LogNamed "test.monitor023" (LP (LogMessage (LogItem Public Warning "!!!! ALARM !!!!")))
+    effectuate ev $ LogNamed "test.questions" (LP (LogValue "answer" 42))
+    effectuate ev $ LogNamed "test.monitor023" (LP (LogMessage (LogItem Public Warning "!!!! ALARM !!!!")))
 \end{spec}

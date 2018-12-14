@@ -3,50 +3,44 @@
 
 %if style == newcode
 \begin{code}
-{-# LANGUAGE DeriveAnyClass #-}
-{-# LANGUAGE DeriveGeneric  #-}
-{-# LANGUAGE RankNTypes     #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE RankNTypes        #-}
+{-# LANGUAGE DefaultSignatures #-}
 
 module Cardano.BM.Data.Backend
   ( Backend (..)
   , BackendKind (..)
-  , HasPass (..)
+  , IsBackend (..)
+  , IsEffectuator (..)
   )
   where
 
-import           Data.Aeson (FromJSON, ToJSON)
-import           GHC.Generics (Generic)
-
+import           Cardano.BM.Data.BackendKind
 import           Cardano.BM.Data.LogItem
+import           Cardano.BM.Configuration.Model (Configuration)
 
 \end{code}
 %endif
 
-\subsubsection{BackendKind}\label{code:BackendKind}
-This identifies the backends that can be attached to the \nameref{code:Switchboard}.
+\subsubsection{Accepts a \nameref{code:NamedLogItem}}\label{code:HasPass}
 \begin{code}
-data BackendKind = AggregationBK
-                 | EKGViewBK
-                 | KatipBK
-                 deriving (Generic, Eq, Ord, Show, ToJSON, FromJSON)
+class IsEffectuator t where
+    effectuate  :: t -> NamedLogItem -> IO ()
 
 \end{code}
 
-\subsubsection{Accepts a \nameref{code:NamedLogItem}}\label{code:HasPass}
+\subsubsection{Declaration of a |Backend|}\label{code:IsBackend}
 \begin{code}
-class HasPass t where
-    pass :: t -> NamedLogItem -> IO ()
-
--- class IsBackend t where
---     typeof :: BackendKind
---     setup :: Configuration -> IO ()
---     terminate :: t -> IO ()
---     pass :: t -> NamedLogItem -> IO ()
---     passfrom :: forall s . (HasPass s) => t -> NamedLogItem -> s -> IO ()
---     default passfrom t nli _ = pass t nli
-
--- instance (IsBackend t) => HasPass t where
---     pass = pass
+class (IsEffectuator t) => IsBackend t where
+    typeof :: t -> BackendKind
+    realize     :: Configuration -> IO t
+    realizefrom :: forall s . (IsEffectuator s) => Configuration -> s -> IO t
+    default realizefrom :: forall s . (IsEffectuator s) => Configuration -> s -> IO t
+    realizefrom c _ = realize c
+    unrealize   :: t -> IO ()
+    effectuatefrom :: forall s . (IsEffectuator s) => t -> NamedLogItem -> s -> IO ()
+    default effectuatefrom :: forall s . (IsEffectuator s) => t -> NamedLogItem -> s -> IO ()
+    effectuatefrom t nli _ = effectuate t nli
 
 \end{code}
 
