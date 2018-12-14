@@ -11,6 +11,7 @@ module Cardano.BM.Data.Counter
   ( Counter (..)
   , CounterState (..)
   , diffCounters
+  , nameCounter
   )
   where
 
@@ -29,12 +30,31 @@ import           GHC.Generics (Generic)
 
 \subsubsection{Counter}\label{code:Counter}
 \begin{code}
-data Counter = MonotonicClockTime Text Microsecond
-             | MemoryCounter Text Integer
-             | StatInfo Text Integer
-             | IOCounter Text Integer
-             | CpuCounter Text Integer
+data Counter = Counter
+                { cType :: CounterType
+                , cName :: Text
+                , cValue :: Integer
+                }
                deriving (Eq, Show, Generic, ToJSON)
+data CounterType = MonotonicClockTime                
+                 | MemoryCounter
+                 | StatInfo
+                 | IOCounter
+                 | CpuCounter
+                   deriving (Eq, Show, Generic, ToJSON)
+-- data Counter = MonotonicClockTime Text Integer
+--              | MemoryCounter Text Integer
+--              | StatInfo Text Integer
+--              | IOCounter Text Integer
+--              | CpuCounter Text Integer
+--                deriving (Eq, Show, Generic, ToJSON)
+
+nameCounter :: Counter -> Text
+nameCounter (MonotonicClockTime _ _) = "Time"
+nameCounter (MemoryCounter _ _)      = "Mem"
+nameCounter (StatInfo _ _)           = "Stat"
+nameCounter (IOCounter  _ _)         = "IO"
+nameCounter (CpuCounter _ _)         = "Cpu"
 
 instance ToJSON Microsecond where
     toJSON     = toJSON     . toMicroseconds
