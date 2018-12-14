@@ -11,7 +11,6 @@ module Cardano.BM.Counters.Linux
       readCounters
     ) where
 
-import           Control.Monad (forM)
 import           Data.Foldable (foldrM)
 import           Data.Set (member)
 import           Data.Text (Text)
@@ -97,8 +96,9 @@ readProcStatM :: IO [Counter]
 readProcStatM = do
     pid <- getProcessID
     ps0 <- readProcList (pathProcStatM pid)
-    ps <- return $ zip colnames ps0
-    forM ps (\(n,i) -> return $ Counter MemoryCounter n i)
+    let ps = zip colnames ps0
+        psUseful = filter (("unused" /=) . fst) ps
+    return $ map (\(n,i) -> Counter MemoryCounter n i) psUseful
   where
     colnames :: [Text]
     colnames = ["size","resident","shared","text","unused","data","unused"]
@@ -344,8 +344,9 @@ readProcStats :: IO [Counter]
 readProcStats = do
     pid <- getProcessID
     ps0 <- readProcList (pathProcStat pid)
-    ps <- return $ zip colnames ps0
-    forM ps (\(n,i) -> return $ Counter StatInfo n i)
+    let ps = zip colnames ps0
+        psUseful = filter (("unused" /=) . fst) ps
+    return $ map (\(n,i) -> Counter StatInfo n i) psUseful
   where
     colnames :: [Text]
     colnames = [ "pid","unused","unused","ppid","pgrp","session","ttynr","tpgid","flags","minflt"
@@ -421,8 +422,8 @@ readProcIO :: IO [Counter]
 readProcIO = do
     pid <- getProcessID
     ps0 <- readProcList (pathProcIO pid)
-    ps <- return $ zip colnames ps0
-    forM ps (\(n,i) -> return $ Counter IOCounter n i)
+    let ps = zip colnames ps0
+    return $ map (\(n,i) -> Counter IOCounter n i) ps
   where
     colnames :: [Text]
     colnames = [ "rchar","wchar","syscr","syscw","rbytes","wbytes","cxwbytes" ]
