@@ -24,7 +24,7 @@ import           Control.Monad.Catch (throwM)
 import qualified Data.HashMap.Strict as HM
 import           Data.Text (Text)
 
-import           Cardano.BM.Aggregated (Aggregated (..), updateAggregation)
+import           Cardano.BM.Data.Aggregated (Aggregated (..), updateAggregation)
 import           Cardano.BM.Data.Backend
 import           Cardano.BM.Data.Counter (Counter (..), CounterState (..), nameCounter)
 import           Cardano.BM.Data.LogItem

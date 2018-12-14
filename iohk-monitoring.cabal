@@ -16,7 +16,6 @@ library
   hs-source-dirs:      src
   exposed-modules:     Paths_iohk_monitoring
 
-                       Cardano.BM.Aggregated
                        Cardano.BM.BaseTrace
 
                        Cardano.BM.Configuration
@@ -28,6 +27,7 @@ library
                        Cardano.BM.Counters.Dummy
                        Cardano.BM.Counters.Linux
 
+                       Cardano.BM.Data.Aggregated
                        Cardano.BM.Data.Backend
                        Cardano.BM.Data.BackendKind
                        Cardano.BM.Data.Configuration

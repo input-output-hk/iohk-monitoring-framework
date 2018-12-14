@@ -11,7 +11,7 @@ where
 
 import           Test.QuickCheck
 
-import           Cardano.BM.Aggregated
+import           Cardano.BM.Data.Aggregated
 \end{code}
 %endif
 
