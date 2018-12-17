@@ -76,25 +76,20 @@ instance IsBackend Switchboard where
     realize cfg =
         let spawnDispatcher :: Configuration -> [(BackendKind, Backend)] -> TBQ.TBQueue NamedLogItem -> IO (Async.Async ())
             spawnDispatcher config backends queue =
-                let qProc = do
+                let sendMessage nli befilter = do
+                        selectedBackends <- getBackends config (lnName nli)
+                        let selBEs = befilter selectedBackends
+                        forM_ backends $ \(bek, be) ->
+                            when (bek `elem` selBEs) (bEffectuate be $ nli)
+
+                    qProc = do
                         nli <- atomically $ TBQ.readTBQueue queue
                         case lnItem nli of
-                            AggregatedMessage _ _aggregated -> do
-                                selectedBackends <- getBackends config (lnName nli)
-                                let dropAggrBackends = filter (/= AggregationBK) selectedBackends
-                                forM_ backends ( \(bek, be) ->
-                                    when (bek `elem` dropAggrBackends) (bPass be $ nli) )
-                                qProc
                             KillPill ->
-                                forM_ backends $ \(_, backend) ->
-                                    bTerminate backend
-                            _ -> do
-                                selectedBackends <- getBackends config (lnName nli)
-                                forM_ backends $ \(bek, be) ->
-                                    when (bek `elem` selectedBackends) (bPass be $ nli)
-                                qProc
-                            -- if Nothing is in the queue then every backend needs to be terminated
-                            -- and the dispatcher exits, the |Switchboard| stops.
+                                 forM_ backends ( \(_, be) -> bUnrealize be )
+                            AggregatedMessage _ _aggregated ->
+                                 sendMessage nli (filter (/= AggregationBK)) >> qProc
+                            _ -> sendMessage nli id                          >> qProc
                 in
                 Async.async qProc
         in do
@@ -128,20 +123,20 @@ setupBackend' SwitchboardBK _ _ = error "cannot instantiate a further Switchboar
 setupBackend' EKGViewBK c _ = do
     be :: Cardano.BM.Output.EKGView.EKGView <- Cardano.BM.Output.EKGView.realize c
     return MkBackend
-      { bPass = Cardano.BM.Output.EKGView.effectuate be
-      , bTerminate = Cardano.BM.Output.EKGView.unrealize be
+      { bEffectuate = Cardano.BM.Output.EKGView.effectuate be
+      , bUnrealize = Cardano.BM.Output.EKGView.unrealize be
       }
 setupBackend' AggregationBK c sb = do
     be :: Cardano.BM.Output.Aggregation.Aggregation <- Cardano.BM.Output.Aggregation.realizefrom c sb
     return MkBackend
-      { bPass = Cardano.BM.Output.Aggregation.effectuate be
-      , bTerminate = Cardano.BM.Output.Aggregation.unrealize be
+      { bEffectuate = Cardano.BM.Output.Aggregation.effectuate be
+      , bUnrealize = Cardano.BM.Output.Aggregation.unrealize be
       }
 setupBackend' KatipBK c _ = do
     be :: Cardano.BM.Output.Log.Log <- Cardano.BM.Output.Log.realize c
     return MkBackend
-      { bPass = Cardano.BM.Output.Log.effectuate be
-      , bTerminate = Cardano.BM.Output.Log.unrealize be
+      { bEffectuate = Cardano.BM.Output.Log.effectuate be
+      , bUnrealize = Cardano.BM.Output.Log.unrealize be
       }
 
 \end{code}
