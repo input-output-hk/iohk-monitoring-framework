@@ -17,16 +17,14 @@ module Cardano.BM.Observer.Monadic
 import           Control.Monad (forM_)
 import           Control.Monad.IO.Class (MonadIO, liftIO)
 
-import           Data.Monoid ((<>))
 import           Data.Text
-import           Data.Unique (hashUnique, newUnique)
-
+import           Data.Unique (newUnique)
 
 import           Cardano.BM.Data.Counter (CounterState (..), diffCounters)
 import           Cardano.BM.Data.LogItem (LogObject (..))
 import           Cardano.BM.Data.SubTrace (SubTrace (NoTrace))
 import           Cardano.BM.Counters (readCounters)
-import           Cardano.BM.Trace (Trace, logInfo, subTrace, traceNamedObject,
+import           Cardano.BM.Trace (Trace, subTrace, traceNamedObject,
                      typeofTrace)
 \end{code}
 %endif
