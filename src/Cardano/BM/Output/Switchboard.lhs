@@ -104,7 +104,11 @@ instance IsBackend Switchboard where
 
         return sb
 
-    unrealize _ = pure ()
+    unrealize switchboard = do
+        queue <- withMVar (getSB switchboard) (\sb -> return (sbQueue sb))
+        -- send terminating item to the queue
+        atomically $ TBQ.writeTBQueue queue KillPill
+
 \end{code}
 
 \subsubsection{Realizing the backends according to configuration}

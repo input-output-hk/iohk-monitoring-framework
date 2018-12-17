@@ -48,7 +48,7 @@ class (IsEffectuator t) => IsBackend t where
 
 \subsubsection{Backend}\label{code:Backend}
 This data structure for a backend defines its behaviour
-as an |IsEffectuator| when processing an incoming message, 
+as an |IsEffectuator| when processing an incoming message,
 and as an |IsBackend| for unrealizing the backend.
 \begin{code}
 data Backend = MkBackend

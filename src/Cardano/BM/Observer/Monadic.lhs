@@ -78,7 +78,6 @@ bracketObserveM logTrace0 name action = do
 observeOpen :: SubTrace -> Trace IO -> IO CounterState
 observeOpen subtrace logTrace = do
     identifier <- newUnique
-    logInfo logTrace $ "Opening: " <> pack (show $ hashUnique identifier)
 
     -- take measurement
     counters <- readCounters subtrace
@@ -95,8 +94,6 @@ observeClose :: SubTrace -> Trace IO -> CounterState -> [LogObject] -> IO ()
 observeClose subtrace logTrace initState logObjects = do
     let identifier = csIdentifier initState
         initialCounters = csCounters initState
-
-    logInfo logTrace $ "Closing: " <> pack (show $ hashUnique identifier)
 
     -- take measurement
     counters <- readCounters subtrace
