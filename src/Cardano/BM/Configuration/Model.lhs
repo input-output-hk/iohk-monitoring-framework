@@ -20,6 +20,7 @@ module Cardano.BM.Configuration.Model
     , getDefaultBackends
     , setDefaultBackends
     , setSetupBackends
+    , getSetupBackends
     , getScribes
     , setDefaultScribes
     , setSetupScribes
@@ -35,6 +36,7 @@ module Cardano.BM.Configuration.Model
 import           Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar,
                      takeMVar, withMVar)
 import qualified Data.HashMap.Strict as HM
+import qualified Data.Set as Set
 import           Data.Text (Text, pack)
 import           Data.Yaml as Y
 
@@ -90,7 +92,10 @@ getBackends configuration name =
         case outs of
             Nothing -> do
                 return (cgDefBackendKs cg)
-            Just os -> return $ os  -- TODO in (cgDefBackendKs cg)
+            Just os -> return $ mkUniq $ (cgDefBackendKs cg) <> os
+  where
+    mkUniq :: Ord a => [a] -> [a]
+    mkUniq = Set.toList . Set.fromList
 
 getDefaultBackends :: Configuration -> IO [BackendKind]
 getDefaultBackends configuration =
@@ -116,6 +121,11 @@ setSetupBackends :: Configuration -> [BackendKind] -> IO ()
 setSetupBackends configuration bes = do
     cg <- takeMVar (getCG configuration)
     putMVar (getCG configuration) $ cg { cgSetupBackends = bes }
+
+getSetupBackends :: Configuration -> IO [BackendKind]
+getSetupBackends configuration =
+    withMVar (getCG configuration) $ \cg ->
+        return $ cgSetupBackends cg
 
 \end{code}
 

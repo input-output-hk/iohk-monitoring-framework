@@ -23,36 +23,37 @@ import           Cardano.BM.Configuration.Model (Configuration)
 %endif
 
 \subsubsection{Accepts a \nameref{code:NamedLogItem}}\label{code:IsEffectuator}
+Instances of this type class accept a |NamedLogItem| and deal with it.
 \begin{code}
 class IsEffectuator t where
     effectuate  :: t -> NamedLogItem -> IO ()
-
-\end{code}
-
-\subsubsection{Declaration of a |Backend|}\label{code:IsBackend}
-\begin{code}
-class (IsEffectuator t) => IsBackend t where
-    typeof :: t -> BackendKind
-    realize     :: Configuration -> IO t
-    realizefrom :: forall s . (IsEffectuator s) => Configuration -> s -> IO t
-    default realizefrom :: forall s . (IsEffectuator s) => Configuration -> s -> IO t
-    realizefrom c _ = realize c
-    unrealize   :: t -> IO ()
     effectuatefrom :: forall s . (IsEffectuator s) => t -> NamedLogItem -> s -> IO ()
     default effectuatefrom :: forall s . (IsEffectuator s) => t -> NamedLogItem -> s -> IO ()
     effectuatefrom t nli _ = effectuate t nli
 
 \end{code}
 
-\subsubsection{Backend}\label{code:Backend}
-A backend is referenced through the function |bPass| which accepts
-a \nameref{code:NamedLogItem} and a terminating function |bTerminate|
-which is responsible for closing the specific backend.
+\subsubsection{Declaration of a |Backend|}\label{code:IsBackend}
+A backend is life-cycle managed, thus can be |realize|d and |unrealize|d.
+\begin{code}
+class (IsEffectuator t) => IsBackend t where
+    typeof      :: t -> BackendKind
+    realize     :: Configuration -> IO t
+    realizefrom :: forall s . (IsEffectuator s) => Configuration -> s -> IO t
+    default realizefrom :: forall s . (IsEffectuator s) => Configuration -> s -> IO t
+    realizefrom c _ = realize c
+    unrealize   :: t -> IO ()
 
+\end{code}
+
+\subsubsection{Backend}\label{code:Backend}
+This data structure for a backend defines its behaviour
+as an |IsEffectuator| when processing an incoming message, 
+and as an |IsBackend| for unrealizing the backend.
 \begin{code}
 data Backend = MkBackend
-    { bPass      :: NamedLogItem -> IO ()
-    , bTerminate :: IO ()
+    { bEffectuate :: NamedLogItem -> IO ()
+    , bUnrealize  :: IO ()
     }
 
 \end{code}
