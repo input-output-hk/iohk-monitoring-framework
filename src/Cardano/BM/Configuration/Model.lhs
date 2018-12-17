@@ -20,6 +20,7 @@ module Cardano.BM.Configuration.Model
     , getDefaultBackends
     , setDefaultBackends
     , setSetupBackends
+    , getSetupBackends
     , getScribes
     , setDefaultScribes
     , setSetupScribes
@@ -116,6 +117,11 @@ setSetupBackends :: Configuration -> [BackendKind] -> IO ()
 setSetupBackends configuration bes = do
     cg <- takeMVar (getCG configuration)
     putMVar (getCG configuration) $ cg { cgSetupBackends = bes }
+
+getSetupBackends :: Configuration -> IO [BackendKind]
+getSetupBackends configuration =
+    withMVar (getCG configuration) $ \cg ->
+        return $ cgSetupBackends cg
 
 \end{code}
 
