@@ -73,8 +73,8 @@ instance IsEffectuator Switchboard where
 instance IsBackend Switchboard where
     typeof _ = SwitchboardBK
 
-    realize cfg = do
-        let spawnDispatcher :: IsBackend e => Configuration -> [(BackendKind, e)] -> TBQ.TBQueue NamedLogItem -> IO (Async.Async ())
+    realize cfg =
+        let spawnDispatcher :: Configuration -> [(BackendKind, Backend)] -> TBQ.TBQueue NamedLogItem -> IO (Async.Async ())
             spawnDispatcher config backends queue =
                 let qProc = do
                         nli <- atomically $ TBQ.readTBQueue queue
@@ -83,32 +83,30 @@ instance IsBackend Switchboard where
                                 selectedBackends <- getBackends config (lnName nli)
                                 let dropAggrBackends = filter (/= AggregationBK) selectedBackends
                                 forM_ backends ( \(bek, be) ->
-                                    when (bek `elem` dropAggrBackends) (dispatch nli be) )
+                                    when (bek `elem` dropAggrBackends) (bPass be $ nli) )
                                 qProc
                             KillPill ->
                                 forM_ backends $ \(_, backend) ->
-                                    unrealize backend
+                                    bTerminate backend
                             _ -> do
                                 selectedBackends <- getBackends config (lnName nli)
                                 forM_ backends $ \(bek, be) ->
-                                    when (bek `elem` selectedBackends) (dispatch nli be)
+                                    when (bek `elem` selectedBackends) (bPass be $ nli)
                                 qProc
                             -- if Nothing is in the queue then every backend needs to be terminated
                             -- and the dispatcher exits, the |Switchboard| stops.
-                    dispatch :: IsEffectuator e => NamedLogItem -> e -> IO ()
-                    dispatch nli backend = effectuate backend nli
                 in
                 Async.async qProc
-
+        in do
         q <- atomically $ TBQ.newTBQueue 2048
         sbref <- newEmptyMVar
         putMVar sbref $ SwitchboardInternal q
-        let sb = Switchboard sbref
+        let sb :: Switchboard = Switchboard sbref
 
         backends <- getDefaultBackends cfg
         bs <- setupBackends backends cfg sb []
- 
         _ <- spawnDispatcher cfg bs q
+
         return sb
 
     unrealize _ = pure ()
@@ -116,20 +114,34 @@ instance IsBackend Switchboard where
 
 \subsubsection{Realizing the backends according to configuration}
 \begin{code}
-setupBackends :: IsBackend e
-            => [BackendKind]
-            -> Configuration
-            -> e
-            -> [(BackendKind, e)]
-            -> IO [(BackendKind, e)]
+setupBackends :: [BackendKind]
+              -> Configuration
+              -> Switchboard
+              -> [(BackendKind, Backend)]
+              -> IO [(BackendKind, Backend)]
 setupBackends [] _ _ acc = return acc
 setupBackends (bk : bes) c sb acc = do
     be' <- setupBackend' bk c sb
-    setupBackends bes c sb ((bk,be') : acc) 
-setupBackend' :: IsBackend e => BackendKind -> Configuration -> e -> IO e
-setupBackend' EKGViewBK c _ = Cardano.BM.Output.EKGView.realize c
-setupBackend' AggregationBK c sb = Cardano.BM.Output.Aggregation.realizefrom c sb
-setupBackend' KatipBK c _ = Cardano.BM.Output.Log.realize c
+    setupBackends bes c sb ((bk,be') : acc)
+setupBackend' :: BackendKind -> Configuration -> Switchboard -> IO Backend
 setupBackend' SwitchboardBK _ _ = error "cannot instantiate a further Switchboard"
+setupBackend' EKGViewBK c _ = do
+    be :: Cardano.BM.Output.EKGView.EKGView <- Cardano.BM.Output.EKGView.realize c
+    return MkBackend
+      { bPass = Cardano.BM.Output.EKGView.effectuate be
+      , bTerminate = Cardano.BM.Output.EKGView.unrealize be
+      }
+setupBackend' AggregationBK c sb = do
+    be :: Cardano.BM.Output.Aggregation.Aggregation <- Cardano.BM.Output.Aggregation.realizefrom c sb
+    return MkBackend
+      { bPass = Cardano.BM.Output.Aggregation.effectuate be
+      , bTerminate = Cardano.BM.Output.Aggregation.unrealize be
+      }
+setupBackend' KatipBK c _ = do
+    be :: Cardano.BM.Output.Log.Log <- Cardano.BM.Output.Log.realize c
+    return MkBackend
+      { bPass = Cardano.BM.Output.Log.effectuate be
+      , bTerminate = Cardano.BM.Output.Log.unrealize be
+      }
 
 \end{code}
