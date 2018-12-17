@@ -24,7 +24,7 @@ import           Control.Monad (forM_, when)
 
 import           Cardano.BM.Configuration (Configuration)
 import           Cardano.BM.Configuration.Model (getBackends,
-                     getDefaultBackends)
+                     getSetupBackends)
 import           Cardano.BM.Data.Backend
 import           Cardano.BM.Data.LogItem
 import qualified Cardano.BM.Output.Aggregation
@@ -103,7 +103,7 @@ instance IsBackend Switchboard where
         putMVar sbref $ SwitchboardInternal q
         let sb :: Switchboard = Switchboard sbref
 
-        backends <- getDefaultBackends cfg
+        backends <- getSetupBackends cfg
         bs <- setupBackends backends cfg sb []
         _ <- spawnDispatcher cfg bs q
 
