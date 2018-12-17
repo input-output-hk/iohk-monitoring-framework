@@ -30,7 +30,7 @@ stmWithLog action = action
 
 \subsubsection{Observe |STM| action in a named context}\label{code:bracketObserveIO}
 With given name, create a |SubTrace| according to |Configuration|
-and run the passed |STM| action on it. 
+and run the passed |STM| action on it.
 \begin{code}
 bracketObserveIO :: Trace IO -> Text -> STM.STM t -> IO t
 bracketObserveIO logTrace0 name action = do
