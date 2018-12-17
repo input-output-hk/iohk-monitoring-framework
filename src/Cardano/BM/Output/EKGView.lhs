@@ -97,6 +97,7 @@ instance IsBackend EKGView where
         evref <- newEmptyMVar
         evport <- getEKGport config
         ehdl <- forkServer "127.0.0.1" evport
+        putStrLn $ "started EKGView on port = " ++ (show evport)
         ekghdl <- getLabel "iohk-monitoring version" ehdl
         Label.set ekghdl $ pack(showVersion version)
         putMVar evref $ EKGViewInternal
