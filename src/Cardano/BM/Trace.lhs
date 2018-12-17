@@ -82,7 +82,7 @@ updateTracetype subtr (ctx, tr) = (ctx {tracetype=subtr}, tr)
 
 \subsubsection{Enter new named context}\label{code:appendName}
 The context name is created and checked that its size is below a limit
-(currently 50 chars).
+(currently 80 chars).
 The minimum severity that a log message must be labelled with is looked up in
 the configuration and recalculated.
 \begin{code}
@@ -100,9 +100,9 @@ appendName name (ctx, trace) = do
                            , trace )
 
 appendWithDot :: LoggerName -> LoggerName -> LoggerName
-appendWithDot "" newName = T.take 50 newName
+appendWithDot "" newName = T.take 80 newName
 appendWithDot xs ""      = xs
-appendWithDot xs newName = T.take 50 $ xs <> "." <> newName
+appendWithDot xs newName = T.take 80 $ xs <> "." <> newName
 
 \end{code}
 

@@ -78,7 +78,7 @@ unit_tests = testGroup "Unit tests" [
             unit_trace_min_severity
       , testCase "changing the minimum severity of a named context at runtime"
             unit_named_min_severity
-      , testCase "appending names should not exceed 50 chars" unit_append_name
+      , testCase "appending names should not exceed 80 chars" unit_append_name
       ]
       where
         observablesSet = fromList [MonotonicClock, MemoryStats]
@@ -423,7 +423,7 @@ unit_noOpening_Trace = do
 
 \subsubsection{Assert maximum length of log context name}\label{code:unit_append_name}
 The name of the log context cannot grow beyond a maximum number of characters, currently
-the limit is set to 50.
+the limit is set to 80.
 \begin{code}
 unit_append_name :: Assertion
 unit_append_name = do
@@ -432,10 +432,10 @@ unit_append_name = do
     (ctx2, _) <- appendName bigName trace1
 
     assertBool
-        ("Found logger name with more than 50 chars: " ++ show (loggerName ctx2))
-        (T.length (loggerName ctx2) <= 50)
+        ("Found logger name with more than 80 chars: " ++ show (loggerName ctx2))
+        (T.length (loggerName ctx2) <= 80)
   where
-    bigName = T.replicate 50 "abcdefghijklmnopqrstuvwxyz"
+    bigName = T.replicate 30 "abcdefghijklmnopqrstuvwxyz"
 
 \end{code}
 
