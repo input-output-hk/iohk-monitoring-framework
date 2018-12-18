@@ -3,7 +3,7 @@
 
 Here the platform is chosen on which we compile this program.
 
-Currently, we only support |Linux| with its 'proc' filesystem.
+Currently, we mainly support |Linux| with its 'proc' filesystem.
 
 \begin{code}
 {-# LANGUAGE CPP #-}
