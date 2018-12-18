@@ -1,0 +1,8 @@
+*.fls
+*.log
+*.toc
+IOHK-*.tex
+*.out
+*.ptb
+*.fdb_latexmk
+

@@ -20,7 +20,6 @@ import           Control.Concurrent.MVar (newMVar)
 import           Control.Monad (forM, forM_, void)
 import           Control.Monad.IO.Class (liftIO)
 import           Data.Map (fromListWith, lookup)
-import           Data.Set (fromList)
 import           Data.Text (Text, append, pack)
 import qualified Data.Text as T
 import           Data.Time.Units (Microsecond)
@@ -83,7 +82,7 @@ unit_tests = testGroup "Unit tests" [
       , testCase "appending names should not exceed 80 chars" unit_append_name
       ]
       where
-        observablesSet = fromList [MonotonicClock, MemoryStats]
+        observablesSet = [MonotonicClock, MemoryStats]
         notObserveOpen :: [LogObject] -> Bool
         notObserveOpen = all (\case {ObserveOpen _ -> False; _ -> True})
         onlyLevelOneMessage :: [LogObject] -> Bool
@@ -156,7 +155,7 @@ example_with_named_contexts = do
     complexWork1 tr msg = do
         logInfo tr ("let's see (1): " `append` msg)
         logTrace' <- appendName "inner-work-1" tr
-        let observablesSet = fromList [MonotonicClock, MemoryStats]
+        let observablesSet = [MonotonicClock, MemoryStats]
         setTransformer_ logTrace' "STM-action" (Just $ ObservableTrace observablesSet)
         _ <- STMObserver.bracketObserveIO logTrace' "STM-action" setVar_
         logInfo logTrace' "let's see: done."
@@ -215,7 +214,7 @@ timing_Observable_vs_Untimed = do
         ("NoTrace consumed more time than Untimed" ++ (show [t_notrace, t_untimed]))
         True
   where
-    observablesSet = fromList [MonotonicClock, MemoryStats]
+    observablesSet = [MonotonicClock, MemoryStats]
 
 \end{code}
 

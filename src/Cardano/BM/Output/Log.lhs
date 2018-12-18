@@ -326,11 +326,14 @@ formatItem withColor _verb K.Item{..} =
 -- translate Severity to Log.Severity
 sev2klog :: Severity -> K.Severity
 sev2klog = \case
-    Debug   -> K.DebugS
-    Info    -> K.InfoS
-    Notice  -> K.NoticeS
-    Warning -> K.WarningS
-    Error   -> K.ErrorS
+    Debug     -> K.DebugS
+    Info      -> K.InfoS
+    Notice    -> K.NoticeS
+    Warning   -> K.WarningS
+    Error     -> K.ErrorS
+    Critical  -> K.CriticalS
+    Alert     -> K.AlertS
+    Emergency -> K.EmergencyS
 
 \end{code}
 

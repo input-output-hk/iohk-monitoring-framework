@@ -80,6 +80,7 @@ library
                        transformers,
                        unix,
                        unordered-containers,
+                       vector,
                        yaml
 
   ghc-options:         -Wall
