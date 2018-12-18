@@ -12,7 +12,6 @@ module Cardano.BM.Counters.Linux
     ) where
 
 import           Data.Foldable (foldrM)
-import           Data.Set (member)
 import           Data.Text (Text)
 import           System.FilePath.Posix ((</>))
 import           System.IO (FilePath)
@@ -38,7 +37,7 @@ readCounters Neutral             = return []
 readCounters UntimedTrace        = return []
 readCounters DropOpening         = return []
 readCounters (ObservableTrace tts) = foldrM (\(sel, fun) a ->
-    if sel `member` tts
+    if any (== sel) tts
     then (fun >>= \xs -> return $ a ++ xs)
     else return a) [] selectors
   where

@@ -13,7 +13,6 @@ module Cardano.BM.Data.SubTrace
   where
 
 import           Data.Aeson (FromJSON (..), ToJSON)
-import           Data.Set (Set)
 
 import           Cardano.BM.Data.Observable
 
@@ -28,7 +27,7 @@ data SubTrace = Neutral
               | UntimedTrace
               | NoTrace
               | DropOpening
-              | ObservableTrace (Set ObservableInstance)
-                deriving (Generic, Show, FromJSON, ToJSON)
+              | ObservableTrace [ObservableInstance]
+                deriving (Generic, Show, FromJSON, ToJSON, Read)
 
 \end{code}

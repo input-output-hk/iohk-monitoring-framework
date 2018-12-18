@@ -46,3 +46,25 @@ defaultScribes:
 options:
   cfokey:
     value: "Release-1.0.0"
+  mapSeverity:
+    iohk.startup: Debug
+    iohk.background.process: Error
+    iohk.testing.uncritical: Warning
+  mapSubtrace:
+    iohk.benchmarking:
+      tag: ObservableTrace
+      contents:
+        - GhcRtsStats
+        - MonotonicClock
+    iohk.deadend:
+      NoTrace
+  mapBackends:
+    iohk.interesting.value:
+      - EKGViewBK
+      - AggregationBK
+  mapScribes:
+    iohk.interesting.value:
+      - "StdoutSK::stdout"
+      - "FileTextSK::testlog"
+    iohk.background.process:
+        "FileTextSK::testlog"

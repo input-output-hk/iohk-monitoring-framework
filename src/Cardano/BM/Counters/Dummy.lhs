@@ -14,7 +14,6 @@ module Cardano.BM.Counters.Dummy
     ) where
 
 import           Data.Foldable (foldrM)
-import           Data.Set (member)
 
 import           Cardano.BM.Counters.Common (getMonoClock, readRTSStats)
 import           Cardano.BM.Data.Counter
@@ -30,7 +29,7 @@ readCounters Neutral             = return []
 readCounters UntimedTrace        = return []
 readCounters DropOpening         = return []
 readCounters (ObservableTrace tts) = foldrM (\(sel, fun) a ->
-    if sel `member` tts
+    if any (== sel) tts
     then (fun >>= \xs -> return $ a ++ xs)
     else return a) [] selectors
   where

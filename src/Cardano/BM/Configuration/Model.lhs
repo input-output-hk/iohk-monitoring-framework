@@ -36,13 +36,16 @@ module Cardano.BM.Configuration.Model
 import           Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar,
                      takeMVar, withMVar)
 import qualified Data.HashMap.Strict as HM
+import           Data.Maybe (catMaybes)
 import qualified Data.Set as Set
-import           Data.Text (Text, pack)
+import           Data.Text (Text, pack, unpack)
+import qualified Data.Vector as Vector
 import           Data.Yaml as Y
 
 import           Cardano.BM.Data.BackendKind
 import qualified Cardano.BM.Data.Configuration as R
 import           Cardano.BM.Data.LogItem (LoggerName)
+import           Cardano.BM.Data.Observable
 import           Cardano.BM.Data.Output (ScribeDefinition, ScribeId)
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.SubTrace
@@ -241,15 +244,19 @@ setup :: FilePath -> IO Configuration
 setup fp = do
     r <- R.parseRepresentation fp
     cgref <- newEmptyMVar
+    let mapseverity = HM.lookup "mapSeverity" (R.options r)
+    let mapbackends = HM.lookup "mapBackends" (R.options r)
+    let mapsubtrace = HM.lookup "mapSubtrace" (R.options r)
+    let mapscribes  = HM.lookup "mapScribes"  (R.options r)
     putMVar cgref $ ConfigurationInternal
         { cgMinSeverity = R.minSeverity r
-        , cgMapSeverity = HM.empty
-        , cgMapSubtrace = HM.empty
+        , cgMapSeverity = parseSeverityMap mapseverity
+        , cgMapSubtrace = parseSubtraceMap mapsubtrace
         , cgOptions = R.options r
-        , cgMapBackend = HM.empty
+        , cgMapBackend = parseBackendMap mapbackends
         , cgDefBackendKs = R.defaultBackends r
         , cgSetupBackends = R.setupBackends r
-        , cgMapScribe = HM.empty
+        , cgMapScribe = parseScribeMap mapscribes
         , cgDefScribes = r_defaultScribes r
         , cgSetupScribes = R.setupScribes r
         , cgPortEKG = r_hasEKG r
@@ -257,6 +264,41 @@ setup fp = do
         }
     return $ Configuration cgref
   where
+    parseSeverityMap :: Maybe (HM.HashMap Text Value) -> HM.HashMap Text Severity
+    parseSeverityMap Nothing = HM.empty
+    parseSeverityMap (Just hmv) = HM.mapMaybe mkSeverity hmv
+    mkSeverity (String s) = Just (read (unpack s) :: Severity)
+    mkSeverity _ = Nothing
+
+    parseBackendMap Nothing = HM.empty
+    parseBackendMap (Just hmv) = HM.map mkBackends hmv
+    mkBackends (Array bes) = catMaybes $ map mkBackend $ Vector.toList bes
+    mkBackends _ = []
+    mkBackend (String s) = Just (read (unpack s) :: BackendKind)
+    mkBackend _ = Nothing
+
+    parseScribeMap Nothing = HM.empty
+    parseScribeMap (Just hmv) = HM.map mkScribes hmv
+    mkScribes (Array scs) = catMaybes $ map mkScribe $ Vector.toList scs
+    mkScribes (String s) = [(s :: ScribeId)]
+    mkScribes _ = []
+    mkScribe (String s) = Just (s :: ScribeId)
+    mkScribe _ = Nothing
+
+    parseSubtraceMap :: Maybe (HM.HashMap Text Value) -> HM.HashMap Text SubTrace
+    parseSubtraceMap Nothing = HM.empty
+    parseSubtraceMap (Just hmv) = HM.mapMaybe mkSubtrace hmv
+    mkSubtrace (String s) = Just (read (unpack s) :: SubTrace)
+    mkSubtrace (Object hm) = mkSubtrace' (HM.lookup "tag" hm) (HM.lookup "contents" hm)
+    mkSubtrace _ = Nothing
+    mkSubtrace' Nothing _ = Nothing
+    mkSubtrace' _ Nothing = Nothing
+    mkSubtrace' (Just (String tag)) (Just (Array cs)) =
+        if tag == "ObservableTrace"
+        then Just $ ObservableTrace $ map (\(String s) -> (read (unpack s) :: ObservableInstance)) $ Vector.toList cs
+        else Nothing
+    mkSubtrace' _ _ = Nothing
+
     r_hasEKG r = case (R.hasEKG r) of
                        Nothing -> 0
                        Just p  -> p

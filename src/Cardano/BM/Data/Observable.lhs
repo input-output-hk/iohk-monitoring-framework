@@ -26,6 +26,6 @@ data ObservableInstance = MonotonicClock
                         | ProcessStats
                         | IOStats
                         | GhcRtsStats
-                          deriving (Generic, Eq, Ord, Show, FromJSON, ToJSON)
+                          deriving (Generic, Eq, Ord, Show, FromJSON, ToJSON, Read)
 
 \end{code}

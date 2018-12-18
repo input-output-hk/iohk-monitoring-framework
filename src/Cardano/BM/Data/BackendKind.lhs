@@ -24,6 +24,6 @@ data BackendKind = AggregationBK
                  | EKGViewBK
                  | KatipBK
                  | SwitchboardBK
-                 deriving (Generic, Eq, Ord, Show, ToJSON, FromJSON)
+                 deriving (Generic, Eq, Ord, Show, ToJSON, FromJSON, Read)
 
 \end{code}

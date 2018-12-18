@@ -51,7 +51,7 @@ data ScribeKind = FileTextSK
 \subsubsection{ScribeId}\label{code:ScribeId}
 A scribe is identified by |ScribeKind x Filename|
 \begin{code}
-type ScribeId = Text -- (ScribeKind, Filename)
+type ScribeId = Text -- (ScribeKind :: Filename)
 
 \end{code}
 

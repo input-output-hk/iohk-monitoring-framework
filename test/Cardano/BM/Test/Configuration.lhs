@@ -198,8 +198,28 @@ unit_Configuration_parsed_representation = do
                     \- - StdoutSK\n\
                     \  - stdout\n\
                     \options:\n\
+                    \  mapSubtrace:\n\
+                    \    iohk.benchmarking:\n\
+                    \      tag: ObservableTrace\n\
+                    \      contents:\n\
+                    \      - GhcRtsStats\n\
+                    \      - MonotonicClock\n\
+                    \    iohk.deadend: NoTrace\n\
+                    \  mapSeverity:\n\
+                    \    iohk.startup: Debug\n\
+                    \    iohk.background.process: Error\n\
+                    \    iohk.testing.uncritical: Warning\n\
                     \  cfokey:\n\
                     \    value: Release-1.0.0\n\
+                    \  mapScribes:\n\
+                    \    iohk.interesting.value:\n\
+                    \    - StdoutSK::stdout\n\
+                    \    - FileTextSK::testlog\n\
+                    \    iohk.background.process: FileTextSK::testlog\n\
+                    \  mapBackends:\n\
+                    \    iohk.interesting.value:\n\
+                    \    - EKGViewBK\n\
+                    \    - AggregationBK\n\
                     \setupScribes:\n\
                     \- scName: testlog\n\
                     \  scRotation:\n\
