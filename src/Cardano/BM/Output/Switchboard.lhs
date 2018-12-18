@@ -16,11 +16,12 @@ module Cardano.BM.Output.Switchboard
     ) where
 
 import qualified Control.Concurrent.Async as Async
-import           Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar,
-                     withMVar)
+import           Control.Concurrent.MVar (MVar, modifyMVar_, newEmptyMVar,
+                    putMVar, tryTakeMVar, withMVar)
 import           Control.Concurrent.STM (atomically)
 import qualified Control.Concurrent.STM.TBQueue as TBQ
-import           Control.Monad (forM_, when)
+import           Control.Monad (forM_, when, void)
+import           Control.Monad.Catch (throwM)
 
 import           Cardano.BM.Configuration (Configuration)
 import           Cardano.BM.Configuration.Model (getBackends,
@@ -42,7 +43,8 @@ newtype Switchboard = Switchboard
     { getSB :: SwitchboardMVar }
 
 data SwitchboardInternal = SwitchboardInternal
-    { sbQueue       :: TBQ.TBQueue NamedLogItem
+    { sbQueue    :: TBQ.TBQueue NamedLogItem
+    , sbDispatch :: Async.Async ()
     }
 
 \end{code}
@@ -95,19 +97,27 @@ instance IsBackend Switchboard where
         in do
         q <- atomically $ TBQ.newTBQueue 2048
         sbref <- newEmptyMVar
-        putMVar sbref $ SwitchboardInternal q
+        putMVar sbref $ SwitchboardInternal q $ error "unitialized dispatcher"
         let sb :: Switchboard = Switchboard sbref
 
         backends <- getSetupBackends cfg
         bs <- setupBackends backends cfg sb []
-        _ <- spawnDispatcher cfg bs q
+        dispatcher <- spawnDispatcher cfg bs q
+        modifyMVar_ sbref $ \sbInternal -> return $ sbInternal {sbDispatch = dispatcher}
 
         return sb
 
     unrealize switchboard = do
-        queue <- withMVar (getSB switchboard) (\sb -> return (sbQueue sb))
+        let clearMVar :: MVar a -> IO ()
+            clearMVar = void . tryTakeMVar
+
+        (dispatcher, queue) <- withMVar (getSB switchboard) (\sb -> return (sbDispatch sb, sbQueue sb))
         -- send terminating item to the queue
         atomically $ TBQ.writeTBQueue queue $ LogNamed "kill.switchboard" KillPill
+        -- wait for the dispatcher to exit
+        res <- Async.waitCatch dispatcher
+        either throwM return res
+        (clearMVar . getSB) switchboard
 
 \end{code}
 
