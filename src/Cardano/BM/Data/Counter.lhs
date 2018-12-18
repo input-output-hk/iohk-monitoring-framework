@@ -43,6 +43,7 @@ data CounterType = MonotonicClockTime
                  | StatInfo
                  | IOCounter
                  | CpuCounter
+                 | RTSStats
                    deriving (Eq, Show, Generic, ToJSON)
 
 nameCounter :: Counter -> Text
@@ -51,6 +52,7 @@ nameCounter (Counter MemoryCounter      _ _) = "Mem"
 nameCounter (Counter StatInfo           _ _) = "Stat"
 nameCounter (Counter IOCounter          _ _) = "IO"
 nameCounter (Counter CpuCounter         _ _) = "Cpu"
+nameCounter (Counter RTSStats           _ _) = "RTS"
 
 instance ToJSON Microsecond where
     toJSON     = toJSON     . toMicroseconds
