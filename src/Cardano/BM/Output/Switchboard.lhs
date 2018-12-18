@@ -9,7 +9,7 @@
 
 module Cardano.BM.Output.Switchboard
     (
-      Switchboard
+      Switchboard (..)
     , effectuate
     , realize
     , unrealize

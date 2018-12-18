@@ -16,7 +16,7 @@ import           Cardano.BM.Configuration (Configuration)
 import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.SubTrace
-
+import           Cardano.BM.Output.Switchboard (Switchboard)
 \end{code}
 %endif
 
@@ -39,11 +39,12 @@ We keep the context's name and a reference to the |Configuration|
 in the |TraceContext|.
 \begin{code}
 
-data TraceContext = TraceContext {
-      loggerName    :: LoggerName
+data TraceContext = TraceContext
+    { loggerName    :: LoggerName
     , configuration :: Configuration
     , tracetype     :: SubTrace
     , minSeverity   :: Severity
+    , switchboard   :: Switchboard
     }
 
 \end{code}
