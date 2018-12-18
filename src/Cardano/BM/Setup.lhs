@@ -49,7 +49,7 @@ setupTrace_ :: MonadIO m => Config.Configuration -> Text -> m (Trace m)
 setupTrace_ c name = do
     sb <- liftIO $ Switchboard.realize c
     sev <- liftIO $ Config.minSeverity c
-    ctx <- liftIO $ newContext name c sev
+    ctx <- liftIO $ newContext name c sev sb
 
     let logTrace = natTrace liftIO (ctx, mainTrace sb)
     logTrace' <- subTrace "" logTrace
@@ -68,13 +68,18 @@ withTrace cfg name action = do
 
 \subsubsection{newContext}\label{code:newContext}
 \begin{code}
-newContext :: LoggerName -> Config.Configuration -> Severity -> IO TraceContext
-newContext name cfg sev = do
+newContext :: LoggerName
+           -> Config.Configuration
+           -> Severity
+           -> Switchboard.Switchboard
+           -> IO TraceContext
+newContext name cfg sev sb = do
     return $ TraceContext {
         loggerName = name
       , configuration = cfg
       , minSeverity = sev
       , tracetype = Neutral
+      , switchboard = sb
       }
 
 \end{code}

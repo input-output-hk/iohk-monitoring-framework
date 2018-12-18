@@ -16,6 +16,7 @@ import qualified Control.Concurrent.STM.TVar as STM
 import qualified Control.Monad.STM as STM
 
 import           Control.Concurrent (forkIO, threadDelay)
+import           Control.Concurrent.MVar (newMVar)
 import           Control.Monad (forM, forM_, void)
 import           Control.Monad.IO.Class (liftIO)
 import           Data.Map (fromListWith, lookup)
@@ -42,6 +43,7 @@ import qualified Cardano.BM.Observer.STM as STMObserver
 import           Cardano.BM.Setup (newContext)
 import           Cardano.BM.Trace (Trace, appendName, logInfo, noTrace,
                      stdoutTrace, subTrace, traceInTVarIO, traceNamedInTVarIO)
+import           Cardano.BM.Output.Switchboard (Switchboard(..))
 
 import           Test.Tasty (TestTree, testGroup)
 import           Test.Tasty.HUnit (Assertion, assertBool, testCase,
@@ -107,7 +109,8 @@ data TraceConfiguration = TraceConfiguration
 setupTrace :: TraceConfiguration -> IO (Trace IO)
 setupTrace (TraceConfiguration outk name trafo sev) = do
     c <- liftIO $ Cardano.BM.Configuration.Model.empty
-    ctx <- liftIO $ newContext name c sev
+    mockSwitchboard <- newMVar $ error "Switchboard uninitialized."
+    ctx <- liftIO $ newContext name c sev $ Switchboard mockSwitchboard
     let logTrace0 = case outk of
             StdOut             -> BaseTrace.natTrace liftIO stdoutTrace
             TVarList      tvar -> BaseTrace.natTrace liftIO $ traceInTVarIO tvar
