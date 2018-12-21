@@ -7,8 +7,8 @@
 {-# LANGUAGE OverloadedStrings   #-}
 
 module Cardano.BM.Configuration.Model
-    (
-      Configuration
+    ( Configuration (..)
+    , ConfigurationInternal (..)
     , setup
     , empty
     , minSeverity

@@ -29,10 +29,8 @@ import           GHC.Generics (Generic)
 
 \subsubsection{OutputKind}\label{code:OutputKind}
 \begin{code}
-data OutputKind = StdOut
-                | TVarList (STM.TVar [LogObject])
+data OutputKind = TVarList (STM.TVar [LogObject])
                 | TVarListNamed (STM.TVar [LogNamed LogObject])
-                | Null
                 deriving (Eq)
 
 \end{code}
@@ -59,8 +57,7 @@ type ScribeId = Text -- (ScribeKind :: Filename)
 This identifies katip's scribes by type.
 \begin{code}
 data ScribeDefinition = ScribeDefinition
-  {
-    scKind     :: ScribeKind
+  { scKind     :: ScribeKind
   , scName     :: Text
   , scRotation :: Maybe RotationParameters
   }

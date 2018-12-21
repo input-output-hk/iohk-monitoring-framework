@@ -15,21 +15,25 @@ import           Prelude hiding (lookup)
 import qualified Control.Concurrent.STM.TVar as STM
 import qualified Control.Monad.STM as STM
 
-import           Control.Concurrent (forkIO, threadDelay)
+import           Control.Concurrent (threadDelay)
+import qualified Control.Concurrent.Async as Async
 import           Control.Concurrent.MVar (newMVar)
-import           Control.Monad (forM, forM_, void)
+import           Control.Monad (forM, forM_)
 import           Control.Monad.IO.Class (liftIO)
+import qualified Data.HashMap.Strict as HM
 import           Data.Map (fromListWith, lookup)
 import           Data.Text (Text, append, pack)
 import qualified Data.Text as T
 import           Data.Time.Units (Microsecond)
 import           Data.Unique (newUnique)
 
-import           Cardano.BM.Configuration (Configuration, inspectSeverity,
-                     minSeverity, setMinSeverity, setSeverity, setSubTrace)
-import           Cardano.BM.Configuration.Model (empty)
+import           Cardano.BM.Configuration (inspectSeverity,
+                     minSeverity, setMinSeverity, setSeverity)
+import           Cardano.BM.Configuration.Model (Configuration (..),
+                    ConfigurationInternal (..), empty, setSubTrace)
 import           Cardano.BM.Counters (diffTimeObserved, getMonoClock)
 import qualified Cardano.BM.BaseTrace as BaseTrace
+import           Cardano.BM.Data.BackendKind (BackendKind (..))
 import           Cardano.BM.Data.Counter
 import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.Observable
@@ -40,14 +44,14 @@ import           Cardano.BM.Data.Trace
 import qualified Cardano.BM.Observer.Monadic as MonadicObserver
 import qualified Cardano.BM.Observer.STM as STMObserver
 import           Cardano.BM.Setup (newContext)
-import           Cardano.BM.Trace (Trace, appendName, logInfo, noTrace,
-                     stdoutTrace, subTrace, traceInTVarIO, traceNamedInTVarIO)
+import qualified Cardano.BM.Setup as Setup
+import           Cardano.BM.Trace (Trace, appendName, logInfo, subTrace,
+                    traceInTVarIO, traceNamedInTVarIO)
 import           Cardano.BM.Output.Switchboard (Switchboard(..))
 
 import           Test.Tasty (TestTree, testGroup)
 import           Test.Tasty.HUnit (Assertion, assertBool, testCase,
                      testCaseInfo)
---import           Test.Tasty.QuickCheck (testProperty)
 
 \end{code}
 %endif
@@ -105,16 +109,36 @@ data TraceConfiguration = TraceConfiguration
     , tcSeverity     :: Severity
     }
 
+testStdoutConfiguration :: LoggerName -> SubTrace -> Severity -> ConfigurationInternal
+testStdoutConfiguration name subtrace severity = ConfigurationInternal
+    { cgMinSeverity   = severity
+    , cgMapSeverity   = HM.empty
+    , cgMapSubtrace   = HM.singleton name subtrace
+    , cgOptions       = HM.empty
+    , cgMapBackend    = HM.empty
+    , cgDefBackendKs  = [KatipBK, AggregationBK]
+    , cgSetupBackends = [KatipBK, AggregationBK]
+    , cgMapScribe     = HM.empty
+    , cgDefScribes    = ["StdoutSK"]
+    , cgSetupScribes  = [scribeDefinition]
+    , cgPortEKG       = 0
+    , cgPortGUI       = 0
+    }
+  where
+    scribeDefinition = ScribeDefinition
+                        { scKind     = StdoutSK
+                        , scName     = "stdout"
+                        , scRotation = Nothing
+                        }
+
 setupTrace :: TraceConfiguration -> IO (Trace IO)
 setupTrace (TraceConfiguration outk name trafo sev) = do
     c <- liftIO $ Cardano.BM.Configuration.Model.empty
     mockSwitchboard <- newMVar $ error "Switchboard uninitialized."
     ctx <- liftIO $ newContext name c sev $ Switchboard mockSwitchboard
     let logTrace0 = case outk of
-            StdOut             -> BaseTrace.natTrace liftIO stdoutTrace
             TVarList      tvar -> BaseTrace.natTrace liftIO $ traceInTVarIO tvar
             TVarListNamed tvar -> BaseTrace.natTrace liftIO $ traceNamedInTVarIO tvar
-            Null               -> noTrace
 
     setSubTrace (configuration ctx) name (Just trafo)
     logTrace' <- subTrace "" (ctx, logTrace0)
@@ -126,39 +150,37 @@ setTransformer_ (ctx, _) name subtr = do
         n = (loggerName ctx) <> "." <> name
     setSubTrace c n subtr
 
-setMinSeverity_ :: Configuration -> Severity -> IO ()
-setMinSeverity_ c s = do
-    setMinSeverity c s
-
-setNamedSeverity_ :: Configuration -> LoggerName -> Severity -> IO ()
-setNamedSeverity_ c n s = do
-    setSeverity c n (Just s)
-
 \end{code}
 
 \subsubsection{Example of using named contexts with |Trace|}
 \begin{code}
 example_with_named_contexts :: IO String
 example_with_named_contexts = do
-    logTrace <- setupTrace $ TraceConfiguration StdOut "test" Neutral Debug
+    cfg <- newMVar $ testStdoutConfiguration "test" Neutral Debug
+    logTrace <- Setup.setupTrace (Right (Configuration cfg)) "test"
     putStrLn "\n"
     logInfo logTrace "entering"
     logTrace0 <- appendName "simple-work-0" logTrace
-    complexWork0 logTrace0 "0"
+    work0 <- complexWork0 logTrace0 "0"
     logTrace1 <- appendName "complex-work-1" logTrace
-    complexWork1 logTrace1 "42"
+    work1 <- complexWork1 logTrace1 "42"
+
+    Async.wait work0
+    Async.wait work1
     -- the named context will include "complex" in the logged message
     logInfo logTrace "done."
     return ""
   where
-    complexWork0 tr msg = logInfo tr ("let's see (0): " `append` msg)
-    complexWork1 tr msg = do
+    complexWork0 tr msg = Async.async $ logInfo tr ("let's see (0): " `append` msg)
+    complexWork1 tr msg = Async.async $ do
         logInfo tr ("let's see (1): " `append` msg)
-        logTrace' <- appendName "inner-work-1" tr
-        let observablesSet = [MonotonicClock, MemoryStats]
-        setTransformer_ logTrace' "STM-action" (Just $ ObservableTrace observablesSet)
-        _ <- STMObserver.bracketObserveIO logTrace' "STM-action" setVar_
-        logInfo logTrace' "let's see: done."
+        trInner@(ctx,_) <- appendName "inner-work-1" tr
+        let observablesSet = [MonotonicClock]
+        setSubTrace (configuration ctx) "test.complex-work-1.inner-work-1.STM-action" $
+            Just $ ObservableTrace observablesSet
+        _ <- STMObserver.bracketObserveIO trInner "STM-action" setVar_
+        logInfo trInner "let's see: done."
+        -- logInfo logTrace' "let's see: done."
 
 \end{code}
 
@@ -261,7 +283,7 @@ unit_trace_min_severity = do
     logInfo trace "Message #1"
 
     -- raise the minimum severity to Warning
-    setMinSeverity_ (configuration ctx) Warning
+    setMinSeverity (configuration ctx) Warning
     msev <- Cardano.BM.Configuration.minSeverity (configuration ctx)
     assertBool ("min severity should be Warning, but is " ++ (show msev))
                (msev == Warning)
@@ -270,7 +292,7 @@ unit_trace_min_severity = do
     logInfo trace "Message #2"
 
     -- lower the minimum severity to Info
-    setMinSeverity_ (configuration ctx) Info
+    setMinSeverity (configuration ctx) Info
     -- this message is traced
     logInfo trace "Message #3"
 
@@ -299,7 +321,7 @@ unit_named_min_severity = do
     logInfo trace "Message #1"
 
     -- raise the minimum severity to Warning
-    setNamedSeverity_ (configuration ctx) (loggerName ctx) Warning
+    setSeverity (configuration ctx) (loggerName ctx) (Just Warning)
     msev <- Cardano.BM.Configuration.inspectSeverity (configuration ctx) (loggerName ctx)
     assertBool ("min severity should be Warning, but is " ++ (show msev))
                (msev == Just Warning)
@@ -307,7 +329,7 @@ unit_named_min_severity = do
     logInfo trace "Message #2"
 
     -- lower the minimum severity to Info
-    setNamedSeverity_ (configuration ctx) (loggerName ctx) Info
+    setSeverity (configuration ctx) (loggerName ctx) (Just Info)
     -- this message is traced
     logInfo trace "Message #3"
 
@@ -359,10 +381,11 @@ unit_trace_in_fork = do
     trace <- setupTrace $ TraceConfiguration (TVarListNamed msgs) "test" Neutral Debug
     trace0 <- appendName "work0" trace
     trace1 <- appendName "work1" trace
-    void $ forkIO $ work trace0
-    threadDelay 500000
-    void $ forkIO $ work trace1
-    threadDelay (4*second)
+    work0 <- work trace0
+    threadDelay 5000
+    work1 <- work trace1
+    Async.wait $ work0
+    Async.wait $ work1
 
     res <- STM.readTVarIO msgs
     let names@(_: namesTail) = map lnName res
@@ -371,15 +394,15 @@ unit_trace_in_fork = do
         ("Consecutive loggernames are not different: " ++ show names)
         (and $ zipWith (/=) names namesTail)
   where
-    work :: Trace IO -> IO ()
-    work trace = do
+    work :: Trace IO -> IO (Async.Async ())
+    work trace = Async.async $ do
         logInfoDelay trace "1"
         logInfoDelay trace "2"
         logInfoDelay trace "3"
     logInfoDelay :: Trace IO -> Text -> IO ()
     logInfoDelay trace msg =
         logInfo trace msg >>
-        threadDelay second
+        threadDelay 10000
 
 \end{code}
 
@@ -388,11 +411,11 @@ stress_trace_in_fork :: Assertion
 stress_trace_in_fork = do
     msgs <- STM.newTVarIO []
     trace <- setupTrace $ TraceConfiguration (TVarListNamed msgs) "test" Neutral Debug
-    let names = map (\a -> ("work-" <> pack (show a))) [1..10]
-    forM_ names $ \name -> do
+    let names = map (\a -> ("work-" <> pack (show a))) [1..(10::Int)]
+    ts <- forM names $ \name -> do
         trace' <- appendName name trace
-        void $ forkIO $ work trace'
-    threadDelay second
+        work trace'
+    forM_ ts Async.wait
 
     res <- STM.readTVarIO msgs
     let resNames = map lnName res
@@ -403,8 +426,8 @@ stress_trace_in_fork = do
         ("Frequencies of logged messages according to loggername: " ++ show frequencyMap)
         (all (\name -> (lookup ("test." <> name) frequencyMap) == Just totalMessages) names)
   where
-    work :: Trace IO -> IO ()
-    work trace = forM_ [1..totalMessages] $ (logInfo trace) . pack . show
+    work :: Trace IO -> IO (Async.Async ())
+    work trace = Async.async $ forM_ [1..totalMessages] $ (logInfo trace) . pack . show
     totalMessages :: Int
     totalMessages = 10
 
@@ -429,7 +452,8 @@ the limit is set to 80.
 \begin{code}
 unit_append_name :: Assertion
 unit_append_name = do
-    trace0 <- setupTrace $ TraceConfiguration StdOut "test" Neutral Debug
+    cfg <- newMVar $ testStdoutConfiguration "test" Neutral Debug
+    trace0 <- Setup.setupTrace (Right (Configuration cfg)) "test"
     trace1 <- appendName bigName trace0
     (ctx2, _) <- appendName bigName trace1
 
@@ -448,8 +472,5 @@ setVar_ = do
     STM.writeTVar t 42
     res <- STM.readTVar t
     return res
-
-second :: Int
-second = 1000000
 
 \end{code}
