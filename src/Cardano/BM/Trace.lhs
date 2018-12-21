@@ -25,11 +25,14 @@ module Cardano.BM.Trace
     -- * log functions
     , traceNamedObject
     , traceNamedItem
-    , logDebug,   logDebugS,   logDebugP,   logDebugUnsafeP
-    , logError,   logErrorS,   logErrorP,   logErrorUnsafeP
-    , logInfo,    logInfoS,    logInfoP,    logInfoUnsafeP
-    , logNotice,  logNoticeS,  logNoticeP,  logNoticeUnsafeP
-    , logWarning, logWarningS, logWarningP, logWarningUnsafeP
+    , logAlert,     logAlertS,     logAlertP,     logAlertUnsafeP
+    , logCritical,  logCriticalS,  logCriticalP,  logCriticalUnsafeP
+    , logDebug,     logDebugS,     logDebugP,     logDebugUnsafeP
+    , logEmergency, logEmergencyS, logEmergencyP, logEmergencyUnsafeP
+    , logError,     logErrorS,     logErrorP,     logErrorUnsafeP
+    , logInfo,      logInfoS,      logInfoP,      logInfoUnsafeP
+    , logNotice,    logNoticeS,    logNoticeP,    logNoticeUnsafeP
+    , logWarning,   logWarningS,   logWarningP,   logWarningUnsafeP
     ) where
 
 import           Control.Concurrent.MVar (MVar, newMVar, withMVar)
@@ -216,37 +219,50 @@ traceNamedItem (ctx, logTrace) p s m =
     in
     traceConditionally ctx (named logTrace (loggerName ctx)) $ logmsg
 
-logDebug, logInfo, logNotice, logWarning, logError
+logDebug, logInfo, logNotice, logWarning, logError, logCritical, logAlert, logEmergency
     :: (MonadIO m) => Trace m -> T.Text -> m ()
-logDebug logTrace   = traceNamedItem logTrace Both Debug
-logInfo logTrace    = traceNamedItem logTrace Both Info
-logNotice logTrace  = traceNamedItem logTrace Both Notice
-logWarning logTrace = traceNamedItem logTrace Both Warning
-logError logTrace   = traceNamedItem logTrace Both Error
+logDebug     logTrace = traceNamedItem logTrace Both Debug
+logInfo      logTrace = traceNamedItem logTrace Both Info
+logNotice    logTrace = traceNamedItem logTrace Both Notice
+logWarning   logTrace = traceNamedItem logTrace Both Warning
+logError     logTrace = traceNamedItem logTrace Both Error
+logCritical  logTrace = traceNamedItem logTrace Both Critical
+logAlert     logTrace = traceNamedItem logTrace Both Alert
+logEmergency logTrace = traceNamedItem logTrace Both Emergency
 
-logDebugS, logInfoS, logNoticeS, logWarningS, logErrorS
+logDebugS, logInfoS, logNoticeS, logWarningS, logErrorS, logCriticalS, logAlertS, logEmergencyS
     :: (MonadIO m) => Trace m -> T.Text -> m ()
-logDebugS logTrace   = traceNamedItem logTrace Private Debug
-logInfoS logTrace    = traceNamedItem logTrace Private Info
-logNoticeS logTrace  = traceNamedItem logTrace Private Notice
-logWarningS logTrace = traceNamedItem logTrace Private Warning
-logErrorS logTrace   = traceNamedItem logTrace Private Error
+logDebugS     logTrace = traceNamedItem logTrace Private Debug
+logInfoS      logTrace = traceNamedItem logTrace Private Info
+logNoticeS    logTrace = traceNamedItem logTrace Private Notice
+logWarningS   logTrace = traceNamedItem logTrace Private Warning
+logErrorS     logTrace = traceNamedItem logTrace Private Error
+logCriticalS  logTrace = traceNamedItem logTrace Private Critical
+logAlertS     logTrace = traceNamedItem logTrace Private Alert
+logEmergencyS logTrace = traceNamedItem logTrace Private Emergency
 
-logDebugP, logInfoP, logNoticeP, logWarningP, logErrorP
+logDebugP, logInfoP, logNoticeP, logWarningP, logErrorP, logCriticalP, logAlertP, logEmergencyP
     :: (MonadIO m) => Trace m -> T.Text -> m ()
-logDebugP logTrace   = traceNamedItem logTrace Public Debug
-logInfoP logTrace    = traceNamedItem logTrace Public Info
-logNoticeP logTrace  = traceNamedItem logTrace Public Notice
-logWarningP logTrace = traceNamedItem logTrace Public Warning
-logErrorP logTrace   = traceNamedItem logTrace Public Error
+logDebugP     logTrace = traceNamedItem logTrace Public Debug
+logInfoP      logTrace = traceNamedItem logTrace Public Info
+logNoticeP    logTrace = traceNamedItem logTrace Public Notice
+logWarningP   logTrace = traceNamedItem logTrace Public Warning
+logErrorP     logTrace = traceNamedItem logTrace Public Error
+logCriticalP  logTrace = traceNamedItem logTrace Public Critical
+logAlertP     logTrace = traceNamedItem logTrace Public Alert
+logEmergencyP logTrace = traceNamedItem logTrace Public Emergency
 
-logDebugUnsafeP, logInfoUnsafeP, logNoticeUnsafeP, logWarningUnsafeP, logErrorUnsafeP
+logDebugUnsafeP, logInfoUnsafeP, logNoticeUnsafeP, logWarningUnsafeP, logErrorUnsafeP,
+    logCriticalUnsafeP, logAlertUnsafeP, logEmergencyUnsafeP
     :: (MonadIO m) => Trace m -> T.Text -> m ()
-logDebugUnsafeP logTrace   = traceNamedItem logTrace PublicUnsafe Debug
-logInfoUnsafeP logTrace    = traceNamedItem logTrace PublicUnsafe Info
-logNoticeUnsafeP logTrace  = traceNamedItem logTrace PublicUnsafe Notice
-logWarningUnsafeP logTrace = traceNamedItem logTrace PublicUnsafe Warning
-logErrorUnsafeP logTrace   = traceNamedItem logTrace PublicUnsafe Error
+logDebugUnsafeP     logTrace = traceNamedItem logTrace PublicUnsafe Debug
+logInfoUnsafeP      logTrace = traceNamedItem logTrace PublicUnsafe Info
+logNoticeUnsafeP    logTrace = traceNamedItem logTrace PublicUnsafe Notice
+logWarningUnsafeP   logTrace = traceNamedItem logTrace PublicUnsafe Warning
+logErrorUnsafeP     logTrace = traceNamedItem logTrace PublicUnsafe Error
+logCriticalUnsafeP  logTrace = traceNamedItem logTrace PublicUnsafe Critical
+logAlertUnsafeP     logTrace = traceNamedItem logTrace PublicUnsafe Alert
+logEmergencyUnsafeP logTrace = traceNamedItem logTrace PublicUnsafe Emergency
 
 \end{code}
 

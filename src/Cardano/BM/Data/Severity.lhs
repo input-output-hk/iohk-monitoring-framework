@@ -35,7 +35,14 @@ Emergency | at this point, the system can never progress without additional inte
 We were informed by the |Syslog| taxonomy: \url{https://en.wikipedia.org/wiki/Syslog#Severity_level}
 
 \begin{code}
-data Severity = Debug | Info | Notice | Warning | Error | Critical | Alert | Emergency
+data Severity = Debug
+              | Info
+              | Notice
+              | Warning
+              | Error
+              | Critical
+              | Alert
+              | Emergency
                 deriving (Show, Eq, Ord, Generic, ToJSON, Read)
 
 instance FromJSON Severity where
