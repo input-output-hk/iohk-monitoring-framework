@@ -69,17 +69,33 @@ newtype Configuration = Configuration
 -- Our internal state; see {-"\nameref{fig:configuration}"-}
 data ConfigurationInternal = ConfigurationInternal
     { cgMinSeverity   :: Severity
+    -- minimum severity level of every object that will be output
     , cgMapSeverity   :: HM.HashMap LoggerName Severity
+    -- severity filter per loggername
     , cgMapSubtrace   :: HM.HashMap LoggerName SubTrace
+    -- type of trace per loggername
     , cgOptions       :: HM.HashMap Text Object
+    -- options needed for tracing, logging and monitoring
     , cgMapBackend    :: HM.HashMap LoggerName [BackendKind]
+    -- backends that will be used for the specific loggername
     , cgDefBackendKs  :: [BackendKind]
+    -- backends that will be used if a set of backends for the
+    -- specific loggername is not set
     , cgSetupBackends :: [BackendKind]
+    -- backends to setup; every backend to be used must have
+    -- been declared here
     , cgMapScribe     :: HM.HashMap LoggerName [ScribeId]
+    -- katip scribes that will be used for the specific loggername
     , cgDefScribes    :: [ScribeId]
+    -- katip scribes that will be used if a set of scribes for the
+    -- specific loggername is not set
     , cgSetupScribes  :: [ScribeDefinition]
+    -- katip scribes to setup; every scribe to be used must have
+    -- been declared here
     , cgPortEKG       :: Int
+    -- port for EKG server
     , cgPortGUI       :: Int
+    -- port for changes at runtime (NOT IMPLEMENTED YET)
     }
 
 \end{code}
