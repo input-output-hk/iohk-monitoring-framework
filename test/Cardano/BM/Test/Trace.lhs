@@ -169,6 +169,7 @@ example_with_named_contexts = do
     Async.wait work1
     -- the named context will include "complex" in the logged message
     logInfo logTrace "done."
+    threadDelay 1000
     return ""
   where
     complexWork0 tr msg = Async.async $ logInfo tr ("let's see (0): " `append` msg)
