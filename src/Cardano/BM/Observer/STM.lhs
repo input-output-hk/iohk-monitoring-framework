@@ -3,6 +3,7 @@
 
 %if style == newcode
 \begin{code}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Cardano.BM.Observer.STM
     (
@@ -10,6 +11,7 @@ module Cardano.BM.Observer.STM
     , bracketObserveLogIO
     ) where
 
+import           Control.Monad.Catch (SomeException, catch, throwM)
 import qualified Control.Monad.STM as STM
 
 import           Data.Text
@@ -17,7 +19,7 @@ import           Data.Text
 import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.SubTrace
 import           Cardano.BM.Observer.Monadic (observeClose, observeOpen)
-import           Cardano.BM.Trace (Trace, subTrace, typeofTrace)
+import           Cardano.BM.Trace (Trace, logError, logNotice, subTrace, typeofTrace)
 
 \end{code}
 %endif
@@ -42,10 +44,21 @@ bracketObserveIO logTrace0 name action = do
     bracketObserveIO' NoTrace _ act =
         STM.atomically act
     bracketObserveIO' subtrace logTrace act = do
-        countersid <- observeOpen subtrace logTrace
-        -- run action, returns result only
-        t <- STM.atomically act
-        observeClose subtrace logTrace countersid []
+        mCountersid <- observeOpen subtrace logTrace
+
+        -- run action; if an exception is caught will be logged and rethrown.
+        t <- (STM.atomically act) `catch` (\(e :: SomeException) -> (logError logTrace (pack (show e)) >> throwM e))
+
+        case mCountersid of
+            Left openException ->
+                -- since observeOpen faced an exception there is no reason to call observeClose
+                -- however the result of the action is returned
+                logNotice logTrace ("ObserveOpen: " <> pack (show openException))
+            Right countersid -> do
+                    res <- observeClose subtrace logTrace countersid []
+                    case res of
+                        Left ex -> logNotice logTrace ("ObserveClose: " <> pack (show ex))
+                        _ -> pure ()
         pure t
 
 \end{code}
@@ -65,10 +78,23 @@ bracketObserveLogIO logTrace0 name action = do
         (t, _) <- STM.atomically $ stmWithLog act
         pure t
     bracketObserveLogIO' subtrace logTrace act = do
-        countersid <- observeOpen subtrace logTrace
-        -- run action, return result and log items
-        (t, as) <- STM.atomically $ stmWithLog act
-        observeClose subtrace logTrace countersid as
+        mCountersid <- observeOpen subtrace logTrace
+
+        -- run action, return result and log items; if an exception is
+        -- caught will be logged and rethrown.
+        (t, as) <- (STM.atomically $ stmWithLog act) `catch`
+                    (\(e :: SomeException) -> (logError logTrace (pack (show e)) >> throwM e))
+
+        case mCountersid of
+            Left openException ->
+                -- since observeOpen faced an exception there is no reason to call observeClose
+                -- however the result of the action is returned
+                logNotice logTrace ("ObserveOpen: " <> pack (show openException))
+            Right countersid -> do
+                    res <- observeClose subtrace logTrace countersid as
+                    case res of
+                        Left ex -> logNotice logTrace ("ObserveClose: " <> pack (show ex))
+                        _ -> pure ()
         pure t
 
 \end{code}
