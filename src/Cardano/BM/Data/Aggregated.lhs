@@ -26,8 +26,15 @@ data Stats = Stats {
     fcount :: Integer,
     fsum_A :: Integer,
     fsum_B :: Integer
-    } deriving (Show, Eq, Generic, ToJSON)
+    } deriving (Eq, Generic, ToJSON)
 
+instance Show Stats where
+    show (Stats smin smax scount ssum _) =
+        "{ min = " ++ show smin ++
+        ", max = " ++ show smax ++
+        ", mean = " ++ show ((fromInteger ssum)/(fromInteger scount)::Float) ++
+        ", count = " ++ show scount ++
+        " }"
 \end{code}
 
 \subsubsection{Aggregated}\label{code:Aggregated}
@@ -36,7 +43,16 @@ data Aggregated = Aggregated {
     fstats :: Stats,
     flast  :: Integer,
     fdelta :: Stats
-    } deriving (Show, Eq, Generic, ToJSON)
+    -- dy/dx we need to keep the notion of x
+    -- since we now only compute the diff on ys
+    } deriving (Eq, Generic, ToJSON)
+
+instance Show Aggregated where
+    show (Aggregated astats curr _) =
+        "{ last measurement = " ++ show curr ++
+        ", stats = " ++ show astats ++
+        " }"
+
 \end{code}
 
 \subsubsection{Update aggregation}\label{code:updateAggregation}

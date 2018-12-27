@@ -47,7 +47,7 @@ data CounterType = MonotonicClockTime
                    deriving (Eq, Show, Generic, ToJSON)
 
 nameCounter :: Counter -> Text
-nameCounter (Counter MonotonicClockTime _ _) = "Time"
+nameCounter (Counter MonotonicClockTime _ _) = "Time-interval"
 nameCounter (Counter MemoryCounter      _ _) = "Mem"
 nameCounter (Counter StatInfo           _ _) = "Stat"
 nameCounter (Counter IOCounter          _ _) = "IO"
