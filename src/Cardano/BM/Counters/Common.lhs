@@ -38,7 +38,7 @@ getMonoClock = do
 \end{code}
 
 \subsubsection{Read GHC RTS statistics}\label{code:readRTSStats}
-Read counters from GHC's |RTS| (runtime system). The values returned are as per the last 
+Read counters from GHC's |RTS| (runtime system). The values returned are as per the last
 GC (garbage collection) run.
 \begin{code}
 readRTSStats :: IO [Counter]

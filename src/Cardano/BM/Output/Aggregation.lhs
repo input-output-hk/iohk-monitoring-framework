@@ -22,7 +22,7 @@ import qualified Control.Concurrent.STM.TBQueue as TBQ
 import           Control.Monad (void)
 import           Control.Monad.Catch (throwM)
 import qualified Data.HashMap.Strict as HM
-import           Data.Text (Text)
+import           Data.Text (Text, stripSuffix)
 
 import           Cardano.BM.Data.Aggregated (Aggregated (..), updateAggregation)
 import           Cardano.BM.Data.Backend
@@ -136,6 +136,14 @@ spawnDispatcher aggMap aggregationQueue switchboard = Async.async $ qProc aggMap
             (mapNew, msgs) = updateCounter counters logname agmap []
         in
             (mapNew, reverse msgs)
+    -- remove |Aggregated| of Time for the name given
+    update (ResetAggregation name) _ agmap =
+            let k = case stripSuffix "aggregated" name of
+                        Just n  -> n
+                        Nothing -> ""
+            in
+            (HM.delete (k <> "monoclock") agmap, [])
+
     -- TODO for text messages aggregate on delta of timestamps
     update _ _ agmap = (agmap, [])
 
@@ -172,6 +180,5 @@ spawnDispatcher aggMap aggregationQueue switchboard = Async.async $ qProc aggMap
     -- ingnore all other messages that are not of type AggregatedMessage
     sendAggregated (_ : ms) sb logname =
         sendAggregated ms sb logname
-
 
 \end{code}
