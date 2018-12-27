@@ -23,6 +23,7 @@ import qualified Control.Concurrent.STM.TBQueue as TBQ
 import           Control.Monad (forM_, when, void)
 import           Control.Monad.Catch (throwM)
 
+import           Cardano.BM.Data.Aggregated (Aggregated(fstats), Stats(fcount))
 import           Cardano.BM.Configuration (Configuration)
 import           Cardano.BM.Configuration.Model (getBackends,
                      getSetupBackends)
@@ -88,9 +89,15 @@ instance IsBackend Switchboard where
                         nli <- atomically $ TBQ.readTBQueue queue
                         case lnItem nli of
                             KillPill ->
-                                 forM_ backends ( \(_, be) -> bUnrealize be )
-                            AggregatedMessage _ _aggregated ->
-                                 sendMessage nli (filter (/= AggregationBK)) >> qProc
+                                forM_ backends ( \(_, be) -> bUnrealize be )
+                            AggregatedMessage _ aggregated -> do
+                                -- reset measurements after 15 times
+                                when ((fcount . fstats) aggregated >= 15)
+                                    (sendMessage
+                                        nli{ lnItem = ResetAggregation (lnName nli) }
+                                        (filter (== AggregationBK)))
+                                sendMessage nli (filter (/= AggregationBK))
+                                qProc
                             _ -> sendMessage nli id                          >> qProc
                 in
                 Async.async qProc

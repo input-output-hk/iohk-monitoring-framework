@@ -76,6 +76,7 @@ data LogObject = LP LogPrims
                | ObserveClose CounterState
                | AggregatedMessage Text Aggregated
                | KillPill
+               | ResetAggregation Text
                  deriving (Generic, Show, ToJSON)
 
 \end{code}
