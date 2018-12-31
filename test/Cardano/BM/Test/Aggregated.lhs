@@ -43,8 +43,8 @@ prop_Aggregation_minimal = True
 
 prop_Aggregation_comm :: Integer -> Integer -> Aggregated -> Bool
 prop_Aggregation_comm v1 v2 ag =
-  let Just (Aggregated stats1 last1 delta1) = updateAggregation v1 $ updateAggregation v2 (Just ag)
-      Just (Aggregated stats2 last2 delta2) = updateAggregation v2 $ updateAggregation v1 (Just ag)
+  let Just (Aggregated stats1 last1 delta1) = updateAggregation (Pure v1) $ updateAggregation (Pure v2) (Just ag)
+      Just (Aggregated stats2 last2 delta2) = updateAggregation (Pure v2) $ updateAggregation (Pure v1) (Just ag)
   in
   stats1 == stats2 && ((v1 == v2) `implies` (last1 == last2))
                    && ((v1 == v2) `implies` (delta1 == delta2))
