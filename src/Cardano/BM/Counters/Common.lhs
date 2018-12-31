@@ -19,7 +19,9 @@ import           GHC.Clock (getMonotonicTimeNSec)
 import           GHC.Word (Word64)
 import qualified GHC.Stats as GhcStats
 
+import           Cardano.BM.Data.Aggregated (Measurable (..))
 import           Cardano.BM.Data.Counter
+
 \end{code}
 %endif
 
@@ -33,7 +35,7 @@ nominalTimeToMicroseconds = fromMicroseconds . toInteger . (`div` 1000)
 getMonoClock :: IO [Counter]
 getMonoClock = do
     t <- getMonotonicTimeNSec
-    return [ Counter MonotonicClockTime "monoclock" $ toInteger $ nominalTimeToMicroseconds t ]
+    return [ Counter MonotonicClockTime "monoclock" $ Microseconds (toInteger $ nominalTimeToMicroseconds t) ]
 
 \end{code}
 
@@ -67,5 +69,5 @@ readRTSStats = do
                , getrts (toInteger . GhcStats.major_gcs, "gcMajorNum")
                ]
     ghcval :: GhcStats.RTSStats -> ((GhcStats.RTSStats -> Integer), Text) -> Counter
-    ghcval s (f, n) = Counter RTSStats n (f s)
+    ghcval s (f, n) = Counter RTSStats n $ Pure (f s)
 \end{code}

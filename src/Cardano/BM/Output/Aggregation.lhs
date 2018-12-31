@@ -24,7 +24,7 @@ import           Control.Monad.Catch (throwM)
 import qualified Data.HashMap.Strict as HM
 import           Data.Text (Text, stripSuffix)
 
-import           Cardano.BM.Data.Aggregated (Aggregated (..), updateAggregation)
+import           Cardano.BM.Data.Aggregated (Aggregated (..), Measurable(..), updateAggregation)
 import           Cardano.BM.Data.Backend
 import           Cardano.BM.Data.Counter (Counter (..), CounterState (..), nameCounter)
 import           Cardano.BM.Data.LogItem
@@ -120,7 +120,7 @@ spawnDispatcher aggMap aggregationQueue switchboard = Async.async $ qProc aggMap
            -> (HM.HashMap Text Aggregated, [LogObject])
     update (LP (LogValue iname value)) logname agmap =
         let name = logname <> "." <> iname
-            maybeAggregated = updateAggregation value $ HM.lookup name agmap
+            maybeAggregated = updateAggregation (Pure value) $ HM.lookup name agmap
             aggregatedMessage = case maybeAggregated of
                                     Nothing ->
                                         []
