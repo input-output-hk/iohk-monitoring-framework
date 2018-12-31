@@ -26,6 +26,7 @@ import qualified Cardano.BM.Counters.Dummy as Platform
 #endif
 
 import           Cardano.BM.Counters.Common (getMonoClock)
+import           Cardano.BM.Data.Aggregated (Measurable (..))
 import           Cardano.BM.Data.Counter
 
 import           Data.Time.Units (Microsecond)
@@ -46,7 +47,7 @@ diffTimeObserved (CounterState id0 startCounters) (CounterState id1 endCounters)
       else error "these clocks are not from the same experiment"
   where
     getMonotonicTime counters = case (filter isMonotonicClockCounter counters) of
-        [(Counter MonotonicClockTime _ micros)] -> fromInteger micros
+        [(Counter MonotonicClockTime _ (Microseconds micros))] -> fromInteger micros
         _                                       -> error "A time measurement is missing!"
 
     isMonotonicClockCounter :: Counter -> Bool

@@ -10,6 +10,7 @@ module Cardano.BM.Data.Aggregated
   (
     Aggregated (..)
   , Stats (..)
+  , Measurable (..)
   , updateAggregation
   ) where
 
@@ -20,28 +21,77 @@ import           Data.Aeson (ToJSON)
 
 \subsubsection{Stats}\label{code:Stats}
 \begin{code}
+
+data Measurable = Microseconds Integer
+                | Bytes Integer
+                | Pure Integer
+                deriving (Eq, Ord, Generic, ToJSON)
+
+instance Num Measurable where
+    (+) (Microseconds a) (Microseconds b) = Microseconds (a+b)
+    (+) (Bytes a)        (Bytes b)        = Bytes        (a+b)
+    (+) (Pure a)         (Pure b)         = Pure         (a+b)
+    (+)  _                _               = error "Trying to add values with different units"
+
+    (*) (Microseconds a) (Microseconds b) = Microseconds (a*b)
+    (*) (Bytes a)        (Bytes b)        = Bytes        (a*b)
+    (*) (Pure a)         (Pure b)         = Pure         (a*b)
+    (*)  _                _               = error "Trying to multiply values with different units"
+
+    abs (Microseconds a) = Microseconds (abs a)
+    abs (Bytes a)        = Bytes        (abs a)
+    abs (Pure a)         = Pure         (abs a)
+
+    signum (Microseconds a) = Microseconds (signum a)
+    signum (Bytes a)        = Bytes        (signum a)
+    signum (Pure a)         = Pure         (signum a)
+
+    negate (Microseconds a) = Microseconds (negate a)
+    negate (Bytes a)        = Bytes        (negate a)
+    negate (Pure a)         = Pure         (negate a)
+
+    fromInteger = Pure
+
+instance Show Measurable where
+    show v@(Microseconds a) = show a ++ showUnits v
+    show v@(Bytes a)        = show a ++ showUnits v
+    show v@(Pure a)         = show a ++ showUnits v
+
+showUnits :: Measurable -> String
+showUnits (Microseconds _) = " µs"
+showUnits (Bytes _)        = " B"
+showUnits (Pure _)         = ""
+
+mean :: Measurable -> Integer -> Float
+mean (Microseconds suma) n = fromInteger suma / fromInteger n
+mean (Bytes suma)        n = fromInteger suma / fromInteger n
+mean (Pure suma)         n = fromInteger suma / fromInteger n
+
 data Stats = Stats {
-    fmin   :: Integer,
-    fmax   :: Integer,
+    fmin   :: Measurable,
+    fmax   :: Measurable,
     fcount :: Integer,
-    fsum_A :: Integer,
-    fsum_B :: Integer
+    fsum_A :: Measurable,
+    fsum_B :: Measurable
     } deriving (Eq, Generic, ToJSON)
+
+-- show instance in S.I.
 
 instance Show Stats where
     show (Stats smin smax scount ssum _) =
         "{ min = " ++ show smin ++
         ", max = " ++ show smax ++
-        ", mean = " ++ show ((fromInteger ssum)/(fromInteger scount)::Float) ++
+        ", mean = " ++ show (mean ssum scount) ++ showUnits ssum ++
         ", count = " ++ show scount ++
         " }"
+
 \end{code}
 
 \subsubsection{Aggregated}\label{code:Aggregated}
 \begin{code}
 data Aggregated = Aggregated {
     fstats :: Stats,
-    flast  :: Integer,
+    flast  :: Measurable,
     fdelta :: Stats
     -- dy/dx we need to keep the notion of x
     -- since we now only compute the diff on ys
@@ -60,7 +110,7 @@ instance Show Aggregated where
 We distinguish an unitialized from an already initialized aggregation:
 
 \begin{code}
-updateAggregation :: Integer -> Maybe Aggregated -> Maybe Aggregated
+updateAggregation :: Measurable -> Maybe Aggregated -> Maybe Aggregated
 updateAggregation v Nothing =
     Just $
         Aggregated { fstats = Stats {

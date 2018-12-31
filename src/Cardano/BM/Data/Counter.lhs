@@ -22,8 +22,9 @@ import           Data.Maybe (catMaybes)
 import           Data.Text (Text)
 import           Data.Time.Units (Microsecond, toMicroseconds)
 import           Data.Unique (Unique, hashUnique)
-
 import           GHC.Generics (Generic)
+
+import           Cardano.BM.Data.Aggregated (Measurable(..))
 
 \end{code}
 %endif
@@ -34,7 +35,7 @@ import           GHC.Generics (Generic)
 data Counter = Counter
                { cType  :: CounterType
                , cName  :: Text
-               , cValue :: Integer
+               , cValue :: Measurable
                }
                deriving (Eq, Show, Generic, ToJSON)
 

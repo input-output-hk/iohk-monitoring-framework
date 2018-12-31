@@ -23,6 +23,7 @@ import           Cardano.BM.Counters.Common (getMonoClock)
 import           Cardano.BM.Data.Counter
 import           Cardano.BM.Data.Observable
 import           Cardano.BM.Data.SubTrace
+import           Cardano.BM.Data.Aggregated (Measurable(..))
 
 \end{code}
 %endif
@@ -97,7 +98,7 @@ readProcStatM = do
     ps0 <- readProcList (pathProcStatM pid)
     let ps = zip colnames ps0
         psUseful = filter (("unused" /=) . fst) ps
-    return $ map (\(n,i) -> Counter MemoryCounter n i) psUseful
+    return $ map (\(n,i) -> Counter MemoryCounter n (Pure i)) psUseful
   where
     colnames :: [Text]
     colnames = ["size","resident","shared","text","unused","data","unused"]
@@ -345,7 +346,7 @@ readProcStats = do
     ps0 <- readProcList (pathProcStat pid)
     let ps = zip colnames ps0
         psUseful = filter (("unused" /=) . fst) ps
-    return $ map (\(n,i) -> Counter StatInfo n i) psUseful
+    return $ map (\(n,i) -> Counter StatInfo n (Pure i)) psUseful
   where
     colnames :: [Text]
     colnames = [ "pid","unused","unused","ppid","pgrp","session","ttynr","tpgid","flags","minflt"
@@ -421,10 +422,11 @@ readProcIO :: IO [Counter]
 readProcIO = do
     pid <- getProcessID
     ps0 <- readProcList (pathProcIO pid)
-    let ps = zip colnames ps0
-    return $ map (\(n,i) -> Counter IOCounter n i) ps
+    let ps = zip3 colnames ps0 units
+    return $ map (\(n,i,u) -> Counter IOCounter n (u i)) ps
   where
     colnames :: [Text]
     colnames = [ "rchar","wchar","syscr","syscw","rbytes","wbytes","cxwbytes" ]
+    units    = [  Bytes , Bytes , Pure  , Pure  , Bytes  , Bytes  , Bytes     ]
 
 \end{code}
