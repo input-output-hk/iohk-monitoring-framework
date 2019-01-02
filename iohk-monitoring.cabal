@@ -72,6 +72,7 @@ library
                        lens,
                        mtl,
                        safe-exceptions,
+                       scientific,
                        stm,
                        template-haskell,
                        text,
