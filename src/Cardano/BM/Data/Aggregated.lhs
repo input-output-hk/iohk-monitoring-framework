@@ -16,6 +16,7 @@ module Cardano.BM.Data.Aggregated
 
 import           GHC.Generics (Generic)
 import           Data.Aeson (ToJSON)
+import           Data.Scientific (fromFloatDigits)
 \end{code}
 %endif
 
@@ -23,49 +24,84 @@ import           Data.Aeson (ToJSON)
 \begin{code}
 
 data Measurable = Microseconds Integer
+                | Seconds Integer
                 | Bytes Integer
                 | Pure Integer
+                --  Field Text
                 deriving (Eq, Ord, Generic, ToJSON)
 
 instance Num Measurable where
     (+) (Microseconds a) (Microseconds b) = Microseconds (a+b)
+    (+) (Seconds a)      (Seconds b)      = Seconds      (a+b)
     (+) (Bytes a)        (Bytes b)        = Bytes        (a+b)
     (+) (Pure a)         (Pure b)         = Pure         (a+b)
     (+)  _                _               = error "Trying to add values with different units"
 
     (*) (Microseconds a) (Microseconds b) = Microseconds (a*b)
+    (*) (Seconds a)      (Seconds b)      = Seconds      (a*b)
     (*) (Bytes a)        (Bytes b)        = Bytes        (a*b)
     (*) (Pure a)         (Pure b)         = Pure         (a*b)
     (*)  _                _               = error "Trying to multiply values with different units"
 
     abs (Microseconds a) = Microseconds (abs a)
+    abs (Seconds a)      = Seconds      (abs a)
     abs (Bytes a)        = Bytes        (abs a)
     abs (Pure a)         = Pure         (abs a)
 
     signum (Microseconds a) = Microseconds (signum a)
+    signum (Seconds a)      = Seconds      (signum a)
     signum (Bytes a)        = Bytes        (signum a)
     signum (Pure a)         = Pure         (signum a)
 
     negate (Microseconds a) = Microseconds (negate a)
+    negate (Seconds a)      = Seconds      (negate a)
     negate (Bytes a)        = Bytes        (negate a)
     negate (Pure a)         = Pure         (negate a)
 
     fromInteger = Pure
 
 instance Show Measurable where
-    show v@(Microseconds a) = show a ++ showUnits v
-    show v@(Bytes a)        = show a ++ showUnits v
-    show v@(Pure a)         = show a ++ showUnits v
+    show = showSI
 
 showUnits :: Measurable -> String
 showUnits (Microseconds _) = " µs"
+showUnits (Seconds _)      = " s"
 showUnits (Bytes _)        = " B"
 showUnits (Pure _)         = ""
 
-mean :: Measurable -> Integer -> Float
-mean (Microseconds suma) n = fromInteger suma / fromInteger n
-mean (Bytes suma)        n = fromInteger suma / fromInteger n
-mean (Pure suma)         n = fromInteger suma / fromInteger n
+showMean :: Measurable -> Integer -> String
+showMean   (Microseconds suma) n = show (fromFloatDigits (mean suma (n*1000000))) ++
+                                    showUnits (Seconds 0)
+showMean v@(Seconds suma)      n = show (mean suma n) ++ showUnits v
+showMean v@(Bytes suma)        n = show (mean suma n) ++ showUnits v
+showMean v@(Pure suma)         n = show (mean suma n) ++ showUnits v
+
+showStdDev :: Measurable -> Measurable -> Integer -> String
+showStdDev   (Microseconds suma) (Microseconds sumb) n = show (fromFloatDigits
+                                                              (stdDev suma sumb n 1000000)) ++
+                                                         showUnits (Seconds 0)
+showStdDev v@(Seconds suma)      (Seconds sumb)      n = show (stdDev suma sumb n 1) ++ showUnits v
+showStdDev v@(Bytes suma)        (Bytes sumb)        n = show (stdDev suma sumb n 1) ++ showUnits v
+showStdDev v@(Pure suma)         (Pure sumb)         n = show (stdDev suma sumb n 1) ++ showUnits v
+showStdDev _                      _                  _ = error "Different units or quantities used"
+
+stdDev :: Integer -> Integer -> Integer -> Integer -> Float
+stdDev suma sumb n scale = let
+                        mu = mean suma n
+                        muSquares = fromInteger sumb / fromInteger n
+                    in
+                    (sqrt (muSquares - (mu*mu))) / fromInteger scale
+
+mean :: Integer -> Integer -> Float
+mean suma n = fromInteger suma / fromInteger n
+
+-- show in S.I.
+showSI :: Measurable -> String
+showSI (Microseconds a) = show (fromFloatDigits ((fromInteger a) / (1000000::Float))) ++
+                          showUnits (Seconds a)
+showSI v@(Seconds a)    = show a ++ showUnits v
+showSI v@(Bytes a)      = show a ++ showUnits v
+showSI v@(Pure a)       = show a ++ showUnits v
 
 data Stats = Stats {
     fmin   :: Measurable,
@@ -75,13 +111,12 @@ data Stats = Stats {
     fsum_B :: Measurable
     } deriving (Eq, Generic, ToJSON)
 
--- show instance in S.I.
-
 instance Show Stats where
-    show (Stats smin smax scount ssum _) =
+    show (Stats smin smax scount ssum ssumB) =
         "{ min = " ++ show smin ++
         ", max = " ++ show smax ++
-        ", mean = " ++ show (mean ssum scount) ++ showUnits ssum ++
+        ", mean = " ++ showMean ssum scount ++
+        ", std-dev = " ++ showStdDev ssum ssumB scount ++
         ", count = " ++ show scount ++
         " }"
 

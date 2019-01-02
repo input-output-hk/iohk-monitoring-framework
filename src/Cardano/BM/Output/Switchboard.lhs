@@ -22,6 +22,7 @@ import           Control.Concurrent.STM (atomically)
 import qualified Control.Concurrent.STM.TBQueue as TBQ
 import           Control.Monad (forM_, when, void)
 import           Control.Monad.Catch (throwM)
+import           Data.Text (isInfixOf)
 
 import           Cardano.BM.Data.Aggregated (Aggregated(fstats), Stats(fcount))
 import           Cardano.BM.Configuration (Configuration)
@@ -90,15 +91,15 @@ instance IsBackend Switchboard where
                         case lnItem nli of
                             KillPill ->
                                 forM_ backends ( \(_, be) -> bUnrealize be )
-                            AggregatedMessage _ aggregated -> do
+                            AggregatedMessage name aggregated -> do
                                 -- reset measurements after 15 times
-                                when ((fcount . fstats) aggregated >= 15)
+                                when ((fcount . fstats) aggregated >= 15 && "monoclock" `isInfixOf` name)
                                     (sendMessage
                                         nli{ lnItem = ResetAggregation (lnName nli) }
                                         (filter (== AggregationBK)))
                                 sendMessage nli (filter (/= AggregationBK))
                                 qProc
-                            _ -> sendMessage nli id                          >> qProc
+                            _ -> sendMessage nli id >> qProc
                 in
                 Async.async qProc
         in do
