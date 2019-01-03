@@ -35,6 +35,7 @@ import qualified Data.Map as Map
 import           Data.Maybe (isNothing)
 import           Data.String (fromString)
 import           Data.Text (Text, isPrefixOf, pack, unpack)
+import qualified Data.Text as T
 import           Data.Text.Lazy.Builder (Builder, fromText, toLazyText)
 import           Data.Text.Lazy (toStrict)
 import qualified Data.Text.Lazy.IO as TIO
@@ -185,8 +186,12 @@ passN backend katip namedLogItem = do
                     let (sev, msg, payload) = case item of
                                 (LP (LogMessage logItem)) ->
                                      (liSeverity logItem, liPayload logItem, Nothing)
-                                (AggregatedMessage name aggregated) ->
-                                     (Info, pack (show name ++ ": " ++ show aggregated), Nothing)
+                                (AggregatedMessage aggregated) ->
+                                     let
+                                        text = T.concat $ (flip map) aggregated $ \(name, agg) ->
+                                                "\n" <> name <> ": " <> pack (show agg)
+                                     in
+                                     (Info, text, Nothing)
                                 _ -> (Info, "", (Nothing :: Maybe LogObject))
                     if (msg == "") && (isNothing payload)
                     then return ()
