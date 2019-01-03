@@ -91,12 +91,13 @@ instance IsBackend Switchboard where
                         case lnItem nli of
                             KillPill ->
                                 forM_ backends ( \(_, be) -> bUnrealize be )
-                            AggregatedMessage name aggregated -> do
-                                -- reset measurements after 15 times
-                                when ((fcount . fstats) aggregated >= 15 && "monoclock" `isInfixOf` name)
-                                    (sendMessage
-                                        nli{ lnItem = ResetAggregation (lnName nli) }
-                                        (filter (== AggregationBK)))
+                            AggregatedMessage aggregatedList -> do
+                                forM_ aggregatedList $ \(name, aggregated) ->
+                                    -- reset measurements after 15 times for monoclock measurements
+                                    when ((fcount . fstats) aggregated >= 15 && "monoclock" `isInfixOf` name)
+                                        (sendMessage
+                                            nli{ lnItem = ResetTimeAggregation (lnName nli) }
+                                            (filter (== AggregationBK)))
                                 sendMessage nli (filter (/= AggregationBK))
                                 qProc
                             _ -> sendMessage nli id >> qProc

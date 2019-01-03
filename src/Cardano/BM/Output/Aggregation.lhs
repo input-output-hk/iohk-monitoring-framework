@@ -19,7 +19,7 @@ import           Control.Concurrent.MVar (MVar, newEmptyMVar,
                      putMVar, readMVar, tryTakeMVar, withMVar)
 import           Control.Concurrent.STM (atomically)
 import qualified Control.Concurrent.STM.TBQueue as TBQ
-import           Control.Monad (void)
+import           Control.Monad (unless, void)
 import           Control.Monad.Catch (throwM)
 import qualified Data.HashMap.Strict as HM
 import           Data.Text (Text, stripSuffix)
@@ -108,16 +108,17 @@ spawnDispatcher aggMap aggregationQueue switchboard = Async.async $ qProc aggMap
         maybeItem <- atomically $ TBQ.readTBQueue aggregationQueue
         case maybeItem of
             Just item -> do
-                let (updatedMap, msgs) =
+                let (updatedMap, aggregations) =
                         update (lnItem item) (lnName item) aggregatedMap
-                sendAggregated msgs switchboard (lnName item)
+                unless (null aggregations) $
+                    sendAggregated (AggregatedMessage aggregations) switchboard (lnName item)
                 qProc updatedMap
             Nothing -> return ()
 
     update :: LogObject
            -> LoggerName
            -> HM.HashMap Text Aggregated
-           -> (HM.HashMap Text Aggregated, [LogObject])
+           -> (HM.HashMap Text Aggregated, [(Text, Aggregated)])
     update (LP (LogValue iname value)) logname agmap =
         let name = logname <> "." <> iname
             maybeAggregated = updateAggregation (Pure value) $ HM.lookup name agmap
@@ -125,7 +126,7 @@ spawnDispatcher aggMap aggregationQueue switchboard = Async.async $ qProc aggMap
                                     Nothing ->
                                         []
                                     Just aggregated ->
-                                        [AggregatedMessage iname aggregated]
+                                        [(iname, aggregated)] -- Is there a need for list??
         in
         -- use of HM.alter so that in future we can clear the Agrregated
         -- by using as alter's arg a function which returns Nothing.
@@ -133,11 +134,11 @@ spawnDispatcher aggMap aggregationQueue switchboard = Async.async $ qProc aggMap
     update (ObserveDiff counterState) logname agmap =
         let
             counters = csCounters counterState
-            (mapNew, msgs) = updateCounter counters logname agmap []
+            (mapNew, aggs) = updateCounter counters logname agmap []
         in
-            (mapNew, reverse msgs)
+            (mapNew, reverse aggs)
     -- remove |Aggregated| of Time for the name given
-    update (ResetAggregation name) _ agmap =
+    update (ResetTimeAggregation name) _ agmap =
             let k = case stripSuffix "aggregated" name of
                         Just n  -> n
                         Nothing -> ""
@@ -150,35 +151,32 @@ spawnDispatcher aggMap aggregationQueue switchboard = Async.async $ qProc aggMap
     updateCounter :: [Counter]
                   -> LoggerName
                   -> HM.HashMap Text Aggregated
-                  -> [LogObject]
-                  -> (HM.HashMap Text Aggregated, [LogObject])
-    updateCounter [] _ aggrMap msgs = (aggrMap, msgs)
-    updateCounter (counter : cs) logname aggrMap msgs =
+                  -> [(Text, Aggregated)]
+                  -> (HM.HashMap Text Aggregated, [(Text, Aggregated)])
+    updateCounter [] _ aggrMap aggs = (aggrMap, aggs)
+    updateCounter (counter : cs) logname aggrMap aggs =
         let
             name = cName counter
             fullname = logname <> "." <> name
             maybeAggregated = updateAggregation (cValue counter) $ HM.lookup fullname aggrMap
-            aggregatedMessage = case maybeAggregated of
+            namedAggregated = case maybeAggregated of
                                     Nothing ->
                                         error "This should not have happened!"
                                     Just aggregated ->
-                                        AggregatedMessage ((nameCounter counter) <> "." <> name) aggregated
+                                        (((nameCounter counter) <> "." <> name), aggregated)
             updatedMap = HM.alter (const $ maybeAggregated) fullname aggrMap
         in
-            updateCounter cs logname updatedMap (aggregatedMessage :msgs)
+            updateCounter cs logname updatedMap (namedAggregated :aggs)
 
-    sendAggregated :: IsEffectuator e => [LogObject] -> e -> Text -> IO ()
-    sendAggregated [] _ _ = return ()
-    sendAggregated (aggregatedMsg@(AggregatedMessage _ _) : ms) sb logname = do
+    sendAggregated :: IsEffectuator e => LogObject -> e -> Text -> IO ()
+    sendAggregated (aggregatedMsg@(AggregatedMessage _)) sb logname =
         -- forward the aggregated message to Switchboard
         effectuate sb $
                     LogNamed
                         { lnName = logname <> ".aggregated"
                         , lnItem = aggregatedMsg
                         }
-        sendAggregated ms sb logname
-    -- ingnore all other messages that are not of type AggregatedMessage
-    sendAggregated (_ : ms) sb logname =
-        sendAggregated ms sb logname
+    -- ingnore every other message that is not of type AggregatedMessage
+    sendAggregated _ _ _ = return ()
 
 \end{code}
