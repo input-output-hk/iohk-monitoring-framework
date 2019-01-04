@@ -24,7 +24,7 @@ import           Control.Monad.Catch (throwM)
 import qualified Data.HashMap.Strict as HM
 import           Data.Text (Text, stripSuffix)
 
-import           Cardano.BM.Data.Aggregated (Aggregated (..), Measurable(..), updateAggregation)
+import           Cardano.BM.Data.Aggregated (Aggregated (..), Measurable(..), updateAggregation, EWMA (..))
 import           Cardano.BM.Data.Backend
 import           Cardano.BM.Data.Counter (Counter (..), CounterState (..), nameCounter)
 import           Cardano.BM.Data.LogItem
@@ -165,8 +165,23 @@ spawnDispatcher aggMap aggregationQueue switchboard = Async.async $ qProc aggMap
                                     Just aggregated ->
                                         (((nameCounter counter) <> "." <> name), aggregated)
             updatedMap = HM.alter (const $ maybeAggregated) fullname aggrMap
+            -- ewma
+            maybeAggregatedEWMA =
+                case HM.lookup (fullname <> ".ewma") updatedMap of
+                    Nothing ->
+                        Just $ AggregatedEWMA $ EWMA 0.75 (cValue counter)
+                    agg@(Just (AggregatedEWMA _)) ->
+                        updateAggregation (cValue counter) agg
+                    _ -> Nothing
+            namedAggregatedEWMA =
+                case maybeAggregatedEWMA of
+                    Nothing ->
+                        error "This should not have happened!"
+                    Just aggregatedEWMA ->
+                        (((nameCounter counter) <> "." <> name <> ".ewma"), aggregatedEWMA)
+            updatedMap' = HM.alter (const $ maybeAggregatedEWMA) (fullname <> ".ewma") updatedMap
         in
-            updateCounter cs logname updatedMap (namedAggregated :aggs)
+            updateCounter cs logname updatedMap' (namedAggregated: namedAggregatedEWMA :aggs)
 
     sendAggregated :: IsEffectuator e => LogObject -> e -> Text -> IO ()
     sendAggregated (aggregatedMsg@(AggregatedMessage _)) sb logname =

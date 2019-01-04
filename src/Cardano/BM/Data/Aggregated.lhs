@@ -10,6 +10,7 @@ module Cardano.BM.Data.Aggregated
   (
     Aggregated (..)
   , Stats (..)
+  , EWMA (..)
   , Measurable (..)
   , singleton
   , updateAggregation
@@ -128,10 +129,14 @@ instance Show Stats where
 \subsubsection{Aggregated}\label{code:Aggregated}
 \begin{code}
 data Aggregated = AggregatedStats Stats
-                | AggregatedEWMA StatsEWMA
+                | AggregatedEWMA EWMA
                 deriving (Eq, Generic, ToJSON)
 
-type StatsEWMA = [Int] -- placekeeper
+-- Exponentially Weighted Moving Average
+data EWMA = EWMA {
+        alpha :: Float,
+        avg   :: Measurable
+    } deriving (Show, Eq, Generic, ToJSON)
 
 instance Semigroup Stats where
     (<>) aStats bStats = Stats {
@@ -180,6 +185,18 @@ updateAggregation v Nothing =
     Just $ singleton v
 updateAggregation v (Just agg@(AggregatedStats _)) =
     Just $ agg <> singleton v
-updateAggregation _ _ = undefined
+updateAggregation (Microseconds v) (Just (AggregatedEWMA (EWMA a (Microseconds s)))) =
+    Just $ AggregatedEWMA $ EWMA a $ Microseconds $ ewma a v s
+updateAggregation (Seconds v) (Just (AggregatedEWMA (EWMA a (Seconds s)))) =
+    Just $ AggregatedEWMA $ EWMA a $ Seconds $ ewma a v s
+updateAggregation (Bytes v) (Just (AggregatedEWMA (EWMA a (Bytes s)))) =
+    Just $ AggregatedEWMA $ EWMA a $ Bytes $ ewma a v s
+updateAggregation (Pure v) (Just (AggregatedEWMA (EWMA a (Pure s)))) =
+    Just $ AggregatedEWMA $ EWMA a $ Pure $ ewma a v s
+updateAggregation _ _ = error "Different units or quantities used"
+
+-- computation of Exponentially Weighted Moving Average
+ewma :: Float -> Integer -> Integer -> Integer
+ewma a x s = round $ a * (fromInteger x) + (1 - a) * (fromInteger s)
 
 \end{code}
