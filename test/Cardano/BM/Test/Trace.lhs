@@ -132,7 +132,7 @@ testStdoutConfiguration name subtrace severity = ConfigurationInternal
                         }
 
 setupTrace :: TraceConfiguration -> IO (Trace IO)
-setupTrace (TraceConfiguration outk name trafo sev) = do
+setupTrace (TraceConfiguration outk name subTr sev) = do
     c <- liftIO $ Cardano.BM.Configuration.Model.empty
     mockSwitchboard <- newMVar $ error "Switchboard uninitialized."
     ctx <- liftIO $ newContext name c sev $ Switchboard mockSwitchboard
@@ -140,7 +140,7 @@ setupTrace (TraceConfiguration outk name trafo sev) = do
             TVarList      tvar -> BaseTrace.natTrace liftIO $ traceInTVarIO tvar
             TVarListNamed tvar -> BaseTrace.natTrace liftIO $ traceNamedInTVarIO tvar
 
-    setSubTrace (configuration ctx) name (Just trafo)
+    setSubTrace (configuration ctx) name (Just subTr)
     logTrace' <- subTrace "" (ctx, logTrace0)
     return logTrace'
 
@@ -191,41 +191,41 @@ run_timed_action :: Trace IO -> IO Microsecond
 run_timed_action logTrace = do
     runid <- newUnique
     t0 <- getMonoClock
-    _ <- observeAction logTrace "Observables"
+    forM_ [(1::Int)..10] $ const $ observeAction logTrace
     t1 <- getMonoClock
     return $ diffTimeObserved (CounterState runid t0) (CounterState runid t1)
   where
-    observeAction trace name = do
-        _ <- MonadicObserver.bracketObserveIO trace name action
+    observeAction trace = do
+        _ <- MonadicObserver.bracketObserveIO trace "" action
         return ()
     action = return $ forM [1::Int ..100] $ \_ -> reverse [1::Int ..1000]
 
 timing_Observable_vs_Untimed :: Assertion
 timing_Observable_vs_Untimed = do
     msgs1  <- STM.newTVarIO []
-    trace1 <- setupTrace $ TraceConfiguration
+    traceObservable <- setupTrace $ TraceConfiguration
                                     (TVarList msgs1)
                                     "observables"
                                     (ObservableTrace observablesSet)
                                     Debug
 
     msgs2  <- STM.newTVarIO []
-    trace2 <- setupTrace $ TraceConfiguration
+    traceUntimed <- setupTrace $ TraceConfiguration
                                     (TVarList msgs2)
                                     "no timing"
                                     UntimedTrace
                                     Debug
 
     msgs3  <- STM.newTVarIO []
-    trace3 <- setupTrace $ TraceConfiguration
+    traceNoTrace <- setupTrace $ TraceConfiguration
                                     (TVarList msgs3)
                                     "no trace"
                                     NoTrace
                                     Debug
 
-    t_observable <- run_timed_action trace1
-    t_untimed    <- run_timed_action trace2
-    t_notrace    <- run_timed_action trace3
+    t_observable <- run_timed_action traceObservable
+    t_untimed    <- run_timed_action traceUntimed
+    t_notrace    <- run_timed_action traceNoTrace
 
     assertBool
         ("Untimed consumed more time than ObservableTrace " ++ (show [t_untimed, t_observable]))
