@@ -34,7 +34,7 @@ import           Cardano.BM.Trace (Trace, natTrace, mainTrace, subTrace)
 \end{code}
 %endif
 
-\subsubsection{setupTrace}\label{code:setupTrace}
+\subsubsection{setupTrace}\label{code:setupTrace}\index{setupTrace}
 Setup a new |Trace| (\nameref{code:Trace}) with either a given |Configuration| (\nameref{code:Configuration})
 or a |FilePath| to a configuration file.
 \begin{code}
@@ -57,7 +57,7 @@ setupTrace_ c name = do
 
 \end{code}
 
-\subsubsection{withTrace}\label{code:withTrace}
+\subsubsection{withTrace}\label{code:withTrace}\index{withTrace}
 \begin{code}
 withTrace :: MonadIO m =>  Config.Configuration -> Text -> (Trace m -> m t) -> m t
 withTrace cfg name action = do
@@ -66,7 +66,7 @@ withTrace cfg name action = do
 
 \end{code}
 
-\subsubsection{newContext}\label{code:newContext}
+\subsubsection{newContext}\label{code:newContext}\index{newContext}
 \begin{code}
 newContext :: LoggerName
            -> Config.Configuration

@@ -6,9 +6,9 @@
 {-# LANGUAGE DeriveAnyClass     #-}
 {-# LANGUAGE DeriveGeneric      #-}
 {-# LANGUAGE StandaloneDeriving #-}
+
 module Cardano.BM.Data.Aggregated
-  (
-    Aggregated (..)
+  ( Aggregated (..)
   , Stats (..)
   , EWMA (..)
   , Measurable (..)
@@ -22,9 +22,10 @@ import           Data.Scientific (fromFloatDigits)
 \end{code}
 %endif
 
-\subsubsection{Stats}\label{code:Stats}
-\begin{code}
+\subsubsection{Measurable}\label{code:Measurable}\index{Measurable}
+A |Measurable| may consist of different types of values.
 
+\begin{code}
 data Measurable = Microseconds Integer
                 | Seconds Integer
                 | Bytes Integer
@@ -32,6 +33,11 @@ data Measurable = Microseconds Integer
                 --  Field Text
                 deriving (Eq, Ord, Generic, ToJSON)
 
+\end{code}
+
+It is a numerical value, thus supports functions to operate on numbers.
+\index{Measurable!instance of Num}
+\begin{code}
 instance Num Measurable where
     (+) (Microseconds a) (Microseconds b) = Microseconds (a+b)
     (+) (Seconds a)      (Seconds b)      = Seconds      (a+b)
@@ -62,6 +68,10 @@ instance Num Measurable where
 
     fromInteger = Pure
 
+\end{code}
+
+Pretty printing of |Measurable|. \index{Measurable!instance of Show}
+\begin{code}
 instance Show Measurable where
     show = showSI
 
@@ -105,6 +115,10 @@ showSI v@(Seconds a)    = show a ++ showUnits v
 showSI v@(Bytes a)      = show a ++ showUnits v
 showSI v@(Pure a)       = show a ++ showUnits v
 
+\end{code}
+
+\subsubsection{Stats}\label{code:Stats}\index{Stats}
+\begin{code}
 data Stats = Stats {
     flast  :: Measurable,
     fmin   :: Measurable,
@@ -114,6 +128,23 @@ data Stats = Stats {
     fsum_B :: Measurable
     } deriving (Eq, Generic, ToJSON)
 
+\end{code}
+
+\index{Stats!instance of Semigroup}
+\begin{code}
+instance Semigroup Stats where
+    (<>) a b = Stats { flast  = flast b  -- right associative
+                     , fmin   = min (fmin a) (fmin b)
+                     , fmax   = max (fmax a) (fmax b)
+                     , fcount = fcount a + fcount b
+                     , fsum_A = fsum_A a + fsum_A b
+                     , fsum_B = fsum_B a + fsum_B b
+                     }
+
+\end{code}
+
+\index{Stats!instance of Show}
+\begin{code}
 instance Show Stats where
     show (Stats slast smin smax scount ssum ssumB) =
         "{ last = " ++ show slast ++
@@ -126,77 +157,98 @@ instance Show Stats where
 
 \end{code}
 
-\subsubsection{Aggregated}\label{code:Aggregated}
+\subsubsection{Exponentially Weighted Moving Average (EWMA)}\label{code:EWMA}\index{EWMA}
+\begin{code}
+data EWMA = EWMA { alpha :: Float
+                 , count :: Int
+                 , avg   :: Measurable
+                 } deriving (Show, Eq, Generic, ToJSON)
+
+\end{code}
+
+\subsubsection{Aggregated}\label{code:Aggregated}\index{Aggregated}
+\todo[inline]{the sums |fsum_A| and even more so |fsum_B| can grow to very large numbers!
+\newline
+We need to implement another incremental method to update mean and variance.}
 \begin{code}
 data Aggregated = AggregatedStats Stats
                 | AggregatedEWMA EWMA
                 deriving (Eq, Generic, ToJSON)
 
--- Exponentially Weighted Moving Average
-data EWMA = EWMA {
-        alpha :: Float,
-        avg   :: Measurable
-    } deriving (Show, Eq, Generic, ToJSON)
+\end{code}
 
-instance Semigroup Stats where
-    (<>) aStats bStats = Stats {
-                            flast  = flast bStats, -- right associative
-                            fmin   = min (fmin aStats) (fmin bStats),
-                            fmax   = max (fmax aStats) (fmax bStats),
-                            fcount = fcount aStats + fcount bStats,
-                            fsum_A = fsum_A aStats + fsum_A bStats,
-                            fsum_B = fsum_B aStats + fsum_B bStats
-                        }
-
+\index{Aggregated!instance of Semigroup}
+\begin{code}
 instance Semigroup Aggregated where
-    (<>) (AggregatedStats aStats) (AggregatedStats bStats) =
-        AggregatedStats (aStats <> bStats)
+    (<>) (AggregatedStats a) (AggregatedStats b) =
+        AggregatedStats (a <> b)
     (<>) _ _ = error "Cannot combine different objects"
 
+\end{code}
+
+\index{singleton}
+\begin{code}
 singleton :: Measurable -> Aggregated
 singleton a =
-    let
-        stats = Stats {
-                    flast  = a,
-                    fmin   = a,
-                    fmax   = a,
-                    fcount = 1,
-                    fsum_A = a,
-                    fsum_B = a*a
-                }
+    let stats = Stats { flast  = a
+                      , fmin   = a
+                      , fmax   = a
+                      , fcount = 1
+                      , fsum_A = a
+                      , fsum_B = a*a
+                      }
     in
     AggregatedStats stats
 
+\end{code}
+
+\index{Aggregated!instance of Show}
+\begin{code}
 instance Show Aggregated where
     show (AggregatedStats astats) =
-        "{ stats = " ++ show astats ++
-        " }"
+        "{ stats = " ++ show astats ++ " }"
     show (AggregatedEWMA a) = show a
 
 \end{code}
 
-\subsubsection{Update aggregation}\label{code:updateAggregation}
-
+\subsubsection{Update aggregation}\label{code:updateAggregation}\index{updateAggregation}
 We distinguish an unitialized from an already initialized aggregation:
-
 \begin{code}
 updateAggregation :: Measurable -> Maybe Aggregated -> Maybe Aggregated
 updateAggregation v Nothing =
     Just $ singleton v
 updateAggregation v (Just agg@(AggregatedStats _)) =
     Just $ agg <> singleton v
-updateAggregation (Microseconds v) (Just (AggregatedEWMA (EWMA a (Microseconds s)))) =
-    Just $ AggregatedEWMA $ EWMA a $ Microseconds $ ewma a v s
-updateAggregation (Seconds v) (Just (AggregatedEWMA (EWMA a (Seconds s)))) =
-    Just $ AggregatedEWMA $ EWMA a $ Seconds $ ewma a v s
-updateAggregation (Bytes v) (Just (AggregatedEWMA (EWMA a (Bytes s)))) =
-    Just $ AggregatedEWMA $ EWMA a $ Bytes $ ewma a v s
-updateAggregation (Pure v) (Just (AggregatedEWMA (EWMA a (Pure s)))) =
-    Just $ AggregatedEWMA $ EWMA a $ Pure $ ewma a v s
-updateAggregation _ _ = error "Different units or quantities used"
+updateAggregation v (Just (AggregatedEWMA e)) =
+    Just $ AggregatedEWMA $ ewma e v
 
--- computation of Exponentially Weighted Moving Average
-ewma :: Float -> Integer -> Integer -> Integer
-ewma a x s = round $ a * (fromInteger x) + (1 - a) * (fromInteger s)
+\end{code}
+
+\subsubsection{Calculation of EWMA}\label{code:ewma}\index{ewma}
+Following \url{https://en.wikipedia.org/wiki/Moving_average#Exponential_moving_average} we calculate
+the exponential moving average for a series of values $ Y_t $ according to:
+
+$$
+S_t =
+\begin{cases}
+  Y_1,       & t = 1 \\
+  \alpha \cdot Y_t + (1 - \alpha) \cdot S_{t-1},    & t > 1
+\end{cases}
+$$
+\\
+The pattern matching below ensures that the |EWMA| will start with the first value passed in,
+and will not change type, once determined.
+\begin{code}
+ewma :: EWMA -> Measurable -> EWMA
+ewma (EWMA a 0 _) v = EWMA a 1 v
+ewma (EWMA a _ (Microseconds s)) (Microseconds y) =
+    EWMA a 1 $ Microseconds $ round $ a * (fromInteger y) + (1 - a) * (fromInteger s)
+ewma (EWMA a _ (Seconds s)) (Seconds y) =
+    EWMA a 1 $ Seconds $ round $ a * (fromInteger y) + (1 - a) * (fromInteger s)
+ewma (EWMA a _ (Bytes s)) (Bytes y) =
+    EWMA a 1 $ Bytes $ round $ a * (fromInteger y) + (1 - a) * (fromInteger s)
+ewma (EWMA a _ (Pure s)) (Pure y) =
+    EWMA a 1 $ Pure $ round $ a * (fromInteger y) + (1 - a) * (fromInteger s)
+ewma _ _ = error "Cannot average on values of different type"
 
 \end{code}

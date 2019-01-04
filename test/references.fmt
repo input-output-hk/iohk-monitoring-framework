@@ -1,0 +1,11 @@
+
+% remake with this 'sed' command
+% sed -ne 's/.*label{code:\([^}]*\)}.*/%format \1 = "\\hyperref[code:\1]{\1}"/p' IOHK-Monitoring-test.tex 
+
+%if style /= newcode
+
+%format unit_trace_min_severity = "\hyperref[code:unit_trace_min_severity]{unit_trace_min_severity}"
+%format unit_named_min_severity = "\hyperref[code:unit_named_min_severity]{unit_named_min_severity}"
+%format unit_append_name = "\hyperref[code:unit_append_name]{unit_append_name}"
+
+%endif

@@ -30,18 +30,21 @@ import           Cardano.BM.Data.Severity
 \end{code}
 %endif
 
-\subsubsection{LoggerName}\label{code:LoggerName}
+\subsubsection{LoggerName}\label{code:LoggerName}\index{LoggerName}
 \begin{code}
 type LoggerName = Text
 \end{code}
 
-\subsubsection{NamedLogItem}\label{code:NamedLogItem}
+\subsubsection{NamedLogItem}\label{code:NamedLogItem}\index{NamedLogItem}
 \begin{code}
 type NamedLogItem = LogNamed LogObject
 
 \end{code}
 
-\subsubsection{LogItem}\label{code:LogItem}
+\subsubsection{LogItem}\label{code:LogItem}\index{LogItem}
+\label{code:liSelection}\index{LogItem!liSelection}
+\label{code:liSeverity}\index{LogItem!liSeverity}
+\label{code:liPayload}\index{LogItem!liPayload}
 \todo[inline]{TODO |liPayload :: ToObject|}
 \begin{code}
 data LogItem = LogItem
@@ -52,6 +55,11 @@ data LogItem = LogItem
 
 \end{code}
 
+\label{code:LogSelection}\index{LogSelection}
+\label{code:Public}\index{LogSelection!Public}
+\label{code:PublicUnsafe}\index{LogSelection!PublicUnsafe}
+\label{code:Private}\index{LogSelection!Private}
+\label{code:Both}\index{LogSelection!Both}
 \begin{code}
 data LogSelection =
       Public       -- only to public logs.
@@ -63,7 +71,11 @@ data LogSelection =
 \end{code}
 
 
-\subsubsection{LogObject}\label{code:LogObject}\label{code:LogPrims}
+\subsubsection{LogObject}
+\label{code:LogObject}\index{LogObject}
+\label{code:LogPrims}\index{LogPrims}
+\label{code:LogMessage}\index{LogPrims!LogMessage}
+\label{code:LogValue}\index{LogPrims!LogValue}
 \begin{code}
 
 data LogPrims = LogMessage LogItem
@@ -81,7 +93,7 @@ data LogObject = LP LogPrims
 
 \end{code}
 
-\subsubsection{LogNamed}\label{code:LogNamed}
+\subsubsection{LogNamed}\label{code:LogNamed}\index{LogNamed}
 A |LogNamed| contains of a context name and some log item.
 \begin{code}
 

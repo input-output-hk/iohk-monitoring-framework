@@ -22,6 +22,7 @@ import           Cardano.BM.Data.SubTrace
 \end{code}
 %endif
 
+\label{code:Dummy.readCounters}\index{Counters!Dummy!readCounters}
 \begin{code}
 readCounters :: SubTrace -> IO [Counter]
 readCounters NoTrace             = return []

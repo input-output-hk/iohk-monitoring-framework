@@ -30,6 +30,7 @@ import           Cardano.BM.Data.Aggregated (Measurable(..))
 
 \todo[inline]{we have to expand the |readMemStats| function\newline to read full data from |proc|}
 
+\label{code:Linux.readCounters}\index{Counters!Linux!readCounters}
 \begin{code}
 
 readCounters :: SubTrace -> IO [Counter]

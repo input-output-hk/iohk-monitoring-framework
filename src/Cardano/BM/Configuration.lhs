@@ -28,7 +28,7 @@ import qualified Cardano.BM.Configuration.Model as CM
 
 see \nameref{module:Cardano.BM.Configuration.Model} for the implementation.
 
-
+\label{code:getOptionOrDefault}\index{getOptionOrDefault}
 \begin{code}
 getOptionOrDefault :: CM.Configuration -> Text -> Text -> IO (Text)
 getOptionOrDefault cg name def = do

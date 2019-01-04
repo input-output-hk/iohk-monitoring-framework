@@ -25,12 +25,13 @@ import           Cardano.BM.Data.Counter
 \end{code}
 %endif
 
+\label{code:nominalTimeToMicroseconds}\index{nominalTimeToMicroseconds}
 \begin{code}
 nominalTimeToMicroseconds :: Word64 -> Microsecond
 nominalTimeToMicroseconds = fromMicroseconds . toInteger . (`div` 1000)
 \end{code}
 
-\subsubsection{Read monotonic clock}\label{code:getMonoClock}
+\subsubsection{Read monotonic clock}\label{code:getMonoClock}\index{getMonoClock}
 \begin{code}
 getMonoClock :: IO [Counter]
 getMonoClock = do
@@ -39,7 +40,7 @@ getMonoClock = do
 
 \end{code}
 
-\subsubsection{Read GHC RTS statistics}\label{code:readRTSStats}
+\subsubsection{Read GHC RTS statistics}\label{code:readRTSStats}\index{readRTSStats}
 Read counters from GHC's |RTS| (runtime system). The values returned are as per the last
 GC (garbage collection) run.
 \begin{code}

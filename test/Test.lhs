@@ -13,6 +13,9 @@
 
 %include polycode.fmt
 
+%include ../src/local.fmt
+%include references.fmt
+
 \title{Testing benchmarking and logging}
 \author{Alexander Diemand
   \and

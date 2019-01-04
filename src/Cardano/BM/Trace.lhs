@@ -68,14 +68,14 @@ natTrace nat (ctx, trace) = (ctx, BaseTrace.natTrace nat trace)
 
 \end{code}
 
-Access type of |Trace|.
+Access type of |Trace|.\label{code:typeofTrace}\index{typeofTrace}
 \begin{code}
 typeofTrace :: Trace m -> SubTrace
 typeofTrace (ctx, _) = tracetype ctx
 
 \end{code}
 
-Update type of |Trace|.
+Update type of |Trace|.\label{code:updateTracetype}\index{updateTracetype}
 \begin{code}
 updateTracetype :: SubTrace -> Trace m -> Trace m
 updateTracetype subtr (ctx, tr) = (ctx {tracetype=subtr}, tr)
@@ -83,7 +83,7 @@ updateTracetype subtr (ctx, tr) = (ctx {tracetype=subtr}, tr)
 \end{code}
 
 
-\subsubsection{Enter new named context}\label{code:appendName}
+\subsubsection{Enter new named context}\label{code:appendName}\index{appendName}
 The context name is created and checked that its size is below a limit
 (currently 80 chars).
 The minimum severity that a log message must be labelled with is looked up in
@@ -128,7 +128,7 @@ locallock = unsafePerformIO $ newMVar ()
 \end{code}
 
 
-\subsubsection{Trace that forwards to the \nameref{code:Switchboard}}\label{code:mainTrace}
+\subsubsection{Trace that forwards to the \nameref{code:Switchboard}}\label{code:mainTrace}\index{mainTrace}
 
 Every |Trace| ends in the \nameref{code:Switchboard} which then takes care of
 dispatching the messages to outputs
@@ -140,7 +140,7 @@ mainTrace sb = BaseTrace.BaseTrace $ Op $ \lognamed -> do
 
 \end{code}
 
-\subsubsection{Concrete Trace on stdout}\label{code:stdoutTrace}
+\subsubsection{Concrete Trace on stdout}\label{code:stdoutTrace}\index{stdoutTrace}
 
 This function returns a trace with an action of type "|(LogNamed LogObject) -> IO ()|"
 which will output a text message as text and all others as JSON encoded representation
@@ -162,7 +162,7 @@ stdoutTrace = BaseTrace.BaseTrace $ Op $ \lognamed ->
 \end{code}
 
 
-\subsubsection{Concrete Trace into a |TVar|}\label{code:traceInTVar}\label{code:traceInTVarIO}
+\subsubsection{Concrete Trace into a |TVar|}\label{code:traceInTVar}\label{code:traceInTVarIO}\index{traceInTVar}\index{traceInTVarIO}\label{code:traceNamedInTVarIO}\index{traceNamedInTVarIO}
 
 \begin{code}
 traceInTVar :: STM.TVar [a] -> BaseTrace.BaseTrace STM.STM a
@@ -178,7 +178,7 @@ traceNamedInTVarIO tvar = BaseTrace.BaseTrace $ Op $ \ln ->
 
 \end{code}
 
-\subsubsection{Check a log item's severity against the |Trace|'s minimum severity}\label{code:traceConditionally}
+\subsubsection{Check a log item's severity against the |Trace|'s minimum severity}\label{code:traceConditionally}\index{traceConditionally}
 \todo[inline]{do we need three different |minSeverity| defined?}
 
 We do a lookup of the global |minSeverity| in the configuration. And, a lookup of the |minSeverity| for the current named context. These values might have changed in the meanwhile.
@@ -199,7 +199,7 @@ traceConditionally _ logTrace logObject = BaseTrace.traceWith logTrace logObject
 
 \end{code}
 
-\subsubsection{Enter message into a trace}\label{code:traceNamedItem}
+\subsubsection{Enter message into a trace}\label{code:traceNamedItem}\index{traceNamedItem}
 The function |traceNamedItem| creates a |LogObject| and threads this through
 the action defined in the |Trace|.
 
@@ -219,6 +219,34 @@ traceNamedItem (ctx, logTrace) p s m =
     in
     traceConditionally ctx (named logTrace (loggerName ctx)) $ logmsg
 
+\end{code}
+
+\subsubsection{Logging functions}
+\label{code:logDebug}\index{logDebug}
+\label{code:logDebugS}\index{logDebugS}
+\label{code:logDebugP}\index{logDebugP}
+\label{code:logInfo}\index{logInfo}
+\label{code:logInfoS}\index{logInfoS}
+\label{code:logInfoP}\index{logInfoP}
+\label{code:logNotice}\index{logNotice}
+\label{code:logNoticeS}\index{logNoticeS}
+\label{code:logNoticeP}\index{logNoticeP}
+\label{code:logWarning}\index{logWarning}
+\label{code:logWarningS}\index{logWarningS}
+\label{code:logWarningP}\index{logWarningP}
+\label{code:logError}\index{logError}
+\label{code:logErrorS}\index{logErrorS}
+\label{code:logErrorP}\index{logErrorP}
+\label{code:logCritical}\index{logCritical}
+\label{code:logCriticalS}\index{logCriticalS}
+\label{code:logCriticalP}\index{logCriticalP}
+\label{code:logAlert}\index{logAlert}
+\label{code:logAlertS}\index{logAlertS}
+\label{code:logAlertP}\index{logAlertP}
+\label{code:logEmergency}\index{logEmergency}
+\label{code:logEmergencyS}\index{logEmergencyS}
+\label{code:logEmergencyP}\index{logEmergencyP}
+\begin{code}
 logDebug, logInfo, logNotice, logWarning, logError, logCritical, logAlert, logEmergency
     :: (MonadIO m) => Trace m -> T.Text -> m ()
 logDebug     logTrace = traceNamedItem logTrace Both Debug
@@ -316,8 +344,8 @@ exampleConfiguration = withTrace (TraceConfiguration StdOut "my_example" (Observ
 \end{spec}
 %endif
 
+\label{code:traceNamedObject}\index{traceNamedObject}
 \begin{code}
-
 traceNamedObject
     :: Trace m
     -> LogObject
@@ -326,7 +354,7 @@ traceNamedObject (ctx, logTrace) = BaseTrace.traceWith (named logTrace (loggerNa
 
 \end{code}
 
-\subsubsection{subTrace}\label{code:subTrace}
+\subsubsection{subTrace}\label{code:subTrace}\index{subTrace}
 Transforms the input |Trace| according to the
 |Configuration| using the logger name of the
 current |Trace| appended with the new name. If the
