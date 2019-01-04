@@ -43,11 +43,15 @@ prop_Aggregation_minimal = True
 
 prop_Aggregation_comm :: Integer -> Integer -> Aggregated -> Bool
 prop_Aggregation_comm v1 v2 ag =
-  let Just (Aggregated stats1 last1 delta1) = updateAggregation (Pure v1) $ updateAggregation (Pure v2) (Just ag)
-      Just (Aggregated stats2 last2 delta2) = updateAggregation (Pure v2) $ updateAggregation (Pure v1) (Just ag)
-  in
-  stats1 == stats2 && ((v1 == v2) `implies` (last1 == last2))
-                   && ((v1 == v2) `implies` (delta1 == delta2))
+    let Just (AggregatedStats stats1) = updateAggregation (Pure v1) $ updateAggregation (Pure v2) (Just ag)
+        Just (AggregatedStats stats2) = updateAggregation (Pure v2) $ updateAggregation (Pure v1) (Just ag)
+    in
+    fmin   stats1 == fmin   stats2 &&
+    fmax   stats1 == fmax   stats2 &&
+    fcount stats1 == fcount stats2 &&
+    fsum_A stats1 == fsum_A stats2 &&
+    fsum_B stats1 == fsum_B stats2 &&
+    ((v1 == v2) `implies` (flast stats1 == flast stats2))
 
 -- implication: if p1 is true, then return p2; otherwise true
 implies :: Bool -> Bool -> Bool
@@ -55,20 +59,12 @@ implies p1 p2 = (not p1) || p2
 
 unit_Aggregation_initial_minus_1 :: Assertion
 unit_Aggregation_initial_minus_1 =
-  updateAggregation (-1) Nothing @?= Just (Aggregated {
-                                            fstats=Stats (-1) (-1) 1 (-1) 1
-                                          , flast=(-1)
-                                          , fdelta=Stats 0 0 0 0 0 } )
+    updateAggregation (-1) Nothing @?= Just (AggregatedStats (Stats (-1) (-1) (-1) 1 (-1) 1))
 unit_Aggregation_initial_plus_1 :: Assertion
 unit_Aggregation_initial_plus_1 =
-  updateAggregation 1 Nothing  @?= Just (Aggregated
-                                             (Stats 1 1 1 1 1)
-                                             1
-                                             (Stats 0 0 0 0 0) )
+    updateAggregation 1 Nothing  @?= Just (AggregatedStats (Stats 1 1 1 1 1 1))
 unit_Aggregation_initial_zero :: Assertion
 unit_Aggregation_initial_zero =
-  updateAggregation 0 Nothing @?= Just (Aggregated
-                                             (Stats 0 0 1 0 0)
-                                             0
-                                             (Stats 0 0 0 0 0) )
+    updateAggregation 0 Nothing @?= Just (AggregatedStats (Stats 0 0 0 1 0 0))
+
 \end{code}

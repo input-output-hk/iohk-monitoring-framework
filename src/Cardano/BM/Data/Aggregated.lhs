@@ -11,6 +11,7 @@ module Cardano.BM.Data.Aggregated
     Aggregated (..)
   , Stats (..)
   , Measurable (..)
+  , singleton
   , updateAggregation
   ) where
 
@@ -104,6 +105,7 @@ showSI v@(Bytes a)      = show a ++ showUnits v
 showSI v@(Pure a)       = show a ++ showUnits v
 
 data Stats = Stats {
+    flast  :: Measurable,
     fmin   :: Measurable,
     fmax   :: Measurable,
     fcount :: Integer,
@@ -112,8 +114,9 @@ data Stats = Stats {
     } deriving (Eq, Generic, ToJSON)
 
 instance Show Stats where
-    show (Stats smin smax scount ssum ssumB) =
-        "{ min = " ++ show smin ++
+    show (Stats slast smin smax scount ssum ssumB) =
+        "{ last = " ++ show slast ++
+        ", min = " ++ show smin ++
         ", max = " ++ show smax ++
         ", mean = " ++ showMean ssum scount ++
         ", std-dev = " ++ showStdDev ssum ssumB scount ++
@@ -124,19 +127,46 @@ instance Show Stats where
 
 \subsubsection{Aggregated}\label{code:Aggregated}
 \begin{code}
-data Aggregated = Aggregated {
-    fstats :: Stats,
-    flast  :: Measurable,
-    fdelta :: Stats
-    -- dy/dx we need to keep the notion of x
-    -- since we now only compute the diff on ys
-    } deriving (Eq, Generic, ToJSON)
+data Aggregated = AggregatedStats Stats
+                | AggregatedEWMA StatsEWMA
+                deriving (Eq, Generic, ToJSON)
+
+type StatsEWMA = [Int] -- placekeeper
+
+instance Semigroup Stats where
+    (<>) aStats bStats = Stats {
+                            flast  = flast bStats, -- right associative
+                            fmin   = min (fmin aStats) (fmin bStats),
+                            fmax   = max (fmax aStats) (fmax bStats),
+                            fcount = fcount aStats + fcount bStats,
+                            fsum_A = fsum_A aStats + fsum_A bStats,
+                            fsum_B = fsum_B aStats + fsum_B bStats
+                        }
+
+instance Semigroup Aggregated where
+    (<>) (AggregatedStats aStats) (AggregatedStats bStats) =
+        AggregatedStats (aStats <> bStats)
+    (<>) _ _ = error "Cannot combine different objects"
+
+singleton :: Measurable -> Aggregated
+singleton a =
+    let
+        stats = Stats {
+                    flast  = a,
+                    fmin   = a,
+                    fmax   = a,
+                    fcount = 1,
+                    fsum_A = a,
+                    fsum_B = a*a
+                }
+    in
+    AggregatedStats stats
 
 instance Show Aggregated where
-    show (Aggregated astats curr _) =
-        "{ last measurement = " ++ show curr ++
-        ", stats = " ++ show astats ++
+    show (AggregatedStats astats) =
+        "{ stats = " ++ show astats ++
         " }"
+    show (AggregatedEWMA a) = show a
 
 \end{code}
 
@@ -147,37 +177,9 @@ We distinguish an unitialized from an already initialized aggregation:
 \begin{code}
 updateAggregation :: Measurable -> Maybe Aggregated -> Maybe Aggregated
 updateAggregation v Nothing =
-    Just $
-        Aggregated { fstats = Stats {
-                       fmin=v   , fmax=v     , fcount=1
-                     , fsum_A=v , fsum_B=v*v}
-                   , flast = v
-                   , fdelta = Stats {
-                       fmin=0  , fmax=0   , fcount=0
-                     , fsum_A=0, fsum_B=0 }
-                   }
-updateAggregation v (Just (Aggregated (Stats _min _max _count _sumA _sumB)
-                                      _last
-                                      (Stats _dmin _dmax _dcount _dsumA _dsumB)
-                          )) =
-    let delta = v - _last
-    in
-    Just $
-        Aggregated { fstats = Stats {
-                       fmin=(min _min v)
-                     , fmax=(max _max v)
-                     , fcount=(_count + 1)
-                     , fsum_A=(_sumA + v)
-                     , fsum_B=(_sumB + v * v)
-                     }
-                   , flast = v
-                   , fdelta = Stats {
-                       fmin=(min _dmin delta)
-                     , fmax=(max _dmax delta)
-                     , fcount=(_dcount + 1)
-                     , fsum_A=(_dsumA + delta)
-                     , fsum_B=(_dsumB + delta * delta)
-                     }
-                   }
+    Just $ singleton v
+updateAggregation v (Just agg@(AggregatedStats _)) =
+    Just $ agg <> singleton v
+updateAggregation _ _ = undefined
 
 \end{code}
