@@ -33,7 +33,7 @@ import           Cardano.BM.Data.Rotation
 \end{code}
 %endif
 
-\subsubsection{Representation}\label{code:Representation}
+\subsubsection{Representation}\label{code:Representation}\index{Representation}\label{code:Port}\index{Port}
 \begin{code}
 type Port = Int
 data Representation = Representation
@@ -51,7 +51,7 @@ data Representation = Representation
 
 \end{code}
 
-\subsubsection{parseRepresentation}\label{code:parseRepresentation}
+\subsubsection{parseRepresentation}\label{code:parseRepresentation}\index{parseRepresentation}
 \begin{code}
 parseRepresentation :: FilePath -> IO Representation
 parseRepresentation fp = do

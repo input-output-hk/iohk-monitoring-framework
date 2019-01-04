@@ -27,7 +27,9 @@ import           GHC.Generics (Generic)
 \end{code}
 %endif
 
-\subsubsection{OutputKind}\label{code:OutputKind}
+\subsubsection{OutputKind}\label{code:OutputKind}\index{OutputKind}
+\label{code:TVarList}\index{OutputKind!TVarList}
+\label{code:TVarListNamed}\index{OutputKind!TVarListNamed}
 \begin{code}
 data OutputKind = TVarList (STM.TVar [LogObject])
                 | TVarListNamed (STM.TVar [LogNamed LogObject])
@@ -36,6 +38,10 @@ data OutputKind = TVarList (STM.TVar [LogObject])
 \end{code}
 
 \subsubsection{ScribeKind}\label{code:ScribeKind}
+\label{FileTextSK}\index{ScribeKind!FileTextSK}
+\label{FileJsonSK}\index{ScribeKind!FileJsonSK}
+\label{StdoutSK}\index{ScribeKind!StdoutSK}
+\label{StderrSK}\index{ScribeKind!StderrSK}
 This identifies katip's scribes by type.
 \begin{code}
 data ScribeKind = FileTextSK
@@ -46,14 +52,17 @@ data ScribeKind = FileTextSK
 
 \end{code}
 
-\subsubsection{ScribeId}\label{code:ScribeId}
+\subsubsection{ScribeId}\label{code:ScribeId}\index{ScribeId}
 A scribe is identified by |ScribeKind x Filename|
 \begin{code}
 type ScribeId = Text -- (ScribeKind :: Filename)
 
 \end{code}
 
-\subsubsection{ScribeDefinition}\label{code:ScribeDefinition}
+\subsubsection{ScribeDefinition}\label{code:ScribeDefinition}\index{ScribeDefinition}
+\label{code:scKind}\index{ScribeDefinition!scKind}
+\label{code:scName}\index{ScribeDefinition!scName}
+\label{code:scRotation}\index{ScribeDefinition!scRotation}
 This identifies katip's scribes by type.
 \begin{code}
 data ScribeDefinition = ScribeDefinition

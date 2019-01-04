@@ -30,7 +30,7 @@ import           Cardano.BM.Data.Aggregated (Measurable(..))
 %endif
 
 
-\subsubsection{Counter}\label{code:Counter}
+\subsubsection{Counter}\label{code:Counter}\index{Counter}\label{code:CounterType}\index{CounterType}
 \begin{code}
 data Counter = Counter
                { cType  :: CounterType
@@ -47,6 +47,14 @@ data CounterType = MonotonicClockTime
                  | RTSStats
                    deriving (Eq, Show, Generic, ToJSON)
 
+instance ToJSON Microsecond where
+    toJSON     = toJSON     . toMicroseconds
+    toEncoding = toEncoding . toMicroseconds
+
+\end{code}
+
+\subsubsection{Names of counters}\label{code:nameCounter}\index{nameCounter}
+\begin{code}
 nameCounter :: Counter -> Text
 nameCounter (Counter MonotonicClockTime _ _) = "Time-interval"
 nameCounter (Counter MemoryCounter      _ _) = "Mem"
@@ -55,13 +63,9 @@ nameCounter (Counter IOCounter          _ _) = "IO"
 nameCounter (Counter CpuCounter         _ _) = "Cpu"
 nameCounter (Counter RTSStats           _ _) = "RTS"
 
-instance ToJSON Microsecond where
-    toJSON     = toJSON     . toMicroseconds
-    toEncoding = toEncoding . toMicroseconds
-
 \end{code}
 
-\subsubsection{CounterState}\label{code:CounterState}
+\subsubsection{CounterState}\label{code:CounterState}\index{CounterState}
 \begin{code}
 data CounterState = CounterState {
       csIdentifier :: Unique
@@ -79,7 +83,7 @@ instance Show CounterState where
 
 \end{code}
 
-\subsubsection{Difference between counters}\label{code:diffCounters}
+\subsubsection{Difference between counters}\label{code:diffCounters}\index{diffCounters}
 \begin{code}
 diffCounters :: [Counter] -> [Counter] -> [Counter]
 diffCounters openings closings =

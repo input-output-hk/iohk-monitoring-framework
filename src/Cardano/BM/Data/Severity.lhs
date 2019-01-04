@@ -20,7 +20,15 @@ import           GHC.Generics (Generic)
 \end{code}
 %endif
 
-\subsubsection{Severity}\label{code:Severity}
+\subsubsection{Severity}\label{code:Severity}\index{Severity}\index{Severity!instance of FromJSON}
+\label{code:Debug}\index{Severity!Debug}
+\label{code:Info}\index{Severity!Info}
+\label{code:Notice}\index{Severity!Notice}
+\label{code:Warning}\index{Severity!Warning}
+\label{code:Error}\index{Severity!Error}
+\label{code:Critical}\index{Severity!Critical}
+\label{code:Alert}\index{Severity!Alert}
+\label{code:Emergency}\index{Severity!Emergency}
 The intended meaning of severity codes:
 
 Debug     | detailled information about values and decision flow

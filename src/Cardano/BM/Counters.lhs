@@ -33,7 +33,7 @@ import           Data.Time.Units (Microsecond)
 
 \end{code}
 
-\subsubsection{Calculate difference between clocks}\label{code:diffTimeObserved}
+\subsubsection{Calculate difference between clocks}\label{code:diffTimeObserved}\index{diffTimeObserved}
 
 \begin{code}
 diffTimeObserved :: CounterState -> CounterState -> Microsecond

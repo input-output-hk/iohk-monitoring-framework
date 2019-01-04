@@ -32,7 +32,7 @@ import           Cardano.BM.Data.LogItem
 \end{code}
 %endif
 
-\subsubsection{Internal representation}\label{code:Aggregation}
+\subsubsection{Internal representation}\label{code:Aggregation}\index{Aggregation}
 \begin{code}
 type AggregationMVar = MVar AggregationInternal
 newtype Aggregation = Aggregation
@@ -169,7 +169,7 @@ spawnDispatcher aggMap aggregationQueue switchboard = Async.async $ qProc aggMap
             maybeAggregatedEWMA =
                 case HM.lookup (fullname <> ".ewma") updatedMap of
                     Nothing ->
-                        Just $ AggregatedEWMA $ EWMA 0.75 (cValue counter)
+                        Just $ AggregatedEWMA $ EWMA 0.75 0 (cValue counter)
                     agg@(Just (AggregatedEWMA _)) ->
                         updateAggregation (cValue counter) agg
                     _ -> Nothing

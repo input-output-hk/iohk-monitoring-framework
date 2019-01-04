@@ -20,21 +20,26 @@ import           Cardano.BM.Output.Switchboard (Switchboard)
 \end{code}
 %endif
 
-\subsubsection{Trace}\label{code:Trace}
-A |Trace| consists of a \nameref{code:TraceContext} and a \nameref{code:TraceNamed} in |m|.
+\subsubsection{Trace}\label{code:Trace}\index{Trace}
+A |Trace| consists of a \nameref{code:TraceContext} and a TraceNamed in |m|.
 \begin{code}
 
 type Trace m = (TraceContext, TraceNamed m)
 \end{code}
 
-\subsubsection{TraceNamed}\label{code:TraceNamed}
-A |TraceNamed| is a specialized \nameref{code:BaseTrace} of type \nameref{code:LogNamed} with payload \nameref{code:LogObject}.
+\subsubsection{TraceNamed}\label{code:TraceNamed}\index{TraceNamed}
+A |TraceNamed| is a specialized \nameref{code:BaseTrace} of type \nameref{code:LogNamed} with payload LogObject.
 \begin{code}
 
 type TraceNamed m = BaseTrace m (LogNamed LogObject)
 \end{code}
 
-\subsubsection{TraceContext}\label{code:TraceContext}
+\subsubsection{TraceContext}\label{code:TraceContext}\index{TraceContext}
+\label{code:loggerName}\index{TraceContext!loggerName}
+\label{code:configuration}\index{TraceContext!configuration}
+\label{code:tracetype}\index{TraceContext!tracetype}
+\label{code:minSeverity}\index{TraceContext!minSeverity}
+\label{code:switchboard}\index{TraceContext!switchboard}
 We keep the context's name and a reference to the |Configuration|
 in the |TraceContext|.
 \begin{code}

@@ -20,7 +20,10 @@ import           GHC.Word (Word64)
 \end{code}
 %endif
 
-\subsubsection{RotationParameters}\label{code:RotationParameters}
+\subsubsection{RotationParameters}\label{code:RotationParameters}\index{RotationParameters}
+\label{code:rpLogLimitBytes}\index{RotationParameters!rpLogLimitBytes}
+\label{code:rpMaxAgeHours}\index{RotationParameters!rpMaxAgeHours}
+\label{code:rpKeepFilesNum}\index{RotationParameters!rpKeepFilesNum}
 \begin{code}
 data RotationParameters = RotationParameters
     { rpLogLimitBytes :: !Word64  -- max size of file in bytes

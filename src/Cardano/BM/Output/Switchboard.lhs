@@ -37,7 +37,7 @@ import qualified Cardano.BM.Output.Log
 \end{code}
 %endif
 
-\subsubsection{Switchboard}\label{code:Switchboard}
+\subsubsection{Switchboard}\label{code:Switchboard}\index{Switchboard}
 
 \begin{code}
 type SwitchboardMVar = MVar SwitchboardInternal
@@ -51,7 +51,7 @@ data SwitchboardInternal = SwitchboardInternal
 
 \end{code}
 
-\subsubsection{Process incoming messages}
+\subsubsection{Process incoming messages}\index{Switchboard!instance of IsEffectuator}
 Incoming messages are put into the queue, and
 then processed by the dispatcher.
 \newline
@@ -70,7 +70,7 @@ instance IsEffectuator Switchboard where
             writequeue (sbQueue sb) item
 \end{code}
 
-\subsubsection{|Switchboard| implements |Backend| functions}
+\subsubsection{|Switchboard| implements |Backend| functions}\index{Switchboard!instance of IsBackend}
 
 |Switchboard| is an \nameref{code:IsBackend}
 \begin{code}
@@ -133,7 +133,7 @@ instance IsBackend Switchboard where
 
 \end{code}
 
-\subsubsection{Realizing the backends according to configuration}
+\subsubsection{Realizing the backends according to configuration}\label{code:setupBackends}\index{Switchboard!setupBackends}
 \begin{code}
 setupBackends :: [BackendKind]
               -> Configuration

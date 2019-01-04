@@ -22,7 +22,7 @@ import           Cardano.BM.Configuration.Model (Configuration)
 \end{code}
 %endif
 
-\subsubsection{Accepts a \nameref{code:NamedLogItem}}\label{code:IsEffectuator}
+\subsubsection{Accepts a \nameref{code:NamedLogItem}}\label{code:IsEffectuator}\index{IsEffectuator}
 Instances of this type class accept a |NamedLogItem| and deal with it.
 \begin{code}
 class IsEffectuator t where
@@ -33,7 +33,7 @@ class IsEffectuator t where
 
 \end{code}
 
-\subsubsection{Declaration of a |Backend|}\label{code:IsBackend}
+\subsubsection{Declaration of a |Backend|}\label{code:IsBackend}\index{IsBackend}
 A backend is life-cycle managed, thus can be |realize|d and |unrealize|d.
 \begin{code}
 class (IsEffectuator t) => IsBackend t where
@@ -46,7 +46,7 @@ class (IsEffectuator t) => IsBackend t where
 
 \end{code}
 
-\subsubsection{Backend}\label{code:Backend}
+\subsubsection{Backend}\label{code:Backend}\index{Backend}
 This data structure for a backend defines its behaviour
 as an |IsEffectuator| when processing an incoming message,
 and as an |IsBackend| for unrealizing the backend.

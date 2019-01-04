@@ -2,7 +2,6 @@ DOC1 = IOHK-Monitoring-code
 DOC2 = IOHK-Monitoring-tests
 
 SOURCES = ../src/Code.lhs \
-					../src/Cardano/BM/ \
 					../src/Cardano/BM/BaseTrace.lhs \
 					../src/Cardano/BM/Configuration.lhs \
 					../src/Cardano/BM/Configuration/Model.lhs \

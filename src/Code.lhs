@@ -13,10 +13,13 @@
 \usepackage{graphicx}
 \usepackage{pstricks}
 \usepackage{fancyvrb}
+\usepackage{makeidx}
+\makeindex
 
 %include colorcode.fmt
 
 %include local.fmt
+%include references.fmt
 
 \title{Cardano.BM - benchmarking and logging}
 \author{Alexander Diemand
@@ -132,5 +135,7 @@ where
 %include Cardano/BM/Output/Log.lhs
 %include Cardano/BM/Output/EKGView.lhs
 %include Cardano/BM/Output/Aggregation.lhs
+
+\printindex
 
 \end{document}
