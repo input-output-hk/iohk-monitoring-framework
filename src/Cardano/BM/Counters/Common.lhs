@@ -70,5 +70,5 @@ readRTSStats = do
                , getrts (toInteger . GhcStats.major_gcs, "gcMajorNum")
                ]
     ghcval :: GhcStats.RTSStats -> ((GhcStats.RTSStats -> Integer), Text) -> Counter
-    ghcval s (f, n) = Counter RTSStats n $ Pure (f s)
+    ghcval s (f, n) = Counter RTSStats n $ PureI (f s)
 \end{code}

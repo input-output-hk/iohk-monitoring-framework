@@ -43,8 +43,8 @@ prop_Aggregation_minimal = True
 
 prop_Aggregation_comm :: Integer -> Integer -> Aggregated -> Bool
 prop_Aggregation_comm v1 v2 ag =
-    let Just (AggregatedStats stats1) = updateAggregation (Pure v1) $ updateAggregation (Pure v2) (Just ag)
-        Just (AggregatedStats stats2) = updateAggregation (Pure v2) $ updateAggregation (Pure v1) (Just ag)
+    let Just (AggregatedStats stats1) = updateAggregation (PureI v1) $ updateAggregation (PureI v2) (Just ag)
+        Just (AggregatedStats stats2) = updateAggregation (PureI v2) $ updateAggregation (PureI v1) (Just ag)
     in
     fmin   stats1 == fmin   stats2 &&
     fmax   stats1 == fmax   stats2 &&

@@ -12,6 +12,8 @@ module Cardano.BM.Data.Aggregated
   , Stats (..)
   , EWMA (..)
   , Measurable (..)
+  , getInteger
+  , getRational
   , singleton
   , updateAggregation
   ) where
@@ -29,9 +31,33 @@ A |Measurable| may consist of different types of values.
 data Measurable = Microseconds Integer
                 | Seconds Integer
                 | Bytes Integer
-                | Pure Integer
-                --  Field Text
+                | PureI Integer
+                | PureD Rational
                 deriving (Eq, Ord, Generic, ToJSON)
+
+\end{code}
+
+|Measurable| can be transformed to an integral value.
+\begin{code}
+getInteger :: Measurable -> Integer
+getInteger (Microseconds a) = a
+getInteger (Seconds a)      = a
+getInteger (Bytes a)        = a
+getInteger (PureI a)        = a
+getInteger (PureD a)        = round a
+-- getInteger _                = error "do not know this instance"
+
+\end{code}
+
+|Measurable| can be transformed to a rational value.
+\begin{code}
+getRational :: Measurable -> Rational
+getRational (Microseconds a) = toRational a
+getRational (Seconds a)      = toRational a
+getRational (Bytes a)        = toRational a
+getRational (PureI a)        = toRational a
+getRational (PureD a)        = toRational a
+-- getInteger _                = error "do not know this instance"
 
 \end{code}
 
@@ -42,31 +68,36 @@ instance Num Measurable where
     (+) (Microseconds a) (Microseconds b) = Microseconds (a+b)
     (+) (Seconds a)      (Seconds b)      = Seconds      (a+b)
     (+) (Bytes a)        (Bytes b)        = Bytes        (a+b)
-    (+) (Pure a)         (Pure b)         = Pure         (a+b)
+    (+) (PureI a)        (PureI b)        = PureI        (a+b)
+    (+) (PureD a)        (PureD b)        = PureD        (a+b)
     (+)  _                _               = error "Trying to add values with different units"
 
     (*) (Microseconds a) (Microseconds b) = Microseconds (a*b)
     (*) (Seconds a)      (Seconds b)      = Seconds      (a*b)
     (*) (Bytes a)        (Bytes b)        = Bytes        (a*b)
-    (*) (Pure a)         (Pure b)         = Pure         (a*b)
+    (*) (PureI a)        (PureI b)        = PureI        (a*b)
+    (*) (PureD a)        (PureD b)        = PureD        (a*b)
     (*)  _                _               = error "Trying to multiply values with different units"
 
     abs (Microseconds a) = Microseconds (abs a)
     abs (Seconds a)      = Seconds      (abs a)
     abs (Bytes a)        = Bytes        (abs a)
-    abs (Pure a)         = Pure         (abs a)
+    abs (PureI a)        = PureI        (abs a)
+    abs (PureD a)        = PureD        (abs a)
 
     signum (Microseconds a) = Microseconds (signum a)
     signum (Seconds a)      = Seconds      (signum a)
     signum (Bytes a)        = Bytes        (signum a)
-    signum (Pure a)         = Pure         (signum a)
+    signum (PureI a)        = PureI        (signum a)
+    signum (PureD a)        = PureD        (signum a)
 
     negate (Microseconds a) = Microseconds (negate a)
     negate (Seconds a)      = Seconds      (negate a)
     negate (Bytes a)        = Bytes        (negate a)
-    negate (Pure a)         = Pure         (negate a)
+    negate (PureI a)        = PureI        (negate a)
+    negate (PureD a)        = PureD        (negate a)
 
-    fromInteger = Pure
+    fromInteger = PureI
 
 \end{code}
 
@@ -79,14 +110,16 @@ showUnits :: Measurable -> String
 showUnits (Microseconds _) = " µs"
 showUnits (Seconds _)      = " s"
 showUnits (Bytes _)        = " B"
-showUnits (Pure _)         = ""
+showUnits (PureI _)        = ""
+showUnits (PureD _)        = ""
 
 showMean :: Measurable -> Integer -> String
 showMean   (Microseconds suma) n = show (fromFloatDigits (mean suma (n*1000000))) ++
                                     showUnits (Seconds 0)
 showMean v@(Seconds suma)      n = show (mean suma n) ++ showUnits v
 showMean v@(Bytes suma)        n = show (mean suma n) ++ showUnits v
-showMean v@(Pure suma)         n = show (mean suma n) ++ showUnits v
+showMean v@(PureI suma)        n = show (mean suma n) ++ showUnits v
+showMean v@(PureD suma)        n = show (mean (round suma) n) ++ showUnits v
 
 showStdDev :: Measurable -> Measurable -> Integer -> String
 showStdDev   (Microseconds suma) (Microseconds sumb) n = show (fromFloatDigits
@@ -94,7 +127,8 @@ showStdDev   (Microseconds suma) (Microseconds sumb) n = show (fromFloatDigits
                                                          showUnits (Seconds 0)
 showStdDev v@(Seconds suma)      (Seconds sumb)      n = show (stdDev suma sumb n 1) ++ showUnits v
 showStdDev v@(Bytes suma)        (Bytes sumb)        n = show (stdDev suma sumb n 1) ++ showUnits v
-showStdDev v@(Pure suma)         (Pure sumb)         n = show (stdDev suma sumb n 1) ++ showUnits v
+showStdDev v@(PureI suma)        (PureI sumb)        n = show (stdDev suma sumb n 1) ++ showUnits v
+showStdDev v@(PureD suma)        (PureD sumb)        n = show (stdDev (round suma) (round sumb) n 1) ++ showUnits v
 showStdDev _                      _                  _ = error "Different units or quantities used"
 
 stdDev :: Integer -> Integer -> Integer -> Integer -> Float
@@ -113,7 +147,8 @@ showSI (Microseconds a) = show (fromFloatDigits ((fromInteger a) / (1000000::Flo
                           showUnits (Seconds a)
 showSI v@(Seconds a)    = show a ++ showUnits v
 showSI v@(Bytes a)      = show a ++ showUnits v
-showSI v@(Pure a)       = show a ++ showUnits v
+showSI v@(PureI a)      = show a ++ showUnits v
+showSI v@(PureD a)      = show (fromRational a :: Float) ++ showUnits v
 
 \end{code}
 

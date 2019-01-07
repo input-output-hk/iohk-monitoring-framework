@@ -26,12 +26,12 @@ instance Arbitrary Aggregated where
         let sum2 = foldr (\e a -> a + e * e) 0
             vs = 42 : 17 : vs'
         return $ AggregatedStats (Stats
-                                (Pure (last vs))
-                                (Pure (minimum vs))
-                                (Pure (maximum vs))
+                                (PureI (last vs))
+                                (PureI (minimum vs))
+                                (PureI (maximum vs))
                                 (toInteger $ length vs)
-                                (Pure (sum vs))
-                                (Pure (sum2 vs))
+                                (PureI (sum vs))
+                                (PureI (sum2 vs))
                             )
 
 \end{code}
