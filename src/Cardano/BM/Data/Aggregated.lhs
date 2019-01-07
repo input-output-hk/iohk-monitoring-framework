@@ -159,8 +159,8 @@ instance Show Stats where
 
 \subsubsection{Exponentially Weighted Moving Average (EWMA)}\label{code:EWMA}\index{EWMA}
 \begin{code}
-data EWMA = EWMA { alpha :: Float
-                 , count :: Int
+data EWMA = EmptyEWMA { alpha :: Float }
+          | EWMA { alpha :: Float
                  , avg   :: Measurable
                  } deriving (Show, Eq, Generic, ToJSON)
 
@@ -240,15 +240,15 @@ The pattern matching below ensures that the |EWMA| will start with the first val
 and will not change type, once determined.
 \begin{code}
 ewma :: EWMA -> Measurable -> EWMA
-ewma (EWMA a 0 _) v = EWMA a 1 v
-ewma (EWMA a _ (Microseconds s)) (Microseconds y) =
-    EWMA a 1 $ Microseconds $ round $ a * (fromInteger y) + (1 - a) * (fromInteger s)
-ewma (EWMA a _ (Seconds s)) (Seconds y) =
-    EWMA a 1 $ Seconds $ round $ a * (fromInteger y) + (1 - a) * (fromInteger s)
-ewma (EWMA a _ (Bytes s)) (Bytes y) =
-    EWMA a 1 $ Bytes $ round $ a * (fromInteger y) + (1 - a) * (fromInteger s)
-ewma (EWMA a _ (Pure s)) (Pure y) =
-    EWMA a 1 $ Pure $ round $ a * (fromInteger y) + (1 - a) * (fromInteger s)
+ewma (EmptyEWMA a) v = EWMA a v
+ewma (EWMA a (Microseconds s)) (Microseconds y) =
+    EWMA a $ Microseconds $ round $ a * (fromInteger y) + (1 - a) * (fromInteger s)
+ewma (EWMA a (Seconds s)) (Seconds y) =
+    EWMA a $ Seconds $ round $ a * (fromInteger y) + (1 - a) * (fromInteger s)
+ewma (EWMA a (Bytes s)) (Bytes y) =
+    EWMA a $ Bytes $ round $ a * (fromInteger y) + (1 - a) * (fromInteger s)
+ewma (EWMA a (Pure s)) (Pure y) =
+    EWMA a $ Pure $ round $ a * (fromInteger y) + (1 - a) * (fromInteger s)
 ewma _ _ = error "Cannot average on values of different type"
 
 \end{code}

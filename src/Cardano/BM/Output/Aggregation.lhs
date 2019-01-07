@@ -169,7 +169,8 @@ spawnDispatcher aggMap aggregationQueue switchboard = Async.async $ qProc aggMap
             maybeAggregatedEWMA =
                 case HM.lookup (fullname <> ".ewma") updatedMap of
                     Nothing ->
-                        Just $ AggregatedEWMA $ EWMA 0.75 0 (cValue counter)
+                        let initEWMA = Just $ AggregatedEWMA $ EmptyEWMA 0.75 in
+                        updateAggregation (cValue counter) initEWMA
                     agg@(Just (AggregatedEWMA _)) ->
                         updateAggregation (cValue counter) agg
                     _ -> Nothing
