@@ -13,7 +13,10 @@ module Cardano.BM.Data.Aggregated
   , EWMA (..)
   , Measurable (..)
   , getInteger
-  , getRational
+  , getDouble
+  , meanOfStats
+  , stdevOfStats
+  , stats2Text
   , singleton
   , updateAggregation
   ) where
@@ -21,6 +24,7 @@ module Cardano.BM.Data.Aggregated
 import           GHC.Generics (Generic)
 import           Data.Aeson (ToJSON)
 import           Data.Scientific (fromFloatDigits)
+import           Data.Text (Text, pack)
 \end{code}
 %endif
 
@@ -32,7 +36,7 @@ data Measurable = Microseconds Integer
                 | Seconds Integer
                 | Bytes Integer
                 | PureI Integer
-                | PureD Rational
+                | PureD Double
                 deriving (Eq, Ord, Generic, ToJSON)
 
 \end{code}
@@ -51,13 +55,13 @@ getInteger (PureD a)        = round a
 
 |Measurable| can be transformed to a rational value.
 \begin{code}
-getRational :: Measurable -> Rational
-getRational (Microseconds a) = toRational a
-getRational (Seconds a)      = toRational a
-getRational (Bytes a)        = toRational a
-getRational (PureI a)        = toRational a
-getRational (PureD a)        = toRational a
--- getInteger _                = error "do not know this instance"
+getDouble :: Measurable -> Double
+getDouble (Microseconds a) = fromInteger a
+getDouble (Seconds a)      = fromInteger a
+getDouble (Bytes a)        = fromInteger a
+getDouble (PureI a)        = fromInteger a
+getDouble (PureD a)        = a
+-- getDouble _                = error "do not know this instance"
 
 \end{code}
 
@@ -113,33 +117,33 @@ showUnits (Bytes _)        = " B"
 showUnits (PureI _)        = ""
 showUnits (PureD _)        = ""
 
-showMean :: Measurable -> Integer -> String
-showMean   (Microseconds suma) n = show (fromFloatDigits (mean suma (n*1000000))) ++
-                                    showUnits (Seconds 0)
-showMean v@(Seconds suma)      n = show (mean suma n) ++ showUnits v
-showMean v@(Bytes suma)        n = show (mean suma n) ++ showUnits v
-showMean v@(PureI suma)        n = show (mean suma n) ++ showUnits v
-showMean v@(PureD suma)        n = show (mean (round suma) n) ++ showUnits v
+-- showMean :: Measurable -> Integer -> String
+-- showMean   (Microseconds suma) n = show (fromFloatDigits (mean suma (n*1000000))) ++
+--                                     showUnits (Seconds 0)
+-- showMean v@(Seconds suma)      n = show (mean suma n) ++ showUnits v
+-- showMean v@(Bytes suma)        n = show (mean suma n) ++ showUnits v
+-- showMean v@(PureI suma)        n = show (mean suma n) ++ showUnits v
+-- showMean v@(PureD suma)        n = show (mean (round suma) n) ++ showUnits v
 
-showStdDev :: Measurable -> Measurable -> Integer -> String
-showStdDev   (Microseconds suma) (Microseconds sumb) n = show (fromFloatDigits
-                                                              (stdDev suma sumb n 1000000)) ++
-                                                         showUnits (Seconds 0)
-showStdDev v@(Seconds suma)      (Seconds sumb)      n = show (stdDev suma sumb n 1) ++ showUnits v
-showStdDev v@(Bytes suma)        (Bytes sumb)        n = show (stdDev suma sumb n 1) ++ showUnits v
-showStdDev v@(PureI suma)        (PureI sumb)        n = show (stdDev suma sumb n 1) ++ showUnits v
-showStdDev v@(PureD suma)        (PureD sumb)        n = show (stdDev (round suma) (round sumb) n 1) ++ showUnits v
-showStdDev _                      _                  _ = error "Different units or quantities used"
+-- showStdDev :: Measurable -> Measurable -> Integer -> String
+-- showStdDev   (Microseconds suma) (Microseconds sumb) n = show (fromFloatDigits
+--                                                               (stdDev suma sumb n 1000000)) ++
+--                                                          showUnits (Seconds 0)
+-- showStdDev v@(Seconds suma)      (Seconds sumb)      n = show (stdDev suma sumb n 1) ++ showUnits v
+-- showStdDev v@(Bytes suma)        (Bytes sumb)        n = show (stdDev suma sumb n 1) ++ showUnits v
+-- showStdDev v@(PureI suma)        (PureI sumb)        n = show (stdDev suma sumb n 1) ++ showUnits v
+-- showStdDev v@(PureD suma)        (PureD sumb)        n = show (stdDev (round suma) (round sumb) n 1) ++ showUnits v
+-- showStdDev _                      _                  _ = error "Different units or quantities used"
 
-stdDev :: Integer -> Integer -> Integer -> Integer -> Float
-stdDev suma sumb n scale = let
-                        mu = mean suma n
-                        muSquares = fromInteger sumb / fromInteger n
-                    in
-                    (sqrt (muSquares - (mu*mu))) / fromInteger scale
+-- stdDev :: Integer -> Integer -> Integer -> Integer -> Float
+-- stdDev suma sumb n scale = let
+--                         mu = mean suma n
+--                         muSquares = fromInteger sumb / fromInteger n
+--                     in
+--                     (sqrt (muSquares - (mu*mu))) / fromInteger scale
 
-mean :: Integer -> Integer -> Float
-mean suma n = fromInteger suma / fromInteger n
+-- mean :: Integer -> Integer -> Float
+-- mean suma n = fromInteger suma / fromInteger n
 
 -- show in S.I.
 showSI :: Measurable -> String
@@ -148,7 +152,7 @@ showSI (Microseconds a) = show (fromFloatDigits ((fromInteger a) / (1000000::Flo
 showSI v@(Seconds a)    = show a ++ showUnits v
 showSI v@(Bytes a)      = show a ++ showUnits v
 showSI v@(PureI a)      = show a ++ showUnits v
-showSI v@(PureD a)      = show (fromRational a :: Float) ++ showUnits v
+showSI v@(PureD a)      = show a ++ showUnits v
 
 \end{code}
 
@@ -159,34 +163,58 @@ data Stats = Stats {
     fmin   :: Measurable,
     fmax   :: Measurable,
     fcount :: Integer,
-    fsum_A :: Measurable,
-    fsum_B :: Measurable
-    } deriving (Eq, Generic, ToJSON)
+    fsum_A :: Double,
+    fsum_B :: Double
+    } deriving (Eq, Generic, ToJSON, Show)
+
+\end{code}
+
+\begin{code}
+meanOfStats :: Stats -> Double
+meanOfStats s = fsum_A s
+
+\end{code}
+
+\begin{code}
+stdevOfStats :: Stats -> Double
+stdevOfStats s =
+    if fcount s < 2
+    then 0
+    else sqrt $ (fsum_B s) / (fromInteger $ (fcount s) - 1)
 
 \end{code}
 
 \index{Stats!instance of Semigroup}
+We use a parallel algorithm to update the estimation of mean and variance from two sample statistics.
+(see \url{https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Parallel_algorithm})
+
 \begin{code}
 instance Semigroup Stats where
-    (<>) a b = Stats { flast  = flast b  -- right associative
+    (<>) a b = let counta = fcount a
+                   countb = fcount b
+                   newcount = counta + countb
+                   delta = fsum_A b - fsum_A a
+               in
+               Stats { flast  = flast b  -- right associative
                      , fmin   = min (fmin a) (fmin b)
                      , fmax   = max (fmax a) (fmax b)
-                     , fcount = fcount a + fcount b
-                     , fsum_A = fsum_A a + fsum_A b
-                     , fsum_B = fsum_B a + fsum_B b
+                     , fcount = newcount
+                     , fsum_A = fsum_A a + (delta / fromInteger newcount)
+                     , fsum_B = fsum_B a + fsum_B b + (delta * delta) * (fromInteger (counta * countb) / fromInteger newcount)
                      }
 
 \end{code}
 
-\index{Stats!instance of Show}
+\label{code:stats2Text}\index{stats2Text}
 \begin{code}
-instance Show Stats where
-    show (Stats slast smin smax scount ssum ssumB) =
+stats2Text :: Stats -> Text
+stats2Text s@(Stats slast smin smax scount _ _) =
+    pack $
         "{ last = " ++ show slast ++
         ", min = " ++ show smin ++
         ", max = " ++ show smax ++
-        ", mean = " ++ showMean ssum scount ++
-        ", std-dev = " ++ showStdDev ssum ssumB scount ++
+        ", mean = " ++ show (meanOfStats s) ++ showUnits slast ++
+        ", std-dev = " ++ show (stdevOfStats s) ++
         ", count = " ++ show scount ++
         " }"
 
@@ -194,17 +222,14 @@ instance Show Stats where
 
 \subsubsection{Exponentially Weighted Moving Average (EWMA)}\label{code:EWMA}\index{EWMA}
 \begin{code}
-data EWMA = EmptyEWMA { alpha :: Float }
-          | EWMA { alpha :: Float
+data EWMA = EmptyEWMA { alpha :: Double }
+          | EWMA { alpha :: Double
                  , avg   :: Measurable
                  } deriving (Show, Eq, Generic, ToJSON)
 
 \end{code}
 
 \subsubsection{Aggregated}\label{code:Aggregated}\index{Aggregated}
-\todo[inline]{the sums |fsum_A| and even more so |fsum_B| can grow to very large numbers!
-\newline
-We need to implement another incremental method to update mean and variance.}
 \begin{code}
 data Aggregated = AggregatedStats Stats
                 | AggregatedEWMA EWMA
@@ -229,8 +254,8 @@ singleton a =
                       , fmin   = a
                       , fmax   = a
                       , fcount = 1
-                      , fsum_A = a
-                      , fsum_B = a*a
+                      , fsum_A = getDouble a
+                      , fsum_B = 0
                       }
     in
     AggregatedStats stats
@@ -247,13 +272,29 @@ instance Show Aggregated where
 \end{code}
 
 \subsubsection{Update aggregation}\label{code:updateAggregation}\index{updateAggregation}
-We distinguish an unitialized from an already initialized aggregation:
+We distinguish an unitialized from an already initialized aggregation. The latter is properly initialized.
+\\
+We use Welford's online algorithm to update the estimation of mean and variance of the sample statistics.
+(see \url{https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford's_Online_algorithm})
+
 \begin{code}
 updateAggregation :: Measurable -> Maybe Aggregated -> Maybe Aggregated
 updateAggregation v Nothing =
     Just $ singleton v
-updateAggregation v (Just agg@(AggregatedStats _)) =
-    Just $ agg <> singleton v
+updateAggregation v (Just (AggregatedStats s)) =
+    let newcount = fcount s + 1
+        newvalue = getDouble v
+        delta = newvalue - fsum_A s
+        dincr = (delta / fromInteger newcount)
+        delta2 = newvalue - fsum_A s - dincr
+    in
+    Just $ AggregatedStats Stats { flast  = v
+                                 , fmin   = min (fmin s) v
+                                 , fmax   = max (fmax s) v
+                                 , fcount = newcount
+                                 , fsum_A = fsum_A s + dincr
+                                 , fsum_B = fsum_B s + (delta * delta2)
+                                 }
 updateAggregation v (Just (AggregatedEWMA e)) =
     Just $ AggregatedEWMA $ ewma e v
 

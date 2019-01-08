@@ -97,7 +97,11 @@ instance IsEffectuator EKGView where
                         let dekg2 = fromMaybe dekg1 ekg2
                         ekg3 <- update (LP (LogValue "count" $ PureI $ fcount stats)) p_logname dekg2
                         let dekg3 = fromMaybe dekg2 ekg3
-                        update (LP (LogValue "mean" (PureD ((getRational $ fsum_A stats) / (fromInteger $ fcount stats))))) p_logname dekg3
+                        ekg4 <- update (LP (LogValue "mean" (PureD $ meanOfStats stats))) p_logname dekg3
+                        let dekg4 = fromMaybe dekg3 ekg4
+                        ekg5 <- update (LP (LogValue "last" $ flast stats)) p_logname dekg4
+                        let dekg5 = fromMaybe dekg4 ekg5
+                        update (LP (LogValue "stdev" (PureD $ stdevOfStats stats))) p_logname dekg5
                     updateAgg (AggregatedEWMA ewma) p_logname p_ekg =
                         update (LP (LogValue "avg" $ avg ewma)) p_logname p_ekg
                     -- updateAgg _ _ _ = return Nothing
