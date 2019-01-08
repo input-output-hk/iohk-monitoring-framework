@@ -66,17 +66,6 @@ instance IsEffectuator EKGView where
                     Just ekghdl -> do
                         Label.set ekghdl (liPayload logitem)
                         return Nothing
-            -- update (LP (LogValue iname value)) logname ekg@(EKGViewInternal gauges _ server) =
-            --     let name = logname <> "." <> iname
-            --     in
-            --     case HM.lookup name gauges of
-            --         Nothing -> do
-            --             ekghdl <- getGauge name server
-            --             Gauge.set ekghdl (fromInteger value)
-            --             return $ Just $ ekg { evGauges = HM.insert name ekghdl gauges}
-            --         Just ekghdl -> do
-            --             Gauge.set ekghdl (fromInteger value)
-            --             return Nothing
             update (LP (LogValue iname value)) logname ekg@(EKGViewInternal _ labels server) =
                 let name = logname <> "." <> iname
                 in
@@ -104,7 +93,6 @@ instance IsEffectuator EKGView where
                         update (LP (LogValue "stdev" (PureD $ stdevOfStats stats))) p_logname dekg5
                     updateAgg (AggregatedEWMA ewma) p_logname p_ekg =
                         update (LP (LogValue "avg" $ avg ewma)) p_logname p_ekg
-                    -- updateAgg _ _ _ = return Nothing
 
                     updating :: [(Text, Aggregated)] -> EKGViewInternal -> IO (Maybe EKGViewInternal)
                     updating [] p_ekg = return $ Just p_ekg

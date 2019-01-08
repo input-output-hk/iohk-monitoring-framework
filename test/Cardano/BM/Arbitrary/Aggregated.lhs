@@ -40,14 +40,15 @@ Estimators for mean and variance must be updated the same way as in the code.
 \begin{code}
 updateMeanVar :: [Double] -> (Double, Double)
 updateMeanVar [] = (0,0)
-updateMeanVar (a : r) = updateMeanVar' (a,0) 1 r
-updateMeanVar' (m,s) _ [] = (m,s)
-updateMeanVar' (m,s) cnt (a : r) =
-    let delta = a - m
-        newcount = cnt + 1
-        m' = m + (delta / newcount)
-        s' = s + (delta * (a - m'))
-    in
-    updateMeanVar' (m',s') newcount r
+updateMeanVar (val : vals) = updateMeanVar' (val,0) 1 vals
+    where
+        updateMeanVar' (m,s) _ [] = (m,s)
+        updateMeanVar' (m,s) cnt (a : r) =
+            let delta = a - m
+                newcount = cnt + 1
+                m' = m + (delta / newcount)
+                s' = s + (delta * (a - m'))
+            in
+            updateMeanVar' (m',s') newcount r
         
 \end{code}

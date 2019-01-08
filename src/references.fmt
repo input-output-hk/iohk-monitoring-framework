@@ -1,6 +1,6 @@
 
 % remake with this 'sed' command
-%  
+% sed -ne 's/.*label{code:\([^}]*\)}.*/%format \1 = "\\hyperref[code:\1]{\1}"/p' IOHK-Monitoring-code.tex
 
 %if style /= newcode
 
@@ -55,6 +55,7 @@
 %format Linux.readCounters = "\hyperref[code:Linux.readCounters]{Linux.readCounters}"
 %format Measurable = "\hyperref[code:Measurable]{Measurable}"
 %format Stats = "\hyperref[code:Stats]{Stats}"
+%format stats2Text = "\hyperref[code:stats2Text]{stats2Text}"
 %format EWMA = "\hyperref[code:EWMA]{EWMA}"
 %format Aggregated = "\hyperref[code:Aggregated]{Aggregated}"
 %format updateAggregation = "\hyperref[code:updateAggregation]{updateAggregation}"
@@ -71,7 +72,15 @@
 %format LoggerName = "\hyperref[code:LoggerName]{LoggerName}"
 %format NamedLogItem = "\hyperref[code:NamedLogItem]{NamedLogItem}"
 %format LogItem = "\hyperref[code:LogItem]{LogItem}"
+%format liSelection = "\hyperref[code:liSelection]{liSelection}"
+%format liSeverity = "\hyperref[code:liSeverity]{liSeverity}"
+%format liPayload = "\hyperref[code:liPayload]{liPayload}"
 %format LogSelection = "\hyperref[code:LogSelection]{LogSelection}"
+%format Public = "\hyperref[code:Public]{Public}"
+%format PublicUnsafe = "\hyperref[code:PublicUnsafe]{PublicUnsafe}"
+%format Private = "\hyperref[code:Private]{Private}"
+%format Both = "\hyperref[code:Both]{Both}"
+%format LogObject = "\hyperref[code:LogObject]{LogObject}"
 %format LogPrims = "\hyperref[code:LogPrims]{LogPrims}"
 %format LogMessage = "\hyperref[code:LogMessage]{LogMessage}"
 %format LogValue = "\hyperref[code:LogValue]{LogValue}"

@@ -113,10 +113,7 @@ getBackends configuration name =
         case outs of
             Nothing -> do
                 return (cgDefBackendKs cg)
-            Just os -> return $ {-mkUniq $ (cgDefBackendKs cg) <>-} os
---   where
---     mkUniq :: Ord a => [a] -> [a]
---     mkUniq = Set.toList . Set.fromList
+            Just os -> return os
 
 getDefaultBackends :: Configuration -> IO [BackendKind]
 getDefaultBackends configuration =

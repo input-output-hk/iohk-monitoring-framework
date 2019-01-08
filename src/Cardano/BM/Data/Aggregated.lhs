@@ -49,7 +49,6 @@ getInteger (Seconds a)      = a
 getInteger (Bytes a)        = a
 getInteger (PureI a)        = a
 getInteger (PureD a)        = round a
--- getInteger _                = error "do not know this instance"
 
 \end{code}
 
@@ -61,7 +60,6 @@ getDouble (Seconds a)      = fromInteger a
 getDouble (Bytes a)        = fromInteger a
 getDouble (PureI a)        = fromInteger a
 getDouble (PureD a)        = a
--- getDouble _                = error "do not know this instance"
 
 \end{code}
 
@@ -117,35 +115,7 @@ showUnits (Bytes _)        = " B"
 showUnits (PureI _)        = ""
 showUnits (PureD _)        = ""
 
--- showMean :: Measurable -> Integer -> String
--- showMean   (Microseconds suma) n = show (fromFloatDigits (mean suma (n*1000000))) ++
---                                     showUnits (Seconds 0)
--- showMean v@(Seconds suma)      n = show (mean suma n) ++ showUnits v
--- showMean v@(Bytes suma)        n = show (mean suma n) ++ showUnits v
--- showMean v@(PureI suma)        n = show (mean suma n) ++ showUnits v
--- showMean v@(PureD suma)        n = show (mean (round suma) n) ++ showUnits v
-
--- showStdDev :: Measurable -> Measurable -> Integer -> String
--- showStdDev   (Microseconds suma) (Microseconds sumb) n = show (fromFloatDigits
---                                                               (stdDev suma sumb n 1000000)) ++
---                                                          showUnits (Seconds 0)
--- showStdDev v@(Seconds suma)      (Seconds sumb)      n = show (stdDev suma sumb n 1) ++ showUnits v
--- showStdDev v@(Bytes suma)        (Bytes sumb)        n = show (stdDev suma sumb n 1) ++ showUnits v
--- showStdDev v@(PureI suma)        (PureI sumb)        n = show (stdDev suma sumb n 1) ++ showUnits v
--- showStdDev v@(PureD suma)        (PureD sumb)        n = show (stdDev (round suma) (round sumb) n 1) ++ showUnits v
--- showStdDev _                      _                  _ = error "Different units or quantities used"
-
--- stdDev :: Integer -> Integer -> Integer -> Integer -> Float
--- stdDev suma sumb n scale = let
---                         mu = mean suma n
---                         muSquares = fromInteger sumb / fromInteger n
---                     in
---                     (sqrt (muSquares - (mu*mu))) / fromInteger scale
-
--- mean :: Integer -> Integer -> Float
--- mean suma n = fromInteger suma / fromInteger n
-
--- show in S.I.
+-- show in S.I. units
 showSI :: Measurable -> String
 showSI (Microseconds a) = show (fromFloatDigits ((fromInteger a) / (1000000::Float))) ++
                           showUnits (Seconds a)
@@ -323,8 +293,10 @@ ewma (EWMA a (Seconds s)) (Seconds y) =
     EWMA a $ Seconds $ round $ a * (fromInteger y) + (1 - a) * (fromInteger s)
 ewma (EWMA a (Bytes s)) (Bytes y) =
     EWMA a $ Bytes $ round $ a * (fromInteger y) + (1 - a) * (fromInteger s)
-ewma (EWMA a (Pure s)) (Pure y) =
-    EWMA a $ Pure $ round $ a * (fromInteger y) + (1 - a) * (fromInteger s)
+ewma (EWMA a (PureI s)) (PureI y) =
+    EWMA a $ PureI $ round $ a * (fromInteger y) + (1 - a) * (fromInteger s)
+ewma (EWMA a (PureD s)) (PureD y) =
+    EWMA a $ PureD $ a * y + (1 - a) * s
 ewma _ _ = error "Cannot average on values of different type"
 
 \end{code}
