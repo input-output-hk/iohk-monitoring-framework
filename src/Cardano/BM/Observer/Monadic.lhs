@@ -39,7 +39,7 @@ the logger name untouched.
 \par\noindent
 Microbenchmarking steps:
 \newline
-\par %\noindent
+\par
 1. Create a |trace| which will have been configured
    to observe things besides logging.
 
@@ -73,7 +73,7 @@ Microbenchmarking steps:
 \begin{spec}
         CM.setDefaultBackends c [KatipBK, AggregationBK]
 \end{spec}
-means
+in a configuration file (YAML) means
 
 \begin{spec}
         defaultBackends:
@@ -102,9 +102,7 @@ means
         runProtocolWithPipe x hdl proto `catch` (\ProtocolStopped -> return ())
 \end{spec}
 
-    and use |bracketObserveIO|
-
-    e.g.:
+    and use |bracketObserveIO|. e.g.:
 
 
 \begin{spec}
