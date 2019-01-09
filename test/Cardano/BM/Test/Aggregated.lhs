@@ -51,7 +51,12 @@ prop_Aggregation_comm v1 v2 ag =
     fmax   stats1 == fmax   stats2 &&
     fcount stats1 == fcount stats2 &&
     abs (fsum_A stats1 - fsum_A stats2) < 1.0e-4 &&
-    abs (fsum_B stats1 - fsum_B stats2) < 1.0e-4
+    abs (fsum_B stats1 - fsum_B stats2) < 1.0e-4 &&
+    (v1 == v2) `implies` (flast stats1 == flast stats2)
+
+-- implication: if p1 is true, then return p2; otherwise true
+implies :: Bool -> Bool -> Bool
+implies p1 p2 = (not p1) || p2
 
 unit_Aggregation_initial_minus_1 :: Assertion
 unit_Aggregation_initial_minus_1 =

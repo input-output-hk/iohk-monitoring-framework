@@ -124,15 +124,32 @@ spawnDispatcher aggMap aggregationQueue switchboard = Async.async $ qProc aggMap
     update (LP (LogValue iname value)) logname agmap =
         let name = logname <> "." <> iname
             maybeAggregated = updateAggregation value $ HM.lookup name agmap
-            aggregatedMessage = case maybeAggregated of
-                                    Nothing ->
-                                        []
-                                    Just aggregated ->
-                                        [(iname, aggregated)] -- Is there a need for list??
+            maybeAggregatedEWMA =
+                case HM.lookup (name <> ".ewma") agmap of
+                    Nothing ->
+                        let initEWMA = Just $ AggregatedEWMA $ EmptyEWMA 0.25 in
+                        updateAggregation value initEWMA
+                    agg@(Just (AggregatedEWMA _)) ->
+                        updateAggregation value agg
+                    _ -> Nothing
+            aggregatedMessage =
+                case maybeAggregated of
+                    Nothing ->
+                        []
+                    Just aggregated ->
+                        [(iname, aggregated)]
+            aggregatedMsgs =
+                case maybeAggregatedEWMA of
+                    Nothing ->
+                        error "This should not have happened!"
+                    Just aggregatedEWMA ->
+                        ((iname <> ".ewma"), aggregatedEWMA): aggregatedMessage
+            updatedMap  = HM.alter (const $ maybeAggregated) name agmap
+            updatedMap' = HM.alter (const $ maybeAggregatedEWMA) (name <> ".ewma") updatedMap
         in
         -- use of HM.alter so that in future we can clear the Agrregated
         -- by using as alter's arg a function which returns Nothing.
-        (HM.alter (const $ maybeAggregated) name agmap, aggregatedMessage)
+        (updatedMap', aggregatedMsgs)
     update (ObserveDiff counterState) logname agmap =
         let
             counters = csCounters counterState
