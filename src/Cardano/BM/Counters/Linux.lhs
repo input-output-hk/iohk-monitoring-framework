@@ -99,7 +99,7 @@ readProcStatM = do
     ps0 <- readProcList (pathProcStatM pid)
     let ps = zip colnames ps0
         psUseful = filter (("unused" /=) . fst) ps
-    return $ map (\(n,i) -> Counter MemoryCounter n (Pure i)) psUseful
+    return $ map (\(n,i) -> Counter MemoryCounter n (PureI i)) psUseful
   where
     colnames :: [Text]
     colnames = ["size","resident","shared","text","unused","data","unused"]
@@ -347,7 +347,7 @@ readProcStats = do
     ps0 <- readProcList (pathProcStat pid)
     let ps = zip colnames ps0
         psUseful = filter (("unused" /=) . fst) ps
-    return $ map (\(n,i) -> Counter StatInfo n (Pure i)) psUseful
+    return $ map (\(n,i) -> Counter StatInfo n (PureI i)) psUseful
   where
     colnames :: [Text]
     colnames = [ "pid","unused","unused","ppid","pgrp","session","ttynr","tpgid","flags","minflt"
@@ -428,6 +428,6 @@ readProcIO = do
   where
     colnames :: [Text]
     colnames = [ "rchar","wchar","syscr","syscw","rbytes","wbytes","cxwbytes" ]
-    units    = [  Bytes , Bytes , Pure  , Pure  , Bytes  , Bytes  , Bytes     ]
+    units    = [  Bytes , Bytes , PureI  , PureI  , Bytes  , Bytes  , Bytes     ]
 
 \end{code}

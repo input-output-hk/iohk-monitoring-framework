@@ -9,6 +9,7 @@
 module Cardano.BM.Configuration.Static
     (
       defaultConfigStdout
+    , defaultConfigTesting
     ) where
 
 import qualified Cardano.BM.Configuration.Model as CM
@@ -34,6 +35,26 @@ defaultConfigStdout = do
                             }
                       ]
     CM.setDefaultScribes c ["StdoutSK::stdout"]
+    return c
+
+\end{code}
+
+\subsubsection{Default configuration for testing}
+\begin{code}
+defaultConfigTesting :: IO CM.Configuration
+defaultConfigTesting = do
+    c <- CM.empty
+    CM.setMinSeverity c Debug
+    CM.setSetupBackends c [KatipBK, AggregationBK]
+    CM.setDefaultBackends c [KatipBK, AggregationBK]
+    CM.setSetupScribes c [ ScribeDefinition {
+                              scName = "stdout"
+                            , scKind = StdoutSK
+                            , scRotation = Nothing
+                            }
+                      ]
+    CM.setDefaultScribes c ["StdoutSK::stdout"]
+
     return c
 
 \end{code}

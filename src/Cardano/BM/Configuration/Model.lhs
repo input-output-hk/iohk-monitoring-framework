@@ -29,7 +29,9 @@ module Cardano.BM.Configuration.Model
     , findSubTrace
     , setSubTrace
     , getEKGport
+    , setEKGport
     , getGUIport
+    , setGUIport
     --, takedown
     ) where
 
@@ -37,7 +39,7 @@ import           Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar,
                      takeMVar, withMVar)
 import qualified Data.HashMap.Strict as HM
 import           Data.Maybe (catMaybes)
-import qualified Data.Set as Set
+-- import qualified Data.Set as Set
 import           Data.Text (Text, pack, unpack)
 import qualified Data.Vector as Vector
 import           Data.Yaml as Y
@@ -111,10 +113,7 @@ getBackends configuration name =
         case outs of
             Nothing -> do
                 return (cgDefBackendKs cg)
-            Just os -> return $ mkUniq $ (cgDefBackendKs cg) <> os
-  where
-    mkUniq :: Ord a => [a] -> [a]
-    mkUniq = Set.toList . Set.fromList
+            Just os -> return os
 
 getDefaultBackends :: Configuration -> IO [BackendKind]
 getDefaultBackends configuration =
@@ -190,11 +189,19 @@ getEKGport :: Configuration -> IO Int
 getEKGport configuration =
     withMVar (getCG configuration) $ \cg -> do
         return $ cgPortEKG cg
+setEKGport :: Configuration -> Int -> IO ()
+setEKGport configuration port = do
+    cg <- takeMVar (getCG configuration)
+    putMVar (getCG configuration) $ cg { cgPortEKG = port }
 
 getGUIport :: Configuration -> IO Int
 getGUIport configuration =
     withMVar (getCG configuration) $ \cg -> do
         return $ cgPortGUI cg
+setGUIport :: Configuration -> Int -> IO ()
+setGUIport configuration port = do
+    cg <- takeMVar (getCG configuration)
+    putMVar (getCG configuration) $ cg { cgPortGUI = port }
 
 \end{code}
 
@@ -254,7 +261,7 @@ setSubTrace configuration name trafo = do
 
 \subsubsection{Parse configuration from file}
 Parse the configuration into an internal representation first. Then, fill in |Configuration|
-from it in a second step after refinement.
+after refinement.
 \begin{code}
 setup :: FilePath -> IO Configuration
 setup fp = do
