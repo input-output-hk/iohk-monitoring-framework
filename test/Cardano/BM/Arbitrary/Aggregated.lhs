@@ -23,15 +23,32 @@ For this an arbitrary list of |Integer| is generated and this list is aggregated
 instance Arbitrary Aggregated where
     arbitrary = do
         vs' <- arbitrary :: Gen [Integer]
-        let sum2 = foldr (\e a -> a + e * e) 0
-            vs = 42 : 17 : vs'
+        let vs = 42 : 17 : vs'
+            (m, s) = updateMeanVar $ map fromInteger vs
         return $ AggregatedStats (Stats
-                                (Pure (last vs))
-                                (Pure (minimum vs))
-                                (Pure (maximum vs))
+                                (PureI (last vs))
+                                (PureI (minimum vs))
+                                (PureI (maximum vs))
                                 (toInteger $ length vs)
-                                (Pure (sum vs))
-                                (Pure (sum2 vs))
+                                (m)
+                                (s)
                             )
 
+\end{code}
+
+Estimators for mean and variance must be updated the same way as in the code.
+\begin{code}
+updateMeanVar :: [Double] -> (Double, Double)
+updateMeanVar [] = (0,0)
+updateMeanVar (val : vals) = updateMeanVar' (val,0) 1 vals
+    where
+        updateMeanVar' (m,s) _ [] = (m,s)
+        updateMeanVar' (m,s) cnt (a : r) =
+            let delta = a - m
+                newcount = cnt + 1
+                m' = m + (delta / newcount)
+                s' = s + (delta * (a - m'))
+            in
+            updateMeanVar' (m',s') newcount r
+        
 \end{code}

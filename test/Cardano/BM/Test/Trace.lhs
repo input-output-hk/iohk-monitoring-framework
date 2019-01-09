@@ -20,7 +20,6 @@ import qualified Control.Concurrent.Async as Async
 import           Control.Concurrent.MVar (newMVar)
 import           Control.Monad (forM, forM_)
 import           Control.Monad.IO.Class (liftIO)
-import qualified Data.HashMap.Strict as HM
 import           Data.Map (fromListWith, lookup)
 import           Data.Text (Text, append, pack)
 import qualified Data.Text as T
@@ -29,11 +28,10 @@ import           Data.Unique (newUnique)
 
 import           Cardano.BM.Configuration (inspectSeverity,
                      minSeverity, setMinSeverity, setSeverity)
-import           Cardano.BM.Configuration.Model (Configuration (..),
-                    ConfigurationInternal (..), empty, setSubTrace)
+import           Cardano.BM.Configuration.Model (empty, setSubTrace)
+import           Cardano.BM.Configuration.Static (defaultConfigTesting)
 import           Cardano.BM.Counters (diffTimeObserved, getMonoClock)
 import qualified Cardano.BM.BaseTrace as BaseTrace
-import           Cardano.BM.Data.BackendKind (BackendKind (..))
 import           Cardano.BM.Data.Counter
 import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.Observable
@@ -109,28 +107,6 @@ data TraceConfiguration = TraceConfiguration
     , tcSeverity     :: Severity
     }
 
-testStdoutConfiguration :: LoggerName -> SubTrace -> Severity -> ConfigurationInternal
-testStdoutConfiguration name subtrace severity = ConfigurationInternal
-    { cgMinSeverity   = severity
-    , cgMapSeverity   = HM.empty
-    , cgMapSubtrace   = HM.singleton name subtrace
-    , cgOptions       = HM.empty
-    , cgMapBackend    = HM.empty
-    , cgDefBackendKs  = [KatipBK, AggregationBK]
-    , cgSetupBackends = [KatipBK, AggregationBK]
-    , cgMapScribe     = HM.empty
-    , cgDefScribes    = ["StdoutSK"]
-    , cgSetupScribes  = [scribeDefinition]
-    , cgPortEKG       = 0
-    , cgPortGUI       = 0
-    }
-  where
-    scribeDefinition = ScribeDefinition
-                        { scKind     = StdoutSK
-                        , scName     = "stdout"
-                        , scRotation = Nothing
-                        }
-
 setupTrace :: TraceConfiguration -> IO (Trace IO)
 setupTrace (TraceConfiguration outk name subTr sev) = do
     c <- liftIO $ Cardano.BM.Configuration.Model.empty
@@ -156,8 +132,8 @@ setTransformer_ (ctx, _) name subtr = do
 \begin{code}
 example_with_named_contexts :: IO String
 example_with_named_contexts = do
-    cfg <- newMVar $ testStdoutConfiguration "test" Neutral Debug
-    logTrace <- Setup.setupTrace (Right (Configuration cfg)) "test"
+    cfg <- defaultConfigTesting
+    logTrace <- Setup.setupTrace (Right cfg) "test"
     putStrLn "\n"
     logInfo logTrace "entering"
     logTrace0 <- appendName "simple-work-0" logTrace
@@ -453,8 +429,8 @@ the limit is set to 80.
 \begin{code}
 unit_append_name :: Assertion
 unit_append_name = do
-    cfg <- newMVar $ testStdoutConfiguration "test" Neutral Debug
-    trace0 <- Setup.setupTrace (Right (Configuration cfg)) "test"
+    cfg <- defaultConfigTesting
+    trace0 <- Setup.setupTrace (Right cfg) "test"
     trace1 <- appendName bigName trace0
     (ctx2, _) <- appendName bigName trace1
 

@@ -23,7 +23,7 @@ import           Data.Text (Text)
 
 import           GHC.Generics (Generic)
 
-import           Cardano.BM.Data.Aggregated (Aggregated(..))
+import           Cardano.BM.Data.Aggregated (Aggregated (..), Measurable (..))
 import           Cardano.BM.Data.Counter
 import           Cardano.BM.Data.Severity
 
@@ -79,7 +79,7 @@ data LogSelection =
 \begin{code}
 
 data LogPrims = LogMessage LogItem
-              | LogValue Text Integer
+              | LogValue Text Measurable
                 deriving (Generic, Show, ToJSON)
 
 data LogObject = LP LogPrims
