@@ -5,6 +5,7 @@
 \begin{code}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes        #-}
+{-# LANGUAGE FlexibleContexts  #-}
 
 module Cardano.BM.Trace
     (
@@ -33,10 +34,15 @@ module Cardano.BM.Trace
     , logInfo,      logInfoS,      logInfoP,      logInfoUnsafeP
     , logNotice,    logNoticeS,    logNoticeP,    logNoticeUnsafeP
     , logWarning,   logWarningS,   logWarningP,   logWarningUnsafeP
+    -- * sturctured logging
+    , logStructured
+    -- , Accessor
+    , i_want
     ) where
 
 import           Control.Concurrent.MVar (MVar, newMVar, withMVar)
 import qualified Control.Concurrent.STM.TVar as STM
+import           Control.Lens
 import           Control.Monad (when)
 import           Control.Monad.IO.Class (MonadIO, liftIO)
 import qualified Control.Monad.STM as STM
@@ -47,6 +53,7 @@ import           Data.Monoid ((<>))
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import           Data.Text.Lazy (toStrict)
+import           Data.Tuple.Select
 import           System.IO.Unsafe (unsafePerformIO)
 
 import qualified Cardano.BM.BaseTrace as BaseTrace
@@ -381,5 +388,37 @@ subTrace name tr@(ctx, _) = do
         ObservableTrace _ -> do
                             tr' <- appendName name tr
                             return $ updateTracetype subtrace tr'
+
+\end{code}
+
+\subsubsection{Message logging}
+\begin{code}
+
+data Accessor = T T.Text | First | Second | Third | Fourth | Fifth | Sixth
+              deriving (Show, Ord, Eq)
+i_want trace = do
+    logStructured trace
+        ("xq732", 10.45, "du")   -- arguments
+        {- ( -}
+        [T "We ate ", First, T " for breakfast at ", Second]       -- primary language
+        {- , ("À ", Second, " heures, nous avons mangé ", Third, " ", First) -- secondary
+         ) -}
+
+logStructured trace args ms = do
+    --let msg = concatWith args ms
+    let msg = stringify args $ head ms    
+    return msg
+
+-- concatWith args (p1, p2, p3, p4) = concatWith (p1, p2, p3) <> (stringify args p4)
+-- concatWith args (p1, p2, p3) = concatWith (p1, p2) <> (stringify args p3)
+-- concatWith args (p1, p2) = stringify args p1 <> (stringify args p2)
+stringify env First = sel1 env
+stringify env Second = sel2 env
+stringify env Third = sel3 env
+stringify env Fourth = sel4 env
+stringify env Fifth = sel5 env
+stringify env Sixth = sel6 env
+stringify env (T t) = t
+
 
 \end{code}

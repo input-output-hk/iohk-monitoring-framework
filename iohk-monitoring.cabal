@@ -79,6 +79,7 @@ library
                        time,
                        time-units,
                        transformers,
+                       tuple,
                        unix,
                        unordered-containers,
                        vector,
