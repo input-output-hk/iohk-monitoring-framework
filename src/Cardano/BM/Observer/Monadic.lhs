@@ -35,6 +35,83 @@ import           Cardano.BM.Trace (Trace, logError, logNotice, subTrace, traceNa
 Observes an |IO| action and adds a name to the logger
 name of the passed in |Trace|. An empty |Text| leaves
 the logger name untouched.
+\newline
+\par\noindent
+Microbenchmarking steps:
+\newline
+\par
+1. Create a |trace| which will have been configured
+   to observe things besides logging.
+
+\begin{spec}
+        import qualified Cardano.BM.Configuration.Model as CM
+        . . .
+        c <- config
+        trace@(ctx, _) <- setupTrace (Right c) "demo-playground"
+            where
+                config :: IO CM.Configuration
+                config = do
+                    c <- CM.empty
+                    CM.setMinSeverity c Debug
+                    CM.setSetupBackends c [KatipBK, AggregationBK]
+                    CM.setDefaultBackends c [KatipBK, AggregationBK]
+                    CM.setSetupScribes c [ ScribeDefinition {
+                                              scName = "stdout"
+                                            , scKind = StdoutSK
+                                            , scRotation = Nothing
+                                            }
+                                    ]
+                    CM.setDefaultScribes c ["StdoutSK::stdout"]
+
+                    return c
+\end{spec}
+
+2. |c| is the |Configuration| of |trace|. In order to
+   enable the collection and processing of measurements
+   (min, max, mean, std-dev) |AggregationBK| is needed.
+
+\begin{spec}
+        CM.setDefaultBackends c [KatipBK, AggregationBK]
+\end{spec}
+in a configuration file (YAML) means
+
+\begin{spec}
+        defaultBackends:
+          - KatipBK
+          - AggregationBK
+\end{spec}
+
+3. Set the measurements that you want to take by changing
+   the configuration of the |trace| using |setSubTrace|,
+   in order to declare the namespace where we want to
+   enable the particular measurements and the list with
+   the kind of measurements.
+
+\begin{spec}
+        CM.setSubTrace
+            (configuration ctx)
+            "demo-playground.submit-tx"
+            (Just $ ObservableTrace observablesSet)
+          where
+            observablesSet = [MonotonicClock, MemoryStats]
+\end{spec}
+
+4. Find an action to measure. e.g.:
+
+\begin{spec}
+        runProtocolWithPipe x hdl proto `catch` (\ProtocolStopped -> return ())
+\end{spec}
+
+    and use |bracketObserveIO|. e.g.:
+
+
+\begin{spec}
+        bracketObserveIO trace "submit-tx" $
+            runProtocolWithPipe x hdl proto `catch` (\ProtocolStopped -> return ())
+\end{spec}
+
+-------------------
+
 \begin{code}
 bracketObserveIO :: Trace IO -> Text -> IO t -> IO t
 bracketObserveIO logTrace0 name action = do
