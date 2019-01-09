@@ -39,7 +39,7 @@ the logger name untouched.
 \par\noindent
 Microbenchmarking steps:
 \newline
-\par\noindent
+\par %\noindent
 1. Create a |trace| which will have been configured
    to observe things besides logging.
 
@@ -68,7 +68,7 @@ Microbenchmarking steps:
 
 2. |c| is the |Configuration| of |trace|. In order to
    enable the collection and processing of measurements
-   (min, max mean, std-dev) |AggregationBK| is needed.
+   (min, max, mean, std-dev) |AggregationBK| is needed.
 
 \begin{spec}
         CM.setDefaultBackends c [KatipBK, AggregationBK]
