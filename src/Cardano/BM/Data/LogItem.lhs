@@ -18,7 +18,7 @@ module Cardano.BM.Data.LogItem
   )
   where
 
-import           Data.Aeson (FromJSON, ToJSON)
+import           Data.Aeson (FromJSON, ToJSON, Object)
 import           Data.Text (Text)
 
 import           GHC.Generics (Generic)
@@ -80,6 +80,7 @@ data LogSelection =
 
 data LogPrims = LogMessage LogItem
               | LogValue Text Measurable
+              | LogStructured Object
                 deriving (Generic, Show, ToJSON)
 
 data LogObject = LP LogPrims

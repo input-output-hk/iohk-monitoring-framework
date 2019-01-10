@@ -37,6 +37,7 @@ module Cardano.BM.Trace
     -- * sturctured logging
     , logStructured
     , Accessor (..)
+    , extractFrom
     ) where
 
 import           Control.Concurrent.MVar (MVar, newMVar, withMVar)
@@ -45,8 +46,10 @@ import qualified Control.Concurrent.STM.TVar as STM
 import           Control.Monad (when)
 import           Control.Monad.IO.Class (MonadIO, liftIO)
 import qualified Control.Monad.STM as STM
+import qualified Data.Aeson as A
 import           Data.Aeson.Text (encodeToLazyText)
 import           Data.Functor.Contravariant (Contravariant (..), Op (..))
+import qualified Data.HashMap.Strict as HM
 import           Data.Maybe (fromMaybe)
 import           Data.Monoid ((<>))
 import qualified Data.Text as T
@@ -419,24 +422,27 @@ logStructured ::
     -> [(T.Text, Accessor)]  -- arguments
     -> [Accessor]            -- message structure
     -> m ()
-logStructured trace args ms = do
+logStructured trace@(ctx,trace0) args ms = do
     let msg = concatWith args ms ""
-        -- str = extractFrom args ms 1 []
+        str = extractFrom args
     -- this one is textual
     traceNamedItem trace Both Info $ msg
     -- this one will be structured
-    -- traceConditionally ctx (named trace0 (loggerName ctx)) $
-    --     LP (LogValue "args" str)
+    traceConditionally ctx (named trace0 (loggerName ctx)) $
+        LP (LogStructured str)
     return ()
 
 concatWith :: [(T.Text, Accessor)] -> [Accessor] -> T.Text -> T.Text
 concatWith _ [] acc = acc
 concatWith args (p:ps) acc = concatWith args ps $ acc <> stringify p args
 
--- not yet: return list of Text->Measurable to be structurally logged
--- extractFrom :: [Accessor] -> [Accessor] -> Int -> [(T.Text,T.Text)] -> [(T.Text,T.Text)]
--- extractFrom _ [] n acc = acc
--- extractFrom args (p:ps) n acc = extractFrom args ps (n+1) $ acc <> []
+-- not yet: return Map Text->Text to be structurally logged
+extractFrom :: [(T.Text, Accessor)] -> A.Object
+extractFrom as = HM.fromList $ extractFrom' as []
+extractFrom' :: [(T.Text, Accessor)] -> [(T.Text, A.Value)] -> [(T.Text, A.Value)]
+extractFrom' [] acc = acc
+extractFrom' ((n,a):as) acc =
+    extractFrom' as $ (n,A.String (stringify a [])) : acc
 
 stringify :: Accessor -> [(T.Text, Accessor)] -> T.Text
 stringify (M m)  _   = m
