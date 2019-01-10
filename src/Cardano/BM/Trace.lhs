@@ -36,13 +36,12 @@ module Cardano.BM.Trace
     , logWarning,   logWarningS,   logWarningP,   logWarningUnsafeP
     -- * sturctured logging
     , logStructured
-    -- , Accessor
-    , i_want
+    , Accessor (..)
     ) where
 
 import           Control.Concurrent.MVar (MVar, newMVar, withMVar)
 import qualified Control.Concurrent.STM.TVar as STM
-import           Control.Lens
+-- import           Control.Lens
 import           Control.Monad (when)
 import           Control.Monad.IO.Class (MonadIO, liftIO)
 import qualified Control.Monad.STM as STM
@@ -53,7 +52,7 @@ import           Data.Monoid ((<>))
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import           Data.Text.Lazy (toStrict)
-import           Data.Tuple.Select
+-- import           Data.Tuple.Select
 import           System.IO.Unsafe (unsafePerformIO)
 
 import qualified Cardano.BM.BaseTrace as BaseTrace
@@ -391,34 +390,108 @@ subTrace name tr@(ctx, _) = do
 
 \end{code}
 
-\subsubsection{Message logging}
+\subsubsection{Structured message logging}
 \begin{code}
 
-data Accessor = T T.Text | First | Second | Third | Fourth | Fifth | Sixth
+data Accessor = D Double | I Integer | M T.Text | First | Second | Third | Fourth | Fifth | Sixth
               deriving (Show, Ord, Eq)
-i_want trace = do
-    logStructured trace
-        ("xq732", 10.45, "du")   -- arguments
-        {- ( -}
-        [T "We ate ", First, T " for breakfast at ", Second]       -- primary language
-        {- , ("À ", Second, " heures, nous avons mangé ", Third, " ", First) -- secondary
-         ) -}
-
-logStructured trace args ms = do
-    --let msg = concatWith args ms
-    let msg = stringify args $ head ms    
-    return msg
-
--- concatWith args (p1, p2, p3, p4) = concatWith (p1, p2, p3) <> (stringify args p4)
--- concatWith args (p1, p2, p3) = concatWith (p1, p2) <> (stringify args p3)
--- concatWith args (p1, p2) = stringify args p1 <> (stringify args p2)
-stringify env First = sel1 env
-stringify env Second = sel2 env
-stringify env Third = sel3 env
-stringify env Fourth = sel4 env
-stringify env Fifth = sel5 env
-stringify env Sixth = sel6 env
-stringify env (T t) = t
-
 
 \end{code}
+
+\begin{spec}
+i_want = do
+    cfg <- Cardano.BM.Configuration.Static.defaultConfigStdout
+    trace0 <- Cardano.BM.Setup.setupTrace (Right cfg) "test"
+    trace <- appendName "structured" trace0
+    let f = logStructured trace
+        [("food",M"xq732"), ("time",D(10.45)), ("op",M"du"), ("some",I(-42))]   -- named arguments
+        -- (
+        [M"We ate ", First, M" for breakfast at ", Second]       -- primary language
+        -- , [M"À ", Second, M" heures, nous avons mangé ", Third, M" ", First] -- secondary
+        -- )
+    f
+\end{spec}
+
+\begin{code}
+logStructured ::
+       MonadIO m
+    => Trace m
+    -> [(T.Text, Accessor)]  -- arguments
+    -> [Accessor]            -- message structure
+    -> m ()
+logStructured trace args ms = do
+    let msg = concatWith args ms ""
+        -- str = extractFrom args ms 1 []
+    -- this one is textual
+    traceNamedItem trace Both Info $ msg
+    -- this one will be structured
+    -- traceConditionally ctx (named trace0 (loggerName ctx)) $
+    --     LP (LogValue "args" str)
+    return ()
+
+concatWith :: [(T.Text, Accessor)] -> [Accessor] -> T.Text -> T.Text
+concatWith _ [] acc = acc
+concatWith args (p:ps) acc = concatWith args ps $ acc <> stringify p args
+
+-- not yet: return list of Text->Measurable to be structurally logged
+-- extractFrom :: [Accessor] -> [Accessor] -> Int -> [(T.Text,T.Text)] -> [(T.Text,T.Text)]
+-- extractFrom _ [] n acc = acc
+-- extractFrom args (p:ps) n acc = extractFrom args ps (n+1) $ acc <> []
+
+stringify :: Accessor -> [(T.Text, Accessor)] -> T.Text
+stringify (M m)  _   = m
+stringify (D d)  _   = T.pack $ show d
+stringify (I i)  _   = T.pack $ show i
+stringify _ [] = error "cannot access item in empty list!"
+-- stringify First env  = T.pack $ env ^. _1 ^.to show
+stringify First  as = stringify' (safeaccess as 1)
+stringify Second as = stringify' (safeaccess as 2)
+stringify Third  as = stringify' (safeaccess as 3)
+stringify Fourth as = stringify' (safeaccess as 4)
+stringify Fifth  as = stringify' (safeaccess as 5)
+stringify Sixth  as = stringify' (safeaccess as 6)
+
+stringify' :: (T.Text, Accessor) -> T.Text
+stringify' (n, a) = n <> ":" <> stringify a []
+
+-- not sure this is an optimal solution:
+safeaccess :: [a] -> Int -> a
+safeaccess [] _ = error "cannot access any element in an empty list"
+safeaccess (a:_) 1 = a
+safeaccess (_:as) n = safeaccess as (n - 1)
+
+\end{code}
+
+If I want to express the arguments and the message construction with tuples:
+\begin{spec}
+
+\end{spec}
+
+\begin{spec}
+concatWith :: forall a b . a -> b -> T.Text
+concatWith args ps@(p1, p2, p3, p4) = concatWith4 args ps -- concatWith3 args (p1, p2, p3) <> (stringify p4 args)
+concatWith args ps@(p1, p2, p3) =  concatWith3 args ps -- concatWith2 args (p1, p2) <> stringify p3 args
+concatWith args ps@(p1, p2) =  concatWith2 args ps -- stringify p1 args <> (stringify p2 args)
+concatWith4 args (p1,p2,p3,p4) = concatWith3 args (p1,p2,p3) <> stringify p4 args
+concatWith3 args (p1,p2,p3)    = concatWith2 args (p1,p2) <> stringify p3 args
+concatWith2 args (p1,p2)       = stringify p1 args <> stringify p2 args
+
+\end{spec}
+
+|Data.Tuple.Select| defines functions sel[1-..] which allow the extraction of the nth
+element in a tuple.
+\\
+but, I can't express the type restriction that the tuple contains only elements with
+|forall a . Show a|.
+
+\begin{spec}
+stringify First  env = sel1 env
+stringify Second env = sel2 env
+stringify Third  env = sel3 env
+stringify Fourth env = sel4 env
+stringify Fifth  env = sel5 env
+stringify Sixth  env = sel6 env
+stringify (M m)  _   = m
+stringify (D d)  _   = T.pack $ show d
+
+\end{spec}
