@@ -24,6 +24,6 @@ This identifies the type of Aggregated.
 \begin{code}
 data AggregatedKind = StatsAK
                     | EwmaAK
-                        deriving (Generic, Eq, Show, FromJSON, ToJSON)
+                        deriving (Generic, Eq, Show, FromJSON, ToJSON, Read)
 
 \end{code}

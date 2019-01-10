@@ -209,6 +209,9 @@ unit_Configuration_parsed_representation = do
                     \    iohk.startup: Debug\n\
                     \    iohk.background.process: Error\n\
                     \    iohk.testing.uncritical: Warning\n\
+                    \  mapAggregatedkinds:\n\
+                    \    iohk.interesting.value: EwmaAK\n\
+                    \    iohk.background.process: StatsAK\n\
                     \  cfokey:\n\
                     \    value: Release-1.0.0\n\
                     \  mapScribes:\n\

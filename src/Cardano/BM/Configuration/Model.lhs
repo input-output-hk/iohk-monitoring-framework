@@ -306,10 +306,11 @@ setup :: FilePath -> IO Configuration
 setup fp = do
     r <- R.parseRepresentation fp
     cgref <- newEmptyMVar
-    let mapseverity = HM.lookup "mapSeverity" (R.options r)
-    let mapbackends = HM.lookup "mapBackends" (R.options r)
-    let mapsubtrace = HM.lookup "mapSubtrace" (R.options r)
-    let mapscribes  = HM.lookup "mapScribes"  (R.options r)
+    let mapseverity        = HM.lookup "mapSeverity"        (R.options r)
+        mapbackends        = HM.lookup "mapBackends"        (R.options r)
+        mapsubtrace        = HM.lookup "mapSubtrace"        (R.options r)
+        mapscribes         = HM.lookup "mapScribes"         (R.options r)
+        mapAggregatedKinds = HM.lookup "mapAggregatedkinds" (R.options r)
     putMVar cgref $ ConfigurationInternal
         { cgMinSeverity = R.minSeverity r
         , cgMapSeverity = parseSeverityMap mapseverity
@@ -321,7 +322,7 @@ setup fp = do
         , cgMapScribe = parseScribeMap mapscribes
         , cgDefScribes = r_defaultScribes r
         , cgSetupScribes = R.setupScribes r
-        , cgMapAggregatedKind = HM.empty
+        , cgMapAggregatedKind = parseAggregatedKindMap mapAggregatedKinds
         , cgDefAggregatedKind = StatsAK
         , cgPortEKG = r_hasEKG r
         , cgPortGUI = r_hasGUI r
@@ -370,6 +371,16 @@ setup fp = do
                        Nothing -> 0
                        Just p  -> p
     r_defaultScribes r = map (\(k,n) -> pack(show k) <> "::" <> n) (R.defaultScribes r)
+
+    parseAggregatedKindMap Nothing = HM.empty
+    parseAggregatedKindMap (Just hmv) =
+        let
+            listv = HM.toList hmv
+            mapAggregatedKind = HM.fromList $ catMaybes $ map mkAggregatedKind listv
+        in
+        mapAggregatedKind
+    mkAggregatedKind (name, String s) = Just (name, read (unpack s) :: AggregatedKind)
+    mkAggregatedKind _ = Nothing
 
 \end{code}
 

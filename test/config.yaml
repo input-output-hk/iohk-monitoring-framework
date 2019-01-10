@@ -68,3 +68,8 @@ options:
       - "FileTextSK::testlog"
     iohk.background.process:
         "FileTextSK::testlog"
+  mapAggregatedkinds:
+    iohk.interesting.value:
+        "EwmaAK"
+    iohk.background.process:
+        "StatsAK"
