@@ -52,6 +52,7 @@ import           Data.Functor.Contravariant (Contravariant (..), Op (..))
 import qualified Data.HashMap.Strict as HM
 import           Data.Maybe (fromMaybe)
 import           Data.Monoid ((<>))
+import           Data.String (IsString (..))
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import           Data.Text.Lazy (toStrict)
@@ -164,7 +165,7 @@ stdoutTrace = BaseTrace.BaseTrace $ Op $ \lognamed ->
                 output (lnName lognamed) $ liPayload logItem
         obj ->
             withMVar locallock $ \_ ->
-                output (lnName lognamed) $ toStrict (encodeToLazyText obj)
+                output (lnName lognamed) $ T.pack $ show obj   -- toStrict (encodeToLazyText obj)
   where
     output nm msg = TIO.putStrLn $ nm <> " :: " <> msg
 
@@ -396,23 +397,17 @@ subTrace name tr@(ctx, _) = do
 \subsubsection{Structured message logging}
 \begin{code}
 
-data Accessor = J A.Value | D Double | I Integer | M T.Text | First | Second | Third | Fourth | Fifth | Sixth
+data Accessor = J A.Value | D Double | I Integer | M T.Text      -- provide value
+              | First | Second | Third | Fourth | Fifth | Sixth  -- select value
               deriving (Show, Eq)
 
-\end{code}
+instance IsString Accessor where
+    fromString s = M (T.pack s)
+instance Fractional Accessor where
+    fromRational d = D $ fromRational d
+instance Num Accessor where
+    fromInteger i = I i
 
-\begin{code}
-i_want = do
-    cfg <- Cardano.BM.Configuration.Static.defaultConfigStdout
-    trace0 <- Cardano.BM.Setup.setupTrace (Right cfg) "test"
-    trace <- appendName "structured" trace0
-    let f = logStructured trace
-        [("food",M"xq732"), ("time",D(10.45)), ("op",M"du"), ("some",I(-42))]   -- named arguments
-        -- (
-        [M"We ate ", First, M" for breakfast at ", Second]       -- primary language
-        -- , [M"À ", Second, M" heures, nous avons mangé ", Third, M" ", First] -- secondary
-        -- )
-    f
 \end{code}
 
 \begin{code}
@@ -468,37 +463,3 @@ safeaccess (a:_) 1 = a
 safeaccess (_:as) n = safeaccess as (n - 1)
 
 \end{code}
-
-If I want to express the arguments and the message construction with tuples:
-\begin{spec}
-
-\end{spec}
-
-\begin{spec}
-concatWith :: forall a b . a -> b -> T.Text
-concatWith args ps@(p1, p2, p3, p4) = concatWith4 args ps -- concatWith3 args (p1, p2, p3) <> (stringify p4 args)
-concatWith args ps@(p1, p2, p3) =  concatWith3 args ps -- concatWith2 args (p1, p2) <> stringify p3 args
-concatWith args ps@(p1, p2) =  concatWith2 args ps -- stringify p1 args <> (stringify p2 args)
-concatWith4 args (p1,p2,p3,p4) = concatWith3 args (p1,p2,p3) <> stringify p4 args
-concatWith3 args (p1,p2,p3)    = concatWith2 args (p1,p2) <> stringify p3 args
-concatWith2 args (p1,p2)       = stringify p1 args <> stringify p2 args
-
-\end{spec}
-
-|Data.Tuple.Select| defines functions sel[1-..] which allow the extraction of the nth
-element in a tuple.
-\\
-but, I can't express the type restriction that the tuple contains only elements with
-|forall a . Show a|.
-
-\begin{spec}
-stringify First  env = sel1 env
-stringify Second env = sel2 env
-stringify Third  env = sel3 env
-stringify Fourth env = sel4 env
-stringify Fifth  env = sel5 env
-stringify Sixth  env = sel6 env
-stringify (M m)  _   = m
-stringify (D d)  _   = T.pack $ show d
-
-\end{spec}
