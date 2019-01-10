@@ -10,6 +10,7 @@ module Cardano.BM.Test.Aggregated (
 
 import           Cardano.BM.Arbitrary.Aggregated ()
 import           Cardano.BM.Data.Aggregated
+import           Cardano.BM.Output.Aggregation (updateAggregation)
 
 import           Test.Tasty
 import           Test.Tasty.HUnit
@@ -44,8 +45,8 @@ prop_Aggregation_minimal = True
 
 prop_Aggregation_comm :: Integer -> Integer -> Aggregated -> Bool
 prop_Aggregation_comm v1 v2 ag =
-    let Just (AggregatedStats stats1) = updateAggregation (PureI v1) $ updateAggregation (PureI v2) (Just ag)
-        Just (AggregatedStats stats2) = updateAggregation (PureI v2) $ updateAggregation (PureI v1) (Just ag)
+    let AggregatedStats stats1 = updateAggregation (PureI v1) $ updateAggregation (PureI v2) ag
+        AggregatedStats stats2 = updateAggregation (PureI v2) $ updateAggregation (PureI v1) ag
     in
     fmin   stats1 == fmin   stats2 &&
     fmax   stats1 == fmax   stats2 &&
@@ -60,12 +61,16 @@ implies p1 p2 = (not p1) || p2
 
 unit_Aggregation_initial_minus_1 :: Assertion
 unit_Aggregation_initial_minus_1 =
-    updateAggregation (-1) Nothing @?= Just (AggregatedStats (Stats (-1) (-1) (-1) (1) (-1) 0))
+    updateAggregation (-1) firstStateAggregatedStats @?=
+        AggregatedStats (Stats (-1) (-1) 0 2 (-0.5) 0.5)
 unit_Aggregation_initial_plus_1 :: Assertion
 unit_Aggregation_initial_plus_1 =
-    updateAggregation 1 Nothing  @?= Just (AggregatedStats (Stats 1 1 1 1 1 0))
+    updateAggregation 1 firstStateAggregatedStats @?= AggregatedStats (Stats 1 0 1 2 0.5 0.5)
 unit_Aggregation_initial_zero :: Assertion
 unit_Aggregation_initial_zero =
-    updateAggregation 0 Nothing @?= Just (AggregatedStats (Stats 0 0 0 1 0 0))
+    updateAggregation 0 firstStateAggregatedStats @?= AggregatedStats (Stats 0 0 0 2 0 0)
+
+firstStateAggregatedStats :: Aggregated
+firstStateAggregatedStats = AggregatedStats (Stats 0 0 0 1 0 0)
 
 \end{code}

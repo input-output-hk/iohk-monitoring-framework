@@ -28,6 +28,7 @@ library
                        Cardano.BM.Counters.Linux
 
                        Cardano.BM.Data.Aggregated
+                       Cardano.BM.Data.AggregatedKind
                        Cardano.BM.Data.Backend
                        Cardano.BM.Data.BackendKind
                        Cardano.BM.Data.Configuration

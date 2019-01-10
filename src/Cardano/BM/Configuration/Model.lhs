@@ -26,6 +26,9 @@ module Cardano.BM.Configuration.Model
     , setDefaultScribes
     , setSetupScribes
     , getSetupScribes
+    , getAggregatedKind
+    , setDefaultAggregatedKind
+    , setAggregatedKind
     , getOption
     , findSubTrace
     , setSubTrace
@@ -44,6 +47,7 @@ import           Data.Text (Text, pack, unpack)
 import qualified Data.Vector as Vector
 import           Data.Yaml as Y
 
+import           Cardano.BM.Data.AggregatedKind (AggregatedKind(..))
 import           Cardano.BM.Data.BackendKind
 import qualified Cardano.BM.Data.Configuration as R
 import           Cardano.BM.Data.LogItem (LoggerName)
@@ -70,30 +74,35 @@ newtype Configuration = Configuration
 
 -- Our internal state; see {-"\nameref{fig:configuration}"-}
 data ConfigurationInternal = ConfigurationInternal
-    { cgMinSeverity   :: Severity
+    { cgMinSeverity       :: Severity
     -- minimum severity level of every object that will be output
-    , cgMapSeverity   :: HM.HashMap LoggerName Severity
+    , cgMapSeverity       :: HM.HashMap LoggerName Severity
     -- severity filter per loggername
-    , cgMapSubtrace   :: HM.HashMap LoggerName SubTrace
+    , cgMapSubtrace       :: HM.HashMap LoggerName SubTrace
     -- type of trace per loggername
-    , cgOptions       :: HM.HashMap Text Object
+    , cgOptions           :: HM.HashMap Text Object
     -- options needed for tracing, logging and monitoring
-    , cgMapBackend    :: HM.HashMap LoggerName [BackendKind]
+    , cgMapBackend        :: HM.HashMap LoggerName [BackendKind]
     -- backends that will be used for the specific loggername
-    , cgDefBackendKs  :: [BackendKind]
+    , cgDefBackendKs      :: [BackendKind]
     -- backends that will be used if a set of backends for the
     -- specific loggername is not set
-    , cgSetupBackends :: [BackendKind]
+    , cgSetupBackends     :: [BackendKind]
     -- backends to setup; every backend to be used must have
     -- been declared here
-    , cgMapScribe     :: HM.HashMap LoggerName [ScribeId]
+    , cgMapScribe         :: HM.HashMap LoggerName [ScribeId]
     -- katip scribes that will be used for the specific loggername
-    , cgDefScribes    :: [ScribeId]
+    , cgDefScribes        :: [ScribeId]
     -- katip scribes that will be used if a set of scribes for the
     -- specific loggername is not set
-    , cgSetupScribes  :: [ScribeDefinition]
+    , cgSetupScribes      :: [ScribeDefinition]
     -- katip scribes to setup; every scribe to be used must have
     -- been declared here
+    , cgMapAggregatedKind :: HM.HashMap LoggerName AggregatedKind
+    -- kind of Aggregated that will be used for the specific loggername
+    , cgDefAggregatedKind :: AggregatedKind
+    -- kind of Aggregated that will be used if a set of scribes for the
+    -- specific loggername is not set
     , cgPortEKG       :: Int
     -- port for EKG server
     , cgPortGUI       :: Int
@@ -185,6 +194,31 @@ getSetupScribes :: Configuration -> IO [ScribeDefinition]
 getSetupScribes configuration =
     withMVar (getCG configuration) $ \cg -> do
         return $ cgSetupScribes cg
+
+\end{code}
+
+\subsubsection{|AggregatedKind| to define the type of measurement}
+For a given context name return its |AggregatedKind| or in case no
+such configuration exists, return the default |AggregatedKind| to use.
+\begin{code}
+getAggregatedKind :: Configuration -> LoggerName -> IO AggregatedKind
+getAggregatedKind configuration name =
+    withMVar (getCG configuration) $ \cg -> do
+        let outs = HM.lookup name (cgMapAggregatedKind cg)
+        case outs of
+            Nothing -> do
+                return (cgDefAggregatedKind cg)
+            Just os -> return $ os
+
+setDefaultAggregatedKind :: Configuration -> AggregatedKind -> IO ()
+setDefaultAggregatedKind configuration defAK = do
+    cg <- takeMVar (getCG configuration)
+    putMVar (getCG configuration) $ cg { cgDefAggregatedKind = defAK }
+
+setAggregatedKind :: Configuration -> LoggerName -> Maybe AggregatedKind -> IO ()
+setAggregatedKind configuration name ak = do
+    cg <- takeMVar (getCG configuration)
+    putMVar (getCG configuration) $ cg { cgMapAggregatedKind = HM.alter (\_ -> ak) name (cgMapAggregatedKind cg) }
 
 \end{code}
 
@@ -287,6 +321,8 @@ setup fp = do
         , cgMapScribe = parseScribeMap mapscribes
         , cgDefScribes = r_defaultScribes r
         , cgSetupScribes = R.setupScribes r
+        , cgMapAggregatedKind = HM.empty
+        , cgDefAggregatedKind = StatsAK
         , cgPortEKG = r_hasEKG r
         , cgPortGUI = r_hasGUI r
         }
@@ -342,7 +378,7 @@ setup fp = do
 empty :: IO Configuration
 empty = do
     cgref <- newEmptyMVar
-    putMVar cgref $ ConfigurationInternal Debug HM.empty HM.empty HM.empty HM.empty [] [] HM.empty [] [] 0 0
+    putMVar cgref $ ConfigurationInternal Debug HM.empty HM.empty HM.empty HM.empty [] [] HM.empty [] [] HM.empty StatsAK 0 0
     return $ Configuration cgref
 
 \end{code}
