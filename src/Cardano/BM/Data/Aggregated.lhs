@@ -155,10 +155,11 @@ stdevOfStats s =
 \end{code}
 
 \index{Stats!instance of Semigroup}
+\todo[inline]{|instance Semigroup Stats| disabled for the moment, because not needed.}
 We use a parallel algorithm to update the estimation of mean and variance from two sample statistics.
 (see \url{https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Parallel_algorithm})
 
-\begin{code}
+\begin{spec}
 instance Semigroup Stats where
     (<>) a b = let counta = fcount a
                    countb = fcount b
@@ -173,7 +174,7 @@ instance Semigroup Stats where
                      , fsum_B = fsum_B a + fsum_B b + (delta * delta) * (fromInteger (counta * countb) / fromInteger newcount)
                      }
 
-\end{code}
+\end{spec}
 
 \label{code:stats2Text}\index{stats2Text}
 \begin{code}
@@ -208,13 +209,14 @@ data Aggregated = AggregatedStats Stats
 \end{code}
 
 \index{Aggregated!instance of Semigroup}
-\begin{code}
+\todo[inline]{|instance Semigroup Aggregated| disabled for the moment, because not needed.}
+\begin{spec}
 instance Semigroup Aggregated where
     (<>) (AggregatedStats a) (AggregatedStats b) =
         AggregatedStats (a <> b)
     (<>) _ _ = error "Cannot combine different objects"
 
-\end{code}
+\end{spec}
 
 \index{singleton}
 \begin{code}
