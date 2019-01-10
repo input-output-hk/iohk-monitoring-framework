@@ -187,11 +187,17 @@ passN backend katip namedLogItem = do
                                 (LP (LogMessage logItem)) ->
                                      (liSeverity logItem, liPayload logItem, Nothing)
                                 (AggregatedMessage aggregated) ->
-                                     let
+                                    let
                                         text = T.concat $ (flip map) aggregated $ \(name, agg) ->
                                                 "\n" <> name <> ": " <> pack (show agg)
-                                     in
-                                     (Info, text, Nothing)
+                                    in
+                                    (Info, text, Nothing)
+                                (LP (LogValue name value)) ->
+                                    (Debug, name <> " = " <> pack (show value), Nothing)
+                                -- m@(LP (LogValue _ _)) ->
+                                --     (Debug, "", Just m)
+                                KillPill ->
+                                    (Info, "Kill pill received!", Nothing)
                                 _ -> (Info, "", (Nothing :: Maybe LogObject))
                     if (msg == "") && (isNothing payload)
                     then return ()
@@ -249,9 +255,14 @@ mkTextFileScribe fdesc colorize = do
     mkFileScribe fdesc formatter colorize
   where
     formatter :: Handle -> Bool -> K.Verbosity -> K.Item a -> IO ()
-    formatter hdl colorize' v' item = do
-        let tmsg = toLazyText $ formatItem colorize' v' item
-        TIO.hPutStrLn hdl tmsg
+    formatter hdl colorize' v' item =
+        case KC._itemMessage item of
+                K.LogStr ""  ->
+                    -- if message is empty do not output it
+                    return ()
+                _ -> do
+                    let tmsg = toLazyText $ formatItem colorize' v' item
+                    TIO.hPutStrLn hdl tmsg
 
 mkJsonFileScribe :: FileDescription -> Bool -> IO K.Scribe
 mkJsonFileScribe fdesc colorize = do
@@ -260,6 +271,8 @@ mkJsonFileScribe fdesc colorize = do
     formatter :: (K.LogItem a) => Handle -> Bool -> K.Verbosity -> K.Item a -> IO ()
     formatter h _ verbosity item = do
         let tmsg = case KC._itemMessage item of
+                -- if a message is contained in item then only the
+                -- message is printed and not the data
                 K.LogStr ""  -> K.itemJson verbosity item
                 K.LogStr msg -> K.itemJson verbosity $
                                     item { KC._itemMessage = K.logStr (""::Text)

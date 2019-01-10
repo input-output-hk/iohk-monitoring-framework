@@ -22,6 +22,7 @@ module Cardano.BM.Configuration.Model
     , setSetupBackends
     , getSetupBackends
     , getScribes
+    , setScribe
     , setDefaultScribes
     , setSetupScribes
     , getSetupScribes
@@ -39,7 +40,6 @@ import           Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar,
                      takeMVar, withMVar)
 import qualified Data.HashMap.Strict as HM
 import           Data.Maybe (catMaybes)
--- import qualified Data.Set as Set
 import           Data.Text (Text, pack, unpack)
 import qualified Data.Vector as Vector
 import           Data.Yaml as Y
@@ -165,6 +165,11 @@ setDefaultScribes :: Configuration -> [ScribeId] -> IO ()
 setDefaultScribes configuration scs = do
     cg <- takeMVar (getCG configuration)
     putMVar (getCG configuration) $ cg { cgDefScribes = scs }
+
+setScribe :: Configuration -> LoggerName -> Maybe [ScribeId] -> IO ()
+setScribe configuration name be = do
+    cg <- takeMVar (getCG configuration)
+    putMVar (getCG configuration) $ cg { cgMapScribe = HM.alter (\_ -> be) name (cgMapScribe cg) }
 
 \end{code}
 
