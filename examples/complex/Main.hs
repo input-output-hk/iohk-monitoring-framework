@@ -69,7 +69,7 @@ main = do
     logNotice tr "starting program; hit CTRL-C to terminate"
 
     -- start thread sending unbounded sequence of random numbers
-    -- to a trace with aggregates them into a statistics
+    -- to a trace which aggregates them into a statistics (sent to EKG)
     proc_random <- randomThr tr
 
     -- wait for random thread to finish, ignoring any exception
