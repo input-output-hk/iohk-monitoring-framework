@@ -194,8 +194,6 @@ passN backend katip namedLogItem = do
                                     (Info, text, Nothing)
                                 (LP (LogValue name value)) ->
                                     (Debug, name <> " = " <> pack (show value), Nothing)
-                                -- m@(LP (LogValue _ _)) ->
-                                --     (Debug, "", Just m)
                                 KillPill ->
                                     (Info, "Kill pill received!", Nothing)
                                 _ -> (Info, "", (Nothing :: Maybe LogObject))
