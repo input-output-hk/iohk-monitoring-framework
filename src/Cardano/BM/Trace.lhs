@@ -396,12 +396,12 @@ subTrace name tr@(ctx, _) = do
 \subsubsection{Structured message logging}
 \begin{code}
 
-data Accessor = D Double | I Integer | M T.Text | First | Second | Third | Fourth | Fifth | Sixth
-              deriving (Show, Ord, Eq)
+data Accessor = J A.Value | D Double | I Integer | M T.Text | First | Second | Third | Fourth | Fifth | Sixth
+              deriving (Show, Eq)
 
 \end{code}
 
-\begin{spec}
+\begin{code}
 i_want = do
     cfg <- Cardano.BM.Configuration.Static.defaultConfigStdout
     trace0 <- Cardano.BM.Setup.setupTrace (Right cfg) "test"
@@ -413,7 +413,7 @@ i_want = do
         -- , [M"À ", Second, M" heures, nous avons mangé ", Third, M" ", First] -- secondary
         -- )
     f
-\end{spec}
+\end{code}
 
 \begin{code}
 logStructured ::
@@ -445,6 +445,7 @@ extractFrom' ((n,a):as) acc =
     extractFrom' as $ (n,A.String (stringify a [])) : acc
 
 stringify :: Accessor -> [(T.Text, Accessor)] -> T.Text
+stringify (J j)  _   = T.pack $ show $ A.encode j
 stringify (M m)  _   = m
 stringify (D d)  _   = T.pack $ show d
 stringify (I i)  _   = T.pack $ show i
