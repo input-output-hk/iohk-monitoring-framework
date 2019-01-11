@@ -32,12 +32,25 @@ config = do
                             , scKind = StdoutSK
                             , scRotation = Nothing
                             }
-                      ]
-    CM.setDefaultScribes c ["StdoutSK::stdout"]
+                         , ScribeDefinition {
+                              scName = "out.json"
+                            , scKind = FileJsonSK
+                            , scRotation = Nothing
+                            }
+                         , ScribeDefinition {
+                              scName = "out.txt"
+                            , scKind = FileTextSK
+                            , scRotation = Nothing
+                            }
+                         ]
+    -- per default each messages is sent to the logs, if not otherwise defined (see below: 'CM.setScribe')
+    CM.setDefaultScribes c ["StdoutSK::stdout", "FileJsonSK::out.json"]
+    CM.setScribe c "complex.random" (Just ["StdoutSK::stdout", "FileTextSK::out.txt"])
+    CM.setScribe c "complex.random.aggregated" (Just ["StdoutSK::stdout"])
     -- forward the random number to aggregation:
-    CM.setBackend c "complex.random" (Just [AggregationBK])
+    CM.setBackend c "complex.random" (Just [AggregationBK, KatipBK])
     -- forward the aggregated output to the EKG view:
-    CM.setBackend c "complex.random.aggregated" (Just [EKGViewBK])
+    CM.setBackend c "complex.random.aggregated" (Just [EKGViewBK, KatipBK])
     -- start EKG on http://localhost:12789
     CM.setEKGport c 12789
 
@@ -63,7 +76,7 @@ main = do
     -- create configuration
     c <- config
 
-    -- create initial top-level |Trace| 
+    -- create initial top-level |Trace|
     tr <- setupTrace (Right c) "complex"
 
     logNotice tr "starting program; hit CTRL-C to terminate"

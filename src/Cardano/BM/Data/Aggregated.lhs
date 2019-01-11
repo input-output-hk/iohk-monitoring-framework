@@ -18,7 +18,6 @@ module Cardano.BM.Data.Aggregated
   , stdevOfStats
   , stats2Text
   , singleton
-  , updateAggregation
   ) where
 
 import           GHC.Generics (Generic)
@@ -240,65 +239,5 @@ instance Show Aggregated where
     show (AggregatedStats astats) =
         "{ stats = " ++ show astats ++ " }"
     show (AggregatedEWMA a) = show a
-
-\end{code}
-
-\subsubsection{Update aggregation}\label{code:updateAggregation}\index{updateAggregation}
-We distinguish an unitialized from an already initialized aggregation. The latter is properly initialized.
-\\
-We use Welford's online algorithm to update the estimation of mean and variance of the sample statistics.
-(see \url{https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford's_Online_algorithm})
-
-\begin{code}
-updateAggregation :: Measurable -> Maybe Aggregated -> Maybe Aggregated
-updateAggregation v Nothing =
-    Just $ singleton v
-updateAggregation v (Just (AggregatedStats s)) =
-    let newcount = fcount s + 1
-        newvalue = getDouble v
-        delta = newvalue - fsum_A s
-        dincr = (delta / fromInteger newcount)
-        delta2 = newvalue - fsum_A s - dincr
-    in
-    Just $ AggregatedStats Stats { flast  = v
-                                 , fmin   = min (fmin s) v
-                                 , fmax   = max (fmax s) v
-                                 , fcount = newcount
-                                 , fsum_A = fsum_A s + dincr
-                                 , fsum_B = fsum_B s + (delta * delta2)
-                                 }
-updateAggregation v (Just (AggregatedEWMA e)) =
-    Just $ AggregatedEWMA $ ewma e v
-
-\end{code}
-
-\subsubsection{Calculation of EWMA}\label{code:ewma}\index{ewma}
-Following \url{https://en.wikipedia.org/wiki/Moving_average#Exponential_moving_average} we calculate
-the exponential moving average for a series of values $ Y_t $ according to:
-
-$$
-S_t =
-\begin{cases}
-  Y_1,       & t = 1 \\
-  \alpha \cdot Y_t + (1 - \alpha) \cdot S_{t-1},    & t > 1
-\end{cases}
-$$
-\\
-The pattern matching below ensures that the |EWMA| will start with the first value passed in,
-and will not change type, once determined.
-\begin{code}
-ewma :: EWMA -> Measurable -> EWMA
-ewma (EmptyEWMA a) v = EWMA a v
-ewma (EWMA a (Microseconds s)) (Microseconds y) =
-    EWMA a $ Microseconds $ round $ a * (fromInteger y) + (1 - a) * (fromInteger s)
-ewma (EWMA a (Seconds s)) (Seconds y) =
-    EWMA a $ Seconds $ round $ a * (fromInteger y) + (1 - a) * (fromInteger s)
-ewma (EWMA a (Bytes s)) (Bytes y) =
-    EWMA a $ Bytes $ round $ a * (fromInteger y) + (1 - a) * (fromInteger s)
-ewma (EWMA a (PureI s)) (PureI y) =
-    EWMA a $ PureI $ round $ a * (fromInteger y) + (1 - a) * (fromInteger s)
-ewma (EWMA a (PureD s)) (PureD y) =
-    EWMA a $ PureD $ a * y + (1 - a) * s
-ewma _ _ = error "Cannot average on values of different type"
 
 \end{code}

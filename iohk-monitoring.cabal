@@ -28,6 +28,7 @@ library
                        Cardano.BM.Counters.Linux
 
                        Cardano.BM.Data.Aggregated
+                       Cardano.BM.Data.AggregatedKind
                        Cardano.BM.Data.Backend
                        Cardano.BM.Data.BackendKind
                        Cardano.BM.Data.Configuration
@@ -101,6 +102,7 @@ test-suite tests
   build-depends:       base,
                        iohk-monitoring,
 
+                       aeson,
                        array,
                        async,
                        bytestring,
@@ -120,6 +122,7 @@ test-suite tests
                        time-units,
                        transformers,
                        unordered-containers,
+                       vector,
                        void,
                        yaml
   ghc-options:         -Wall
