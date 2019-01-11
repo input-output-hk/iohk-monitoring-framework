@@ -45,8 +45,8 @@ prop_Aggregation_minimal = True
 
 prop_Aggregation_comm :: Integer -> Integer -> Aggregated -> Bool
 prop_Aggregation_comm v1 v2 ag =
-    let AggregatedStats stats1 = updateAggregation (PureI v1) $ updateAggregation (PureI v2) ag
-        AggregatedStats stats2 = updateAggregation (PureI v2) $ updateAggregation (PureI v1) ag
+    let AggregatedStats stats1 = updateAggregation (PureI v1) (updateAggregation (PureI v2) ag Nothing) Nothing
+        AggregatedStats stats2 = updateAggregation (PureI v2) (updateAggregation (PureI v1) ag Nothing) Nothing
     in
     fmin   stats1 == fmin   stats2 &&
     fmax   stats1 == fmax   stats2 &&
@@ -61,14 +61,14 @@ implies p1 p2 = (not p1) || p2
 
 unit_Aggregation_initial_minus_1 :: Assertion
 unit_Aggregation_initial_minus_1 =
-    updateAggregation (-1) firstStateAggregatedStats @?=
+    updateAggregation (-1) firstStateAggregatedStats Nothing @?=
         AggregatedStats (Stats (-1) (-1) 0 2 (-0.5) 0.5)
 unit_Aggregation_initial_plus_1 :: Assertion
 unit_Aggregation_initial_plus_1 =
-    updateAggregation 1 firstStateAggregatedStats @?= AggregatedStats (Stats 1 0 1 2 0.5 0.5)
+    updateAggregation 1 firstStateAggregatedStats Nothing @?= AggregatedStats (Stats 1 0 1 2 0.5 0.5)
 unit_Aggregation_initial_zero :: Assertion
 unit_Aggregation_initial_zero =
-    updateAggregation 0 firstStateAggregatedStats @?= AggregatedStats (Stats 0 0 0 2 0 0)
+    updateAggregation 0 firstStateAggregatedStats Nothing @?= AggregatedStats (Stats 0 0 0 2 0 0)
 
 firstStateAggregatedStats :: Aggregated
 firstStateAggregatedStats = AggregatedStats (Stats 0 0 0 1 0 0)

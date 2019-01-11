@@ -23,7 +23,9 @@ import qualified Control.Concurrent.STM.TBQueue as TBQ
 import           Control.Monad (unless, void)
 import           Control.Monad.Catch (throwM)
 import qualified Data.HashMap.Strict as HM
-import           Data.Text (Text, stripSuffix)
+import           Data.Text (Text)
+import           Data.Word (Word64)
+import           GHC.Clock (getMonotonicTimeNSec)
 
 import           Cardano.BM.Data.Aggregated (Aggregated (..), EWMA (..),
                      Measurable (..), Stats (..), getDouble, singleton)
@@ -53,7 +55,21 @@ data AggregationInternal = AggregationInternal
 \subsubsection{Relation from context name to aggregated statistics}
 We keep the aggregated values (\nameref{code:Aggregated}) for a named context in a |HashMap|.
 \begin{code}
-type AggregationMap = HM.HashMap Text Aggregated
+type AggregationMap = HM.HashMap Text AggregatedExpanded
+
+\end{code}
+
+\subsubsection{Info for Aggregated operations}\label{code:AggregatedExpanded}\index{AggregatedExpanded}}
+Apart from the |Aggregated| we keep some valuable info regarding to them; such as when
+was the last time it was sent.
+\begin{code}
+type Timestamp = Word64
+
+data AggregatedExpanded = AggregatedExpanded
+                            { aeAggregated :: Aggregated
+                            , aeResetAfter :: Maybe Integer
+                            , aeLastSent   :: Timestamp
+                            }
 
 \end{code}
 
@@ -122,8 +138,8 @@ spawnDispatcher conf aggMap aggregationQueue switchboard = Async.async $ qProc a
 
     update :: LogObject
            -> LoggerName
-           -> HM.HashMap Text Aggregated
-           -> IO (HM.HashMap Text Aggregated, [(Text, Aggregated)])
+           -> HM.HashMap Text AggregatedExpanded
+           -> IO (HM.HashMap Text AggregatedExpanded, [(Text, Aggregated)])
     update (LP (LogValue iname value)) logname agmap = do
         let name = logname <> "." <> iname
         aggregated <-
@@ -136,9 +152,15 @@ spawnDispatcher conf aggMap aggregationQueue switchboard = Async.async $ qProc a
                         EwmaAK aEWMA -> do
                             let initEWMA = EmptyEWMA aEWMA
                             return $ AggregatedEWMA $ ewma initEWMA value
-                Just a -> return $ updateAggregation value a
-        let namedAggregated = [(iname, aggregated)]
-            updatedMap = HM.alter (const $ Just $ aggregated) name agmap
+                Just a -> return $ updateAggregation value (aeAggregated a) (aeResetAfter a)
+        now <- getMonotonicTimeNSec
+        let aggregatedX = AggregatedExpanded {
+                            aeAggregated = aggregated
+                          , aeResetAfter = Nothing
+                          , aeLastSent = now
+                          }
+            namedAggregated = [(iname, aeAggregated aggregatedX)]
+            updatedMap = HM.alter (const $ Just $ aggregatedX) name agmap
         -- use of HM.alter so that in future we can clear the Agrregated
         -- by using as alter's arg a function which returns Nothing.
         return (updatedMap, namedAggregated)
@@ -147,22 +169,14 @@ spawnDispatcher conf aggMap aggregationQueue switchboard = Async.async $ qProc a
         (mapNew, aggs) <- updateCounters counters logname agmap []
 
         return (mapNew, reverse aggs)
-    -- remove |Aggregated| of Time for the name given
-    update (ResetTimeAggregation name) _ agmap =
-            let k = case stripSuffix "aggregated" name of
-                        Just n  -> n
-                        Nothing -> ""
-            in
-            return (HM.delete (k <> "monoclock") agmap, [])
-
     -- TODO for text messages aggregate on delta of timestamps
     update _ _ agmap = return (agmap, [])
 
     updateCounters :: [Counter]
                   -> LoggerName
-                  -> HM.HashMap Text Aggregated
+                  -> HM.HashMap Text AggregatedExpanded
                   -> [(Text, Aggregated)]
-                  -> IO (HM.HashMap Text Aggregated, [(Text, Aggregated)])
+                  -> IO (HM.HashMap Text AggregatedExpanded, [(Text, Aggregated)])
     updateCounters [] _ aggrMap aggs = return $ (aggrMap, aggs)
     updateCounters (counter : cs) logname aggrMap aggs = do
         let name = cName counter
@@ -178,9 +192,15 @@ spawnDispatcher conf aggMap aggregationQueue switchboard = Async.async $ qProc a
                             EwmaAK aEWMA -> do
                                 let initEWMA = EmptyEWMA aEWMA
                                 return $ AggregatedEWMA $ ewma initEWMA value
-                    Just a -> return $ updateAggregation value a
-        let namedAggregated = (((nameCounter counter) <> "." <> name), aggregated)
-            updatedMap = HM.alter (const $ Just $ aggregated) fullname aggrMap
+                    Just a -> return $ updateAggregation value (aeAggregated a) (aeResetAfter a)
+        now <- getMonotonicTimeNSec
+        let aggregatedX = AggregatedExpanded {
+                            aeAggregated = aggregated
+                          , aeResetAfter = Nothing
+                          , aeLastSent = now
+                          }
+            namedAggregated = (((nameCounter counter) <> "." <> name), aggregated)
+            updatedMap = HM.alter (const $ Just $ aggregatedX) fullname aggrMap
 
         updateCounters cs logname updatedMap (namedAggregated :aggs)
 
@@ -204,22 +224,29 @@ We use Welford's online algorithm to update the estimation of mean and variance 
 (see \url{https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford's_Online_algorithm})
 
 \begin{code}
-updateAggregation :: Measurable -> Aggregated -> Aggregated
-updateAggregation v (AggregatedStats s) =
-    let newcount = fcount s + 1
-        newvalue = getDouble v
-        delta = newvalue - fsum_A s
-        dincr = (delta / fromInteger newcount)
-        delta2 = newvalue - fsum_A s - dincr
+updateAggregation :: Measurable -> Aggregated -> Maybe Integer -> Aggregated
+updateAggregation v (AggregatedStats s) resetAfter =
+    let count = fcount s
+        reset = maybe False (count >=) resetAfter
     in
-    AggregatedStats Stats { flast  = v
-                                 , fmin   = min (fmin s) v
-                                 , fmax   = max (fmax s) v
-                                 , fcount = newcount
-                                 , fsum_A = fsum_A s + dincr
-                                 , fsum_B = fsum_B s + (delta * delta2)
-                                 }
-updateAggregation v (AggregatedEWMA e) =
+    if reset
+    then
+        singleton v
+    else
+        let newcount = count + 1
+            newvalue = getDouble v
+            delta = newvalue - fsum_A s
+            dincr = (delta / fromInteger newcount)
+            delta2 = newvalue - fsum_A s - dincr
+        in
+        AggregatedStats Stats { flast  = v
+                                    , fmin   = min (fmin s) v
+                                    , fmax   = max (fmax s) v
+                                    , fcount = newcount
+                                    , fsum_A = fsum_A s + dincr
+                                    , fsum_B = fsum_B s + (delta * delta2)
+                                    }
+updateAggregation v (AggregatedEWMA e) _ =
     AggregatedEWMA $ ewma e v
 
 \end{code}
