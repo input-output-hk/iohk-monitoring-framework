@@ -33,6 +33,6 @@ data SubTrace = Neutral
               | NoTrace
               | DropOpening
               | ObservableTrace [ObservableInstance]
-                deriving (Generic, Show, FromJSON, ToJSON, Read)
+                deriving (Generic, Show, FromJSON, ToJSON, Read, Eq)
 
 \end{code}

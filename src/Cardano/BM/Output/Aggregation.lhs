@@ -11,6 +11,7 @@ module Cardano.BM.Output.Aggregation
       Aggregation
     , effectuate
     , realizefrom
+    , updateAggregation
     , unrealize
     ) where
 
@@ -22,11 +23,15 @@ import qualified Control.Concurrent.STM.TBQueue as TBQ
 import           Control.Monad (unless, void)
 import           Control.Monad.Catch (throwM)
 import qualified Data.HashMap.Strict as HM
-import           Data.Text (Text, stripSuffix)
+import           Data.Text (Text)
+import           Data.Word (Word64)
+import           GHC.Clock (getMonotonicTimeNSec)
 
-import           Cardano.BM.Data.Aggregated (Aggregated (..),
-                     updateAggregation, EWMA (..))
+import           Cardano.BM.Data.Aggregated (Aggregated (..), EWMA (..),
+                     Measurable (..), Stats (..), getDouble, singleton)
+import           Cardano.BM.Data.AggregatedKind (AggregatedKind (..))
 import           Cardano.BM.Data.Backend
+import           Cardano.BM.Configuration.Model (Configuration, getAggregatedKind)
 import           Cardano.BM.Data.Counter (Counter (..), CounterState (..),
                      nameCounter)
 import           Cardano.BM.Data.LogItem
@@ -50,7 +55,21 @@ data AggregationInternal = AggregationInternal
 \subsubsection{Relation from context name to aggregated statistics}
 We keep the aggregated values (\nameref{code:Aggregated}) for a named context in a |HashMap|.
 \begin{code}
-type AggregationMap = HM.HashMap Text Aggregated
+type AggregationMap = HM.HashMap Text AggregatedExpanded
+
+\end{code}
+
+\subsubsection{Info for Aggregated operations}\label{code:AggregatedExpanded}\index{AggregatedExpanded}
+Apart from the |Aggregated| we keep some valuable info regarding to them; such as when
+was the last time it was sent.
+\begin{code}
+type Timestamp = Word64
+
+data AggregatedExpanded = AggregatedExpanded
+                            { aeAggregated :: Aggregated
+                            , aeResetAfter :: Maybe Integer
+                            , aeLastSent   :: Timestamp
+                            }
 
 \end{code}
 
@@ -75,10 +94,10 @@ instance IsBackend Aggregation where
 
     realize _ = error "Aggregation cannot be instantiated by 'realize'"
 
-    realizefrom _ switchboard = do
+    realizefrom conf switchboard = do
         aggref <- newEmptyMVar
         aggregationQueue <- atomically $ TBQ.newTBQueue 2048
-        dispatcher <- spawnDispatcher HM.empty aggregationQueue switchboard
+        dispatcher <- spawnDispatcher conf HM.empty aggregationQueue switchboard
         putMVar aggref $ AggregationInternal aggregationQueue dispatcher
         return $ Aggregation aggref
 
@@ -100,18 +119,18 @@ instance IsBackend Aggregation where
 \subsubsection{Asynchrouniously reading log items from the queue and their processing}
 \begin{code}
 spawnDispatcher :: IsEffectuator e
-                => AggregationMap
+                => Configuration
+                -> AggregationMap
                 -> TBQ.TBQueue (Maybe NamedLogItem)
                 -> e
                 -> IO (Async.Async ())
-spawnDispatcher aggMap aggregationQueue switchboard = Async.async $ qProc aggMap
+spawnDispatcher conf aggMap aggregationQueue switchboard = Async.async $ qProc aggMap
   where
     qProc aggregatedMap = do
         maybeItem <- atomically $ TBQ.readTBQueue aggregationQueue
         case maybeItem of
             Just item -> do
-                let (updatedMap, aggregations) =
-                        update (lnItem item) (lnName item) aggregatedMap
+                (updatedMap, aggregations) <- update (lnItem item) (lnName item) aggregatedMap
                 unless (null aggregations) $
                     sendAggregated (AggregatedMessage aggregations) switchboard (lnName item)
                 qProc updatedMap
@@ -119,89 +138,71 @@ spawnDispatcher aggMap aggregationQueue switchboard = Async.async $ qProc aggMap
 
     update :: LogObject
            -> LoggerName
-           -> HM.HashMap Text Aggregated
-           -> (HM.HashMap Text Aggregated, [(Text, Aggregated)])
-    update (LP (LogValue iname value)) logname agmap =
+           -> HM.HashMap Text AggregatedExpanded
+           -> IO (HM.HashMap Text AggregatedExpanded, [(Text, Aggregated)])
+    update (LP (LogValue iname value)) logname agmap = do
         let name = logname <> "." <> iname
-            maybeAggregated = updateAggregation value $ HM.lookup name agmap
-            maybeAggregatedEWMA =
-                case HM.lookup (name <> ".ewma") agmap of
-                    Nothing ->
-                        let initEWMA = Just $ AggregatedEWMA $ EmptyEWMA 0.25 in
-                        updateAggregation value initEWMA
-                    agg@(Just (AggregatedEWMA _)) ->
-                        updateAggregation value agg
-                    _ -> Nothing
-            aggregatedMessage =
-                case maybeAggregated of
-                    Nothing ->
-                        []
-                    Just aggregated ->
-                        [(iname, aggregated)]
-            aggregatedMsgs =
-                case maybeAggregatedEWMA of
-                    Nothing ->
-                        error "This should not have happened!"
-                    Just aggregatedEWMA ->
-                        ((iname <> ".ewma"), aggregatedEWMA): aggregatedMessage
-            updatedMap  = HM.alter (const $ maybeAggregated) name agmap
-            updatedMap' = HM.alter (const $ maybeAggregatedEWMA) (name <> ".ewma") updatedMap
-        in
+        aggregated <-
+            case HM.lookup name agmap of
+                Nothing -> do
+                    -- if Aggregated does not exist; initialize it.
+                    aggregatedKind <- getAggregatedKind conf name
+                    case aggregatedKind of
+                        StatsAK      -> return $ singleton value
+                        EwmaAK aEWMA -> do
+                            let initEWMA = EmptyEWMA aEWMA
+                            return $ AggregatedEWMA $ ewma initEWMA value
+                Just a -> return $ updateAggregation value (aeAggregated a) (aeResetAfter a)
+        now <- getMonotonicTimeNSec
+        let aggregatedX = AggregatedExpanded {
+                            aeAggregated = aggregated
+                          , aeResetAfter = Nothing
+                          , aeLastSent = now
+                          }
+            namedAggregated = [(iname, aeAggregated aggregatedX)]
+            updatedMap = HM.alter (const $ Just $ aggregatedX) name agmap
         -- use of HM.alter so that in future we can clear the Agrregated
         -- by using as alter's arg a function which returns Nothing.
-        (updatedMap', aggregatedMsgs)
-    update (ObserveDiff counterState) logname agmap =
-        let
-            counters = csCounters counterState
-            (mapNew, aggs) = updateCounter counters logname agmap []
-        in
-            (mapNew, reverse aggs)
-    -- remove |Aggregated| of Time for the name given
-    update (ResetTimeAggregation name) _ agmap =
-            let k = case stripSuffix "aggregated" name of
-                        Just n  -> n
-                        Nothing -> ""
-            in
-            (HM.delete (k <> "monoclock") agmap, [])
+        return (updatedMap, namedAggregated)
+    update (ObserveDiff counterState) logname agmap = do
+        let counters = csCounters counterState
+        (mapNew, aggs) <- updateCounters counters logname agmap []
 
+        return (mapNew, reverse aggs)
     -- TODO for text messages aggregate on delta of timestamps
-    update _ _ agmap = (agmap, [])
+    update _ _ agmap = return (agmap, [])
 
-    updateCounter :: [Counter]
+    updateCounters :: [Counter]
                   -> LoggerName
-                  -> HM.HashMap Text Aggregated
+                  -> HM.HashMap Text AggregatedExpanded
                   -> [(Text, Aggregated)]
-                  -> (HM.HashMap Text Aggregated, [(Text, Aggregated)])
-    updateCounter [] _ aggrMap aggs = (aggrMap, aggs)
-    updateCounter (counter : cs) logname aggrMap aggs =
-        let
-            name = cName counter
+                  -> IO (HM.HashMap Text AggregatedExpanded, [(Text, Aggregated)])
+    updateCounters [] _ aggrMap aggs = return $ (aggrMap, aggs)
+    updateCounters (counter : cs) logname aggrMap aggs = do
+        let name = cName counter
             fullname = logname <> "." <> name
-            maybeAggregated = updateAggregation (cValue counter) $ HM.lookup fullname aggrMap
-            namedAggregated = case maybeAggregated of
-                                    Nothing ->
-                                        error "This should not have happened!"
-                                    Just aggregated ->
-                                        (((nameCounter counter) <> "." <> name), aggregated)
-            updatedMap = HM.alter (const $ maybeAggregated) fullname aggrMap
-            -- ewma
-            maybeAggregatedEWMA =
-                case HM.lookup (fullname <> ".ewma") updatedMap of
-                    Nothing ->
-                        let initEWMA = Just $ AggregatedEWMA $ EmptyEWMA 0.75 in
-                        updateAggregation (cValue counter) initEWMA
-                    agg@(Just (AggregatedEWMA _)) ->
-                        updateAggregation (cValue counter) agg
-                    _ -> Nothing
-            namedAggregatedEWMA =
-                case maybeAggregatedEWMA of
-                    Nothing ->
-                        error "This should not have happened!"
-                    Just aggregatedEWMA ->
-                        (((nameCounter counter) <> "." <> name <> ".ewma"), aggregatedEWMA)
-            updatedMap' = HM.alter (const $ maybeAggregatedEWMA) (fullname <> ".ewma") updatedMap
-        in
-            updateCounter cs logname updatedMap' (namedAggregated: namedAggregatedEWMA :aggs)
+            value = cValue counter
+        aggregated <-
+            case HM.lookup fullname aggrMap of
+                    -- if Aggregated does not exist; initialize it.
+                    Nothing -> do
+                        aggregatedKind <- getAggregatedKind conf fullname
+                        case aggregatedKind of
+                            StatsAK      -> return $ singleton value
+                            EwmaAK aEWMA -> do
+                                let initEWMA = EmptyEWMA aEWMA
+                                return $ AggregatedEWMA $ ewma initEWMA value
+                    Just a -> return $ updateAggregation value (aeAggregated a) (aeResetAfter a)
+        now <- getMonotonicTimeNSec
+        let aggregatedX = AggregatedExpanded {
+                            aeAggregated = aggregated
+                          , aeResetAfter = Nothing
+                          , aeLastSent = now
+                          }
+            namedAggregated = (((nameCounter counter) <> "." <> name), aggregated)
+            updatedMap = HM.alter (const $ Just $ aggregatedX) fullname aggrMap
+
+        updateCounters cs logname updatedMap (namedAggregated :aggs)
 
     sendAggregated :: IsEffectuator e => LogObject -> e -> Text -> IO ()
     sendAggregated (aggregatedMsg@(AggregatedMessage _)) sb logname =
@@ -213,5 +214,70 @@ spawnDispatcher aggMap aggregationQueue switchboard = Async.async $ qProc aggMap
                         }
     -- ingnore every other message that is not of type AggregatedMessage
     sendAggregated _ _ _ = return ()
+
+\end{code}
+
+\subsubsection{Update aggregation}\label{code:updateAggregation}\index{updateAggregation}
+We distinguish an unitialized from an already initialized aggregation. The latter is properly initialized.
+\\
+We use Welford's online algorithm to update the estimation of mean and variance of the sample statistics.
+(see \url{https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford's_Online_algorithm})
+
+\begin{code}
+updateAggregation :: Measurable -> Aggregated -> Maybe Integer -> Aggregated
+updateAggregation v (AggregatedStats s) resetAfter =
+    let count = fcount s
+        reset = maybe False (count >=) resetAfter
+    in
+    if reset
+    then
+        singleton v
+    else
+        let newcount = count + 1
+            newvalue = getDouble v
+            delta = newvalue - fsum_A s
+            dincr = (delta / fromInteger newcount)
+            delta2 = newvalue - fsum_A s - dincr
+        in
+        AggregatedStats Stats { flast  = v
+                                    , fmin   = min (fmin s) v
+                                    , fmax   = max (fmax s) v
+                                    , fcount = newcount
+                                    , fsum_A = fsum_A s + dincr
+                                    , fsum_B = fsum_B s + (delta * delta2)
+                                    }
+updateAggregation v (AggregatedEWMA e) _ =
+    AggregatedEWMA $ ewma e v
+
+\end{code}
+
+\subsubsection{Calculation of EWMA}\label{code:ewma}\index{ewma}
+Following \url{https://en.wikipedia.org/wiki/Moving_average#Exponential_moving_average} we calculate
+the exponential moving average for a series of values $ Y_t $ according to:
+
+$$
+S_t =
+\begin{cases}
+  Y_1,       & t = 1 \\
+  \alpha \cdot Y_t + (1 - \alpha) \cdot S_{t-1},    & t > 1
+\end{cases}
+$$
+\\
+The pattern matching below ensures that the |EWMA| will start with the first value passed in,
+and will not change type, once determined.
+\begin{code}
+ewma :: EWMA -> Measurable -> EWMA
+ewma (EmptyEWMA a) v = EWMA a v
+ewma (EWMA a (Microseconds s)) (Microseconds y) =
+    EWMA a $ Microseconds $ round $ a * (fromInteger y) + (1 - a) * (fromInteger s)
+ewma (EWMA a (Seconds s)) (Seconds y) =
+    EWMA a $ Seconds $ round $ a * (fromInteger y) + (1 - a) * (fromInteger s)
+ewma (EWMA a (Bytes s)) (Bytes y) =
+    EWMA a $ Bytes $ round $ a * (fromInteger y) + (1 - a) * (fromInteger s)
+ewma (EWMA a (PureI s)) (PureI y) =
+    EWMA a $ PureI $ round $ a * (fromInteger y) + (1 - a) * (fromInteger s)
+ewma (EWMA a (PureD s)) (PureD y) =
+    EWMA a $ PureD $ a * y + (1 - a) * s
+ewma _ _ = error "Cannot average on values of different type"
 
 \end{code}
