@@ -59,7 +59,7 @@ type AggregationMap = HM.HashMap Text AggregatedExpanded
 
 \end{code}
 
-\subsubsection{Info for Aggregated operations}\label{code:AggregatedExpanded}\index{AggregatedExpanded}}
+\subsubsection{Info for Aggregated operations}\label{code:AggregatedExpanded}\index{AggregatedExpanded}
 Apart from the |Aggregated| we keep some valuable info regarding to them; such as when
 was the last time it was sent.
 \begin{code}
