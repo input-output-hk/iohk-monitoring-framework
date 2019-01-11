@@ -103,11 +103,11 @@ data ConfigurationInternal = ConfigurationInternal
     , cgDefAggregatedKind :: AggregatedKind
     -- kind of Aggregated that will be used if a set of scribes for the
     -- specific loggername is not set
-    , cgPortEKG       :: Int
+    , cgPortEKG           :: Int
     -- port for EKG server
-    , cgPortGUI       :: Int
+    , cgPortGUI           :: Int
     -- port for changes at runtime (NOT IMPLEMENTED YET)
-    }
+    } deriving (Show, Eq)
 
 \end{code}
 

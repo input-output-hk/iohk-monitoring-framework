@@ -102,6 +102,7 @@ test-suite tests
   build-depends:       base,
                        iohk-monitoring,
 
+                       aeson,
                        array,
                        async,
                        bytestring,
@@ -121,6 +122,7 @@ test-suite tests
                        time-units,
                        transformers,
                        unordered-containers,
+                       vector,
                        void,
                        yaml
   ghc-options:         -Wall

@@ -9,14 +9,21 @@ module Cardano.BM.Test.Configuration (
     tests
   ) where
 
+import           Control.Concurrent.MVar (readMVar)
+import           Data.Aeson.Types (Value (..))
 import qualified Data.HashMap.Strict as HM
+import qualified Data.Vector as V
 import           Data.Yaml
 
 import           Cardano.BM.Data.Configuration
-
+import           Cardano.BM.Configuration.Model (Configuration (..), ConfigurationInternal (..),
+                     setup)
+import           Cardano.BM.Data.AggregatedKind
 import           Cardano.BM.Data.BackendKind
 import           Cardano.BM.Data.Output
+import           Cardano.BM.Data.Observable (ObservableInstance (..))
 import           Cardano.BM.Data.Severity
+import           Cardano.BM.Data.SubTrace (SubTrace (..))
 import           Cardano.BM.Data.Rotation
 
 import           Test.Tasty
@@ -43,6 +50,7 @@ unit_tests :: TestTree
 unit_tests = testGroup "Unit tests" [
         testCase "static_representation" unit_Configuration_static_representation
       , testCase "parsed_representation" unit_Configuration_parsed_representation
+      , testCase "parsed_configuration" unit_Configuration_parsed
       , testCase "include_EKG_if_defined" unit_Configuration_check_EKG_positive
       , testCase "not_include_EKG_if_ndef" unit_Configuration_check_EKG_negative
     ]
@@ -236,4 +244,72 @@ unit_Configuration_parsed_representation = do
                     \hasEKG: 12789\n\
                     \minSeverity: Info\n"
 
+unit_Configuration_parsed :: Assertion
+unit_Configuration_parsed = do
+    cfg <- setup "test/config.yaml"
+    cfgInternal <- readMVar $ getCG cfg
+    cfgInternal @?= ConfigurationInternal
+        { cgMinSeverity       = Info
+        , cgMapSeverity       = HM.fromList [ ("iohk.startup", Debug)
+                                            , ("iohk.background.process", Error)
+                                            , ("iohk.testing.uncritical", Warning)
+                                            ]
+        , cgMapSubtrace       = HM.fromList [ ("iohk.benchmarking",
+                                                    ObservableTrace [GhcRtsStats, MonotonicClock])
+                                            , ("iohk.deadend", NoTrace)
+                                            ]
+        , cgOptions           = HM.fromList
+            [ ("mapSubtrace",
+                HM.fromList [("iohk.benchmarking",
+                              Object (HM.fromList [("tag",String "ObservableTrace")
+                                                  ,("contents",Array $ V.fromList
+                                                        [String "GhcRtsStats"
+                                                        ,String "MonotonicClock"])]))
+                            ,("iohk.deadend",String "NoTrace")])
+            , ("mapSeverity", HM.fromList [("iohk.startup",String "Debug")
+                                          ,("iohk.background.process",String "Error")
+                                          ,("iohk.testing.uncritical",String "Warning")])
+            , ("mapAggregatedkinds", HM.fromList [("iohk.interesting.value",
+                                                        String "EwmaAK {alpha = 0.75}")
+                                                 ,("iohk.background.process",
+                                                        String "StatsAK")])
+            , ("cfokey",HM.fromList [("value",String "Release-1.0.0")])
+            , ("mapScribes", HM.fromList [("iohk.interesting.value",
+                                            Array $ V.fromList [String "StdoutSK::stdout"
+                                                               ,String "FileTextSK::testlog"])
+                                         ,("iohk.background.process",String "FileTextSK::testlog")])
+            , ("mapBackends", HM.fromList [("iohk.interesting.value",
+                                                Array $ V.fromList [String "EKGViewBK"
+                                                                   ,String "AggregationBK"])])
+            ]
+        , cgMapBackend        = HM.fromList [ ("iohk.interesting.value", [EKGViewBK,AggregationBK]) ]
+        , cgDefBackendKs      = [KatipBK]
+        , cgSetupBackends     = [AggregationBK, EKGViewBK, KatipBK]
+        , cgMapScribe         = HM.fromList [ ("iohk.interesting.value",
+                                                    ["StdoutSK::stdout","FileTextSK::testlog"])
+                                            , ("iohk.background.process", ["FileTextSK::testlog"])
+                                            ]
+        , cgDefScribes        = ["StdoutSK::stdout"]
+        , cgSetupScribes      = [ ScribeDefinition
+                                    { scKind     = FileTextSK
+                                    , scName     = "testlog"
+                                    , scRotation = Just $ RotationParameters
+                                                    { rpLogLimitBytes = 25000000
+                                                    , rpMaxAgeHours   = 24
+                                                    , rpKeepFilesNum  = 3
+                                                    }
+                                    }
+                                , ScribeDefinition
+                                    { scKind = StdoutSK
+                                    , scName = "stdout"
+                                    , scRotation = Nothing
+                                    }
+                                ]
+        , cgMapAggregatedKind = HM.fromList [ ("iohk.interesting.value", EwmaAK {alpha = 0.75} )
+                                            , ("iohk.background.process", StatsAK)
+                                            ]
+        , cgDefAggregatedKind = StatsAK
+        , cgPortEKG           = 12789
+        , cgPortGUI           = 0
+        }
 \end{code}
