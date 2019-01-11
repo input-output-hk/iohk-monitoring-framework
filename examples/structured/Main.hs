@@ -77,5 +77,3 @@ test_x2 = do
     logStructured trace
             [("food","xq732"), ("time",10.45), ("json",J(A.String "bla")), ("some-int",42)]  -- named arguments
             ["We ate ", Fourth, " ", Third, " for breakfast at ", Second, " with some ", First] -- message creation
-
-            

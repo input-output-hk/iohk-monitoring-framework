@@ -165,7 +165,7 @@ stdoutTrace = BaseTrace.BaseTrace $ Op $ \lognamed ->
                 output (lnName lognamed) $ liPayload logItem
         obj ->
             withMVar locallock $ \_ ->
-                output (lnName lognamed) $ T.pack $ show obj   -- toStrict (encodeToLazyText obj)
+                output (lnName lognamed) $ toStrict (encodeToLazyText obj)
   where
     output nm msg = TIO.putStrLn $ nm <> " :: " <> msg
 
