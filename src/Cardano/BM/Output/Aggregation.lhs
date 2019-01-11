@@ -132,9 +132,9 @@ spawnDispatcher conf aggMap aggregationQueue switchboard = Async.async $ qProc a
                     -- if Aggregated does not exist; initialize it.
                     aggregatedKind <- getAggregatedKind conf name
                     case aggregatedKind of
-                        StatsAK -> return $ singleton value
-                        EwmaAK  -> do
-                            let initEWMA = EmptyEWMA 0.75
+                        StatsAK      -> return $ singleton value
+                        EwmaAK aEWMA -> do
+                            let initEWMA = EmptyEWMA aEWMA
                             return $ AggregatedEWMA $ ewma initEWMA value
                 Just a -> return $ updateAggregation value a
         let namedAggregated = [(iname, aggregated)]
@@ -174,9 +174,9 @@ spawnDispatcher conf aggMap aggregationQueue switchboard = Async.async $ qProc a
                     Nothing -> do
                         aggregatedKind <- getAggregatedKind conf fullname
                         case aggregatedKind of
-                            StatsAK -> return $ singleton value
-                            EwmaAK  -> do
-                                let initEWMA = EmptyEWMA 0.75
+                            StatsAK      -> return $ singleton value
+                            EwmaAK aEWMA -> do
+                                let initEWMA = EmptyEWMA aEWMA
                                 return $ AggregatedEWMA $ ewma initEWMA value
                     Just a -> return $ updateAggregation value a
         let namedAggregated = (((nameCounter counter) <> "." <> name), aggregated)

@@ -23,7 +23,7 @@ import           GHC.Generics (Generic)
 This identifies the type of Aggregated.
 \begin{code}
 data AggregatedKind = StatsAK
-                    | EwmaAK
+                    | EwmaAK { alpha :: Double }
                         deriving (Generic, Eq, Show, FromJSON, ToJSON, Read)
 
 \end{code}
