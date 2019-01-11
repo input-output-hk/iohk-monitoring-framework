@@ -1,6 +1,6 @@
 
 % remake with this 'sed' command
-% sed -ne 's/.*label{code:\([^}]*\)}.*/%format \1 = "\\hyperref[code:\1]{\1}"/p' IOHK-Monitoring-test.tex 
+% sed -ne 's/.*label{code:\([^}]*\)}.*/%format \1 = "\\hyperref[code:\1]{\1}"/p' IOHK-Monitoring-tests.tex
 
 %if style /= newcode
 

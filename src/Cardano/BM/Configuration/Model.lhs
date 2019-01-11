@@ -22,7 +22,7 @@ module Cardano.BM.Configuration.Model
     , setSetupBackends
     , getSetupBackends
     , getScribes
-    , setScribe
+    , setScribes
     , setDefaultScribes
     , setSetupScribes
     , getSetupScribes
@@ -170,15 +170,15 @@ getScribes configuration name =
                 return (cgDefScribes cg)
             Just os -> return $ os
 
+setScribes :: Configuration -> LoggerName -> Maybe [ScribeId] -> IO ()
+setScribes configuration name scribes = do
+    cg <- takeMVar (getCG configuration)
+    putMVar (getCG configuration) $ cg { cgMapScribe = HM.alter (\_ -> scribes) name (cgMapScribe cg) }
+
 setDefaultScribes :: Configuration -> [ScribeId] -> IO ()
 setDefaultScribes configuration scs = do
     cg <- takeMVar (getCG configuration)
     putMVar (getCG configuration) $ cg { cgDefScribes = scs }
-
-setScribe :: Configuration -> LoggerName -> Maybe [ScribeId] -> IO ()
-setScribe configuration name be = do
-    cg <- takeMVar (getCG configuration)
-    putMVar (getCG configuration) $ cg { cgMapScribe = HM.alter (\_ -> be) name (cgMapScribe cg) }
 
 \end{code}
 

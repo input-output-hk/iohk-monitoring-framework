@@ -109,6 +109,7 @@ appendWithDot xs newName = T.take 80 $ xs <> "." <> newName
 
 \end{code}
 
+\subsubsection{Contramap a trace and produce the naming context}
 \begin{code}
 -- return a BaseTrace from a TraceNamed
 named :: BaseTrace.BaseTrace m (LogNamed i) -> LoggerName -> BaseTrace.BaseTrace m i
@@ -116,17 +117,24 @@ named trace name = contramap (LogNamed name) trace
 
 \end{code}
 
-\todo[inline]{TODO remove |locallock|}
-%if style == newcode
+\subsubsection{Trace a |LogObject| through}
+\label{code:traceNamedObject}\index{traceNamedObject}
 \begin{code}
-{-# NOINLINE locallock #-}
-\end{code}
-%endif
-\begin{code}
-locallock :: MVar ()
-locallock = unsafePerformIO $ newMVar ()
-\end{code}
+traceNamedObject
+    :: MonadIO m
+    => Trace m
+    -> LogObject
+    -> m ()
+traceNamedObject trace@(ctx, logTrace) lo = do
+    let lname = loggerName ctx
+    case (typeofTrace trace) of
+        TeeTrace secName ->
+             -- create a newly named copy of the |LogObject|
+             BaseTrace.traceWith (named logTrace (lname <> "." <> secName)) lo
+        _ -> return ()
+    BaseTrace.traceWith (named logTrace lname) lo
 
+\end{code}
 
 \subsubsection{Trace that forwards to the \nameref{code:Switchboard}}\label{code:mainTrace}\index{mainTrace}
 
@@ -146,16 +154,26 @@ This function returns a trace with an action of type "|(LogNamed LogObject) -> I
 which will output a text message as text and all others as JSON encoded representation
 to the console.
 
+\todo[inline]{TODO remove |locallock|}
+%if style == newcode
+\begin{code}
+{-# NOINLINE locallock #-}
+\end{code}
+%endif
+\begin{code}
+locallock :: MVar ()
+locallock = unsafePerformIO $ newMVar ()
+\end{code}
+
 \begin{code}
 stdoutTrace :: TraceNamed IO
 stdoutTrace = BaseTrace.BaseTrace $ Op $ \lognamed ->
-    case lnItem lognamed of
-        LP (LogMessage logItem) ->
-            withMVar locallock $ \_ ->
-                output (lnName lognamed) $ liPayload logItem
-        obj ->
-            withMVar locallock $ \_ ->
-                output (lnName lognamed) $ toStrict (encodeToLazyText obj)
+    withMVar locallock $ \_ ->
+        case lnItem lognamed of
+            LP (LogMessage logItem) ->
+                    output (lnName lognamed) $ liPayload logItem
+            obj ->
+                    output (lnName lognamed) $ toStrict (encodeToLazyText obj)
   where
     output nm msg = TIO.putStrLn $ nm <> " :: " <> msg
 
@@ -186,16 +204,17 @@ We do a lookup of the global |minSeverity| in the configuration. And, a lookup o
 A third filter is the |minSeverity| defined in the current context.
 \begin{code}
 traceConditionally
-    :: (MonadIO m)
-    => TraceContext -> BaseTrace.BaseTrace m LogObject -> LogObject
+    :: MonadIO m
+    => Trace m -> LogObject
     -> m ()
-traceConditionally ctx logTrace msg@(LP (LogMessage item)) = do
+traceConditionally logTrace@(ctx, _) msg@(LP (LogMessage item)) = do
     globminsev <- liftIO $ Config.minSeverity (configuration ctx)
     globnamesev <- liftIO $ Config.inspectSeverity (configuration ctx) (loggerName ctx)
     let minsev = max (minSeverity ctx) $ max globminsev (fromMaybe Debug globnamesev)
         flag = (liSeverity item) >= minsev
-    when flag $ BaseTrace.traceWith logTrace msg
-traceConditionally _ logTrace logObject = BaseTrace.traceWith logTrace logObject
+    when flag $ traceNamedObject logTrace msg
+traceConditionally logTrace logObject =
+    traceNamedObject logTrace logObject
 
 \end{code}
 
@@ -211,13 +230,13 @@ traceNamedItem
     -> Severity
     -> T.Text
     -> m ()
-traceNamedItem (ctx, logTrace) p s m =
+traceNamedItem trace@(ctx, logTrace) p s m =
     let logmsg = LP $ LogMessage $ LogItem { liSelection = p
                                            , liSeverity  = s
                                            , liPayload   = m
                                            }
     in
-    traceConditionally ctx (named logTrace (loggerName ctx)) $ logmsg
+    traceConditionally trace $ logmsg
 
 \end{code}
 
@@ -344,16 +363,6 @@ exampleConfiguration = withTrace (TraceConfiguration StdOut "my_example" (Observ
 \end{spec}
 %endif
 
-\label{code:traceNamedObject}\index{traceNamedObject}
-\begin{code}
-traceNamedObject
-    :: Trace m
-    -> LogObject
-    -> m ()
-traceNamedObject (ctx, logTrace) = BaseTrace.traceWith (named logTrace (loggerName ctx))
-
-\end{code}
-
 \subsubsection{subTrace}\label{code:subTrace}\index{subTrace}
 Transforms the input |Trace| according to the
 |Configuration| using the logger name of the
@@ -371,6 +380,9 @@ subTrace name tr@(ctx, _) = do
                             tr' <- appendName name tr
                             return $ updateTracetype subtrace tr'
         UntimedTrace -> do
+                            tr' <- appendName name tr
+                            return $ updateTracetype subtrace tr'
+        TeeTrace _   -> do
                             tr' <- appendName name tr
                             return $ updateTracetype subtrace tr'
         NoTrace      -> return $ updateTracetype subtrace (ctx, BaseTrace.BaseTrace $ Op $ \_ -> pure ())

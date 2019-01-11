@@ -186,9 +186,20 @@ passN backend katip namedLogItem = do
                     let (sev, msg, payload) = case item of
                                 (LP (LogMessage logItem)) ->
                                      (liSeverity logItem, liPayload logItem, Nothing)
+                                (ObserveDiff counters) ->
+                                     let text = toStrict (encodeToLazyText counters)
+                                     in
+                                     (Info, text, Just item)
+                                (ObserveOpen counters) ->
+                                     let text = toStrict (encodeToLazyText counters)
+                                     in
+                                     (Info, text, Just item)
+                                (ObserveClose counters) ->
+                                     let text = toStrict (encodeToLazyText counters)
+                                     in
+                                     (Info, text, Just item)
                                 (AggregatedMessage aggregated) ->
-                                    let
-                                        text = T.concat $ (flip map) aggregated $ \(name, agg) ->
+                                     let text = T.concat $ (flip map) aggregated $ \(name, agg) ->
                                                 "\n" <> name <> ": " <> pack (show agg)
                                     in
                                     (Info, text, Nothing)

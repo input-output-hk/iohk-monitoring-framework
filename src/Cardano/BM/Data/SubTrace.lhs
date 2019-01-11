@@ -14,6 +14,7 @@ module Cardano.BM.Data.SubTrace
 
 import           Data.Aeson (FromJSON (..), ToJSON)
 
+import           Cardano.BM.Data.LogItem (LoggerName)
 import           Cardano.BM.Data.Observable
 
 import           GHC.Generics (Generic)
@@ -25,12 +26,14 @@ import           GHC.Generics (Generic)
 \label{code:Neutral}\index{SubTrace!Neutral}
 \label{code:UntimedTrace}\index{SubTrace!UntimedTrace}
 \label{code:NoTrace}\index{SubTrace!NoTrace}
+\label{code:TeeTrace}\index{SubTrace!TeeTrace}
 \label{code:DropOpening}\index{SubTrace!DropOpening}
 \label{code:ObservableTrace}\index{SubTrace!ObservableTrace}
 \begin{code}
 data SubTrace = Neutral
               | UntimedTrace
               | NoTrace
+              | TeeTrace LoggerName
               | DropOpening
               | ObservableTrace [ObservableInstance]
                 deriving (Generic, Show, FromJSON, ToJSON, Read, Eq)
