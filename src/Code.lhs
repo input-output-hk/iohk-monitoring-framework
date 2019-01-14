@@ -4,7 +4,7 @@
 
 \usepackage{kpfonts}
 \usepackage[margin=1in]{geometry}
-\usepackage[pdfpagelabels]{hyperref}
+\usepackage[pdfpagelabels,ocgcolorlinks]{hyperref}
 \usepackage{todonotes}
 \usepackage{amsmath}
 \usepackage{mathtools}
@@ -48,7 +48,7 @@ frequency than the original message.
 
 \newpage
 
-\hypersetup{pageanchor=true}
+\hypersetup{pageanchor=true, linkcolor=olive}
 \pagenumbering{arabic}
 
 \tableofcontents
@@ -61,12 +61,13 @@ frequency than the original message.
 
 In figure \ref{fig:overview} we display the relationships among modules
 in |Cardano.BM|. The arrows indicate import of a module. The arrows with
-a triangle at one end would signify "inheritance", but we use it to show
-that one module replaces the other in the namespace, thus refines its interface.
+a triangle at one end would signify "inheritance" in object-oriented programming,
+but we use it to show that one module replaces the other in the namespace,
+thus refines its interface.
 
-\begin{figure}[htp]
+\begin{figure}[h]
 \centering{
-  \includegraphics[scale=0.54]{OverviewModules.pdf}
+  \includegraphics[scale=0.48]{OverviewModules.pdf}
 }
 \caption{Overview of module relationships}\label{fig:overview}
 \end{figure}
@@ -75,10 +76,6 @@ that one module replaces the other in the namespace, thus refines its interface.
 
 \subsection{Logging with |Trace|}
 
-\subsection{Measuring |Observable|s}
-\subsection{Monitoring}
-\subsection{Information reduction in |Aggregation|}
-\subsection{Output selection}
 \subsection{Setup procedure}
 
 \begin{figure}[htp]
@@ -88,11 +85,26 @@ that one module replaces the other in the namespace, thus refines its interface.
 \caption{Setup procedure}\label{fig:setup}
 \end{figure}
 
+\subsubsection{Hierarchy of |Trace|s}
+
+\subsection{Measuring |Observable|s}
+\subsection{Information reduction in |Aggregation|}
+\subsection{Output selection}
+\subsection{Monitoring}
+
 \section{Examples}
 
 \subsection{Observing evaluation of a STM action}
 
 \subsection{Observing evaluation of a monad action}
+
+\subsection{Simple example showing plain logging}
+
+%include ../examples/simple/Main.lhs
+
+\subsection{Complex example showing logging, aggregation of log items, and observing |IO| actions}
+
+%include ../examples/complex/Main.lhs
 
 \section{Code listings}
 

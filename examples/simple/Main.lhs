@@ -1,3 +1,4 @@
+\begin{code}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Main
@@ -6,9 +7,10 @@ module Main
 
 import           Control.Concurrent (threadDelay)
 
-import           Cardano.BM.Configuration.Static
-import           Cardano.BM.Setup
-import           Cardano.BM.Trace
+import           Cardano.BM.Configuration.Static (defaultConfigStdout)
+import           Cardano.BM.Setup (setupTrace)
+import           Cardano.BM.Trace (logDebug, logError, logInfo, logNotice
+                     logWarning)
 
 
 main :: IO ()
@@ -25,3 +27,5 @@ main = do
     threadDelay 80000
 
     return ()
+
+\end{code}
