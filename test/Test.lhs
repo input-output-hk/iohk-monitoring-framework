@@ -3,13 +3,12 @@
 
 \usepackage{kpfonts}
 \usepackage[margin=1in]{geometry}
-\usepackage[pdfpagelabels]{hyperref}
+\usepackage[pdfpagelabels,ocgcolorlinks]{hyperref}
 \usepackage{todonotes}
 \usepackage{amsmath}
 \usepackage{mathtools}
 \usepackage{verbatim}
 \usepackage{colortbl}
-\usepackage{hyperref}
 
 %include polycode.fmt
 
@@ -29,7 +28,7 @@
 \maketitle
 \end{titlepage}
 
-\hypersetup{pageanchor=true}
+\hypersetup{pageanchor=true, linkcolor=olive}
 \pagenumbering{arabic}
 
 \tableofcontents

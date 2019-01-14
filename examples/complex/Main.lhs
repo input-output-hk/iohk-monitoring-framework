@@ -1,3 +1,5 @@
+\subsubsection{Module header and import directives}
+\begin{code}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Main
@@ -20,9 +22,12 @@ import           Cardano.BM.Setup
 import           Cardano.BM.Trace
 
 import           System.Random
+    
+\end{code}
 
-
--- | make configuration
+\subsubsection{Define configuration}
+The output can be viewed in EKG on \url{http://localhost:12789}.
+\begin{code}
 config :: IO CM.Configuration
 config = do
     c <- CM.empty
@@ -70,8 +75,11 @@ config = do
     CM.setEKGport c 12789
 
     return c
+    
+\end{code}
 
--- | thread that outputs a random number to a |Trace|
+\subsubsection{Thread that outputs a random number to a |Trace|}
+\begin{code}
 randomThr :: Trace IO -> IO (Async.Async ())
 randomThr trace = do
   logInfo trace "starting random generator"
@@ -84,8 +92,11 @@ randomThr trace = do
         num <- randomRIO (42-42, 42+42) :: IO Double
         traceNamedObject tr (LP (LogValue "rr" (PureD num)))
         loop tr
+    
+\end{code}
 
--- | thread that outputs a random number to a |Trace|
+\subsubsection{Thread that observes an |IO| action}
+\begin{code}
 observeIO :: Trace IO -> IO (Async.Async ())
 observeIO trace = do
   logInfo trace "starting observer"
@@ -100,8 +111,11 @@ observeIO trace = do
             threadDelay 50000  -- .05 second
             pure ()
         loop tr
+    
+\end{code}
 
--- | main entry point
+\subsubsection{Main entry point}
+\begin{code}
 main :: IO ()
 main = do
     -- create configuration
@@ -126,3 +140,5 @@ main = do
     _ <- Async.waitCatch proc_random
 
     return ()
+
+\end{code}
