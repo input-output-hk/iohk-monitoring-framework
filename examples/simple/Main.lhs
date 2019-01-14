@@ -9,7 +9,7 @@ import           Control.Concurrent (threadDelay)
 
 import           Cardano.BM.Configuration.Static (defaultConfigStdout)
 import           Cardano.BM.Setup (setupTrace)
-import           Cardano.BM.Trace (logDebug, logError, logInfo, logNotice
+import           Cardano.BM.Trace (logDebug, logError, logInfo, logNotice,
                      logWarning)
 
 
