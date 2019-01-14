@@ -82,6 +82,7 @@ unit_tests = testGroup "Unit tests" [
       , testCase "changing the minimum severity of a named context at runtime"
             unit_named_min_severity
       , testCase "appending names should not exceed 80 chars" unit_append_name
+      , testCase "creat subtrace which duplicates messages" unit_trace_duplicate
       ]
       where
         observablesSet = [MonotonicClock, MemoryStats]
@@ -128,7 +129,7 @@ setTransformer_ (ctx, _) name subtr = do
 
 \end{code}
 
-\subsubsection{Example of using named contexts with |Trace|}
+\subsubsection{Example of using named contexts with |Trace|}\label{code:example_with_named_contexts}
 \begin{code}
 example_with_named_contexts :: IO String
 example_with_named_contexts = do
@@ -217,7 +218,7 @@ timing_Observable_vs_Untimed = do
 
 \end{code}
 
-\subsubsection{Control tracing in a hierarchy of |Trace|s}
+\subsubsection{Control tracing in a hierarchy of |Trace|s}\label{code:unit_hierarchy}
 We can lay out traces in a hierarchical manner, that the children
 forward traced items to the parent |Trace|.
 A |NoTrace| introduced in this hierarchy will cut off a branch
@@ -286,6 +287,33 @@ unit_trace_min_severity = do
 
 \end{code}
 
+\subsubsection{Define a subtrace's behaviour to duplicate all messages}\label{code:unit_trace_duplicate}
+The |SubTrace| will duplicate all messages that pass through it. Each message will be in its own named
+context.
+\begin{code}
+unit_trace_duplicate :: Assertion
+unit_trace_duplicate = do
+    msgs <- STM.newTVarIO []
+    trace0@(ctx,_) <- setupTrace $ TraceConfiguration (TVarList msgs) "test duplicate" Neutral Debug
+    logInfo trace0 "Message #1"
+
+    -- create a subtrace which duplicates all messages
+    setSubTrace (configuration ctx) "test duplicate.orig" $ Just (TeeTrace "dup")
+    trace <- subTrace "orig" trace0
+
+    -- this message will be duplicated
+    logInfo trace "You will see me twice!"
+
+    -- acquire the traced objects
+    res <- STM.readTVarIO msgs
+
+    -- only the first and last messages should have been traced
+    assertBool
+        ("Found more or less messages than expected: " ++ show res)
+        (length res == 3)
+
+\end{code}
+
 \subsubsection{Change the minimum severity of a named context}\label{code:unit_named_min_severity}
 A trace of a named context can be configured with a minimum severity, such that the trace will
 filter out messages that are labelled with a lower severity.
@@ -351,6 +379,7 @@ unit_hierarchy' subtraces f = do
 
 \end{code}
 
+\subsubsection{Logging in parallel}\label{code:unit_trace_in_fork}
 \begin{code}
 unit_trace_in_fork :: Assertion
 unit_trace_in_fork = do
@@ -383,6 +412,7 @@ unit_trace_in_fork = do
 
 \end{code}
 
+\subsubsection{Stress testing parallel logging}\label{code:stress_trace_in_fork}
 \begin{code}
 stress_trace_in_fork :: Assertion
 stress_trace_in_fork = do
@@ -410,6 +440,7 @@ stress_trace_in_fork = do
 
 \end{code}
 
+\subsubsection{Dropping |ObserveOpen| messages in a subtrace}\label{code:unit_noOpening_Trace}
 \begin{code}
 unit_noOpening_Trace :: Assertion
 unit_noOpening_Trace = do

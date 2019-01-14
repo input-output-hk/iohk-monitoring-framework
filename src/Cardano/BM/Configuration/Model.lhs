@@ -16,7 +16,7 @@ module Cardano.BM.Configuration.Model
     , inspectSeverity
     , setSeverity
     , getBackends
-    , setBackend
+    , setBackends
     , getDefaultBackends
     , setDefaultBackends
     , setSetupBackends
@@ -134,8 +134,8 @@ setDefaultBackends configuration bes = do
     cg <- takeMVar (getCG configuration)
     putMVar (getCG configuration) $ cg { cgDefBackendKs = bes }
 
-setBackend :: Configuration -> LoggerName -> Maybe [BackendKind] -> IO ()
-setBackend configuration name be = do
+setBackends :: Configuration -> LoggerName -> Maybe [BackendKind] -> IO ()
+setBackends configuration name be = do
     cg <- takeMVar (getCG configuration)
     putMVar (getCG configuration) $ cg { cgMapBackend = HM.alter (\_ -> be) name (cgMapBackend cg) }
 

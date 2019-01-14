@@ -207,7 +207,6 @@ passN backend katip namedLogItem = do
                                     (Debug, name <> " = " <> pack (show value), Nothing)
                                 KillPill ->
                                     (Info, "Kill pill received!", Nothing)
-                                _ -> (Info, "", (Nothing :: Maybe LogObject))
                     if (msg == "") && (isNothing payload)
                     then return ()
                     else do

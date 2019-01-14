@@ -230,7 +230,7 @@ traceNamedItem
     -> Severity
     -> T.Text
     -> m ()
-traceNamedItem trace@(ctx, logTrace) p s m =
+traceNamedItem trace p s m =
     let logmsg = LP $ LogMessage $ LogItem { liSelection = p
                                            , liSeverity  = s
                                            , liPayload   = m

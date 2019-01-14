@@ -49,8 +49,8 @@ config = do
                          ]
     -- per default each messages is sent to the logs, if not otherwise defined (see below: 'CM.setScribe')
     CM.setDefaultScribes c ["StdoutSK::stdout", "FileJsonSK::out.json"]
-    CM.setScribe c "complex.random" (Just ["StdoutSK::stdout", "FileTextSK::out.txt"])
-    CM.setScribe c "complex.random.aggregated" (Just ["StdoutSK::stdout"])
+    CM.setScribes c "complex.random" (Just ["StdoutSK::stdout", "FileTextSK::out.txt"])
+    CM.setScribes c "complex.random.aggregated" (Just ["StdoutSK::stdout"])
     -- define a subtrace whose behaviour is to copy all log items,
     -- and pass them up with a name added to their context
     CM.setSubTrace c "complex.random" (Just $ TeeTrace "copy")
@@ -58,14 +58,14 @@ config = do
     -- and pass them up with a name added to their context
     CM.setSubTrace c "complex.observeIO" (Just $ ObservableTrace [GhcRtsStats,MemoryStats])
     -- forward the random number to aggregation:
-    CM.setBackend c "complex.random" (Just [AggregationBK, KatipBK])
-    CM.setBackend c "complex.random.copy" (Just [AggregationBK])
+    CM.setBackends c "complex.random" (Just [AggregationBK, KatipBK])
+    CM.setBackends c "complex.random.copy" (Just [AggregationBK])
     -- forward the observed values to aggregation:
-    CM.setBackend c "complex.observeIO" (Just [KatipBK])
+    CM.setBackends c "complex.observeIO" (Just [KatipBK])
     -- forward the aggregated output to the EKG view:
-    CM.setBackend c "complex.random.aggregated" (Just [EKGViewBK])
-    CM.setBackend c "complex.random.copy.aggregated" (Just [EKGViewBK])
-    CM.setBackend c "complex.observeIO.aggregated" (Just [EKGViewBK])
+    CM.setBackends c "complex.random.aggregated" (Just [EKGViewBK])
+    CM.setBackends c "complex.random.copy.aggregated" (Just [EKGViewBK])
+    CM.setBackends c "complex.observeIO.aggregated" (Just [EKGViewBK])
     -- start EKG on http://localhost:12789
     CM.setEKGport c 12789
 
