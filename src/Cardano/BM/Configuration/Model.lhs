@@ -16,13 +16,13 @@ module Cardano.BM.Configuration.Model
     , inspectSeverity
     , setSeverity
     , getBackends
-    , setBackend
+    , setBackends
     , getDefaultBackends
     , setDefaultBackends
     , setSetupBackends
     , getSetupBackends
     , getScribes
-    , setScribe
+    , setScribes
     , setDefaultScribes
     , setSetupScribes
     , getSetupScribes
@@ -134,8 +134,8 @@ setDefaultBackends configuration bes = do
     cg <- takeMVar (getCG configuration)
     putMVar (getCG configuration) $ cg { cgDefBackendKs = bes }
 
-setBackend :: Configuration -> LoggerName -> Maybe [BackendKind] -> IO ()
-setBackend configuration name be = do
+setBackends :: Configuration -> LoggerName -> Maybe [BackendKind] -> IO ()
+setBackends configuration name be = do
     cg <- takeMVar (getCG configuration)
     putMVar (getCG configuration) $ cg { cgMapBackend = HM.alter (\_ -> be) name (cgMapBackend cg) }
 
@@ -170,15 +170,15 @@ getScribes configuration name =
                 return (cgDefScribes cg)
             Just os -> return $ os
 
+setScribes :: Configuration -> LoggerName -> Maybe [ScribeId] -> IO ()
+setScribes configuration name scribes = do
+    cg <- takeMVar (getCG configuration)
+    putMVar (getCG configuration) $ cg { cgMapScribe = HM.alter (\_ -> scribes) name (cgMapScribe cg) }
+
 setDefaultScribes :: Configuration -> [ScribeId] -> IO ()
 setDefaultScribes configuration scs = do
     cg <- takeMVar (getCG configuration)
     putMVar (getCG configuration) $ cg { cgDefScribes = scs }
-
-setScribe :: Configuration -> LoggerName -> Maybe [ScribeId] -> IO ()
-setScribe configuration name be = do
-    cg <- takeMVar (getCG configuration)
-    putMVar (getCG configuration) $ cg { cgMapScribe = HM.alter (\_ -> be) name (cgMapScribe cg) }
 
 \end{code}
 
