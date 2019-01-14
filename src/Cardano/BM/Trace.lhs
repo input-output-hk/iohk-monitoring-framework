@@ -22,6 +22,7 @@ module Cardano.BM.Trace
     , subTrace
     , typeofTrace
     , updateTracetype
+    , evalFilters
     -- * log functions
     , traceNamedObject
     , traceNamedItem
@@ -127,13 +128,33 @@ traceNamedObject
     -> m ()
 traceNamedObject trace@(ctx, logTrace) lo = do
     let lname = loggerName ctx
-    case (typeofTrace trace) of
-        TeeTrace secName ->
+    doOutput <- case (typeofTrace trace) of
+        FilterTrace filters -> return $ evalFilters filters lname
+        TeeTrace secName -> do
              -- create a newly named copy of the |LogObject|
              BaseTrace.traceWith (named logTrace (lname <> "." <> secName)) lo
-        _ -> return ()
-    BaseTrace.traceWith (named logTrace lname) lo
+             return True
+        _ -> return True
+    if doOutput
+    then BaseTrace.traceWith (named logTrace lname) lo
+    else return ()
 
+\end{code}
+
+\subsubsection{Evaluation of |FilterTrace|}\label{code:evalFilters}\index{evalFilters}
+\begin{code}
+evalFilters :: [NameOperator] -> LoggerName -> Bool
+evalFilters nos nm = 
+    any (evalFilter nm) nos
+  where
+    evalFilter :: LoggerName -> NameOperator -> Bool
+    evalFilter name (Drop sel) = not $ match name sel
+    evalFilter name (Unhide sel) = match name sel
+    match :: LoggerName -> NameSelector -> Bool
+    match name (Exact name') = name == name'
+    match name (StartsWith prefix) = T.isPrefixOf prefix name
+    match name (EndsWith postfix) = T.isSuffixOf postfix name
+    match name (Contains name') = T.isInfixOf name' name
 \end{code}
 
 \subsubsection{Trace that forwards to the \nameref{code:Switchboard}}\label{code:mainTrace}\index{mainTrace}
@@ -376,17 +397,20 @@ subTrace name tr@(ctx, _) = do
     subtrace0 <- liftIO $ Config.findSubTrace (configuration ctx) newName
     let subtrace = case subtrace0 of Nothing -> Neutral; Just str -> str
     case subtrace of
-        Neutral      -> do
+        Neutral       -> do
                             tr' <- appendName name tr
                             return $ updateTracetype subtrace tr'
-        UntimedTrace -> do
+        UntimedTrace  -> do
                             tr' <- appendName name tr
                             return $ updateTracetype subtrace tr'
-        TeeTrace _   -> do
+        TeeTrace _    -> do
                             tr' <- appendName name tr
                             return $ updateTracetype subtrace tr'
-        NoTrace      -> return $ updateTracetype subtrace (ctx, BaseTrace.BaseTrace $ Op $ \_ -> pure ())
-        DropOpening  -> return $ updateTracetype subtrace (ctx, BaseTrace.BaseTrace $ Op $ \lognamed -> do
+        FilterTrace _ -> do
+                            tr' <- appendName name tr
+                            return $ updateTracetype subtrace tr'
+        NoTrace       -> return $ updateTracetype subtrace (ctx, BaseTrace.BaseTrace $ Op $ \_ -> pure ())
+        DropOpening   -> return $ updateTracetype subtrace (ctx, BaseTrace.BaseTrace $ Op $ \lognamed -> do
             case lnItem lognamed of
                 ObserveOpen _ -> return ()
                 obj           -> traceNamedObject tr obj )
