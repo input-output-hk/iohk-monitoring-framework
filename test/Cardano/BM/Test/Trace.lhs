@@ -43,8 +43,8 @@ import qualified Cardano.BM.Observer.Monadic as MonadicObserver
 import qualified Cardano.BM.Observer.STM as STMObserver
 import           Cardano.BM.Setup (newContext)
 import qualified Cardano.BM.Setup as Setup
-import           Cardano.BM.Trace (Trace, appendName, logInfo, subTrace,
-                    traceInTVarIO, traceNamedInTVarIO)
+import           Cardano.BM.Trace (Trace, appendName, evalFilters, logInfo,
+                    subTrace, traceInTVarIO, traceNamedInTVarIO)
 import           Cardano.BM.Output.Switchboard (Switchboard(..))
 
 import           Test.Tasty (TestTree, testGroup)
@@ -83,6 +83,7 @@ unit_tests = testGroup "Unit tests" [
             unit_named_min_severity
       , testCase "appending names should not exceed 80 chars" unit_append_name
       , testCase "creat subtrace which duplicates messages" unit_trace_duplicate
+      , testCase "testing name filtering" unit_name_filtering
       ]
       where
         observablesSet = [MonotonicClock, MemoryStats]
@@ -480,5 +481,29 @@ setVar_ = do
     STM.writeTVar t 42
     res <- STM.readTVar t
     return res
+
+\end{code}
+
+\subsubsection{Testing log context name filters}\label{code:unit_name_filtering}
+\begin{code}
+unit_name_filtering :: Assertion
+unit_name_filtering = do
+    let contextName = "test.sub.1"
+    let filter1 = [ Drop (Exact "test.sub.1") ]
+    assertBool ("Dropping a specific name should filter it out and thus return False")
+               (False == evalFilters filter1 contextName)
+    let filter2 = [ Drop (EndsWith ".1") ]
+    assertBool ("Dropping a name ending with a specific text should filter out the context name and thus return False")
+               (False == evalFilters filter2 contextName)
+    let filter3 = [ Drop (StartsWith "test.") ]
+    assertBool ("Dropping a name starting with a specific text should filter out the context name and thus return False")
+               (False == evalFilters filter3 contextName)
+    let filter4 = [ Drop (Contains ".sub.") ]
+    assertBool ("Dropping a name starting containing a specific text should filter out the context name and thus return False")
+               (False == evalFilters filter4 contextName)
+    let filter5 = [ Drop (StartsWith "test."),
+                    Unhide (Exact "test.sub.1") ]
+    assertBool ("Drop all and unhiding a specific name should the context name allow passing the filter")
+               (True == evalFilters filter5 contextName)
 
 \end{code}
