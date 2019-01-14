@@ -42,7 +42,7 @@ abstract ...
 \section{Coverage}
 
 Test coverage is calculated as the fraction of functions which are called from test routines.
-This percentage is calculated by the tool |hpc| with a call to 
+This percentage is calculated by the tool |hpc| with a call to
 \begin{verbatim}cabal new-test\end{verbatim}
 Add to a local \tt{cabal.project.local} file these lines:
 \newline
@@ -77,6 +77,7 @@ import qualified Cardano.BM.Test.Aggregated (tests)
 import qualified Cardano.BM.Test.STM (tests)
 import qualified Cardano.BM.Test.Trace (tests)
 import qualified Cardano.BM.Test.Configuration (tests)
+import qualified Cardano.BM.Test.Routing (tests)
 
 main :: IO ()
 main = defaultMain tests
@@ -88,6 +89,7 @@ tests =
   , Cardano.BM.Test.STM.tests
   , Cardano.BM.Test.Trace.tests
   , Cardano.BM.Test.Configuration.tests
+  , Cardano.BM.Test.Routing.tests
   ]
 \end{code}
 
