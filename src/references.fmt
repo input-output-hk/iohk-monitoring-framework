@@ -113,6 +113,7 @@
 %format Neutral = "\hyperref[code:Neutral]{Neutral}"
 %format UntimedTrace = "\hyperref[code:UntimedTrace]{UntimedTrace}"
 %format NoTrace = "\hyperref[code:NoTrace]{NoTrace}"
+%format TeeTrace = "\hyperref[code:TeeTrace]{TeeTrace}"
 %format DropOpening = "\hyperref[code:DropOpening]{DropOpening}"
 %format ObservableTrace = "\hyperref[code:ObservableTrace]{ObservableTrace}"
 %format Trace = "\hyperref[code:Trace]{Trace}"

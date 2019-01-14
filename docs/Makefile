@@ -44,10 +44,10 @@ ImagePdf = OverviewModules.pdf SetupProcedure.pdf ConfigurationModel.pdf
 
 all: $(DOC1).pdf $(DOC2).pdf
 
-$(DOC1).tex: $(SOURCES)
+$(DOC1).tex: $(SOURCES) ../src/references.fmt
 	cd ../src; lhs2TeX -v -o ../docs/$(DOC1).tex Code.lhs
 
-$(DOC2).tex: $(TESTS) test-coverage.tex
+$(DOC2).tex: $(TESTS) test-coverage.tex ../test/references.fmt
 	cd ../test; lhs2TeX -v -o ../docs/$(DOC2).tex Test.lhs
 
 $(DOC1).pdf: $(DOC1).tex $(ImagePdf)
@@ -56,9 +56,6 @@ $(DOC1).pdf: $(DOC1).tex $(ImagePdf)
 $(DOC2).pdf: $(DOC2).tex
 	#latexmk -pdf -pdflatex="pdflatex -interaction=nonstopmode" -use-make $<
 	latexmk -pdf -use-make $<
-
-#test-coverage.tex: ../dist-newstyle/build/x86_64-osx/ghc-8.6.2/iohk-monitoring-0.1.0.0/hpc/vanilla/html/iohk-monitoring-0.1.0.0/hpc_index_fun.html
-#	if [ -e $< ]; then cd prochpc; cabal new-exec prochpc ../$< > ../$@ ; fi
 
 OverviewModules.pdf: OverviewModules.png
 	convert $< $@

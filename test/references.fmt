@@ -1,11 +1,17 @@
 
 % remake with this 'sed' command
-% sed -ne 's/.*label{code:\([^}]*\)}.*/%format \1 = "\\hyperref[code:\1]{\1}"/p' IOHK-Monitoring-test.tex 
+% sed -ne 's/.*label{code:\([^}]*\)}.*/%format \1 = "\\hyperref[code:\1]{\1}"/p' IOHK-Monitoring-tests.tex
 
 %if style /= newcode
 
-%format unit_trace_min_severity = "\hyperref[code:unit_trace_min_severity]{unit_trace_min_severity}"
-%format unit_named_min_severity = "\hyperref[code:unit_named_min_severity]{unit_named_min_severity}"
-%format unit_append_name = "\hyperref[code:unit_append_name]{unit_append_name}"
+%format example_with_named_contexts = "\hyperref[code:example_with_named_contexts]{example\_with\_named\_contexts}"
+%format unit_hierarchy = "\hyperref[code:unit_hierarchy]{unit\_hierarchy}"
+%format unit_trace_min_severity = "\hyperref[code:unit_trace_min_severity]{unit\_trace\_min\_severity}"
+%format unit_trace_duplicate = "\hyperref[code:unit_trace_duplicate]{unit\_trace\_duplicate}"
+%format unit_named_min_severity = "\hyperref[code:unit_named_min_severity]{unit\_named\_min\_severity}"
+%format unit_trace_in_fork = "\hyperref[code:unit_trace_in_fork]{unit\_trace\_in\_fork}"
+%format stress_trace_in_fork = "\hyperref[code:stress_trace_in_fork]{stress\_trace\_in\_fork}"
+%format unit_noOpening_Trace = "\hyperref[code:unit_noOpening_Trace]{unit\_noOpening\_Trace}"
+%format unit_append_name = "\hyperref[code:unit_append_name]{unit\_append\_name}"
 
 %endif
