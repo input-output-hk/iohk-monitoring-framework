@@ -1,5 +1,5 @@
 { mkDerivation, aeson, Cabal, array, async, auto-update, base, bytestring
-, clock, containers, contravariant, directory, ekg, ekg-core
+, clock, containers, contravariant, directory, download, ekg, ekg-core
 , filepath, katip, lens, mtl, process, QuickCheck, random
 , safe-exceptions, semigroups, stdenv, stm, tasty, tasty-hunit
 , tasty-quickcheck, template-haskell, text, time, time-units
@@ -11,7 +11,7 @@ mkDerivation {
   src = ./.;
   libraryHaskellDepends = [
     aeson Cabal array async auto-update base bytestring clock containers
-    contravariant directory ekg ekg-core filepath katip lens mtl
+    contravariant download directory ekg ekg-core filepath katip lens mtl
     safe-exceptions stm template-haskell text time time-units
     transformers unix unordered-containers yaml
   ];

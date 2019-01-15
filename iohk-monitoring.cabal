@@ -150,6 +150,8 @@ executable example-complex
                        iohk-monitoring,
                        async,
                        bytestring,
+                       download,
                        mtl,
                        random,
+                       text,
                        unix
