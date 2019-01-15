@@ -108,8 +108,8 @@ instance IsBackend Log where
                 let bufferSize = 5000  -- size of the queue (in log items)
                 in
                 KC.ScribeSettings bufferSize
-            createScribe FileTextSK name = mkTextFileScribe  (FileDescription $ unpack name) False
-            createScribe FileJsonSK name = mkJsonFileScribe  (FileDescription $ unpack name) False
+            createScribe FileTextSK name = mkTextFileScribe (FileDescription $ unpack name) False
+            createScribe FileJsonSK name = mkJsonFileScribe (FileDescription $ unpack name) False
             createScribe StdoutSK _ = mkStdoutScribe
             createScribe StderrSK _ = mkStderrScribe
 
