@@ -10,6 +10,7 @@
 module Cardano.BM.Output.Switchboard
     (
       Switchboard (..)
+    , mainTrace
     , effectuate
     , realize
     , unrealize
@@ -22,12 +23,17 @@ import           Control.Concurrent.STM (atomically)
 import qualified Control.Concurrent.STM.TBQueue as TBQ
 import           Control.Monad (forM_, when, void)
 import           Control.Monad.Catch (throwM)
+import           Data.Functor.Contravariant (Op (..))
 
+import qualified Cardano.BM.BaseTrace as BaseTrace
 import           Cardano.BM.Configuration (Configuration)
 import           Cardano.BM.Configuration.Model (getBackends,
                      getSetupBackends)
 import           Cardano.BM.Data.Backend
 import           Cardano.BM.Data.LogItem
+import           Cardano.BM.Data.Trace (TraceNamed, TraceContext (..))
+import           Cardano.BM.Data.Severity
+import           Cardano.BM.Data.SubTrace
 import qualified Cardano.BM.Output.Aggregation
 import qualified Cardano.BM.Output.EKGView
 import qualified Cardano.BM.Output.Log
@@ -46,6 +52,18 @@ data SwitchboardInternal = SwitchboardInternal
     { sbQueue    :: TBQ.TBQueue NamedLogItem
     , sbDispatch :: Async.Async ()
     }
+
+\end{code}
+
+\subsubsection{Trace that forwards to the \nameref{code:Switchboard}}\label{code:mainTrace}\index{mainTrace}
+
+Every |Trace| ends in the \nameref{code:Switchboard} which then takes care of
+dispatching the messages to outputs
+
+\begin{code}
+mainTrace :: Switchboard -> TraceNamed IO
+mainTrace sb = BaseTrace.BaseTrace $ Op $ \lognamed -> do
+    effectuate sb lognamed
 
 \end{code}
 
@@ -142,7 +160,15 @@ setupBackend' EKGViewBK c _ = do
       , bUnrealize = Cardano.BM.Output.EKGView.unrealize be
       }
 setupBackend' AggregationBK c sb = do
-    be :: Cardano.BM.Output.Aggregation.Aggregation <- Cardano.BM.Output.Aggregation.realizefrom c sb
+    let trace = mainTrace sb
+        ctx   = TraceContext { loggerName = ""
+                             , configuration = c
+                             , minSeverity = Debug
+                             , tracetype = Neutral
+                             , shutdown = pure ()
+                             }
+
+    be :: Cardano.BM.Output.Aggregation.Aggregation <- Cardano.BM.Output.Aggregation.realizefrom (ctx,trace) sb
     return MkBackend
       { bEffectuate = Cardano.BM.Output.Aggregation.effectuate be
       , bUnrealize = Cardano.BM.Output.Aggregation.unrealize be

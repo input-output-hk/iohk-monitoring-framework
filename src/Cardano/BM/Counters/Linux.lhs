@@ -37,6 +37,7 @@ readCounters :: SubTrace -> IO [Counter]
 readCounters NoTrace             = return []
 readCounters Neutral             = return []
 readCounters (TeeTrace _)        = return []
+readCounters (FilterTrace _)     = return []
 readCounters UntimedTrace        = return []
 readCounters DropOpening         = return []
 readCounters (ObservableTrace tts) = foldrM (\(sel, fun) a ->

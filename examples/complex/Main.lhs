@@ -38,8 +38,8 @@ config = do
     c <- CM.empty
     CM.setMinSeverity c Debug
     CM.setSetupBackends c [KatipBK, AggregationBK, EKGViewBK]
-    -- per default each messages is sent to the logs, if not otherwise defined
-    -- (see below: 'CM.setBackend')
+    {- per default each messages is sent to the logs, if not otherwise defined
+       (see below: 'CM.setBackend') -}
     CM.setDefaultBackends c [KatipBK]
     CM.setSetupScribes c [ ScribeDefinition {
                               scName = "stdout"
@@ -65,6 +65,12 @@ config = do
     -- define a subtrace whose behaviour is to copy all log items,
     -- and pass them up with a name added to their context
     CM.setSubTrace c "complex.random" (Just $ TeeTrace "copy")
+    -- not every aggregated value needs to be displayed
+    CM.setSubTrace c "#ekgview"
+      (Just $ FilterTrace [Drop (StartsWith "#ekgview.#aggregation.complex.random"),
+                           Unhide (Named "count"),
+                           Unhide (Named "mean")
+                          ])
     -- define a subtrace whose behaviour is to observe statistics,
     -- from ghc (RTS) and memory
     CM.setSubTrace c "complex.observeIO" (Just $ ObservableTrace [GhcRtsStats,MemoryStats])
@@ -88,15 +94,15 @@ config = do
     -- forward the observed values to aggregation:
     CM.setBackends c "complex.observeIO" (Just [KatipBK])
     -- forward the aggregated output to the EKG view:
-    CM.setBackends c "complex.random.aggregated" (Just [EKGViewBK])
-    CM.setBackends c "complex.random.copy.aggregated" (Just [EKGViewBK])
-    CM.setBackends c "complex.observeIO.aggregated" (Just [EKGViewBK])
     forM_ [(1::Int)..10] $ \x ->
       CM.setBackends
         c
-        ("complex.observeSTM." <> (pack $ show x) <> ".aggregated")
+        ("#aggregation.complex.observeSTM." <> (pack $ show x))
         (Just [EKGViewBK])
-    CM.setBackends c "complex.observeDownload.aggregated" (Just [EKGViewBK])
+    CM.setBackends c "#aggregation.complex.observeDownload" (Just [EKGViewBK])
+    CM.setBackends c "#aggregation.complex.random" (Just [EKGViewBK])
+    CM.setBackends c "#aggregation.complex.random.copy" (Just [EKGViewBK])
+    CM.setBackends c "#aggregation.complex.observeIO" (Just [EKGViewBK])
     -- start EKG on http://localhost:12789
     CM.setEKGport c 12789
 
@@ -192,33 +198,33 @@ main = do
     -- create configuration
     c <- config
 
-    -- create initial top-level |Trace|
+    -- create initial top-level Trace
     tr <- setupTrace (Right c) "complex"
 
     logNotice tr "starting program; hit CTRL-C to terminate"
     logInfo tr "watch its progress on http://localhost:12789"
 
-    -- start thread sending unbounded sequence of random numbers
-    -- to a trace which aggregates them into a statistics (sent to EKG)
-    proc_random <- randomThr tr
+    {- start thread sending unbounded sequence of random numbers
+       to a trace which aggregates them into a statistics (sent to EKG) -}
+    procRandom <- randomThr tr
 
     -- start thread endlessly reversing lists of random length
-    proc_obsvIO <- observeIO tr
+    procObsvIO <- observeIO tr
 
     -- start threads endlessly observing STM actions operating on the same TVar
-    proc_obsvSTMs <- observeSTM tr
+    procObsvSTMs <- observeSTM tr
 
     -- start thread endlessly which downloads sth in order to check the I/O usage
-    proc_obsvDownload <- observeDownload tr
+    procObsvDownload <- observeDownload tr
 
     -- wait for observer thread to finish, ignoring any exception
-    _ <- Async.waitCatch proc_obsvIO
+    _ <- Async.waitCatch procObsvIO
     -- wait for observer thread to finish, ignoring any exception
-    _ <- forM proc_obsvSTMs Async.waitCatch
+    _ <- forM procObsvSTMs Async.waitCatch
     -- wait for random thread to finish, ignoring any exception
-    _ <- Async.waitCatch proc_random
-    -- wait for thread which download to finish, ignoring any exception
-    _ <- Async.waitCatch proc_obsvDownload
+    _ <- Async.waitCatch procRandom
+    -- wait for thread which downloads to finish, ignoring any exception
+    _ <- Async.waitCatch procObsvDownload
 
     return ()
 

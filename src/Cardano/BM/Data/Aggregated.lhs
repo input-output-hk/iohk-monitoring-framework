@@ -17,7 +17,7 @@ module Cardano.BM.Data.Aggregated
   , meanOfStats
   , stdevOfStats
   , stats2Text
-  , singleton
+  , singletonStats
   ) where
 
 import           GHC.Generics (Generic)
@@ -217,10 +217,10 @@ instance Semigroup Aggregated where
 
 \end{spec}
 
-\index{singleton}
+\label{code:singletonStats}\index{singletonStats}
 \begin{code}
-singleton :: Measurable -> Aggregated
-singleton a =
+singletonStats :: Measurable -> Aggregated
+singletonStats a =
     let stats = Stats { flast  = a
                       , fmin   = a
                       , fmax   = a

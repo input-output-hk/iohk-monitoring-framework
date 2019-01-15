@@ -22,19 +22,22 @@ import           Control.Concurrent.STM (atomically)
 import qualified Control.Concurrent.STM.TBQueue as TBQ
 import           Control.Monad (unless, void)
 import           Control.Monad.Catch (throwM)
+import           Control.Monad.IO.Class (liftIO)
 import qualified Data.HashMap.Strict as HM
 import           Data.Text (Text)
 import           Data.Word (Word64)
 import           GHC.Clock (getMonotonicTimeNSec)
 
+import           Cardano.BM.Configuration.Model (Configuration, getAggregatedKind)
 import           Cardano.BM.Data.Aggregated (Aggregated (..), EWMA (..),
-                     Measurable (..), Stats (..), getDouble, singleton)
+                     Measurable (..), Stats (..), getDouble, singletonStats)
 import           Cardano.BM.Data.AggregatedKind (AggregatedKind (..))
 import           Cardano.BM.Data.Backend
-import           Cardano.BM.Configuration.Model (Configuration, getAggregatedKind)
 import           Cardano.BM.Data.Counter (Counter (..), CounterState (..),
                      nameCounter)
 import           Cardano.BM.Data.LogItem
+import           Cardano.BM.Data.Trace
+import qualified Cardano.BM.Trace as Trace
 
 \end{code}
 %endif
@@ -94,10 +97,11 @@ instance IsBackend Aggregation where
 
     realize _ = error "Aggregation cannot be instantiated by 'realize'"
 
-    realizefrom conf switchboard = do
+    realizefrom trace0@(ctx,_) _ = do
+        trace <- Trace.subTrace "#aggregation" trace0
         aggref <- newEmptyMVar
         aggregationQueue <- atomically $ TBQ.newTBQueue 2048
-        dispatcher <- spawnDispatcher conf HM.empty aggregationQueue switchboard
+        dispatcher <- spawnDispatcher (configuration ctx) HM.empty aggregationQueue trace
         putMVar aggref $ AggregationInternal aggregationQueue dispatcher
         return $ Aggregation aggref
 
@@ -118,13 +122,12 @@ instance IsBackend Aggregation where
 
 \subsubsection{Asynchrouniously reading log items from the queue and their processing}
 \begin{code}
-spawnDispatcher :: IsEffectuator e
-                => Configuration
+spawnDispatcher :: Configuration
                 -> AggregationMap
                 -> TBQ.TBQueue (Maybe NamedLogItem)
-                -> e
+                -> Trace.Trace IO
                 -> IO (Async.Async ())
-spawnDispatcher conf aggMap aggregationQueue switchboard = Async.async $ qProc aggMap
+spawnDispatcher conf aggMap aggregationQueue trace = Async.async $ qProc aggMap
   where
     qProc aggregatedMap = do
         maybeItem <- atomically $ TBQ.readTBQueue aggregationQueue
@@ -132,7 +135,7 @@ spawnDispatcher conf aggMap aggregationQueue switchboard = Async.async $ qProc a
             Just item -> do
                 (updatedMap, aggregations) <- update (lnItem item) (lnName item) aggregatedMap
                 unless (null aggregations) $
-                    sendAggregated (AggregatedMessage aggregations) switchboard (lnName item)
+                    sendAggregated (AggregatedMessage aggregations) (lnName item)
                 qProc updatedMap
             Nothing -> return ()
 
@@ -148,7 +151,7 @@ spawnDispatcher conf aggMap aggregationQueue switchboard = Async.async $ qProc a
                     -- if Aggregated does not exist; initialize it.
                     aggregatedKind <- getAggregatedKind conf name
                     case aggregatedKind of
-                        StatsAK      -> return $ singleton value
+                        StatsAK      -> return $ singletonStats value
                         EwmaAK aEWMA -> do
                             let initEWMA = EmptyEWMA aEWMA
                             return $ AggregatedEWMA $ ewma initEWMA value
@@ -188,7 +191,7 @@ spawnDispatcher conf aggMap aggregationQueue switchboard = Async.async $ qProc a
                     Nothing -> do
                         aggregatedKind <- getAggregatedKind conf fullname
                         case aggregatedKind of
-                            StatsAK      -> return $ singleton value
+                            StatsAK      -> return $ singletonStats value
                             EwmaAK aEWMA -> do
                                 let initEWMA = EmptyEWMA aEWMA
                                 return $ AggregatedEWMA $ ewma initEWMA value
@@ -204,16 +207,13 @@ spawnDispatcher conf aggMap aggregationQueue switchboard = Async.async $ qProc a
 
         updateCounters cs logname updatedMap (namedAggregated :aggs)
 
-    sendAggregated :: IsEffectuator e => LogObject -> e -> Text -> IO ()
-    sendAggregated (aggregatedMsg@(AggregatedMessage _)) sb logname =
-        -- forward the aggregated message to Switchboard
-        effectuate sb $
-                    LogNamed
-                        { lnName = logname <> ".aggregated"
-                        , lnItem = aggregatedMsg
-                        }
+    sendAggregated :: LogObject -> Text -> IO ()
+    sendAggregated aggregatedMsg@(AggregatedMessage _) logname = do
+        -- enter the aggregated message into the |Trace|
+        trace' <- Trace.appendName logname trace
+        liftIO $ Trace.traceNamedObject trace' aggregatedMsg
     -- ingnore every other message that is not of type AggregatedMessage
-    sendAggregated _ _ _ = return ()
+    sendAggregated _ _ = return ()
 
 \end{code}
 
@@ -231,7 +231,7 @@ updateAggregation v (AggregatedStats s) resetAfter =
     in
     if reset
     then
-        singleton v
+        singletonStats v
     else
         let newcount = count + 1
             newvalue = getDouble v
