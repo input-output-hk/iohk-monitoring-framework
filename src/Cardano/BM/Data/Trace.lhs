@@ -3,6 +3,7 @@
 
 %if style == newcode
 \begin{code}
+{-# LANGUAGE RankNTypes        #-}
 
 module Cardano.BM.Data.Trace
   ( Trace
@@ -16,22 +17,21 @@ import           Cardano.BM.Configuration (Configuration)
 import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.SubTrace
-import           Cardano.BM.Output.Switchboard (Switchboard)
 \end{code}
 %endif
 
 \subsubsection{Trace}\label{code:Trace}\index{Trace}
-A |Trace| consists of a \nameref{code:TraceContext} and a TraceNamed in |m|.
+A |Trace| consists of a |TraceContext| and a |TraceNamed| in |m|.
 \begin{code}
 
 type Trace m = (TraceContext, TraceNamed m)
 \end{code}
 
 \subsubsection{TraceNamed}\label{code:TraceNamed}\index{TraceNamed}
-A |TraceNamed| is a specialized \nameref{code:BaseTrace} of type \nameref{code:LogNamed} with payload LogObject.
+A |TraceNamed| is a specialized \nameref{code:BaseTrace} of type |NamedLogItem|, a |LogNamed| with payload |LogObject|.
 \begin{code}
 
-type TraceNamed m = BaseTrace m (LogNamed LogObject)
+type TraceNamed m = BaseTrace m (NamedLogItem)
 \end{code}
 
 \subsubsection{TraceContext}\label{code:TraceContext}\index{TraceContext}
@@ -39,7 +39,7 @@ type TraceNamed m = BaseTrace m (LogNamed LogObject)
 \label{code:configuration}\index{TraceContext!configuration}
 \label{code:tracetype}\index{TraceContext!tracetype}
 \label{code:minSeverity}\index{TraceContext!minSeverity}
-\label{code:switchboard}\index{TraceContext!switchboard}
+\label{code:shutdown}\index{TraceContext!shutdown}
 We keep the context's name and a reference to the |Configuration|
 in the |TraceContext|.
 \begin{code}
@@ -49,7 +49,7 @@ data TraceContext = TraceContext
     , configuration :: Configuration
     , tracetype     :: SubTrace
     , minSeverity   :: Severity
-    , switchboard   :: Switchboard
+    , shutdown      :: IO ()
     }
 
 \end{code}

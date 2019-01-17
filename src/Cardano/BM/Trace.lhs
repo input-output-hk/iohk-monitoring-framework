@@ -11,7 +11,6 @@ module Cardano.BM.Trace
       Trace
     , stdoutTrace
     , BaseTrace.noTrace
-    , mainTrace
     , traceInTVar
     , traceInTVarIO
     , traceNamedInTVarIO
@@ -55,7 +54,7 @@ import qualified Cardano.BM.Configuration as Config
 import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.Trace
-import qualified Cardano.BM.Output.Switchboard as Switchboard
+-- import qualified Cardano.BM.Output.Switchboard as Switchboard
 import           Cardano.BM.Data.SubTrace
 
 \end{code}
@@ -112,7 +111,6 @@ appendWithDot xs newName = T.take 80 $ xs <> "." <> newName
 
 \subsubsection{Contramap a trace and produce the naming context}
 \begin{code}
--- return a BaseTrace from a TraceNamed
 named :: BaseTrace.BaseTrace m (LogNamed i) -> LoggerName -> BaseTrace.BaseTrace m i
 named trace name = contramap (LogNamed name) trace
 
@@ -129,7 +127,8 @@ traceNamedObject
 traceNamedObject trace@(ctx, logTrace) lo = do
     let lname = loggerName ctx
     doOutput <- case (typeofTrace trace) of
-        FilterTrace filters -> return $ evalFilters filters lname
+        FilterTrace filters -> do
+             return $ evalFilters filters lname lo
         TeeTrace secName -> do
              -- create a newly named copy of the |LogObject|
              BaseTrace.traceWith (named logTrace (lname <> "." <> secName)) lo
@@ -143,30 +142,22 @@ traceNamedObject trace@(ctx, logTrace) lo = do
 
 \subsubsection{Evaluation of |FilterTrace|}\label{code:evalFilters}\index{evalFilters}
 \begin{code}
-evalFilters :: [NameOperator] -> LoggerName -> Bool
-evalFilters nos nm =
-    any (evalFilter nm) nos
+evalFilters :: [NameOperator] -> LoggerName -> LogObject -> Bool
+evalFilters nos nm lo = 
+    any (evalFilter nm lo) nos
   where
-    evalFilter :: LoggerName -> NameOperator -> Bool
-    evalFilter name (Drop sel) = not $ match name sel
-    evalFilter name (Unhide sel) = match name sel
-    match :: LoggerName -> NameSelector -> Bool
-    match name (Exact name') = name == name'
-    match name (StartsWith prefix) = T.isPrefixOf prefix name
-    match name (EndsWith postfix) = T.isSuffixOf postfix name
-    match name (Contains name') = T.isInfixOf name' name
-\end{code}
-
-\subsubsection{Trace that forwards to the \nameref{code:Switchboard}}\label{code:mainTrace}\index{mainTrace}
-
-Every |Trace| ends in the \nameref{code:Switchboard} which then takes care of
-dispatching the messages to outputs
-
-\begin{code}
-mainTrace :: Switchboard.Switchboard -> TraceNamed IO
-mainTrace sb = BaseTrace.BaseTrace $ Op $ \lognamed -> do
-    Switchboard.effectuate sb lognamed
-
+    evalFilter :: LoggerName -> LogObject -> NameOperator -> Bool
+    evalFilter name item (Drop sel) = not (matchName name sel) && not (matchItem item sel)
+    evalFilter name item (Unhide sel) = matchName name sel || matchItem item sel
+    matchName :: LoggerName -> NameSelector -> Bool
+    matchName name (Exact name') = name == name'
+    matchName name (StartsWith prefix) = T.isPrefixOf prefix name
+    matchName name (EndsWith postfix) = T.isSuffixOf postfix name
+    matchName name (Contains name') = T.isInfixOf name' name
+    matchName _ _ = False
+    matchItem :: LogObject -> NameSelector -> Bool
+    matchItem (LogValue name _) (Named name') = name == name'
+    matchItem _ _ = False
 \end{code}
 
 \subsubsection{Concrete Trace on stdout}\label{code:stdoutTrace}\index{stdoutTrace}

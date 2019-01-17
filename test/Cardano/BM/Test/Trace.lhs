@@ -32,6 +32,7 @@ import           Cardano.BM.Configuration.Model (empty, setSubTrace)
 import           Cardano.BM.Configuration.Static (defaultConfigTesting)
 import           Cardano.BM.Counters (diffTimeObserved, getMonoClock)
 import qualified Cardano.BM.BaseTrace as BaseTrace
+import           Cardano.BM.Data.Aggregated
 import           Cardano.BM.Data.Counter
 import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.Observable
@@ -489,21 +490,30 @@ setVar_ = do
 unit_name_filtering :: Assertion
 unit_name_filtering = do
     let contextName = "test.sub.1"
+    let logobject = LP (LogValue "sum" (PureD 42.0))
     let filter1 = [ Drop (Exact "test.sub.1") ]
     assertBool ("Dropping a specific name should filter it out and thus return False")
-               (False == evalFilters filter1 contextName)
+               (False == evalFilters filter1 contextName logobject)
     let filter2 = [ Drop (EndsWith ".1") ]
     assertBool ("Dropping a name ending with a specific text should filter out the context name and thus return False")
-               (False == evalFilters filter2 contextName)
+               (False == evalFilters filter2 contextName logobject)
     let filter3 = [ Drop (StartsWith "test.") ]
     assertBool ("Dropping a name starting with a specific text should filter out the context name and thus return False")
-               (False == evalFilters filter3 contextName)
+               (False == evalFilters filter3 contextName logobject)
     let filter4 = [ Drop (Contains ".sub.") ]
     assertBool ("Dropping a name starting containing a specific text should filter out the context name and thus return False")
-               (False == evalFilters filter4 contextName)
+               (False == evalFilters filter4 contextName logobject)
     let filter5 = [ Drop (StartsWith "test."),
                     Unhide (Exact "test.sub.1") ]
-    assertBool ("Drop all and unhiding a specific name should the context name allow passing the filter")
-               (True == evalFilters filter5 contextName)
+    assertBool ("Dropping all and unhiding a specific name should the context name allow passing the filter")
+               (True == evalFilters filter5 contextName logobject)
+    let filter6 = [ Drop (StartsWith "test."),
+                    Unhide (Named "sum") ]
+    assertBool ("Dropping all and unhiding a named value, the LogObject should pass the filter")
+               (True == evalFilters filter6 contextName logobject)
+    let filter7 = [ Drop (StartsWith "test."),
+                    Unhide (Named "product") ]
+    assertBool ("Dropping all and unhiding an inexistant named value, the LogObject should not pass the filter")
+               (False == evalFilters filter7 contextName logobject)
 
 \end{code}
