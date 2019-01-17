@@ -96,9 +96,9 @@ ekgTrace ekg c = do
                         return Nothing
 
             update :: LogObject -> LoggerName -> EKGViewInternal -> IO (Maybe EKGViewInternal)
-            update (LP (LogMessage logitem)) logname ekg_i =
+            update (LogMessage logitem) logname ekg_i =
                 setlabel logname (liPayload logitem) ekg_i
-            update (LP (LogValue iname value)) logname ekg_i =
+            update (LogValue iname value) logname ekg_i =
                 let logname' = logname <> "." <> iname
                 in
                 setlabel logname' (pack $ show value) ekg_i
@@ -137,18 +137,19 @@ instance IsEffectuator EKGView where
                     traceAgg :: [(Text,Aggregated)] -> IO ()
                     traceAgg [] = return ()
                     traceAgg ((_,AggregatedEWMA ewma):r) = do
-                        queue $ Just $ LogNamed logname (LP (LogValue "avg" $ avg ewma))
+                        queue $ Just $ LogNamed logname (LogValue "avg" $ avg ewma)
                         traceAgg r
                     traceAgg ((_,AggregatedStats stats):r) = do
-                        queue $ Just $ LogNamed logname (LP (LogValue "mean" (PureD $ meanOfStats stats)))
-                        queue $ Just $ LogNamed logname (LP (LogValue "min" $ fmin stats))
-                        queue $ Just $ LogNamed logname (LP (LogValue "max" $ fmax stats))
-                        queue $ Just $ LogNamed logname (LP (LogValue "count" $ PureI $ fcount stats))
-                        queue $ Just $ LogNamed logname (LP (LogValue "last" $ flast stats))
-                        queue $ Just $ LogNamed logname (LP (LogValue "stdev" (PureD $ stdevOfStats stats)))
+                        queue $ Just $ LogNamed logname (LogValue "mean" (PureD $ meanOfStats stats))
+                        queue $ Just $ LogNamed logname (LogValue "min" $ fmin stats)
+                        queue $ Just $ LogNamed logname (LogValue "max" $ fmax stats)
+                        queue $ Just $ LogNamed logname (LogValue "count" $ PureI $ fcount stats)
+                        queue $ Just $ LogNamed logname (LogValue "last" $ flast stats)
+                        queue $ Just $ LogNamed logname (LogValue "stdev" (PureD $ stdevOfStats stats))
                         traceAgg r
                 traceAgg ags
-            LP _                  -> queue $ Just item
+            LogMessage _          -> queue $ Just item
+            LogValue _ _          -> queue $ Just item
             _                     -> return ()
 
 \end{code}
@@ -159,7 +160,7 @@ instance IsEffectuator EKGView where
 \begin{code}
 instance IsBackend EKGView where
     typeof _ = EKGViewBK
-    
+
     realize config = do
         evref <- newEmptyMVar
         let ekgview = EKGView evref
@@ -209,6 +210,6 @@ test = do
     c <- Cardano.BM.Configuration.setup "test/config.yaml"
     ev <- Cardano.BM.Output.EKGView.realize c
 
-    effectuate ev $ LogNamed "test.questions" (LP (LogValue "answer" 42))
-    effectuate ev $ LogNamed "test.monitor023" (LP (LogMessage (LogItem Public Warning "!!!! ALARM !!!!")))
+    effectuate ev $ LogNamed "test.questions" (LogValue "answer" 42)
+    effectuate ev $ LogNamed "test.monitor023" (LogMessage (LogItem Public Warning "!!!! ALARM !!!!"))
 \end{spec}

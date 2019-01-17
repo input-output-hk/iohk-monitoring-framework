@@ -141,7 +141,7 @@ example = do
     k <- setup config
     passN (pack (show StdoutSK)) k $ LogNamed
                                             { lnName = "test"
-                                            , lnItem = LP $ LogMessage $ LogItem
+                                            , lnItem = LogMessage $ LogItem
                                                 { liSelection = Both
                                                 , liSeverity  = Info
                                                 , liPayload   = "Hello!"
@@ -149,7 +149,7 @@ example = do
                                             }
     passN (pack (show StdoutSK)) k $ LogNamed
                                             { lnName = "test"
-                                            , lnItem = LP $ LogValue "cpu-no" 1
+                                            , lnItem = LogValue "cpu-no" 1
                                             }
 \end{spec}
 
@@ -184,7 +184,7 @@ passN backend katip namedLogItem = do
                 then do
                     let item = lnItem namedLogItem
                     let (sev, msg, payload) = case item of
-                                (LP (LogMessage logItem)) ->
+                                (LogMessage logItem) ->
                                      (liSeverity logItem, liPayload logItem, Nothing)
                                 (ObserveDiff counters) ->
                                      let text = toStrict (encodeToLazyText counters)
@@ -203,7 +203,7 @@ passN backend katip namedLogItem = do
                                                 "\n" <> name <> ": " <> pack (show agg)
                                     in
                                     (Info, text, Nothing)
-                                (LP (LogValue name value)) ->
+                                (LogValue name value) ->
                                     (Debug, name <> " = " <> pack (show value), Nothing)
                                 KillPill ->
                                     (Info, "Kill pill received!", Nothing)

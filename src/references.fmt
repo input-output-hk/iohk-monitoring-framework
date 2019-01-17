@@ -80,7 +80,6 @@
 %format Private = "\hyperref[code:Private]{Private}"
 %format Both = "\hyperref[code:Both]{Both}"
 %format LogObject = "\hyperref[code:LogObject]{LogObject}"
-%format LogPrims = "\hyperref[code:LogPrims]{LogPrims}"
 %format LogMessage = "\hyperref[code:LogMessage]{LogMessage}"
 %format LogValue = "\hyperref[code:LogValue]{LogValue}"
 %format LogNamed = "\hyperref[code:LogNamed]{LogNamed}"
