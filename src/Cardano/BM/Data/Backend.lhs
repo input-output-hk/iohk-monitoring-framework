@@ -17,6 +17,7 @@ module Cardano.BM.Data.Backend
 
 import           Cardano.BM.Data.BackendKind
 import           Cardano.BM.Data.LogItem
+import           Cardano.BM.Data.Trace
 import           Cardano.BM.Configuration.Model (Configuration)
 
 \end{code}
@@ -39,9 +40,9 @@ A backend is life-cycle managed, thus can be |realize|d and |unrealize|d.
 class (IsEffectuator t) => IsBackend t where
     typeof      :: t -> BackendKind
     realize     :: Configuration -> IO t
-    realizefrom :: forall s . (IsEffectuator s) => Configuration -> s -> IO t
-    default realizefrom :: forall s . (IsEffectuator s) => Configuration -> s -> IO t
-    realizefrom c _ = realize c
+    realizefrom :: forall s . (IsEffectuator s) => Trace IO -> s -> IO t
+    default realizefrom :: forall s . (IsEffectuator s) => Trace IO -> s -> IO t
+    realizefrom (ctx,_) _ = realize (configuration ctx)
     unrealize   :: t -> IO ()
 
 \end{code}

@@ -11,12 +11,11 @@ import qualified Control.Concurrent.Async as Async
 import           Control.Monad (forM, forM_)
 import           GHC.Conc.Sync (STM, TVar, atomically, newTVar, readTVar, writeTVar)
 import           Data.Text (pack)
-import           Network.Download (openURI)
 import           System.Random
-import qualified Data.ByteString.Char8 as BS8
 
 import qualified Cardano.BM.Configuration.Model as CM
 import           Cardano.BM.Data.Aggregated (Measurable (..))
+import           Cardano.BM.Data.AggregatedKind
 import           Cardano.BM.Data.BackendKind
 import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.Observable
@@ -38,8 +37,6 @@ config = do
     c <- CM.empty
     CM.setMinSeverity c Debug
     CM.setSetupBackends c [KatipBK, AggregationBK, EKGViewBK]
-    -- per default each messages is sent to the logs, if not otherwise defined
-    -- (see below: 'CM.setBackend')
     CM.setDefaultBackends c [KatipBK]
     CM.setSetupScribes c [ ScribeDefinition {
                               scName = "stdout"
@@ -57,47 +54,38 @@ config = do
                             , scRotation = Nothing
                             }
                          ]
-    -- per default each messages is sent to the logs, if not otherwise defined (see below: 'CM.setScribe')
     CM.setDefaultScribes c ["StdoutSK::stdout", "FileJsonSK::out.json"]
     CM.setScribes c "complex.random" (Just ["StdoutSK::stdout", "FileTextSK::out.txt"])
     CM.setScribes c "complex.random.aggregated" (Just ["StdoutSK::stdout"])
-    CM.setScribes c "complex.observeDownload" (Just ["FileTextSK::out.txt"])
-    -- define a subtrace whose behaviour is to copy all log items,
-    -- and pass them up with a name added to their context
-    CM.setSubTrace c "complex.random" (Just $ TeeTrace "copy")
-    -- define a subtrace whose behaviour is to observe statistics,
-    -- from ghc (RTS) and memory
+
+    CM.setSubTrace c "complex.random" (Just $ TeeTrace "ewma")
+    CM.setSubTrace c "#ekgview"
+      (Just $ FilterTrace [Drop (StartsWith "#ekgview.#aggregation.complex.random"),
+                           Unhide (Named "count"),
+                           Unhide (Named "avg"),
+                           Unhide (Named "mean")
+                          ])
     CM.setSubTrace c "complex.observeIO" (Just $ ObservableTrace [GhcRtsStats,MemoryStats])
     forM_ [(1::Int)..10] $ \x ->
       CM.setSubTrace
         c
         ("complex.observeSTM." <> (pack $ show x))
         (Just $ ObservableTrace [GhcRtsStats,MemoryStats])
-    -- define a subtrace whose behaviour is to observe statistics,
-    -- from ghc (RTS), memory and I/O
-    CM.setSubTrace c "complex.observeDownload" (Just $ ObservableTrace [IOStats])
-    -- forward the random number to aggregation:
+
     CM.setBackends c "complex.random" (Just [AggregationBK, KatipBK])
-    CM.setBackends c "complex.random.copy" (Just [AggregationBK])
+    CM.setBackends c "complex.random.ewma" (Just [AggregationBK])
     forM_ [(1::Int)..10] $ \x ->
       CM.setBackends
         c
         ("complex.observeSTM." <> (pack $ show x))
         (Just [AggregationBK])
-    CM.setBackends c "complex.observeDownload" (Just [AggregationBK, KatipBK])
-    -- forward the observed values to aggregation:
+
+    CM.setAggregatedKind c "complex.random.rr" (Just StatsAK)
+    CM.setAggregatedKind c "complex.random.ewma.rr" (Just (EwmaAK 0.42))
+
     CM.setBackends c "complex.observeIO" (Just [KatipBK])
-    -- forward the aggregated output to the EKG view:
-    CM.setBackends c "complex.random.aggregated" (Just [EKGViewBK])
-    CM.setBackends c "complex.random.copy.aggregated" (Just [EKGViewBK])
-    CM.setBackends c "complex.observeIO.aggregated" (Just [EKGViewBK])
-    forM_ [(1::Int)..10] $ \x ->
-      CM.setBackends
-        c
-        ("complex.observeSTM." <> (pack $ show x) <> ".aggregated")
-        (Just [EKGViewBK])
-    CM.setBackends c "complex.observeDownload.aggregated" (Just [EKGViewBK])
-    -- start EKG on http://localhost:12789
+    CM.setBackends c "#aggregation.complex.random" (Just [EKGViewBK])
+    CM.setBackends c "#aggregation.complex.random.ewma" (Just [EKGViewBK])
     CM.setEKGport c 12789
 
     return c
@@ -114,7 +102,7 @@ randomThr trace = do
   return proc
   where
     loop tr = do
-        threadDelay 800000
+        threadDelay 500000  -- 0.5 second
         num <- randomRIO (42-42, 42+42) :: IO Double
         traceNamedObject tr (LP (LogValue "rr" (PureD num)))
         loop tr
@@ -130,11 +118,10 @@ observeIO trace = do
   return proc
   where
     loop tr = do
-        threadDelay 1000000  -- 1 second
+        threadDelay 5000000  -- 5 seconds
         bracketObserveIO tr "observeIO" $ do
-            num <- randomRIO (100000, 2000000) :: IO Int
+            num <- randomRIO (10000, 200000) :: IO Int
             _ <- return $ reverse $ reverse $ 42 : [1 .. num]
-            threadDelay 50000  -- .05 second
             pure ()
         loop tr
 
@@ -142,25 +129,24 @@ observeIO trace = do
 
 \subsubsection{Thread that observes an |IO| action which downloads a txt in
 order to observe the I/O statistics}
-\begin{code}
-observeDownload :: Trace IO -> IO (Async.Async ())
-observeDownload trace = do
-  proc <- Async.async (loop trace)
-  return proc
+\todo[inline]{disabled for now! on Mac OSX this function was blocking all IO.}
+\begin{spec}
+observeDownload :: Trace IO -> IO ()
+observeDownload trace = loop trace
   where
     loop tr = do
-        threadDelay 1000000  -- 1 second
+        threadDelay 10000000  -- 10 seconds
         tr' <- appendName "observeDownload" tr
         bracketObserveIO tr' "" $ do
             license <- openURI "http://www.gnu.org/licenses/gpl.txt"
             case license of
-              Right bs -> logNotice tr' $ pack $ BS8.unpack bs
+              Right bs -> logNotice tr' $ pack $ take 100 $ BS8.unpack bs
               Left _ ->  return ()
-            threadDelay 50000  -- .05 second
+            threadDelay 500000  -- .5 second
             pure ()
         loop tr
 
-\end{code}
+\end{spec}
 
 \subsubsection{Threads that observe |STM| actions on the same TVar}
 \begin{code}
@@ -173,7 +159,7 @@ observeSTM trace = do
   return proc
   where
     loop tr tvarlist name = do
-        threadDelay 1000000  -- 1 second
+        threadDelay 10000000  -- 10 seconds
         STM.bracketObserveIO tr ("observeSTM." <> name) (stmAction tvarlist)
         loop tr tvarlist name
 
@@ -192,33 +178,29 @@ main = do
     -- create configuration
     c <- config
 
-    -- create initial top-level |Trace|
+    -- create initial top-level Trace
     tr <- setupTrace (Right c) "complex"
 
     logNotice tr "starting program; hit CTRL-C to terminate"
     logInfo tr "watch its progress on http://localhost:12789"
 
-    -- start thread sending unbounded sequence of random numbers
-    -- to a trace which aggregates them into a statistics (sent to EKG)
-    proc_random <- randomThr tr
+    {- start thread sending unbounded sequence of random numbers
+       to a trace which aggregates them into a statistics (sent to EKG) -}
+    procRandom <- randomThr tr
 
     -- start thread endlessly reversing lists of random length
-    proc_obsvIO <- observeIO tr
+    procObsvIO <- observeIO tr
 
     -- start threads endlessly observing STM actions operating on the same TVar
-    proc_obsvSTMs <- observeSTM tr
+    procObsvSTMs <- observeSTM tr
 
-    -- start thread endlessly which downloads sth in order to check the I/O usage
-    proc_obsvDownload <- observeDownload tr
 
     -- wait for observer thread to finish, ignoring any exception
-    _ <- Async.waitCatch proc_obsvIO
+    _ <- forM procObsvSTMs Async.waitCatch
     -- wait for observer thread to finish, ignoring any exception
-    _ <- forM proc_obsvSTMs Async.waitCatch
+    _ <- Async.waitCatch procObsvIO
     -- wait for random thread to finish, ignoring any exception
-    _ <- Async.waitCatch proc_random
-    -- wait for thread which download to finish, ignoring any exception
-    _ <- Async.waitCatch proc_obsvDownload
+    _ <- Async.waitCatch procRandom
 
     return ()
 

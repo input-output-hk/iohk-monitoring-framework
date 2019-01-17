@@ -18,7 +18,7 @@ import           Cardano.BM.Data.LogItem (LoggerName)
 import           Cardano.BM.Data.Output
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.Trace
-import qualified Cardano.BM.Output.Switchboard as Switchboard
+-- import qualified Cardano.BM.Output.Switchboard as Switchboard
 import           Cardano.BM.Setup
 import           Cardano.BM.Trace
 
@@ -134,7 +134,8 @@ unit_generic_scribe_backend defaultBackends setBackends defaultScribes setScribe
     logNotice tr1a "Hello!"
     logNotice tr2a "Hello!"
 
-    Switchboard.unrealize $ switchboard ctx
+    -- Switchboard.unrealize $ switchboard ctx
+    shutdown ctx
 
     contents <- readFile "out-test.txt"
     let numMsgs = length $ lines contents

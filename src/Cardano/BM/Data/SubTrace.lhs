@@ -37,6 +37,7 @@ import           GHC.Generics (Generic)
 \label{code:NameSelector}\index{SubTrace!FilterTrace!NameSelector}
 \begin{code}
 data NameSelector = Exact Text | StartsWith Text | EndsWith Text | Contains Text
+                  | Named Text  -- LP (LogValue (name value))
                     deriving (Generic, Show, FromJSON, ToJSON, Read, Eq)
 data NameOperator = Drop NameSelector | Unhide NameSelector
                     deriving (Generic, Show, FromJSON, ToJSON, Read, Eq)
