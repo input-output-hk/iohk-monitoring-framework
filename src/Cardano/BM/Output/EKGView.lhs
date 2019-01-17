@@ -16,8 +16,11 @@ module Cardano.BM.Output.EKGView
     ) where
 
 import           Control.Concurrent (killThread)
+import qualified Control.Concurrent.Async as Async
 import           Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar,
                      readMVar, takeMVar)
+import           Control.Concurrent.STM (atomically)
+import qualified Control.Concurrent.STM.TBQueue as TBQ
 import           Control.Monad.IO.Class (liftIO)
 import           Data.Functor.Contravariant (Op (..))
 import qualified Data.HashMap.Strict as HM
@@ -50,13 +53,23 @@ newtype EKGView = EKGView
     { getEV :: EKGViewMVar }
 
 data EKGViewInternal = EKGViewInternal
-    { evLabels  :: HM.HashMap Text Label.Label
+    { evQueue   :: TBQ.TBQueue (Maybe NamedLogItem)
+    , evLabels  :: EKGViewMap
     , evServer  :: Server
-    , evTrace   :: Trace IO
     }
 
 \end{code}
 
+\subsubsection{Relation from variable name to label handler}
+We keep the label handlers for later update in a |HashMap|.
+\begin{code}
+type EKGViewMap = HM.HashMap Text Label.Label
+
+\end{code}
+
+\subsubsection{Internal |Trace|}
+This is an internal |Trace|, named "\#ekgview", which can be used to control
+the messages that are being displayed by EKG.
 \begin{code}
 ekgTrace :: EKGView -> Configuration -> IO (Trace IO)
 ekgTrace ekg c = do
@@ -72,7 +85,7 @@ ekgTrace ekg c = do
     ekgTrace' :: EKGView -> TraceNamed IO
     ekgTrace' ekgview = BaseTrace.BaseTrace $ Op $ \lognamed -> do
         let setlabel :: Text -> Text -> EKGViewInternal -> IO (Maybe EKGViewInternal)
-            setlabel name label ekg_i@(EKGViewInternal labels server _) =
+            setlabel name label ekg_i@(EKGViewInternal _ labels server) =
                 case HM.lookup name labels of
                     Nothing -> do
                         ekghdl <- getLabel name server
@@ -94,6 +107,7 @@ ekgTrace ekg c = do
 
         ekgup <- takeMVar (getEV ekgview)
         let lognam0 = (lnName lognamed)
+            -- strip off some prefixes not necessary for display
             lognam1 = case stripPrefix "#ekgview.#aggregation." lognam0 of
                       Nothing -> lognam0
                       Just ln' -> ln' 
@@ -109,31 +123,33 @@ ekgTrace ekg c = do
 
 
 \subsubsection{EKG view is an effectuator}
+Function |effectuate| is called to pass in a |NamedLogItem| for display in EKG.
+If the log item is an |AggregatedStats| message, then all its constituents are
+put into the queue.
 \begin{code}
 instance IsEffectuator EKGView where
     effectuate ekgview item = do
         ekg <- readMVar (getEV ekgview)
-        let trace0 = evTrace ekg
-        trace <- Trace.appendName (lnName item) trace0
+        let queue a = atomically $ TBQ.writeTBQueue (evQueue ekg) a
         case (lnItem item) of
             AggregatedMessage ags -> liftIO $ do
-                let traceAgg :: [(Text,Aggregated)] -> IO ()
+                let logname = lnName item
+                    traceAgg :: [(Text,Aggregated)] -> IO ()
                     traceAgg [] = return ()
-                    traceAgg ((n,AggregatedEWMA ewma):r) = do
-                        trace' <- Trace.appendName n trace
-                        Trace.traceNamedObject trace' (LP (LogValue "avg" $ avg ewma))
+                    traceAgg ((_,AggregatedEWMA ewma):r) = do
+                        queue $ Just $ LogNamed logname (LP (LogValue "avg" $ avg ewma))
                         traceAgg r
-                    traceAgg ((n,AggregatedStats stats):r) = do
-                        trace' <- Trace.appendName n trace
-                        Trace.traceNamedObject trace' (LP (LogValue "mean" (PureD $ meanOfStats stats)))
-                        Trace.traceNamedObject trace' (LP (LogValue "min" $ fmin stats))
-                        Trace.traceNamedObject trace' (LP (LogValue "max" $ fmax stats))
-                        Trace.traceNamedObject trace' (LP (LogValue "count" $ PureI $ fcount stats))
-                        Trace.traceNamedObject trace' (LP (LogValue "last" $ flast stats))
-                        Trace.traceNamedObject trace' (LP (LogValue "stdev" (PureD $ stdevOfStats stats)))
+                    traceAgg ((_,AggregatedStats stats):r) = do
+                        queue $ Just $ LogNamed logname (LP (LogValue "mean" (PureD $ meanOfStats stats)))
+                        queue $ Just $ LogNamed logname (LP (LogValue "min" $ fmin stats))
+                        queue $ Just $ LogNamed logname (LP (LogValue "max" $ fmax stats))
+                        queue $ Just $ LogNamed logname (LP (LogValue "count" $ PureI $ fcount stats))
+                        queue $ Just $ LogNamed logname (LP (LogValue "last" $ flast stats))
+                        queue $ Just $ LogNamed logname (LP (LogValue "stdev" (PureD $ stdevOfStats stats)))
                         traceAgg r
                 traceAgg ags
-            _                     -> liftIO $ Trace.traceNamedObject trace (lnItem item)
+            LP _                  -> queue $ Just item
+            _                     -> return ()
 
 \end{code}
 
@@ -152,16 +168,37 @@ instance IsBackend EKGView where
         ekghdl <- getLabel "iohk-monitoring version" ehdl
         Label.set ekghdl $ pack(showVersion version)
         ekgtrace <- ekgTrace ekgview config
+        queue <- atomically $ TBQ.newTBQueue 2048
+        _ <- spawnDispatcher queue ekgtrace
         putMVar evref $ EKGViewInternal
                         { evLabels = HM.empty
                         , evServer = ehdl
-                        , evTrace = ekgtrace
+                        , evQueue = queue
                         }
         return ekgview
 
     unrealize ekgview = do
         ekg <- takeMVar $ getEV ekgview
         killThread $ serverThreadId $ evServer ekg
+
+\end{code}
+
+\subsubsection{Asynchrouniously reading log items from the queue and their processing}
+\begin{code}
+spawnDispatcher :: TBQ.TBQueue (Maybe NamedLogItem)
+                -> Trace.Trace IO
+                -> IO (Async.Async ())
+spawnDispatcher evqueue trace =
+    Async.async $ qProc
+  where
+    qProc = do
+        maybeItem <- atomically $ TBQ.readTBQueue evqueue
+        case maybeItem of
+            Just (LogNamed logname logvalue) -> do
+                trace' <- Trace.appendName logname trace
+                Trace.traceNamedObject trace' logvalue
+                qProc
+            Nothing -> return ()  -- stop here
 
 \end{code}
 

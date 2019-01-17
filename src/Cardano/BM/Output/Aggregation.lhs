@@ -141,8 +141,8 @@ spawnDispatcher conf aggMap aggregationQueue trace = Async.async $ qProc aggMap
 
     update :: LogObject
            -> LoggerName
-           -> HM.HashMap Text AggregatedExpanded
-           -> IO (HM.HashMap Text AggregatedExpanded, [(Text, Aggregated)])
+           -> AggregationMap
+           -> IO (AggregationMap, [(Text, Aggregated)])
     update (LP (LogValue iname value)) logname agmap = do
         let name = logname <> "." <> iname
         aggregated <-
@@ -177,9 +177,9 @@ spawnDispatcher conf aggMap aggregationQueue trace = Async.async $ qProc aggMap
 
     updateCounters :: [Counter]
                   -> LoggerName
-                  -> HM.HashMap Text AggregatedExpanded
+                  -> AggregationMap
                   -> [(Text, Aggregated)]
-                  -> IO (HM.HashMap Text AggregatedExpanded, [(Text, Aggregated)])
+                  -> IO (AggregationMap, [(Text, Aggregated)])
     updateCounters [] _ aggrMap aggs = return $ (aggrMap, aggs)
     updateCounters (counter : cs) logname aggrMap aggs = do
         let name = cName counter
