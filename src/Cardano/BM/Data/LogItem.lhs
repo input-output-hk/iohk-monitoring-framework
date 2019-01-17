@@ -12,7 +12,6 @@ module Cardano.BM.Data.LogItem
   , LogItem (..)
   , LogNamed (..)
   , LogObject (..)
-  , LogPrims (..)
   , LoggerName
   , LogSelection (..)
   )
@@ -73,16 +72,10 @@ data LogSelection =
 
 \subsubsection{LogObject}
 \label{code:LogObject}\index{LogObject}
-\label{code:LogPrims}\index{LogPrims}
-\label{code:LogMessage}\index{LogPrims!LogMessage}
-\label{code:LogValue}\index{LogPrims!LogValue}
 \begin{code}
 
-data LogPrims = LogMessage LogItem
-              | LogValue Text Measurable
-                deriving (Generic, Show, ToJSON)
-
-data LogObject = LP LogPrims
+data LogObject = LogMessage LogItem
+               | LogValue Text Measurable
                | ObserveOpen CounterState
                | ObserveDiff CounterState
                | ObserveClose CounterState

@@ -140,7 +140,7 @@ spawnDispatcher conf aggMap aggregationQueue switchboard = Async.async $ qProc a
            -> LoggerName
            -> HM.HashMap Text AggregatedExpanded
            -> IO (HM.HashMap Text AggregatedExpanded, [(Text, Aggregated)])
-    update (LP (LogValue iname value)) logname agmap = do
+    update (LogValue iname value) logname agmap = do
         let name = logname <> "." <> iname
         aggregated <-
             case HM.lookup name agmap of

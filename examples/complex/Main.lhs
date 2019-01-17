@@ -116,7 +116,7 @@ randomThr trace = do
     loop tr = do
         threadDelay 800000
         num <- randomRIO (42-42, 42+42) :: IO Double
-        traceNamedObject tr (LP (LogValue "rr" (PureD num)))
+        traceNamedObject tr (LogValue "rr" (PureD num))
         loop tr
 
 \end{code}

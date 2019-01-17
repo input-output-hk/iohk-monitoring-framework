@@ -144,7 +144,7 @@ traceNamedObject trace@(ctx, logTrace) lo = do
 \subsubsection{Evaluation of |FilterTrace|}\label{code:evalFilters}\index{evalFilters}
 \begin{code}
 evalFilters :: [NameOperator] -> LoggerName -> Bool
-evalFilters nos nm = 
+evalFilters nos nm =
     any (evalFilter nm) nos
   where
     evalFilter :: LoggerName -> NameOperator -> Bool
@@ -191,7 +191,7 @@ stdoutTrace :: TraceNamed IO
 stdoutTrace = BaseTrace.BaseTrace $ Op $ \lognamed ->
     withMVar locallock $ \_ ->
         case lnItem lognamed of
-            LP (LogMessage logItem) ->
+            (LogMessage logItem) ->
                     output (lnName lognamed) $ liPayload logItem
             obj ->
                     output (lnName lognamed) $ toStrict (encodeToLazyText obj)
@@ -228,7 +228,7 @@ traceConditionally
     :: MonadIO m
     => Trace m -> LogObject
     -> m ()
-traceConditionally logTrace@(ctx, _) msg@(LP (LogMessage item)) = do
+traceConditionally logTrace@(ctx, _) msg@(LogMessage item) = do
     globminsev <- liftIO $ Config.minSeverity (configuration ctx)
     globnamesev <- liftIO $ Config.inspectSeverity (configuration ctx) (loggerName ctx)
     let minsev = max (minSeverity ctx) $ max globminsev (fromMaybe Debug globnamesev)
@@ -252,7 +252,7 @@ traceNamedItem
     -> T.Text
     -> m ()
 traceNamedItem trace p s m =
-    let logmsg = LP $ LogMessage $ LogItem { liSelection = p
+    let logmsg = LogMessage $ LogItem { liSelection = p
                                            , liSeverity  = s
                                            , liPayload   = m
                                            }
@@ -365,7 +365,7 @@ example\_TVar = do
     TIO.putStrLn $ pack $ show $ dropPrims $ items
   where
     dropPrims :: [LogObject] -> [LogObject]
-    dropPrims = filter (\case {LP _ -> False; _ -> True})
+    dropPrims = filter (\case {LogMessage _ -> False; LogValue _ -> False; _ -> True})
 
 setVar_ :: STM.STM Integer
 setVar_ = do

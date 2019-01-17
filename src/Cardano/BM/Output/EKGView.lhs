@@ -57,7 +57,7 @@ data EKGViewInternal = EKGViewInternal
 instance IsEffectuator EKGView where
     effectuate ekgview item =
         let update :: LogObject -> LoggerName -> EKGViewInternal -> IO (Maybe EKGViewInternal)
-            update (LP (LogMessage logitem)) logname ekg@(EKGViewInternal _ labels server) =
+            update (LogMessage logitem) logname ekg@(EKGViewInternal _ labels server) =
                 case HM.lookup logname labels of
                     Nothing -> do
                         ekghdl <- getLabel logname server
@@ -66,7 +66,7 @@ instance IsEffectuator EKGView where
                     Just ekghdl -> do
                         Label.set ekghdl (liPayload logitem)
                         return Nothing
-            update (LP (LogValue iname value)) logname ekg@(EKGViewInternal _ labels server) =
+            update (LogValue iname value) logname ekg@(EKGViewInternal _ labels server) =
                 let name = logname <> "." <> iname
                 in
                 case HM.lookup name labels of
@@ -80,19 +80,19 @@ instance IsEffectuator EKGView where
 
             update (AggregatedMessage ags) logname ekg =
                 let updateAgg (AggregatedStats stats) p_logname p_ekg = do
-                        ekg1 <- update (LP (LogValue "min" $ fmin stats)) p_logname p_ekg
+                        ekg1 <- update (LogValue "min" $ fmin stats) p_logname p_ekg
                         let dekg1 = fromMaybe ekg ekg1
-                        ekg2 <- update (LP (LogValue "max" $ fmax stats)) p_logname dekg1
+                        ekg2 <- update (LogValue "max" $ fmax stats) p_logname dekg1
                         let dekg2 = fromMaybe dekg1 ekg2
-                        ekg3 <- update (LP (LogValue "count" $ PureI $ fcount stats)) p_logname dekg2
+                        ekg3 <- update (LogValue "count" $ PureI $ fcount stats) p_logname dekg2
                         let dekg3 = fromMaybe dekg2 ekg3
-                        ekg4 <- update (LP (LogValue "mean" (PureD $ meanOfStats stats))) p_logname dekg3
+                        ekg4 <- update (LogValue "mean" (PureD $ meanOfStats stats)) p_logname dekg3
                         let dekg4 = fromMaybe dekg3 ekg4
-                        ekg5 <- update (LP (LogValue "last" $ flast stats)) p_logname dekg4
+                        ekg5 <- update (LogValue "last" $ flast stats) p_logname dekg4
                         let dekg5 = fromMaybe dekg4 ekg5
-                        update (LP (LogValue "stdev" (PureD $ stdevOfStats stats))) p_logname dekg5
+                        update (LogValue "stdev" (PureD $ stdevOfStats stats)) p_logname dekg5
                     updateAgg (AggregatedEWMA ewma) p_logname p_ekg =
-                        update (LP (LogValue "avg" $ avg ewma)) p_logname p_ekg
+                        update (LogValue "avg" $ avg ewma) p_logname p_ekg
 
                     updating :: [(Text, Aggregated)] -> EKGViewInternal -> IO (Maybe EKGViewInternal)
                     updating [] p_ekg = return $ Just p_ekg
@@ -121,7 +121,7 @@ instance IsEffectuator EKGView where
 \begin{code}
 instance IsBackend EKGView where
     typeof _ = EKGViewBK
-    
+
     realize config = do
         evref <- newEmptyMVar
         evport <- getEKGport config
@@ -148,6 +148,6 @@ test = do
     c <- Cardano.BM.Configuration.setup "test/config.yaml"
     ev <- Cardano.BM.Output.EKGView.realize c
 
-    effectuate ev $ LogNamed "test.questions" (LP (LogValue "answer" 42))
-    effectuate ev $ LogNamed "test.monitor023" (LP (LogMessage (LogItem Public Warning "!!!! ALARM !!!!")))
+    effectuate ev $ LogNamed "test.questions" (LogValue "answer" 42)
+    effectuate ev $ LogNamed "test.monitor023" (LogMessage (LogItem Public Warning "!!!! ALARM !!!!"))
 \end{spec}

@@ -91,8 +91,8 @@ unit_tests = testGroup "Unit tests" [
         notObserveOpen = all (\case {ObserveOpen _ -> False; _ -> True})
         onlyLevelOneMessage :: [LogObject] -> Bool
         onlyLevelOneMessage = \case
-            [LP (LogMessage (LogItem _ _ "Message from level 1."))] -> True
-            _                                                       -> False
+            [LogMessage (LogItem _ _ "Message from level 1.")] -> True
+            _                                                  -> False
         observeOpenWithoutMeasures :: [LogObject] -> Bool
         observeOpenWithoutMeasures = any $ \case
             ObserveOpen (CounterState _ counters) -> null counters
@@ -284,7 +284,7 @@ unit_trace_min_severity = do
         (length res == 2)
     assertBool
         ("Found Info message when Warning was minimum severity: " ++ show res)
-        (all (\case {(LP (LogMessage (LogItem _ Info "Message #2"))) -> False; _ -> True}) res)
+        (all (\case {(LogMessage (LogItem _ Info "Message #2")) -> False; _ -> True}) res)
 
 \end{code}
 
@@ -348,7 +348,7 @@ unit_named_min_severity = do
         (length res == 2)
     assertBool
         ("Found Info message when Warning was minimum severity: " ++ show res)
-        (all (\case {(LP (LogMessage (LogItem _ Info "Message #2"))) -> False; _ -> True}) res)
+        (all (\case {(LogMessage (LogItem _ Info "Message #2")) -> False; _ -> True}) res)
 
 \end{code}
 

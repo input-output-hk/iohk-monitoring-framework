@@ -1,6 +1,6 @@
 name:                iohk-monitoring
 version:             0.1.0.0
-synopsis:            loggin, benchmarking and monitoring framework
+synopsis:            logging, benchmarking and monitoring framework
 -- description:
 license:             MIT
 license-file:        LICENSE
