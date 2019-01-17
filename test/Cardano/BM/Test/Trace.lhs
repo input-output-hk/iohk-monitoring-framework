@@ -490,7 +490,7 @@ setVar_ = do
 unit_name_filtering :: Assertion
 unit_name_filtering = do
     let contextName = "test.sub.1"
-    let logobject = LP (LogValue "sum" (PureD 42.0))
+    let logobject = LogValue "sum" (PureD 42.0)
     let filter1 = [ Drop (Exact "test.sub.1") ]
     assertBool ("Dropping a specific name should filter it out and thus return False")
                (False == evalFilters filter1 contextName logobject)
