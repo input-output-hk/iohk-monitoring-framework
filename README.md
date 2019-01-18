@@ -15,7 +15,7 @@ View our first presentation (2018-12-04) on this subject in [html](https://input
 
 ![Overview of modules](docs/OverviewModules.png)
 
-## building
+## building and testing
 
 `cabal new-build`
 
@@ -25,6 +25,7 @@ View our first presentation (2018-12-04) on this subject in [html](https://input
 
 in directory `examples` are these examples:
 * `simple`  -  run with `cabal new-exec example-simple`
+* `complex`  -  run with `cabal new-exec example-complex`
 
 ## development
 
