@@ -20,6 +20,7 @@ import qualified Control.Concurrent.Async as Async
 import           Control.Concurrent.MVar (newMVar)
 import           Control.Monad (forM, forM_)
 import           Control.Monad.IO.Class (liftIO)
+import           Data.Either (isLeft)
 import           Data.Map (fromListWith, lookup)
 import           Data.Text (Text, append, pack)
 import qualified Data.Text as T
@@ -84,6 +85,7 @@ unit_tests = testGroup "Unit tests" [
       , testCase "appending names should not exceed 80 chars" unit_append_name
       , testCase "creat subtrace which duplicates messages" unit_trace_duplicate
       , testCase "testing name filtering" unit_name_filtering
+      , testCase "testing throwing of exceptions" unit_exception_throwing
       ]
       where
         observablesSet = [MonotonicClock, MemoryStats]
@@ -528,5 +530,36 @@ unit_name_filtering = do
                      Unhide [(EndsWith ".this")]) ]
     assertBool ("Disjunction of filters that should not pass")
                (False == evalFilters filter9 contextName)
+
+\end{code}
+
+\subsubsection{Exception throwing}\label{code:unit_exception_throwing}
+Exceptions encountered should be thrown.
+\begin{code}
+unit_exception_throwing :: Assertion
+unit_exception_throwing = do
+    cfg <- defaultConfigTesting
+    trace <- Setup.setupTrace (Right cfg) "test"
+
+    logInfo trace "as" -- delete
+
+    action <- (Right <$> logInfo trace msg) -- ("Message is: " <> msg))
+        `catch` \(ErrorCall e) -> Left <$> logInfo trace (pack e)
+
+    res <- Async.waitCatch action
+
+    assertBool
+        ("Exception should have been rethrown")
+        (isLeft action)
+  where
+    msg :: Text
+    msg = error "faulty message"
+    work :: Text -> IO (Async.Async ())
+    work message = Async.async $ do
+        cfg <- defaultConfigTesting
+        trace <- Setup.setupTrace (Right cfg) "test"
+
+        logInfo trace message
+        threadDelay 1000
 
 \end{code}
