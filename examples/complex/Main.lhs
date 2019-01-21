@@ -61,9 +61,9 @@ config = do
     CM.setSubTrace c "complex.random" (Just $ TeeTrace "ewma")
     CM.setSubTrace c "#ekgview"
       (Just $ FilterTrace [Drop (StartsWith "#ekgview.#aggregation.complex.random"),
-                           Unhide (Named "count"),
-                           Unhide (Named "avg"),
-                           Unhide (Named "mean")
+                           Unhide (EndsWith ".count"),
+                           Unhide (EndsWith ".avg"),
+                           Unhide (EndsWith ".mean")
                           ])
     CM.setSubTrace c "complex.observeIO" (Just $ ObservableTrace [GhcRtsStats,MemoryStats])
     forM_ [(1::Int)..10] $ \x ->

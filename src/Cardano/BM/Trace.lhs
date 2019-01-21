@@ -127,8 +127,12 @@ traceNamedObject
 traceNamedObject trace@(ctx, logTrace) lo = do
     let lname = loggerName ctx
     doOutput <- case (typeofTrace trace) of
-        FilterTrace filters -> do
-             return $ evalFilters filters lname lo
+        FilterTrace filters ->
+             case lo of
+                LogValue loname _ ->
+                    return $ evalFilters filters (lname <> "." <> loname)
+                _ ->
+                    return $ evalFilters filters lname
         TeeTrace secName -> do
              -- create a newly named copy of the |LogObject|
              BaseTrace.traceWith (named logTrace (lname <> "." <> secName)) lo
@@ -142,22 +146,18 @@ traceNamedObject trace@(ctx, logTrace) lo = do
 
 \subsubsection{Evaluation of |FilterTrace|}\label{code:evalFilters}\index{evalFilters}
 \begin{code}
-evalFilters :: [NameOperator] -> LoggerName -> LogObject -> Bool
-evalFilters nos nm lo = 
-    any (evalFilter nm lo) nos
+evalFilters :: [NameOperator] -> LoggerName -> Bool
+evalFilters nos nm = 
+    any (evalFilter nm) nos
   where
-    evalFilter :: LoggerName -> LogObject -> NameOperator -> Bool
-    evalFilter name item (Drop sel) = not (matchName name sel) && not (matchItem item sel)
-    evalFilter name item (Unhide sel) = matchName name sel || matchItem item sel
+    evalFilter :: LoggerName -> NameOperator -> Bool
+    evalFilter name (Drop sel) = not (matchName name sel)
+    evalFilter name (Unhide sel) = matchName name sel
     matchName :: LoggerName -> NameSelector -> Bool
     matchName name (Exact name') = name == name'
     matchName name (StartsWith prefix) = T.isPrefixOf prefix name
     matchName name (EndsWith postfix) = T.isSuffixOf postfix name
     matchName name (Contains name') = T.isInfixOf name' name
-    matchName _ _ = False
-    matchItem :: LogObject -> NameSelector -> Bool
-    matchItem (LogValue name _) (Named name') = name == name'
-    matchItem _ _ = False
 \end{code}
 
 \subsubsection{Concrete Trace on stdout}\label{code:stdoutTrace}\index{stdoutTrace}
