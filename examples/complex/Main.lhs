@@ -44,7 +44,12 @@ config = do
                             , scRotation = Nothing
                             }
                          , ScribeDefinition {
-                              scName = "out.json"
+                              scName = "out.odd.json"
+                            , scKind = FileJsonSK
+                            , scRotation = Nothing
+                            }
+                         , ScribeDefinition {
+                              scName = "out.even.json"
                             , scKind = FileJsonSK
                             , scRotation = Nothing
                             }
@@ -54,16 +59,25 @@ config = do
                             , scRotation = Nothing
                             }
                          ]
-    CM.setDefaultScribes c ["StdoutSK::stdout", "FileJsonSK::out.json"]
+    CM.setDefaultScribes c ["StdoutSK::stdout"]
     CM.setScribes c "complex.random" (Just ["StdoutSK::stdout", "FileTextSK::out.txt"])
-    CM.setScribes c "complex.random.aggregated" (Just ["StdoutSK::stdout"])
+    CM.setScribes c "#aggregated.complex.random" (Just ["StdoutSK::stdout"])
+    forM_ [(1::Int)..10] $ \x ->
+      if odd x
+      then
+        CM.setScribes c ("#aggregation.complex.observeSTM." <> (pack $ show x)) $ Just [ "FileJsonSK::out.odd.json" ]
+      else
+        CM.setScribes c ("#aggregation.complex.observeSTM." <> (pack $ show x)) $ Just [ "FileJsonSK::out.even.json" ]
 
     CM.setSubTrace c "complex.random" (Just $ TeeTrace "ewma")
     CM.setSubTrace c "#ekgview"
-      (Just $ FilterTrace [Drop (StartsWith "#ekgview.#aggregation.complex.random"),
-                           Unhide (EndsWith ".count"),
-                           Unhide (EndsWith ".avg"),
-                           Unhide (EndsWith ".mean")
+      (Just $ FilterTrace [ (Drop (StartsWith "#ekgview.#aggregation.complex.random"),
+                             Unhide [(EndsWith ".count"),
+                                     (EndsWith ".avg"),
+                                     (EndsWith ".mean")]),
+                            (Drop (StartsWith "#ekgview.#aggregation.complex.observeIO"),
+                             Unhide [(Contains "close.RTS.liveBytes.last"),
+                                     (Contains "close.RTS.liveBytes.max")])
                           ])
     CM.setSubTrace c "complex.observeIO" (Just $ ObservableTrace [GhcRtsStats,MemoryStats])
     forM_ [(1::Int)..10] $ \x ->
@@ -74,6 +88,7 @@ config = do
 
     CM.setBackends c "complex.random" (Just [AggregationBK, KatipBK])
     CM.setBackends c "complex.random.ewma" (Just [AggregationBK])
+    CM.setBackends c "complex.observeIO" (Just [AggregationBK])
     forM_ [(1::Int)..10] $ \x ->
       CM.setBackends
         c
@@ -83,7 +98,7 @@ config = do
     CM.setAggregatedKind c "complex.random.rr" (Just StatsAK)
     CM.setAggregatedKind c "complex.random.ewma.rr" (Just (EwmaAK 0.42))
 
-    CM.setBackends c "complex.observeIO" (Just [KatipBK])
+    CM.setBackends c "#aggregation.complex.observeIO" (Just [EKGViewBK])
     CM.setBackends c "#aggregation.complex.random" (Just [EKGViewBK])
     CM.setBackends c "#aggregation.complex.random.ewma" (Just [EKGViewBK])
     CM.setEKGport c 12789

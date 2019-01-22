@@ -84,7 +84,10 @@ Enter the log item into the |Aggregation| queue.
 instance IsEffectuator Aggregation where
     effectuate agg item = do
         ag <- readMVar (getAg agg)
-        atomically $ TBQ.writeTBQueue (agQueue ag) $ Just item
+        nocapacity <- atomically $ TBQ.isFullTBQueue (agQueue ag)
+        if nocapacity
+        then return ()
+        else atomically $ TBQ.writeTBQueue (agQueue ag) $ Just item
 
 \end{code}
 
@@ -144,12 +147,12 @@ spawnDispatcher conf aggMap aggregationQueue trace = Async.async $ qProc aggMap
            -> AggregationMap
            -> IO (AggregationMap, [(Text, Aggregated)])
     update (LogValue iname value) logname agmap = do
-        let name = logname <> "." <> iname
+        let fullname = logname <> "." <> iname
         aggregated <-
-            case HM.lookup name agmap of
+            case HM.lookup fullname agmap of
                 Nothing -> do
                     -- if Aggregated does not exist; initialize it.
-                    aggregatedKind <- getAggregatedKind conf name
+                    aggregatedKind <- getAggregatedKind conf fullname
                     case aggregatedKind of
                         StatsAK      -> return $ singletonStats value
                         EwmaAK aEWMA -> do
@@ -163,27 +166,30 @@ spawnDispatcher conf aggMap aggregationQueue trace = Async.async $ qProc aggMap
                           , aeLastSent = now
                           }
             namedAggregated = [(iname, aeAggregated aggregatedX)]
-            updatedMap = HM.alter (const $ Just $ aggregatedX) name agmap
+            updatedMap = HM.alter (const $ Just $ aggregatedX) fullname agmap
         -- use of HM.alter so that in future we can clear the Agrregated
         -- by using as alter's arg a function which returns Nothing.
         return (updatedMap, namedAggregated)
-    update (ObserveDiff counterState) logname agmap = do
-        let counters = csCounters counterState
-        (mapNew, aggs) <- updateCounters counters logname agmap []
+    update (ObserveDiff counterState) logname agmap =
+        updateCounters (csCounters counterState) (logname, "diff") agmap []
+    update (ObserveOpen counterState) logname agmap =
+        updateCounters (csCounters counterState) (logname, "open") agmap []
+    update (ObserveClose counterState) logname agmap =
+        updateCounters (csCounters counterState) (logname, "close") agmap []
 
-        return (mapNew, reverse aggs)
     -- TODO for text messages aggregate on delta of timestamps
     update _ _ agmap = return (agmap, [])
 
     updateCounters :: [Counter]
-                  -> LoggerName
-                  -> AggregationMap
-                  -> [(Text, Aggregated)]
-                  -> IO (AggregationMap, [(Text, Aggregated)])
+                   -> (LoggerName,LoggerName)
+                   -> AggregationMap
+                   -> [(Text, Aggregated)]
+                   -> IO (AggregationMap, [(Text, Aggregated)])
     updateCounters [] _ aggrMap aggs = return $ (aggrMap, aggs)
-    updateCounters (counter : cs) logname aggrMap aggs = do
+    updateCounters (counter : cs) (logname, msgname) aggrMap aggs = do
         let name = cName counter
-            fullname = logname <> "." <> name
+            subname = msgname <> "." <> (nameCounter counter) <> "." <> name
+            fullname = logname <> "." <> subname
             value = cValue counter
         aggregated <-
             case HM.lookup fullname aggrMap of
@@ -202,10 +208,10 @@ spawnDispatcher conf aggMap aggregationQueue trace = Async.async $ qProc aggMap
                           , aeResetAfter = Nothing
                           , aeLastSent = now
                           }
-            namedAggregated = (((nameCounter counter) <> "." <> name), aggregated)
+            namedAggregated = (subname, aggregated)
             updatedMap = HM.alter (const $ Just $ aggregatedX) fullname aggrMap
 
-        updateCounters cs logname updatedMap (namedAggregated :aggs)
+        updateCounters cs (logname, msgname) updatedMap (namedAggregated : aggs)
 
     sendAggregated :: LogObject -> Text -> IO ()
     sendAggregated aggregatedMsg@(AggregatedMessage _) logname = do
