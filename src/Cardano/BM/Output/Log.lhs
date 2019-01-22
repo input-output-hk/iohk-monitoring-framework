@@ -186,16 +186,16 @@ passN backend katip namedLogItem = do
                     let (sev, msg, payload) = case item of
                                 (LogMessage logItem) ->
                                      (liSeverity logItem, liPayload logItem, Nothing)
-                                (ObserveDiff counters) ->
-                                     let text = toStrict (encodeToLazyText counters)
+                                (ObserveDiff _) ->
+                                     let text = toStrict (encodeToLazyText item)
                                      in
                                      (Info, text, Just item)
-                                (ObserveOpen counters) ->
-                                     let text = toStrict (encodeToLazyText counters)
+                                (ObserveOpen _) ->
+                                     let text = toStrict (encodeToLazyText item)
                                      in
                                      (Info, text, Just item)
-                                (ObserveClose counters) ->
-                                     let text = toStrict (encodeToLazyText counters)
+                                (ObserveClose _) ->
+                                     let text = toStrict (encodeToLazyText item)
                                      in
                                      (Info, text, Just item)
                                 (AggregatedMessage aggregated) ->

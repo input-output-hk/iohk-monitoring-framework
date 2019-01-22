@@ -491,29 +491,42 @@ unit_name_filtering = do
     let contextName = "test.sub.1"
     let loname = "sum"  -- would be part of a "LogValue loname 42"
 
-    let filter1 = [ Drop (Exact "test.sub.1") ]
+    let filter1 = [ (Drop (Exact "test.sub.1"), Unhide []) ]
     assertBool ("Dropping a specific name should filter it out and thus return False")
                (False == evalFilters filter1 contextName)
-    let filter2 = [ Drop (EndsWith ".1") ]
+    let filter2 = [ (Drop (EndsWith ".1"), Unhide []) ]
     assertBool ("Dropping a name ending with a specific text should filter out the context name and thus return False")
                (False == evalFilters filter2 contextName)
-    let filter3 = [ Drop (StartsWith "test.") ]
+    let filter3 = [ (Drop (StartsWith "test."), Unhide []) ]
     assertBool ("Dropping a name starting with a specific text should filter out the context name and thus return False")
                (False == evalFilters filter3 contextName)
-    let filter4 = [ Drop (Contains ".sub.") ]
+    let filter4 = [ (Drop (Contains ".sub."), Unhide []) ]
     assertBool ("Dropping a name starting containing a specific text should filter out the context name and thus return False")
                (False == evalFilters filter4 contextName)
-    let filter5 = [ Drop (StartsWith "test."),
-                    Unhide (Exact "test.sub.1") ]
+    let filter5 = [ (Drop (StartsWith "test."),
+                     Unhide [(Exact "test.sub.1")]) ]
     assertBool ("Dropping all and unhiding a specific name should the context name allow passing the filter")
                (True == evalFilters filter5 contextName)
-    let filter6 = [ Drop (StartsWith "test."),
-                    Unhide (EndsWith ".sum") ]
-    assertBool ("Dropping all and unhiding a named value, the LogObject should pass the filter")
+    let filter6 = [ (Drop (StartsWith "test."),
+                     Unhide [(EndsWith ".sum"),
+                             (EndsWith ".other")]) ]
+    assertBool ("Dropping all and unhiding some names, the LogObject should pass the filter")
                (True == evalFilters filter6 (contextName <> "." <> loname))
-    let filter7 = [ Drop (StartsWith "test."),
-                    Unhide (EndsWith ".product") ]
+    let filter7 = [ (Drop (StartsWith "test."),
+                     Unhide [(EndsWith ".product")]) ]
     assertBool ("Dropping all and unhiding an inexistant named value, the LogObject should not pass the filter")
                (False == evalFilters filter7 (contextName <> "." <> loname))
+    let filter8 = [ (Drop (StartsWith "test."),
+                     Unhide [(Exact "test.sub.1")]),
+                    (Drop (StartsWith "something.else."),
+                     Unhide [(EndsWith ".this")]) ]
+    assertBool ("Disjunction of filters that should pass")
+               (True == evalFilters filter8 contextName)
+    let filter9 = [ (Drop (StartsWith "test."),
+                     Unhide [(Exact ".that")]),
+                    (Drop (StartsWith "something.else."),
+                     Unhide [(EndsWith ".this")]) ]
+    assertBool ("Disjunction of filters that should not pass")
+               (False == evalFilters filter9 contextName)
 
 \end{code}

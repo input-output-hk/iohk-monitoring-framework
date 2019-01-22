@@ -9,7 +9,7 @@
 module Cardano.BM.Data.SubTrace
   (
     SubTrace (..)
-  , NameOperator (..)
+  , DropName (..), UnhideNames (..)
   , NameSelector (..)
   )
   where
@@ -38,13 +38,16 @@ import           GHC.Generics (Generic)
 \begin{code}
 data NameSelector = Exact Text | StartsWith Text | EndsWith Text | Contains Text
                     deriving (Generic, Show, FromJSON, ToJSON, Read, Eq)
-data NameOperator = Drop NameSelector | Unhide NameSelector
+data DropName     = Drop NameSelector
                     deriving (Generic, Show, FromJSON, ToJSON, Read, Eq)
+data UnhideNames  = Unhide [NameSelector]
+                    deriving (Generic, Show, FromJSON, ToJSON, Read, Eq)
+
 data SubTrace = Neutral
               | UntimedTrace
               | NoTrace
               | TeeTrace LoggerName
-              | FilterTrace [NameOperator]
+              | FilterTrace [(DropName, UnhideNames)]
               | DropOpening
               | ObservableTrace [ObservableInstance]
                 deriving (Generic, Show, FromJSON, ToJSON, Read, Eq)
