@@ -105,6 +105,10 @@ instance IsBackend Aggregation where
         aggref <- newEmptyMVar
         aggregationQueue <- atomically $ TBQ.newTBQueue 2048
         dispatcher <- spawnDispatcher (configuration ctx) HM.empty aggregationQueue trace
+        -- link the given Async to the current thread, such that if the Async
+        -- raises an exception, that exception will be re-thrown in the current
+        -- thread, wrapped in ExceptionInLinkedThread.
+        Async.link dispatcher
         putMVar aggref $ AggregationInternal aggregationQueue dispatcher
         return $ Aggregation aggref
 

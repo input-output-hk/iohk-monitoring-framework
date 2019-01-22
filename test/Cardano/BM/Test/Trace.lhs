@@ -538,19 +538,14 @@ Exceptions encountered should be thrown.
 \begin{code}
 unit_exception_throwing :: Assertion
 unit_exception_throwing = do
-    cfg <- defaultConfigTesting
-    trace <- Setup.setupTrace (Right cfg) "test"
 
-    logInfo trace "as" -- delete
-
-    action <- (Right <$> logInfo trace msg) -- ("Message is: " <> msg))
-        `catch` \(ErrorCall e) -> Left <$> logInfo trace (pack e)
+    action <- work msg
 
     res <- Async.waitCatch action
 
     assertBool
         ("Exception should have been rethrown")
-        (isLeft action)
+        (isLeft res)
   where
     msg :: Text
     msg = error "faulty message"
