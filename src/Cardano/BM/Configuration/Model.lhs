@@ -10,6 +10,7 @@ module Cardano.BM.Configuration.Model
     ( Configuration (..)
     , ConfigurationInternal (..)
     , setup
+    , setupFromRepresentation
     , empty
     , minSeverity
     , setMinSeverity
@@ -305,6 +306,10 @@ after refinement.
 setup :: FilePath -> IO Configuration
 setup fp = do
     r <- R.parseRepresentation fp
+    setupFromRepresentation r
+
+setupFromRepresentation :: R.Representation -> IO Configuration
+setupFromRepresentation r = do
     cgref <- newEmptyMVar
     let mapseverity        = HM.lookup "mapSeverity"        (R.options r)
         mapbackends        = HM.lookup "mapBackends"        (R.options r)
@@ -364,13 +369,13 @@ setup fp = do
         else Nothing
     mkSubtrace' _ _ = Nothing
 
-    r_hasEKG r = case (R.hasEKG r) of
+    r_hasEKG repr = case (R.hasEKG repr) of
                        Nothing -> 0
                        Just p  -> p
-    r_hasGUI r = case (R.hasGUI r) of
+    r_hasGUI repr = case (R.hasGUI repr) of
                        Nothing -> 0
                        Just p  -> p
-    r_defaultScribes r = map (\(k,n) -> pack(show k) <> "::" <> n) (R.defaultScribes r)
+    r_defaultScribes repr = map (\(k,n) -> pack(show k) <> "::" <> n) (R.defaultScribes repr)
 
     parseAggregatedKindMap Nothing = HM.empty
     parseAggregatedKindMap (Just hmv) =
