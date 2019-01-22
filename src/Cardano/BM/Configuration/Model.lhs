@@ -44,7 +44,7 @@ import           Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar,
                      takeMVar, withMVar)
 import qualified Data.HashMap.Strict as HM
 import           Data.Maybe (catMaybes)
-import           Data.Text (Text, pack, unpack)
+import           Data.Text (Text, breakOnEnd, dropWhileEnd, pack, unpack)
 import qualified Data.Vector as Vector
 import           Data.Yaml as Y
 
@@ -165,11 +165,20 @@ or, in case no such configuration exists, return the default scribes to use.
 getScribes :: Configuration -> LoggerName -> IO [ScribeId]
 getScribes configuration name =
     withMVar (getCG configuration) $ \cg -> do
+        let defs = cgDefScribes cg
         let outs = HM.lookup name (cgMapScribe cg)
-        case outs of
-            Nothing -> do
-                return (cgDefScribes cg)
-            Just os -> return $ os
+        let find_s lname = case outs of
+                Nothing -> do
+                    case dropToDot lname of
+                        Nothing -> defs
+                        Just lname' -> find_s lname'
+                Just os -> os
+        return $ find_s name
+  where
+    dropToDot :: Text -> Maybe Text
+    dropToDot ts = dropToDot' (breakOnEnd "." ts)
+    dropToDot' (_,"")    = Nothing
+    dropToDot' (name',_) = Just $ dropWhileEnd (=='.') name'
 
 setScribes :: Configuration -> LoggerName -> Maybe [ScribeId] -> IO ()
 setScribes configuration name scribes = do

@@ -130,22 +130,27 @@ put into the queue.
 instance IsEffectuator EKGView where
     effectuate ekgview item = do
         ekg <- readMVar (getEV ekgview)
-        let queue a = atomically $ TBQ.writeTBQueue (evQueue ekg) a
+        let queue a = do
+                        nocapacity <- atomically $ TBQ.isFullTBQueue (evQueue ekg)
+                        if nocapacity
+                        then return ()
+                        else atomically $ TBQ.writeTBQueue (evQueue ekg) a
         case (lnItem item) of
             AggregatedMessage ags -> liftIO $ do
                 let logname = lnName item
                     traceAgg :: [(Text,Aggregated)] -> IO ()
                     traceAgg [] = return ()
-                    traceAgg ((_,AggregatedEWMA ewma):r) = do
-                        queue $ Just $ LogNamed logname (LogValue "avg" $ avg ewma)
+                    traceAgg ((n,AggregatedEWMA ewma):r) = do
+                        queue $ Just $ LogNamed (logname <> "." <> n) (LogValue "avg" $ avg ewma)
                         traceAgg r
-                    traceAgg ((_,AggregatedStats stats):r) = do
-                        queue $ Just $ LogNamed logname (LogValue "mean" (PureD $ meanOfStats stats))
-                        queue $ Just $ LogNamed logname (LogValue "min" $ fmin stats)
-                        queue $ Just $ LogNamed logname (LogValue "max" $ fmax stats)
-                        queue $ Just $ LogNamed logname (LogValue "count" $ PureI $ fcount stats)
-                        queue $ Just $ LogNamed logname (LogValue "last" $ flast stats)
-                        queue $ Just $ LogNamed logname (LogValue "stdev" (PureD $ stdevOfStats stats))
+                    traceAgg ((n,AggregatedStats stats):r) = do
+                        let statsname = logname <> "." <> n
+                        queue $ Just $ LogNamed statsname (LogValue "mean" (PureD $ meanOfStats stats))
+                        queue $ Just $ LogNamed statsname (LogValue "min" $ fmin stats)
+                        queue $ Just $ LogNamed statsname (LogValue "max" $ fmax stats)
+                        queue $ Just $ LogNamed statsname (LogValue "count" $ PureI $ fcount stats)
+                        queue $ Just $ LogNamed statsname (LogValue "last" $ flast stats)
+                        queue $ Just $ LogNamed statsname (LogValue "stdev" (PureD $ stdevOfStats stats))
                         traceAgg r
                 traceAgg ags
             LogMessage _          -> queue $ Just item

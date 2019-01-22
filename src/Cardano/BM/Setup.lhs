@@ -50,11 +50,9 @@ setupTrace_ :: MonadIO m => Config.Configuration -> Text -> m (Trace m)
 setupTrace_ c name = do
     sb <- liftIO $ Switchboard.realize c
     sev <- liftIO $ Config.minSeverity c
-    ctx <- liftIO $ newContext name c sev sb
+    ctx <- liftIO $ newContext "" c sev sb
 
-    let logTrace = natTrace liftIO (ctx, Switchboard.mainTrace sb)
-    logTrace' <- subTrace "" logTrace
-    return logTrace'
+    subTrace name $ natTrace liftIO (ctx, Switchboard.mainTrace sb)
 
 \end{code}
 
