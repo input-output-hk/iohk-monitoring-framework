@@ -39,10 +39,10 @@ import qualified Data.Text as T
 import           Data.Text.Lazy.Builder (Builder, fromText, toLazyText)
 import           Data.Text.Lazy (toStrict)
 import qualified Data.Text.Lazy.IO as TIO
-import           Data.Time (UTCTime, getCurrentTime)
+import           Data.Time.Clock (UTCTime, getCurrentTime)
 import           Data.Time.Format (defaultTimeLocale, formatTime)
 import           Data.Version (Version (..), showVersion)
-import           GHC.Conc (atomically, myThreadId)
+import           GHC.Conc (atomically)
 import           System.Directory (createDirectoryIfMissing)
 import           System.FilePath (takeDirectory)
 import           System.IO (BufferMode (LineBuffering), Handle, hClose,
@@ -153,17 +153,17 @@ example = do
                                             }
 \end{spec}
 
+Needed instances for |katip|:
 \begin{code}
--- useful instances for katip
 deriving instance K.ToObject LogObject
 deriving instance K.ToObject LogItem
-deriving instance K.ToObject (Maybe LogObject)
+deriving instance K.ToObject (Maybe LOContent)
 
 instance KC.LogItem LogObject where
     payloadKeys _ _ = KC.AllKeys
 instance KC.LogItem LogItem where
     payloadKeys _ _ = KC.AllKeys
-instance KC.LogItem (Maybe LogObject) where
+instance KC.LogItem (Maybe LOContent) where
     payloadKeys _ _ = KC.AllKeys
 
 \end{code}
@@ -182,22 +182,22 @@ passN backend katip namedLogItem = do
               -- check start of name to match |ScribeKind|
                 if backend `isPrefixOf` scName
                 then do
-                    let item = lnItem namedLogItem
-                    let (sev, msg, payload) = case item of
+                    let (LogObject lometa loitem) = lnItem namedLogItem
+                    let (sev, msg, payload) = case loitem of
                                 (LogMessage logItem) ->
                                      (liSeverity logItem, liPayload logItem, Nothing)
                                 (ObserveDiff _) ->
-                                     let text = toStrict (encodeToLazyText item)
+                                     let text = toStrict (encodeToLazyText loitem)
                                      in
-                                     (Info, text, Just item)
+                                     (Info, text, Just loitem)
                                 (ObserveOpen _) ->
-                                     let text = toStrict (encodeToLazyText item)
+                                     let text = toStrict (encodeToLazyText loitem)
                                      in
-                                     (Info, text, Just item)
+                                     (Info, text, Just loitem)
                                 (ObserveClose _) ->
-                                     let text = toStrict (encodeToLazyText item)
+                                     let text = toStrict (encodeToLazyText loitem)
                                      in
-                                     (Info, text, Just item)
+                                     (Info, text, Just loitem)
                                 (AggregatedMessage aggregated) ->
                                      let text = T.concat $ (flip map) aggregated $ \(name, agg) ->
                                                 "\n" <> name <> ": " <> pack (show agg)
@@ -210,11 +210,11 @@ passN backend katip namedLogItem = do
                     if (msg == "") && (isNothing payload)
                     then return ()
                     else do
-                        threadIdText <- KC.mkThreadIdText <$> myThreadId
+                        let threadIdText = KC.mkThreadIdText (tid lometa)
                         let ns = lnName namedLogItem
-                        itemTime <- env ^. KC.logEnvTimer
+                        let itemTime = tstamp lometa
                         let itemKatip = K.Item {
-                                _itemApp       = env ^. KC.logEnvApp
+                                  _itemApp       = env ^. KC.logEnvApp
                                 , _itemEnv       = env ^. KC.logEnvEnv
                                 , _itemSeverity  = sev2klog sev
                                 , _itemThread    = threadIdText

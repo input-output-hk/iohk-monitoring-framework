@@ -109,9 +109,9 @@ instance IsBackend Switchboard where
                     qProc = do
                         nli <- atomically $ TBQ.readTBQueue queue
                         case lnItem nli of
-                            KillPill ->
+                            LogObject _ KillPill ->
                                 forM_ backends ( \(_, be) -> bUnrealize be )
-                            AggregatedMessage _ -> do
+                            LogObject _ (AggregatedMessage _) -> do
                                 sendMessage nli (filter (/= AggregationBK))
                                 qProc
                             _ -> sendMessage nli id >> qProc
@@ -140,7 +140,8 @@ instance IsBackend Switchboard where
 
         (dispatcher, queue) <- withMVar (getSB switchboard) (\sb -> return (sbDispatch sb, sbQueue sb))
         -- send terminating item to the queue
-        atomically $ TBQ.writeTBQueue queue $ LogNamed "kill.switchboard" KillPill
+        lo <- LogObject <$> mkLOMeta <*> pure KillPill
+        atomically $ TBQ.writeTBQueue queue $ LogNamed "kill.switchboard" lo
         -- wait for the dispatcher to exit
         res <- Async.waitCatch dispatcher
         either throwM return res
