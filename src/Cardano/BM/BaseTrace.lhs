@@ -3,7 +3,7 @@
 
 %if style == newcode
 \begin{code}
-{-# LANGUAGE RankNTypes        #-}
+{-# LANGUAGE RankNTypes #-}
 
 module Cardano.BM.BaseTrace
     (

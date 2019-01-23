@@ -223,7 +223,8 @@ A third filter is the |minSeverity| defined in the current context.
 \begin{code}
 traceConditionally
     :: MonadIO m
-    => Trace m -> LogObject
+    => Trace m
+    -> LogObject
     -> m ()
 traceConditionally logTrace@(ctx, _) msg@(LogMessage item) = do
     globminsev <- liftIO $ Config.minSeverity (configuration ctx)
@@ -242,7 +243,7 @@ the action defined in the |Trace|.
 
 \begin{code}
 traceNamedItem
-    :: (MonadIO m)
+    :: MonadIO m
     => Trace m
     -> LogSelection
     -> Severity
@@ -250,11 +251,11 @@ traceNamedItem
     -> m ()
 traceNamedItem trace p s m =
     let logmsg = LogMessage $ LogItem { liSelection = p
-                                           , liSeverity  = s
-                                           , liPayload   = m
-                                           }
+                                      , liSeverity  = s
+                                      , liPayload   = m
+                                      }
     in
-    traceConditionally trace $ logmsg
+    traceConditionally trace logmsg
 
 \end{code}
 
@@ -285,7 +286,7 @@ traceNamedItem trace p s m =
 \label{code:logEmergencyP}\index{logEmergencyP}
 \begin{code}
 logDebug, logInfo, logNotice, logWarning, logError, logCritical, logAlert, logEmergency
-    :: (MonadIO m) => Trace m -> T.Text -> m ()
+    :: MonadIO m => Trace m -> T.Text -> m ()
 logDebug     logTrace = traceNamedItem logTrace Both Debug
 logInfo      logTrace = traceNamedItem logTrace Both Info
 logNotice    logTrace = traceNamedItem logTrace Both Notice
@@ -296,7 +297,7 @@ logAlert     logTrace = traceNamedItem logTrace Both Alert
 logEmergency logTrace = traceNamedItem logTrace Both Emergency
 
 logDebugS, logInfoS, logNoticeS, logWarningS, logErrorS, logCriticalS, logAlertS, logEmergencyS
-    :: (MonadIO m) => Trace m -> T.Text -> m ()
+    :: MonadIO m => Trace m -> T.Text -> m ()
 logDebugS     logTrace = traceNamedItem logTrace Private Debug
 logInfoS      logTrace = traceNamedItem logTrace Private Info
 logNoticeS    logTrace = traceNamedItem logTrace Private Notice
@@ -307,7 +308,7 @@ logAlertS     logTrace = traceNamedItem logTrace Private Alert
 logEmergencyS logTrace = traceNamedItem logTrace Private Emergency
 
 logDebugP, logInfoP, logNoticeP, logWarningP, logErrorP, logCriticalP, logAlertP, logEmergencyP
-    :: (MonadIO m) => Trace m -> T.Text -> m ()
+    :: MonadIO m => Trace m -> T.Text -> m ()
 logDebugP     logTrace = traceNamedItem logTrace Public Debug
 logInfoP      logTrace = traceNamedItem logTrace Public Info
 logNoticeP    logTrace = traceNamedItem logTrace Public Notice
@@ -319,7 +320,7 @@ logEmergencyP logTrace = traceNamedItem logTrace Public Emergency
 
 logDebugUnsafeP, logInfoUnsafeP, logNoticeUnsafeP, logWarningUnsafeP, logErrorUnsafeP,
     logCriticalUnsafeP, logAlertUnsafeP, logEmergencyUnsafeP
-    :: (MonadIO m) => Trace m -> T.Text -> m ()
+    :: MonadIO m => Trace m -> T.Text -> m ()
 logDebugUnsafeP     logTrace = traceNamedItem logTrace PublicUnsafe Debug
 logInfoUnsafeP      logTrace = traceNamedItem logTrace PublicUnsafe Info
 logNoticeUnsafeP    logTrace = traceNamedItem logTrace PublicUnsafe Notice

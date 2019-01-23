@@ -110,10 +110,10 @@ ekgTrace ekg c = do
             -- strip off some prefixes not necessary for display
             lognam1 = case stripPrefix "#ekgview.#aggregation." lognam0 of
                       Nothing -> lognam0
-                      Just ln' -> ln' 
+                      Just ln' -> ln'
             logname = case stripPrefix "#ekgview." lognam1 of
                       Nothing -> lognam1
-                      Just ln' -> ln' 
+                      Just ln' -> ln'
         upd <- update (lnItem lognamed) logname ekgup
         case upd of
             Nothing     -> putMVar (getEV ekgview) ekgup
@@ -175,7 +175,11 @@ instance IsBackend EKGView where
         Label.set ekghdl $ pack(showVersion version)
         ekgtrace <- ekgTrace ekgview config
         queue <- atomically $ TBQ.newTBQueue 2048
-        _ <- spawnDispatcher queue ekgtrace
+        dispatcher <- spawnDispatcher queue ekgtrace
+        -- link the given Async to the current thread, such that if the Async
+        -- raises an exception, that exception will be re-thrown in the current
+        -- thread, wrapped in ExceptionInLinkedThread.
+        Async.link dispatcher
         putMVar evref $ EKGViewInternal
                         { evLabels = HM.empty
                         , evServer = ehdl
