@@ -94,7 +94,11 @@ instance IsBackend Switchboard where
     typeof _ = SwitchboardBK
 
     realize cfg =
-        let spawnDispatcher :: Configuration -> [(BackendKind, Backend)] -> TBQ.TBQueue NamedLogItem -> IO (Async.Async ())
+        let spawnDispatcher
+                :: Configuration
+                -> [(BackendKind, Backend)]
+                -> TBQ.TBQueue NamedLogItem
+                -> IO (Async.Async ())
             spawnDispatcher config backends queue =
                 let sendMessage nli befilter = do
                         selectedBackends <- getBackends config (lnName nli)
@@ -122,6 +126,10 @@ instance IsBackend Switchboard where
         backends <- getSetupBackends cfg
         bs <- setupBackends backends cfg sb []
         dispatcher <- spawnDispatcher cfg bs q
+        -- link the given Async to the current thread, such that if the Async
+        -- raises an exception, that exception will be re-thrown in the current
+        -- thread, wrapped in ExceptionInLinkedThread.
+        Async.link dispatcher
         modifyMVar_ sbref $ \sbInternal -> return $ sbInternal {sbDispatch = dispatcher}
 
         return sb
