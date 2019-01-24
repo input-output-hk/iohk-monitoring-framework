@@ -289,6 +289,7 @@ unit_Configuration_parsed = do
                                                     ["StdoutSK::stdout","FileTextSK::testlog"])
                                             , ("iohk.background.process", ["FileTextSK::testlog"])
                                             ]
+        , cgMapScribeCache    = HM.empty
         , cgDefScribes        = ["StdoutSK::stdout"]
         , cgSetupScribes      = [ ScribeDefinition
                                     { scKind     = FileTextSK

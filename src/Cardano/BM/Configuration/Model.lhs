@@ -24,6 +24,7 @@ module Cardano.BM.Configuration.Model
     , getSetupBackends
     , getScribes
     , setScribes
+    , setCachedScribes
     , setDefaultScribes
     , setSetupScribes
     , getSetupScribes
@@ -42,6 +43,7 @@ module Cardano.BM.Configuration.Model
 
 import           Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar,
                      takeMVar, withMVar)
+import           Control.Monad (when)
 import qualified Data.HashMap.Strict as HM
 import           Data.Maybe (catMaybes)
 import           Data.Text (Text, breakOnEnd, dropWhileEnd, pack, unpack)
@@ -93,6 +95,8 @@ data ConfigurationInternal = ConfigurationInternal
     -- been declared here
     , cgMapScribe         :: HM.HashMap LoggerName [ScribeId]
     -- katip scribes that will be used for the specific loggername
+    , cgMapScribeCache    :: HM.HashMap LoggerName [ScribeId]
+    -- map to cache info of the cgMapScribe
     , cgDefScribes        :: [ScribeId]
     -- katip scribes that will be used if a set of scribes for the
     -- specific loggername is not set
@@ -163,17 +167,26 @@ For a given context name return the list of scribes to output to,
 or, in case no such configuration exists, return the default scribes to use.
 \begin{code}
 getScribes :: Configuration -> LoggerName -> IO [ScribeId]
-getScribes configuration name =
-    withMVar (getCG configuration) $ \cg -> do
+getScribes configuration name = do
+    (updateCache, scribes) <- withMVar (getCG configuration) $ \cg -> do
         let defs = cgDefScribes cg
-        let outs = HM.lookup name (cgMapScribe cg)
-        let find_s lname = case outs of
-                Nothing -> do
+        let mapScribe = cgMapScribe cg
+        let find_s lname = case HM.lookup lname mapScribe of
+                Nothing ->
                     case dropToDot lname of
                         Nothing -> defs
                         Just lname' -> find_s lname'
                 Just os -> os
-        return $ find_s name
+        let outs = HM.lookup name (cgMapScribeCache cg)
+        -- look if scribes are already cached
+        return $ case outs of
+            -- if no cached scribes found; search the appropriate scribes that
+            -- they must inherit and update the cached map
+            Nothing -> (True, find_s name)
+            Just os -> (False, os)
+
+    when updateCache $ setCachedScribes configuration name $ Just scribes
+    return scribes
   where
     dropToDot :: Text -> Maybe Text
     dropToDot ts = dropToDot' (breakOnEnd "." ts)
@@ -183,7 +196,14 @@ getScribes configuration name =
 setScribes :: Configuration -> LoggerName -> Maybe [ScribeId] -> IO ()
 setScribes configuration name scribes = do
     cg <- takeMVar (getCG configuration)
-    putMVar (getCG configuration) $ cg { cgMapScribe = HM.alter (\_ -> scribes) name (cgMapScribe cg) }
+    putMVar (getCG configuration) $
+        cg { cgMapScribe = HM.alter (\_ -> scribes) name (cgMapScribe cg) }
+
+setCachedScribes :: Configuration -> LoggerName -> Maybe [ScribeId] -> IO ()
+setCachedScribes configuration name scribes = do
+    cg <- takeMVar (getCG configuration)
+    putMVar (getCG configuration) $
+        cg { cgMapScribeCache = HM.alter (\_ -> scribes) name (cgMapScribeCache cg) }
 
 setDefaultScribes :: Configuration -> [ScribeId] -> IO ()
 setDefaultScribes configuration scs = do
@@ -334,6 +354,7 @@ setupFromRepresentation r = do
         , cgDefBackendKs = R.defaultBackends r
         , cgSetupBackends = R.setupBackends r
         , cgMapScribe = parseScribeMap mapscribes
+        , cgMapScribeCache = HM.empty
         , cgDefScribes = r_defaultScribes r
         , cgSetupScribes = R.setupScribes r
         , cgMapAggregatedKind = parseAggregatedKindMap mapAggregatedKinds
@@ -403,7 +424,7 @@ setupFromRepresentation r = do
 empty :: IO Configuration
 empty = do
     cgref <- newEmptyMVar
-    putMVar cgref $ ConfigurationInternal Debug HM.empty HM.empty HM.empty HM.empty [] [] HM.empty [] [] HM.empty StatsAK 0 0
+    putMVar cgref $ ConfigurationInternal Debug HM.empty HM.empty HM.empty HM.empty [] [] HM.empty HM.empty [] [] HM.empty StatsAK 0 0
     return $ Configuration cgref
 
 \end{code}
