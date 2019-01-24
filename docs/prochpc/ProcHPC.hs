@@ -13,7 +13,7 @@ import           Text.XML.Cursor (Cursor, content, element, fromDocument,
                      child, ($//), (&|), (>=>))
 
 
-defaultfp = "../../dist-newstyle/build/x86_64-osx/ghc-8.6.2/iohk-monitoring-0.1.0.0/hpc/vanilla/html/iohk-monitoring-0.1.0.0/hpc_index_fun.html"
+defaultfp = "../../dist-newstyle/build/x86_64-osx/ghc-8.6.2/iohk-monitoring-0.1.1.0/hpc/vanilla/html/iohk-monitoring-0.1.1.0/hpc_index_fun.html"
 
 findRows :: Cursor -> [Cursor]
 findRows = element "body" >=> child >=> element "table" >=> child >=> element "tr" >=> child

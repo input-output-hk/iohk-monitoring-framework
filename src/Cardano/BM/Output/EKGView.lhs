@@ -83,7 +83,7 @@ ekgTrace ekg c = do
     Trace.subTrace "#ekgview" (ctx,trace)
   where
     ekgTrace' :: EKGView -> TraceNamed IO
-    ekgTrace' ekgview = BaseTrace.BaseTrace $ Op $ \lognamed -> do
+    ekgTrace' ekgview = BaseTrace.BaseTrace $ Op $ \(LogNamed lognamed lo) -> do
         let setlabel :: Text -> Text -> EKGViewInternal -> IO (Maybe EKGViewInternal)
             setlabel name label ekg_i@(EKGViewInternal _ labels server) =
                 case HM.lookup name labels of
@@ -96,9 +96,9 @@ ekgTrace ekg c = do
                         return Nothing
 
             update :: LogObject -> LoggerName -> EKGViewInternal -> IO (Maybe EKGViewInternal)
-            update (LogMessage logitem) logname ekg_i =
+            update (LogObject _ (LogMessage logitem)) logname ekg_i =
                 setlabel logname (liPayload logitem) ekg_i
-            update (LogValue iname value) logname ekg_i =
+            update (LogObject _ (LogValue iname value)) logname ekg_i =
                 let logname' = logname <> "." <> iname
                 in
                 setlabel logname' (pack $ show value) ekg_i
@@ -106,15 +106,14 @@ ekgTrace ekg c = do
             update _ _ _ = return Nothing
 
         ekgup <- takeMVar (getEV ekgview)
-        let lognam0 = (lnName lognamed)
-            -- strip off some prefixes not necessary for display
-            lognam1 = case stripPrefix "#ekgview.#aggregation." lognam0 of
-                      Nothing -> lognam0
+        let -- strip off some prefixes not necessary for display
+            lognam1 = case stripPrefix "#ekgview.#aggregation." lognamed of
+                      Nothing -> lognamed
                       Just ln' -> ln'
             logname = case stripPrefix "#ekgview." lognam1 of
                       Nothing -> lognam1
                       Just ln' -> ln'
-        upd <- update (lnItem lognamed) logname ekgup
+        upd <- update lo logname ekgup
         case upd of
             Nothing     -> putMVar (getEV ekgview) ekgup
             Just ekgup' -> putMVar (getEV ekgview) ekgup'
@@ -136,26 +135,26 @@ instance IsEffectuator EKGView where
                         then return ()
                         else atomically $ TBQ.writeTBQueue (evQueue ekg) a
         case (lnItem item) of
-            AggregatedMessage ags -> liftIO $ do
+            (LogObject lometa (AggregatedMessage ags)) -> liftIO $ do
                 let logname = lnName item
                     traceAgg :: [(Text,Aggregated)] -> IO ()
                     traceAgg [] = return ()
                     traceAgg ((n,AggregatedEWMA ewma):r) = do
-                        queue $ Just $ LogNamed (logname <> "." <> n) (LogValue "avg" $ avg ewma)
+                        queue $ Just $ LogNamed (logname <> "." <> n) $ LogObject lometa (LogValue "avg" $ avg ewma)
                         traceAgg r
                     traceAgg ((n,AggregatedStats stats):r) = do
                         let statsname = logname <> "." <> n
-                        queue $ Just $ LogNamed statsname (LogValue "mean" (PureD $ meanOfStats stats))
-                        queue $ Just $ LogNamed statsname (LogValue "min" $ fmin stats)
-                        queue $ Just $ LogNamed statsname (LogValue "max" $ fmax stats)
-                        queue $ Just $ LogNamed statsname (LogValue "count" $ PureI $ fcount stats)
-                        queue $ Just $ LogNamed statsname (LogValue "last" $ flast stats)
-                        queue $ Just $ LogNamed statsname (LogValue "stdev" (PureD $ stdevOfStats stats))
+                        queue $ Just $ LogNamed statsname $ LogObject lometa (LogValue "mean" (PureD $ meanOfStats stats))
+                        queue $ Just $ LogNamed statsname $ LogObject lometa (LogValue "min" $ fmin stats)
+                        queue $ Just $ LogNamed statsname $ LogObject lometa (LogValue "max" $ fmax stats)
+                        queue $ Just $ LogNamed statsname $ LogObject lometa (LogValue "count" $ PureI $ fcount stats)
+                        queue $ Just $ LogNamed statsname $ LogObject lometa (LogValue "last" $ flast stats)
+                        queue $ Just $ LogNamed statsname $ LogObject lometa (LogValue "stdev" (PureD $ stdevOfStats stats))
                         traceAgg r
                 traceAgg ags
-            LogMessage _          -> queue $ Just item
-            LogValue _ _          -> queue $ Just item
-            _                     -> return ()
+            (LogObject _ (LogMessage _)) -> queue $ Just item
+            (LogObject _ (LogValue _ _)) -> queue $ Just item
+            _                            -> return ()
 
 \end{code}
 

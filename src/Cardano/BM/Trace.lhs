@@ -123,11 +123,11 @@ traceNamedObject
     => Trace m
     -> LogObject
     -> m ()
-traceNamedObject trace@(ctx, logTrace) lo = do
+traceNamedObject trace@(ctx, logTrace) lo@(LogObject _ lc) = do
     let lname = loggerName ctx
     doOutput <- case (typeofTrace trace) of
         FilterTrace filters ->
-             case lo of
+             case lc of
                 LogValue loname _ ->
                     return $ evalFilters filters (lname <> "." <> loname)
                 _ ->
@@ -185,13 +185,13 @@ locallock = unsafePerformIO $ newMVar ()
 
 \begin{code}
 stdoutTrace :: TraceNamed IO
-stdoutTrace = BaseTrace.BaseTrace $ Op $ \lognamed ->
+stdoutTrace = BaseTrace.BaseTrace $ Op $ \(LogNamed logname (LogObject _ lc)) ->
     withMVar locallock $ \_ ->
-        case lnItem lognamed of
+        case lc of
             (LogMessage logItem) ->
-                    output (lnName lognamed) $ liPayload logItem
+                    output logname $ liPayload logItem
             obj ->
-                    output (lnName lognamed) $ toStrict (encodeToLazyText obj)
+                    output logname $ toStrict (encodeToLazyText obj)
   where
     output nm msg = TIO.putStrLn $ nm <> " :: " <> msg
 
@@ -226,7 +226,7 @@ traceConditionally
     => Trace m
     -> LogObject
     -> m ()
-traceConditionally logTrace@(ctx, _) msg@(LogMessage item) = do
+traceConditionally logTrace@(ctx, _) msg@(LogObject _ (LogMessage item)) = do
     globminsev <- liftIO $ Config.minSeverity (configuration ctx)
     globnamesev <- liftIO $ Config.inspectSeverity (configuration ctx) (loggerName ctx)
     let minsev = max (minSeverity ctx) $ max globminsev (fromMaybe Debug globnamesev)
@@ -250,12 +250,13 @@ traceNamedItem
     -> T.Text
     -> m ()
 traceNamedItem trace p s m =
-    let logmsg = LogMessage $ LogItem { liSelection = p
-                                      , liSeverity  = s
-                                      , liPayload   = m
-                                      }
-    in
-    traceConditionally trace logmsg
+    traceConditionally trace =<<
+        LogObject <$> liftIO mkLOMeta
+                  <*> pure (LogMessage LogItem { liSelection = p
+                                               , liSeverity  = s
+                                               , liPayload   = m
+                                               })
+     
 
 \end{code}
 
@@ -395,25 +396,26 @@ subTrace name tr@(ctx, _) = do
     subtrace0 <- liftIO $ Config.findSubTrace (configuration ctx) newName
     let subtrace = case subtrace0 of Nothing -> Neutral; Just str -> str
     case subtrace of
-        Neutral       -> do
-                            tr' <- appendName name tr
-                            return $ updateTracetype subtrace tr'
-        UntimedTrace  -> do
-                            tr' <- appendName name tr
-                            return $ updateTracetype subtrace tr'
-        TeeTrace _    -> do
-                            tr' <- appendName name tr
-                            return $ updateTracetype subtrace tr'
-        FilterTrace _ -> do
-                            tr' <- appendName name tr
-                            return $ updateTracetype subtrace tr'
-        NoTrace       -> return $ updateTracetype subtrace (ctx, BaseTrace.BaseTrace $ Op $ \_ -> pure ())
-        DropOpening   -> return $ updateTracetype subtrace (ctx, BaseTrace.BaseTrace $ Op $ \lognamed -> do
-            case lnItem lognamed of
-                ObserveOpen _ -> return ()
-                obj           -> traceNamedObject tr obj )
+        Neutral           -> do
+                                tr' <- appendName name tr
+                                return $ updateTracetype subtrace tr'
+        UntimedTrace      -> do
+                                tr' <- appendName name tr
+                                return $ updateTracetype subtrace tr'
+        TeeTrace _        -> do
+                                tr' <- appendName name tr
+                                return $ updateTracetype subtrace tr'
+        FilterTrace _     -> do
+                                tr' <- appendName name tr
+                                return $ updateTracetype subtrace tr'
+        NoTrace           -> return $ updateTracetype subtrace (ctx, BaseTrace.BaseTrace $ Op $ \_ -> pure ())
+        DropOpening       -> return $ updateTracetype subtrace (ctx, BaseTrace.BaseTrace $ Op $
+                                \(LogNamed _ lo@(LogObject _ lc)) -> do
+                                    case lc of
+                                        ObserveOpen _ -> return ()
+                                        _             -> traceNamedObject tr lo )
         ObservableTrace _ -> do
-                            tr' <- appendName name tr
-                            return $ updateTracetype subtrace tr'
+                                tr' <- appendName name tr
+                                return $ updateTracetype subtrace tr'
 
 \end{code}
