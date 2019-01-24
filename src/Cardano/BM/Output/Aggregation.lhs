@@ -139,10 +139,10 @@ spawnDispatcher conf aggMap aggregationQueue trace = Async.async $ qProc aggMap
     qProc aggregatedMap = do
         maybeItem <- atomically $ TBQ.readTBQueue aggregationQueue
         case maybeItem of
-            Just item -> do
-                (updatedMap, aggregations) <- update (lnItem item) (lnName item) aggregatedMap
+            Just (LogNamed logname lo@(LogObject lm _)) -> do
+                (updatedMap, aggregations) <- update lo logname aggregatedMap
                 unless (null aggregations) $
-                    sendAggregated (AggregatedMessage aggregations) (lnName item)
+                    sendAggregated (LogObject lm (AggregatedMessage aggregations)) logname
                 qProc updatedMap
             Nothing -> return ()
 
@@ -150,7 +150,7 @@ spawnDispatcher conf aggMap aggregationQueue trace = Async.async $ qProc aggMap
            -> LoggerName
            -> AggregationMap
            -> IO (AggregationMap, [(Text, Aggregated)])
-    update (LogValue iname value) logname agmap = do
+    update (LogObject _ (LogValue iname value)) logname agmap = do
         let fullname = logname <> "." <> iname
         aggregated <-
             case HM.lookup fullname agmap of
@@ -174,11 +174,11 @@ spawnDispatcher conf aggMap aggregationQueue trace = Async.async $ qProc aggMap
         -- use of HM.alter so that in future we can clear the Agrregated
         -- by using as alter's arg a function which returns Nothing.
         return (updatedMap, namedAggregated)
-    update (ObserveDiff counterState) logname agmap =
+    update (LogObject _ (ObserveDiff counterState)) logname agmap =
         updateCounters (csCounters counterState) (logname, "diff") agmap []
-    update (ObserveOpen counterState) logname agmap =
+    update (LogObject _ (ObserveOpen counterState)) logname agmap =
         updateCounters (csCounters counterState) (logname, "open") agmap []
-    update (ObserveClose counterState) logname agmap =
+    update (LogObject _ (ObserveClose counterState)) logname agmap =
         updateCounters (csCounters counterState) (logname, "close") agmap []
 
     -- TODO for text messages aggregate on delta of timestamps
@@ -218,7 +218,7 @@ spawnDispatcher conf aggMap aggregationQueue trace = Async.async $ qProc aggMap
         updateCounters cs (logname, msgname) updatedMap (namedAggregated : aggs)
 
     sendAggregated :: LogObject -> Text -> IO ()
-    sendAggregated aggregatedMsg@(AggregatedMessage _) logname = do
+    sendAggregated aggregatedMsg@(LogObject _ (AggregatedMessage _)) logname = do
         -- enter the aggregated message into the |Trace|
         trace' <- Trace.appendName logname trace
         liftIO $ Trace.traceNamedObject trace' aggregatedMsg

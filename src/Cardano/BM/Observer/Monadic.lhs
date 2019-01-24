@@ -23,7 +23,7 @@ import           Data.Text
 import           Data.Unique (newUnique)
 
 import           Cardano.BM.Data.Counter (CounterState (..), diffCounters)
-import           Cardano.BM.Data.LogItem (LogObject (..))
+import           Cardano.BM.Data.LogItem (LogObject (..), LOContent (..), mkLOMeta)
 import           Cardano.BM.Data.SubTrace (SubTrace (NoTrace))
 import           Cardano.BM.Counters (readCounters)
 import           Cardano.BM.Trace (Trace, logError, logNotice, subTrace, traceNamedObject,
@@ -184,7 +184,8 @@ observeOpen subtrace logTrace = (do
     counters <- readCounters subtrace
     let state = CounterState identifier counters
     -- send opening message to Trace
-    traceNamedObject logTrace $ ObserveOpen state
+    traceNamedObject logTrace =<<
+        LogObject <$> mkLOMeta <*> pure (ObserveOpen state)
     return (Right state)) `catch` (return . Left)
 
 \end{code}
@@ -199,10 +200,11 @@ observeClose subtrace logTrace initState logObjects = (do
     -- take measurement
     counters <- readCounters subtrace
     -- send closing message to Trace
-    traceNamedObject logTrace $ ObserveClose (CounterState identifier counters)
+    traceNamedObject logTrace =<<
+        LogObject <$> mkLOMeta <*> pure (ObserveClose (CounterState identifier counters))
     -- send diff message to Trace
-    traceNamedObject logTrace $
-        ObserveDiff (CounterState identifier (diffCounters initialCounters counters))
+    traceNamedObject logTrace =<<
+        LogObject <$> mkLOMeta <*> pure (ObserveDiff (CounterState identifier (diffCounters initialCounters counters)))
     -- trace the messages gathered from inside the action
     forM_ logObjects $ traceNamedObject logTrace
     return (Right ())) `catch` (return . Left)

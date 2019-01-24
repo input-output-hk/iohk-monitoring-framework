@@ -91,14 +91,14 @@ unit_tests = testGroup "Unit tests" [
       where
         observablesSet = [MonotonicClock, MemoryStats]
         notObserveOpen :: [LogObject] -> Bool
-        notObserveOpen = all (\case {ObserveOpen _ -> False; _ -> True})
+        notObserveOpen = all (\case {LogObject _ (ObserveOpen _) -> False; _ -> True})
         onlyLevelOneMessage :: [LogObject] -> Bool
         onlyLevelOneMessage = \case
-            [LogMessage (LogItem _ _ "Message from level 1.")] -> True
+            [LogObject _ (LogMessage (LogItem _ _ "Message from level 1."))] -> True
             _                                                  -> False
         observeOpenWithoutMeasures :: [LogObject] -> Bool
         observeOpenWithoutMeasures = any $ \case
-            ObserveOpen (CounterState _ counters) -> null counters
+            LogObject _ (ObserveOpen (CounterState _ counters)) -> null counters
             _ -> False
 
 \end{code}
@@ -287,7 +287,7 @@ unit_trace_min_severity = do
         (length res == 2)
     assertBool
         ("Found Info message when Warning was minimum severity: " ++ show res)
-        (all (\case {(LogMessage (LogItem _ Info "Message #2")) -> False; _ -> True}) res)
+        (all (\case {LogObject _ (LogMessage (LogItem _ Info "Message #2")) -> False; _ -> True}) res)
 
 \end{code}
 
@@ -351,7 +351,7 @@ unit_named_min_severity = do
         (length res == 2)
     assertBool
         ("Found Info message when Warning was minimum severity: " ++ show res)
-        (all (\case {(LogMessage (LogItem _ Info "Message #2")) -> False; _ -> True}) res)
+        (all (\case {LogObject _ (LogMessage (LogItem _ Info "Message #2")) -> False; _ -> True}) res)
 
 \end{code}
 
@@ -454,7 +454,7 @@ unit_noOpening_Trace = do
     res <- STM.readTVarIO msgs
     assertBool
         ("Found non-expected ObserveOpen message: " ++ show res)
-        (all (\case {ObserveOpen _ -> False; _ -> True}) res)
+        (all (\case {LogObject _ (ObserveOpen _) -> False; _ -> True}) res)
 
 \end{code}
 

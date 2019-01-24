@@ -12,13 +12,17 @@ module Cardano.BM.Data.LogItem
   , LogItem (..)
   , LogNamed (..)
   , LogObject (..)
+  , LOMeta (..), mkLOMeta
+  , LOContent (..)
   , LoggerName
   , LogSelection (..)
   )
   where
 
-import           Data.Aeson (FromJSON, ToJSON)
+import           Control.Concurrent (ThreadId, myThreadId)
+import           Data.Aeson (FromJSON, ToJSON, object, toJSON, (.=))
 import           Data.Text (Text)
+import           Data.Time.Clock (UTCTime, getCurrentTime)
 
 import           GHC.Generics (Generic)
 
@@ -30,13 +34,70 @@ import           Cardano.BM.Data.Severity
 %endif
 
 \subsubsection{LoggerName}\label{code:LoggerName}\index{LoggerName}
+A |LoggerName| has currently type |Text|.
 \begin{code}
 type LoggerName = Text
+
 \end{code}
 
 \subsubsection{NamedLogItem}\label{code:NamedLogItem}\index{NamedLogItem}
 \begin{code}
 type NamedLogItem = LogNamed LogObject
+
+\end{code}
+
+\subsubsection{LogNamed}\label{code:LogNamed}\index{LogNamed}
+A |LogNamed| contains of a context name and some log item.
+\begin{code}
+
+data LogNamed item = LogNamed
+    { lnName :: LoggerName
+    , lnItem :: item
+    } deriving (Show)
+
+deriving instance Generic item => Generic (LogNamed item)
+deriving instance (ToJSON item, Generic item) => ToJSON (LogNamed item)
+
+\end{code}
+
+\subsubsection{Logging of outcomes with |LogObject|}
+\label{code:LogObject}\index{LogObject}
+
+\begin{code}
+data LogObject = LogObject LOMeta LOContent
+                 deriving (Generic, Show, ToJSON)
+
+\end{code}
+
+Meta data for a |LogObject|:
+\begin{code}
+data LOMeta = LOMeta {
+                tstamp :: {-# UNPACK #-} !UTCTime
+              , tid    :: {-# UNPACK #-} !ThreadId
+              }
+              deriving (Show)
+
+instance ToJSON LOMeta where
+    toJSON (LOMeta _tstamp _tid) =
+        object ["tstamp" .= _tstamp, "tid" .= show _tid]
+
+mkLOMeta :: IO LOMeta
+mkLOMeta =
+    LOMeta <$> getCurrentTime
+           <*> myThreadId
+
+\end{code}
+
+Payload of a |LogObject|:
+\begin{code}
+data LOContent = LogMessage LogItem
+               | LogValue Text Measurable
+               | ObserveOpen CounterState
+               | ObserveDiff CounterState
+               | ObserveClose CounterState
+               | AggregatedMessage [(Text, Aggregated)]
+               | KillPill
+                 deriving (Generic, Show, ToJSON)
 
 \end{code}
 
@@ -66,35 +127,5 @@ data LogSelection =
     | Private      -- only to private logs.
     | Both         -- to public and private logs.
     deriving (Show, Generic, ToJSON, FromJSON)
-
-\end{code}
-
-
-\subsubsection{LogObject}
-\label{code:LogObject}\index{LogObject}
-\begin{code}
-
-data LogObject = LogMessage LogItem
-               | LogValue Text Measurable
-               | ObserveOpen CounterState
-               | ObserveDiff CounterState
-               | ObserveClose CounterState
-               | AggregatedMessage [(Text, Aggregated)]
-               | KillPill
-                 deriving (Generic, Show, ToJSON)
-
-\end{code}
-
-\subsubsection{LogNamed}\label{code:LogNamed}\index{LogNamed}
-A |LogNamed| contains of a context name and some log item.
-\begin{code}
-
-data LogNamed item = LogNamed
-    { lnName :: LoggerName
-    , lnItem :: item
-    } deriving (Show)
-
-deriving instance Generic item => Generic (LogNamed item)
-deriving instance (ToJSON item, Generic item) => ToJSON (LogNamed item)
 
 \end{code}
