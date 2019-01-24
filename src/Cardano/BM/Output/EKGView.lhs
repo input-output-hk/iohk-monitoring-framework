@@ -109,10 +109,10 @@ ekgTrace ekg c = do
         let -- strip off some prefixes not necessary for display
             lognam1 = case stripPrefix "#ekgview.#aggregation." lognamed of
                       Nothing -> lognamed
-                      Just ln' -> ln' 
+                      Just ln' -> ln'
             logname = case stripPrefix "#ekgview." lognam1 of
                       Nothing -> lognam1
-                      Just ln' -> ln' 
+                      Just ln' -> ln'
         upd <- update lo logname ekgup
         case upd of
             Nothing     -> putMVar (getEV ekgview) ekgup
@@ -152,9 +152,9 @@ instance IsEffectuator EKGView where
                         queue $ Just $ LogNamed statsname $ LogObject lometa (LogValue "stdev" (PureD $ stdevOfStats stats))
                         traceAgg r
                 traceAgg ags
-            (LogObject _ (LogMessage _))          -> queue $ Just item
-            (LogObject _ (LogValue _ _))          -> queue $ Just item
-            _                                          -> return ()
+            (LogObject _ (LogMessage _)) -> queue $ Just item
+            (LogObject _ (LogValue _ _)) -> queue $ Just item
+            _                            -> return ()
 
 \end{code}
 
