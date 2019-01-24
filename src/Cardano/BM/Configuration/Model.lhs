@@ -24,6 +24,7 @@ module Cardano.BM.Configuration.Model
     , getSetupBackends
     , getScribes
     , setScribes
+    , getCachedScribes
     , setCachedScribes
     , setDefaultScribes
     , setSetupScribes
@@ -193,6 +194,11 @@ getScribes configuration name = do
     dropToDot' (_,"")    = Nothing
     dropToDot' (name',_) = Just $ dropWhileEnd (=='.') name'
 
+getCachedScribes :: Configuration -> LoggerName -> IO (Maybe [ScribeId])
+getCachedScribes configuration name =
+    withMVar (getCG configuration) $ \cg -> do
+        return $ HM.lookup name $ cgMapScribeCache cg
+
 setScribes :: Configuration -> LoggerName -> Maybe [ScribeId] -> IO ()
 setScribes configuration name scribes = do
     cg <- takeMVar (getCG configuration)
@@ -345,6 +351,7 @@ setupFromRepresentation r = do
         mapsubtrace        = HM.lookup "mapSubtrace"        (R.options r)
         mapscribes         = HM.lookup "mapScribes"         (R.options r)
         mapAggregatedKinds = HM.lookup "mapAggregatedkinds" (R.options r)
+        mapScribe          = parseScribeMap mapscribes
     putMVar cgref $ ConfigurationInternal
         { cgMinSeverity = R.minSeverity r
         , cgMapSeverity = parseSeverityMap mapseverity
@@ -353,8 +360,8 @@ setupFromRepresentation r = do
         , cgMapBackend = parseBackendMap mapbackends
         , cgDefBackendKs = R.defaultBackends r
         , cgSetupBackends = R.setupBackends r
-        , cgMapScribe = parseScribeMap mapscribes
-        , cgMapScribeCache = HM.empty
+        , cgMapScribe = mapScribe
+        , cgMapScribeCache = mapScribe
         , cgDefScribes = r_defaultScribes r
         , cgSetupScribes = R.setupScribes r
         , cgMapAggregatedKind = parseAggregatedKindMap mapAggregatedKinds

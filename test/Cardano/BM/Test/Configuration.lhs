@@ -16,8 +16,9 @@ import qualified Data.Vector as V
 import           Data.Yaml
 
 import           Cardano.BM.Data.Configuration
-import           Cardano.BM.Configuration.Model (Configuration (..), ConfigurationInternal (..),
-                     setup)
+import           Cardano.BM.Configuration.Model (Configuration (..),
+                     ConfigurationInternal (..), getScribes, getCachedScribes,
+                     empty, setDefaultScribes, setScribes, setup)
 import           Cardano.BM.Data.AggregatedKind
 import           Cardano.BM.Data.BackendKind
 import           Cardano.BM.Data.Output
@@ -53,6 +54,7 @@ unit_tests = testGroup "Unit tests" [
       , testCase "parsed_configuration" unit_Configuration_parsed
       , testCase "include_EKG_if_defined" unit_Configuration_check_EKG_positive
       , testCase "not_include_EKG_if_ndef" unit_Configuration_check_EKG_negative
+      , testCase "check_scribe_caching" unit_Configuration_check_scribe_cache
     ]
 
 \end{code}
@@ -289,7 +291,10 @@ unit_Configuration_parsed = do
                                                     ["StdoutSK::stdout","FileTextSK::testlog"])
                                             , ("iohk.background.process", ["FileTextSK::testlog"])
                                             ]
-        , cgMapScribeCache    = HM.empty
+        , cgMapScribeCache    = HM.fromList [ ("iohk.interesting.value",
+                                                    ["StdoutSK::stdout","FileTextSK::testlog"])
+                                            , ("iohk.background.process", ["FileTextSK::testlog"])
+                                            ]
         , cgDefScribes        = ["StdoutSK::stdout"]
         , cgSetupScribes      = [ ScribeDefinition
                                     { scKind     = FileTextSK
@@ -313,4 +318,35 @@ unit_Configuration_parsed = do
         , cgPortEKG           = 12789
         , cgPortGUI           = 0
         }
+
+\end{code}
+
+Test caching and inheritance of Scribes.
+\begin{code}
+unit_Configuration_check_scribe_cache :: Assertion
+unit_Configuration_check_scribe_cache = do
+    configuration <- empty
+
+    let defScribes = ["FileTextSK::node.log"]
+    setDefaultScribes configuration defScribes
+
+    let scribes12 = ["StdoutSK::stdout", "FileTextSK::out.txt"]
+    setScribes configuration "name1.name2" $ Just scribes12
+
+    scribes1234 <- getScribes configuration "name1.name2.name3.name4"
+    scribes1    <- getScribes configuration "name1"
+
+    scribes1234cached <- getCachedScribes configuration "name1.name2.name3.name4"
+    scribesXcached    <- getCachedScribes configuration "nameX"
+
+    assertBool "Scribes for name1.name2.name3.name4 must be the same as name1.name2" $
+        scribes1234 == scribes12
+    assertBool "Scribes for name1 must be the default ones" $
+        scribes1 == defScribes
+    assertBool "Scribes for name1.name2.name3.name4 must have been cached" $
+        scribes1234cached == Just scribes1234
+    assertBool "Scribes for nameX must not have been cached since getScribes was not called" $
+        scribesXcached == Nothing
+
+
 \end{code}
