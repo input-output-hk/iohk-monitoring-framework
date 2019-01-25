@@ -85,7 +85,7 @@ library
                        vector,
                        yaml
 
-  ghc-options:         -Wall
+  ghc-options:         -Wall -O2
                        -fno-ignore-asserts
 
 test-suite tests

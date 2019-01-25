@@ -147,7 +147,7 @@ instance IsEffectuator EKGView where
                         queue $ Just $ LogNamed statsname $ LogObject lometa (LogValue "mean" (PureD $ meanOfStats stats))
                         queue $ Just $ LogNamed statsname $ LogObject lometa (LogValue "min" $ fmin stats)
                         queue $ Just $ LogNamed statsname $ LogObject lometa (LogValue "max" $ fmax stats)
-                        queue $ Just $ LogNamed statsname $ LogObject lometa (LogValue "count" $ PureI $ fcount stats)
+                        queue $ Just $ LogNamed statsname $ LogObject lometa (LogValue "count" $ PureI $ fromIntegral $ fcount stats)
                         queue $ Just $ LogNamed statsname $ LogObject lometa (LogValue "last" $ flast stats)
                         queue $ Just $ LogNamed statsname $ LogObject lometa (LogValue "stdev" (PureD $ stdevOfStats stats))
                         traceAgg r
@@ -173,7 +173,7 @@ instance IsBackend EKGView where
         ekghdl <- getLabel "iohk-monitoring version" ehdl
         Label.set ekghdl $ pack(showVersion version)
         ekgtrace <- ekgTrace ekgview config
-        queue <- atomically $ TBQ.newTBQueue 2048
+        queue <- atomically $ TBQ.newTBQueue 512
         dispatcher <- spawnDispatcher queue ekgtrace
         -- link the given Async to the current thread, such that if the Async
         -- raises an exception, that exception will be re-thrown in the current
@@ -215,7 +215,7 @@ spawnDispatcher evqueue trace =
 \begin{spec}
 test :: IO ()
 test = do
-    c <- Cardano.BM.Configuration.setup "test/config.yaml"
+    c <- Cardano.BM.Setup.setupTrace (Left "test/config.yaml") "ekg"
     ev <- Cardano.BM.Output.EKGView.realize c
 
     effectuate ev $ LogNamed "test.questions" (LogValue "answer" 42)

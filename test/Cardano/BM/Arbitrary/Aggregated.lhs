@@ -29,7 +29,7 @@ instance Arbitrary Aggregated where
                                 (PureI (last vs))
                                 (PureI (minimum vs))
                                 (PureI (maximum vs))
-                                (toInteger $ length vs)
+                                (fromIntegral $ length vs)
                                 (m)
                                 (s)
                             )

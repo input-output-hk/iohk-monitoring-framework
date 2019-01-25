@@ -430,6 +430,6 @@ readProcIO = do
   where
     colnames :: [Text]
     colnames = [ "rchar","wchar","syscr","syscw","rbytes","wbytes","cxwbytes" ]
-    units    = [  Bytes , Bytes , PureI  , PureI  , Bytes  , Bytes  , Bytes     ]
+    units    = [  Bytes . fromInteger , Bytes . fromInteger , PureI  , PureI  , Bytes . fromInteger  , Bytes . fromInteger  , Bytes . fromInteger     ]
 
 \end{code}

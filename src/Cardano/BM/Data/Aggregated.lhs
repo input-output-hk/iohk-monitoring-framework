@@ -12,6 +12,7 @@ module Cardano.BM.Data.Aggregated
   , Stats (..)
   , EWMA (..)
   , Measurable (..)
+  , showSI
   , getInteger
   , getDouble
   , meanOfStats
@@ -24,6 +25,7 @@ import           GHC.Generics (Generic)
 import           Data.Aeson (ToJSON)
 import           Data.Scientific (fromFloatDigits)
 import           Data.Text (Text, pack)
+import           Data.Word (Word64)
 \end{code}
 %endif
 
@@ -31,11 +33,12 @@ import           Data.Text (Text, pack)
 A |Measurable| may consist of different types of values.
 
 \begin{code}
-data Measurable = Microseconds Integer
-                | Seconds Integer
-                | Bytes Integer
-                | PureI Integer
-                | PureD Double
+data Measurable = Microseconds {-# UNPACK #-} !Word64
+                | Nanoseconds  {-# UNPACK #-} !Word64
+                | Seconds      {-# UNPACK #-} !Word64
+                | Bytes        {-# UNPACK #-} !Word64
+                | PureI        Integer
+                | PureD        Double
                 deriving (Eq, Ord, Generic, ToJSON)
 
 \end{code}
@@ -43,9 +46,10 @@ data Measurable = Microseconds Integer
 |Measurable| can be transformed to an integral value.
 \begin{code}
 getInteger :: Measurable -> Integer
-getInteger (Microseconds a) = a
-getInteger (Seconds a)      = a
-getInteger (Bytes a)        = a
+getInteger (Microseconds a) = toInteger a
+getInteger (Nanoseconds a)  = toInteger a
+getInteger (Seconds a)      = toInteger a
+getInteger (Bytes a)        = toInteger a
 getInteger (PureI a)        = a
 getInteger (PureD a)        = round a
 
@@ -54,9 +58,10 @@ getInteger (PureD a)        = round a
 |Measurable| can be transformed to a rational value.
 \begin{code}
 getDouble :: Measurable -> Double
-getDouble (Microseconds a) = fromInteger a
-getDouble (Seconds a)      = fromInteger a
-getDouble (Bytes a)        = fromInteger a
+getDouble (Microseconds a) = fromIntegral a
+getDouble (Nanoseconds a)  = fromIntegral a
+getDouble (Seconds a)      = fromIntegral a
+getDouble (Bytes a)        = fromIntegral a
 getDouble (PureI a)        = fromInteger a
 getDouble (PureD a)        = a
 
@@ -67,6 +72,7 @@ It is a numerical value, thus supports functions to operate on numbers.
 \begin{code}
 instance Num Measurable where
     (+) (Microseconds a) (Microseconds b) = Microseconds (a+b)
+    (+) (Nanoseconds a)  (Nanoseconds b)  = Nanoseconds  (a+b)
     (+) (Seconds a)      (Seconds b)      = Seconds      (a+b)
     (+) (Bytes a)        (Bytes b)        = Bytes        (a+b)
     (+) (PureI a)        (PureI b)        = PureI        (a+b)
@@ -74,6 +80,7 @@ instance Num Measurable where
     (+)  _                _               = error "Trying to add values with different units"
 
     (*) (Microseconds a) (Microseconds b) = Microseconds (a*b)
+    (*) (Nanoseconds a)  (Nanoseconds b)  = Nanoseconds  (a*b)
     (*) (Seconds a)      (Seconds b)      = Seconds      (a*b)
     (*) (Bytes a)        (Bytes b)        = Bytes        (a*b)
     (*) (PureI a)        (PureI b)        = PureI        (a*b)
@@ -81,18 +88,21 @@ instance Num Measurable where
     (*)  _                _               = error "Trying to multiply values with different units"
 
     abs (Microseconds a) = Microseconds (abs a)
+    abs (Nanoseconds a)  = Nanoseconds (abs a)
     abs (Seconds a)      = Seconds      (abs a)
     abs (Bytes a)        = Bytes        (abs a)
     abs (PureI a)        = PureI        (abs a)
     abs (PureD a)        = PureD        (abs a)
 
     signum (Microseconds a) = Microseconds (signum a)
+    signum (Nanoseconds a)  = Nanoseconds  (signum a)
     signum (Seconds a)      = Seconds      (signum a)
     signum (Bytes a)        = Bytes        (signum a)
     signum (PureI a)        = PureI        (signum a)
     signum (PureD a)        = PureD        (signum a)
 
     negate (Microseconds a) = Microseconds (negate a)
+    negate (Nanoseconds a)  = Nanoseconds (negate a)
     negate (Seconds a)      = Seconds      (negate a)
     negate (Bytes a)        = Bytes        (negate a)
     negate (PureI a)        = PureI        (negate a)
@@ -105,10 +115,16 @@ instance Num Measurable where
 Pretty printing of |Measurable|. \index{Measurable!instance of Show}
 \begin{code}
 instance Show Measurable where
-    show = showSI
+    show v@(Microseconds a) = show a ++ showUnits v
+    show v@(Nanoseconds a)  = show a ++ showUnits v
+    show v@(Seconds a)      = show a ++ showUnits v
+    show v@(Bytes a)        = show a ++ showUnits v
+    show v@(PureI a)        = show a ++ showUnits v
+    show v@(PureD a)        = show a ++ showUnits v
 
 showUnits :: Measurable -> String
 showUnits (Microseconds _) = " µs"
+showUnits (Nanoseconds _)  = " ns"
 showUnits (Seconds _)      = " s"
 showUnits (Bytes _)        = " B"
 showUnits (PureI _)        = ""
@@ -116,7 +132,9 @@ showUnits (PureD _)        = ""
 
 -- show in S.I. units
 showSI :: Measurable -> String
-showSI (Microseconds a) = show (fromFloatDigits ((fromInteger a) / (1000000::Float))) ++
+showSI (Microseconds a) = show (fromFloatDigits ((fromIntegral a) / (1000000::Float))) ++
+                          showUnits (Seconds a)
+showSI (Nanoseconds a)  = show (fromFloatDigits ((fromIntegral a) / (1000000000::Float))) ++
                           showUnits (Seconds a)
 showSI v@(Seconds a)    = show a ++ showUnits v
 showSI v@(Bytes a)      = show a ++ showUnits v
@@ -128,12 +146,12 @@ showSI v@(PureD a)      = show a ++ showUnits v
 \subsubsection{Stats}\label{code:Stats}\index{Stats}
 \begin{code}
 data Stats = Stats {
-    flast  :: Measurable,
-    fmin   :: Measurable,
-    fmax   :: Measurable,
-    fcount :: Integer,
-    fsum_A :: Double,
-    fsum_B :: Double
+    flast  :: !Measurable,
+    fmin   :: !Measurable,
+    fmax   :: !Measurable,
+    fcount :: !Word64,
+    fsum_A :: !Double,
+    fsum_B :: !Double
     } deriving (Eq, Generic, ToJSON, Show)
 
 \end{code}
@@ -149,7 +167,7 @@ stdevOfStats :: Stats -> Double
 stdevOfStats s =
     if fcount s < 2
     then 0
-    else sqrt $ (fsum_B s) / (fromInteger $ (fcount s) - 1)
+    else sqrt $ (fsum_B s) / (fromInteger $ fromIntegral (fcount s) - 1)
 
 \end{code}
 
