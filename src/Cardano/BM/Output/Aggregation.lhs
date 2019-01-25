@@ -69,9 +69,9 @@ was the last time it was sent.
 type Timestamp = Word64
 
 data AggregatedExpanded = AggregatedExpanded
-                            { aeAggregated :: Aggregated
-                            , aeResetAfter :: Maybe Integer
-                            , aeLastSent   :: Timestamp
+                            { aeAggregated :: !Aggregated
+                            , aeResetAfter :: !(Maybe Word64)
+                            , aeLastSent   :: {-# UNPACK #-} !Timestamp
                             }
 
 \end{code}
@@ -87,7 +87,7 @@ instance IsEffectuator Aggregation where
         nocapacity <- atomically $ TBQ.isFullTBQueue (agQueue ag)
         if nocapacity
         then return ()
-        else atomically $ TBQ.writeTBQueue (agQueue ag) $ Just item
+        else atomically $! TBQ.writeTBQueue (agQueue ag) $ Just item
 
 \end{code}
 
@@ -234,7 +234,7 @@ We use Welford's online algorithm to update the estimation of mean and variance 
 (see \url{https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford's_Online_algorithm})
 
 \begin{code}
-updateAggregation :: Measurable -> Aggregated -> Maybe Integer -> Aggregated
+updateAggregation :: Measurable -> Aggregated -> Maybe Word64 -> Aggregated
 updateAggregation v (AggregatedStats s) resetAfter =
     let count = fcount s
         reset = maybe False (count >=) resetAfter
@@ -246,18 +246,17 @@ updateAggregation v (AggregatedStats s) resetAfter =
         let newcount = count + 1
             newvalue = getDouble v
             delta = newvalue - fsum_A s
-            dincr = (delta / fromInteger newcount)
+            dincr = (delta / fromIntegral newcount)
             delta2 = newvalue - fsum_A s - dincr
         in
-        AggregatedStats Stats { flast  = v
-                                    , fmin   = min (fmin s) v
-                                    , fmax   = max (fmax s) v
-                                    , fcount = newcount
-                                    , fsum_A = fsum_A s + dincr
-                                    , fsum_B = fsum_B s + (delta * delta2)
-                                    }
-updateAggregation v (AggregatedEWMA e) _ =
-    AggregatedEWMA $ ewma e v
+        AggregatedStats $! Stats { flast  = v
+                                 , fmin   = min (fmin s) v
+                                 , fmax   = max (fmax s) v
+                                 , fcount = newcount
+                                 , fsum_A = fsum_A s + dincr
+                                 , fsum_B = fsum_B s + (delta * delta2)
+                                 }
+updateAggregation v (AggregatedEWMA e) _ = AggregatedEWMA $! ewma e v
 
 \end{code}
 
@@ -278,12 +277,12 @@ and will not change type, once determined.
 \begin{code}
 ewma :: EWMA -> Measurable -> EWMA
 ewma (EmptyEWMA a) v = EWMA a v
-ewma (EWMA a (Microseconds s)) (Microseconds y) =
-    EWMA a $ Microseconds $ round $ a * (fromInteger y) + (1 - a) * (fromInteger s)
-ewma (EWMA a (Seconds s)) (Seconds y) =
-    EWMA a $ Seconds $ round $ a * (fromInteger y) + (1 - a) * (fromInteger s)
-ewma (EWMA a (Bytes s)) (Bytes y) =
-    EWMA a $ Bytes $ round $ a * (fromInteger y) + (1 - a) * (fromInteger s)
+ewma (EWMA a s@(Microseconds _)) y@(Microseconds _) =
+    EWMA a $ Microseconds $ round $ a * (getDouble y) + (1 - a) * (getDouble s)
+ewma (EWMA a s@(Seconds _)) y@(Seconds _) =
+    EWMA a $ Seconds $ round $ a * (getDouble y) + (1 - a) * (getDouble s)
+ewma (EWMA a s@(Bytes _)) y@(Bytes _) =
+    EWMA a $ Bytes $ round $ a * (getDouble y) + (1 - a) * (getDouble s)
 ewma (EWMA a (PureI s)) (PureI y) =
     EWMA a $ PureI $ round $ a * (fromInteger y) + (1 - a) * (fromInteger s)
 ewma (EWMA a (PureD s)) (PureD y) =

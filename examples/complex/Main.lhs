@@ -77,7 +77,7 @@ config = do
                                      (EndsWith ".mean")]),
                             (Drop (StartsWith "#ekgview.#aggregation.complex.observeIO"),
                              Unhide [(Contains "close.RTS.liveBytes.last"),
-                                     (Contains "close.RTS.liveBytes.max")])
+                                     (Contains "close.RTS")])
                           ])
     CM.setSubTrace c "complex.observeIO" (Just $ ObservableTrace [GhcRtsStats,MemoryStats])
     forM_ [(1::Int)..10] $ \x ->
@@ -135,10 +135,10 @@ observeIO trace = do
   where
     loop tr = do
         threadDelay 5000000  -- 5 seconds
-        bracketObserveIO tr "observeIO" $ do
-            num <- randomRIO (10000, 200000) :: IO Int
-            _ <- return $ reverse $ reverse $ 42 : [1 .. num]
-            pure ()
+        _ <- bracketObserveIO tr "observeIO" $ do
+            num <- randomRIO (100000, 200000) :: IO Int
+            ls <- return $ reverse $ init $ reverse $ 42 : [1 .. num]
+            pure $ const ls ()
         loop tr
 
 \end{code}
@@ -182,7 +182,7 @@ observeSTM trace = do
 stmAction :: TVar [Int] -> STM ()
 stmAction tvarlist = do
   list <- readTVar tvarlist
-  writeTVar tvarlist $ reverse $ reverse $ list
+  writeTVar tvarlist $ reverse $ init $ reverse $ list
   pure ()
 
 \end{code}
