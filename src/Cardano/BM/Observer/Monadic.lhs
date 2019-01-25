@@ -183,9 +183,12 @@ observeOpen subtrace logTrace = (do
     -- take measurement
     counters <- readCounters subtrace
     let state = CounterState identifier counters
-    -- send opening message to Trace
-    traceNamedObject logTrace =<<
-        LogObject <$> mkLOMeta <*> pure (ObserveOpen state)
+    if counters == []
+    then return ()
+    else do
+        -- send opening message to Trace
+        traceNamedObject logTrace =<<
+            LogObject <$> mkLOMeta <*> pure (ObserveOpen state)
     return (Right state)) `catch` (return . Left)
 
 \end{code}
@@ -199,12 +202,15 @@ observeClose subtrace logTrace initState logObjects = (do
 
     -- take measurement
     counters <- readCounters subtrace
-    -- send closing message to Trace
-    traceNamedObject logTrace =<<
-        LogObject <$> mkLOMeta <*> pure (ObserveClose (CounterState identifier counters))
-    -- send diff message to Trace
-    traceNamedObject logTrace =<<
-        LogObject <$> mkLOMeta <*> pure (ObserveDiff (CounterState identifier (diffCounters initialCounters counters)))
+    if counters == []
+    then return ()
+    else do
+        -- send closing message to Trace
+        traceNamedObject logTrace =<<
+            LogObject <$> mkLOMeta <*> pure (ObserveClose (CounterState identifier counters))
+        -- send diff message to Trace
+        traceNamedObject logTrace =<<
+            LogObject <$> mkLOMeta <*> pure (ObserveDiff (CounterState identifier (diffCounters initialCounters counters)))
     -- trace the messages gathered from inside the action
     forM_ logObjects $ traceNamedObject logTrace
     return (Right ())) `catch` (return . Left)

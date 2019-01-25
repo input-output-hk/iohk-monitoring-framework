@@ -24,7 +24,6 @@ import           Data.Either (isLeft, isRight)
 import           Data.Map (fromListWith, lookup)
 import           Data.Text (Text, append, pack)
 import qualified Data.Text as T
-import           Data.Time.Units (Microsecond)
 import           Data.Unique (newUnique)
 
 import           Cardano.BM.Configuration (inspectSeverity,
@@ -33,6 +32,7 @@ import           Cardano.BM.Configuration.Model (empty, setSubTrace)
 import           Cardano.BM.Configuration.Static (defaultConfigTesting)
 import           Cardano.BM.Counters (diffTimeObserved, getMonoClock)
 import qualified Cardano.BM.BaseTrace as BaseTrace
+import           Cardano.BM.Data.Aggregated
 import           Cardano.BM.Data.Counter
 import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.Observable
@@ -77,7 +77,7 @@ unit_tests = testGroup "Unit tests" [
                 notObserveOpen
       , testCase "hierarchy of traces with UntimedTrace" $
             unit_hierarchy' [Neutral, UntimedTrace, UntimedTrace]
-                observeOpenWithoutMeasures
+                observeNoMeasures
       , testCase "changing the minimum severity of a trace at runtime"
             unit_trace_min_severity
       , testCase "changing the minimum severity of a named context at runtime"
@@ -92,14 +92,16 @@ unit_tests = testGroup "Unit tests" [
         observablesSet = [MonotonicClock, MemoryStats]
         notObserveOpen :: [LogObject] -> Bool
         notObserveOpen = all (\case {LogObject _ (ObserveOpen _) -> False; _ -> True})
+        notObserveClose :: [LogObject] -> Bool
+        notObserveClose = all (\case {LogObject _ (ObserveClose _) -> False; _ -> True})
+        notObserveDiff :: [LogObject] -> Bool
+        notObserveDiff = all (\case {LogObject _ (ObserveDiff _) -> False; _ -> True})
         onlyLevelOneMessage :: [LogObject] -> Bool
         onlyLevelOneMessage = \case
             [LogObject _ (LogMessage (LogItem _ _ "Message from level 1."))] -> True
             _                                                  -> False
-        observeOpenWithoutMeasures :: [LogObject] -> Bool
-        observeOpenWithoutMeasures = any $ \case
-            LogObject _ (ObserveOpen (CounterState _ counters)) -> null counters
-            _ -> False
+        observeNoMeasures :: [LogObject] -> Bool
+        observeNoMeasures obs = notObserveOpen obs && notObserveClose obs && notObserveDiff obs
 
 \end{code}
 
@@ -168,18 +170,18 @@ example_with_named_contexts = do
 
 \subsubsection{Show effect of turning off observables}\label{timing_Observable_vs_Untimed}
 \begin{code}
-run_timed_action :: Trace IO -> IO Microsecond
-run_timed_action logTrace = do
+run_timed_action :: Trace IO -> Int -> IO Measurable
+run_timed_action logTrace reps = do
     runid <- newUnique
     t0 <- getMonoClock
-    forM_ [(1::Int)..10] $ const $ observeAction logTrace
+    forM_ [(1::Int)..reps] $ const $ observeAction logTrace
     t1 <- getMonoClock
     return $ diffTimeObserved (CounterState runid t0) (CounterState runid t1)
   where
     observeAction trace = do
         _ <- MonadicObserver.bracketObserveIO trace "" action
         return ()
-    action = return $ forM [1::Int ..100] $ \_ -> reverse [1::Int ..1000]
+    action = return $ forM [1::Int ..100] $ \x -> [x] ++ (init $ reverse [1::Int ..10000])
 
 timing_Observable_vs_Untimed :: Assertion
 timing_Observable_vs_Untimed = do
@@ -204,9 +206,9 @@ timing_Observable_vs_Untimed = do
                                     NoTrace
                                     Debug
 
-    t_observable <- run_timed_action traceObservable
-    t_untimed    <- run_timed_action traceUntimed
-    t_notrace    <- run_timed_action traceNoTrace
+    t_observable <- run_timed_action traceObservable 100
+    t_untimed    <- run_timed_action traceUntimed 100
+    t_notrace    <- run_timed_action traceNoTrace 100
 
     assertBool
         ("Untimed consumed more time than ObservableTrace " ++ (show [t_untimed, t_observable]))
@@ -218,7 +220,7 @@ timing_Observable_vs_Untimed = do
         ("NoTrace consumed more time than Untimed" ++ (show [t_notrace, t_untimed]))
         True
   where
-    observablesSet = [MonotonicClock, MemoryStats]
+    observablesSet = [MonotonicClock, GhcRtsStats, MemoryStats]
 
 \end{code}
 
