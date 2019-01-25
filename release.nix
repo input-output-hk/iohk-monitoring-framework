@@ -5,7 +5,7 @@ let
 
   config = {
     packageOverrides = pkgs: rec {
-      haskellPackages = pkgs.haskell.packages.ghc843.override {
+      haskellPackages = pkgs.haskell.packages.ghc863.override {
         overrides = haskellPackagesNew: haskellPackagesOld: rec {
           iohk-monitoring = pkgs.haskell.lib.dontHaddock (haskellPackagesNew.callPackage ./iohk-monitoring.nix { });
         };
@@ -14,8 +14,8 @@ let
   };
 
   nixpkgs = builtins.fetchTarball {
-    url    = "https://github.com/NixOS/nixpkgs/archive/069bf7aee30faf7b3ed773cfae2154d761b2d6c2.tar.gz";
-    sha256 = "1c44vjb60fw2r8ck8yqwkj1w4288wixi59c6w1vazjixa79mvjvg";
+    url    = "https://github.com/NixOS/nixpkgs/archive/6054276a8e6e877f8846c79b0779e3310c495a6b.tar.gz";
+    sha256 = "11mv8an4zikh2hybn11znqcbxazqq32byvvvaymy2xkpww2jnkxp";
   };
 
   pkgs = import nixpkgs { inherit config; };
