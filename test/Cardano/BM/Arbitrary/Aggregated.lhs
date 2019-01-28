@@ -24,15 +24,25 @@ instance Arbitrary Aggregated where
     arbitrary = do
         vs' <- arbitrary :: Gen [Integer]
         let vs = 42 : 17 : vs'
-            (m, s) = updateMeanVar $ map fromInteger vs
-        return $ AggregatedStats (Stats
-                                (PureI (last vs))
+            ds = map (\(a,b) -> a - b) $ zip vs (tail vs)
+            (m1, s1) = updateMeanVar $ map fromInteger vs
+            (m2, s2) = updateMeanVar $ map fromInteger ds
+            mkBasicStats = BaseStats
                                 (PureI (minimum vs))
                                 (PureI (maximum vs))
                                 (fromIntegral $ length vs)
-                                (m)
-                                (s)
-                            )
+                                (m1)
+                                (s1)
+            mkDeltaStats = BaseStats
+                                (PureI (minimum ds))
+                                (PureI (maximum ds))
+                                (fromIntegral $ length ds)
+                                (m2)
+                                (s2)
+        return $ AggregatedStats (Stats
+                                     (PureI (last vs))
+                                     mkBasicStats
+                                     mkDeltaStats)
 
 \end{code}
 

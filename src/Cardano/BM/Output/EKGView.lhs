@@ -133,27 +133,30 @@ instance IsEffectuator EKGView where
                         nocapacity <- atomically $ TBQ.isFullTBQueue (evQueue ekg)
                         if nocapacity
                         then return ()
-                        else atomically $ TBQ.writeTBQueue (evQueue ekg) a
+                        else atomically $ TBQ.writeTBQueue (evQueue ekg) (Just a)
         case (lnItem item) of
             (LogObject lometa (AggregatedMessage ags)) -> liftIO $ do
                 let logname = lnName item
                     traceAgg :: [(Text,Aggregated)] -> IO ()
                     traceAgg [] = return ()
                     traceAgg ((n,AggregatedEWMA ewma):r) = do
-                        queue $ Just $ LogNamed (logname <> "." <> n) $ LogObject lometa (LogValue "avg" $ avg ewma)
+                        queue $ LogNamed (logname <> "." <> n) $ LogObject lometa (LogValue "avg" $ avg ewma)
                         traceAgg r
                     traceAgg ((n,AggregatedStats stats):r) = do
                         let statsname = logname <> "." <> n
-                        queue $ Just $ LogNamed statsname $ LogObject lometa (LogValue "mean" (PureD $ meanOfStats stats))
-                        queue $ Just $ LogNamed statsname $ LogObject lometa (LogValue "min" $ fmin stats)
-                        queue $ Just $ LogNamed statsname $ LogObject lometa (LogValue "max" $ fmax stats)
-                        queue $ Just $ LogNamed statsname $ LogObject lometa (LogValue "count" $ PureI $ fromIntegral $ fcount stats)
-                        queue $ Just $ LogNamed statsname $ LogObject lometa (LogValue "last" $ flast stats)
-                        queue $ Just $ LogNamed statsname $ LogObject lometa (LogValue "stdev" (PureD $ stdevOfStats stats))
+                            qbasestats s' nm = do
+                                queue $ LogNamed nm $ LogObject lometa (LogValue "mean" (PureD $ meanOfStats s'))
+                                queue $ LogNamed nm $ LogObject lometa (LogValue "min" $ fmin s')
+                                queue $ LogNamed nm $ LogObject lometa (LogValue "max" $ fmax s')
+                                queue $ LogNamed nm $ LogObject lometa (LogValue "count" $ PureI $ fromIntegral $ fcount s')
+                                queue $ LogNamed nm $ LogObject lometa (LogValue "stdev" (PureD $ stdevOfStats s'))
+                        queue $ LogNamed statsname $ LogObject lometa (LogValue "last" $ flast stats)
+                        qbasestats (fbasic stats) $ statsname <> ".basic"
+                        qbasestats (fdelta stats) $ statsname <> ".delta"
                         traceAgg r
                 traceAgg ags
-            (LogObject _ (LogMessage _)) -> queue $ Just item
-            (LogObject _ (LogValue _ _)) -> queue $ Just item
+            (LogObject _ (LogMessage _)) -> queue item
+            (LogObject _ (LogValue _ _)) -> queue item
             _                            -> return ()
 
 \end{code}

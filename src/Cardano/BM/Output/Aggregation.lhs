@@ -29,8 +29,9 @@ import           Data.Word (Word64)
 import           GHC.Clock (getMonotonicTimeNSec)
 
 import           Cardano.BM.Configuration.Model (Configuration, getAggregatedKind)
-import           Cardano.BM.Data.Aggregated (Aggregated (..), EWMA (..),
-                     Measurable (..), Stats (..), getDouble, singletonStats)
+import           Cardano.BM.Data.Aggregated (Aggregated (..), BaseStats (..),
+                     EWMA (..), Measurable (..), Stats (..), getDouble,
+                     singletonStats)
 import           Cardano.BM.Data.AggregatedKind (AggregatedKind (..))
 import           Cardano.BM.Data.Backend
 import           Cardano.BM.Data.Counter (Counter (..), CounterState (..),
@@ -236,27 +237,34 @@ We use Welford's online algorithm to update the estimation of mean and variance 
 \begin{code}
 updateAggregation :: Measurable -> Aggregated -> Maybe Word64 -> Aggregated
 updateAggregation v (AggregatedStats s) resetAfter =
-    let count = fcount s
+    let count = fcount (fbasic s)
         reset = maybe False (count >=) resetAfter
     in
     if reset
     then
         singletonStats v
     else
-        let newcount = count + 1
-            newvalue = getDouble v
-            delta = newvalue - fsum_A s
-            dincr = (delta / fromIntegral newcount)
-            delta2 = newvalue - fsum_A s - dincr
-        in
         AggregatedStats $! Stats { flast  = v
-                                 , fmin   = min (fmin s) v
-                                 , fmax   = max (fmax s) v
-                                 , fcount = newcount
-                                 , fsum_A = fsum_A s + dincr
-                                 , fsum_B = fsum_B s + (delta * delta2)
+                                 , fbasic = updateBaseStats (count >= 1) v (fbasic s)
+                                 , fdelta = updateBaseStats (count >= 2) (v - flast s) (fdelta s)
                                  }
 updateAggregation v (AggregatedEWMA e) _ = AggregatedEWMA $! ewma e v
+
+updateBaseStats :: Bool -> Measurable -> BaseStats -> BaseStats
+updateBaseStats False _ s = s {fcount = fcount s + 1}
+updateBaseStats True v s =
+    let newcount = fcount s + 1
+        newvalue = getDouble v
+        delta = newvalue - fsum_A s
+        dincr = (delta / fromIntegral newcount)
+        delta2 = newvalue - fsum_A s - dincr
+    in
+    BaseStats { fmin   = min (fmin s) v
+              , fmax   = max (fmax s) v
+              , fcount = newcount
+              , fsum_A = fsum_A s + dincr
+              , fsum_B = fsum_B s + (delta * delta2)
+              }
 
 \end{code}
 

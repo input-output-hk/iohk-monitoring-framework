@@ -48,11 +48,7 @@ prop_Aggregation_comm v1 v2 ag =
     let AggregatedStats stats1 = updateAggregation (PureI v1) (updateAggregation (PureI v2) ag Nothing) Nothing
         AggregatedStats stats2 = updateAggregation (PureI v2) (updateAggregation (PureI v1) ag Nothing) Nothing
     in
-    fmin   stats1 == fmin   stats2 &&
-    fmax   stats1 == fmax   stats2 &&
-    fcount stats1 == fcount stats2 &&
-    abs (fsum_A stats1 - fsum_A stats2) < 1.0e-4 &&
-    abs (fsum_B stats1 - fsum_B stats2) < 1.0e-4 &&
+    fbasic stats1 == fbasic stats2 &&
     (v1 == v2) `implies` (flast stats1 == flast stats2)
 
 -- implication: if p1 is true, then return p2; otherwise true
@@ -62,15 +58,15 @@ implies p1 p2 = (not p1) || p2
 unit_Aggregation_initial_minus_1 :: Assertion
 unit_Aggregation_initial_minus_1 =
     updateAggregation (-1) firstStateAggregatedStats Nothing @?=
-        AggregatedStats (Stats (-1) (-1) 0 2 (-0.5) 0.5)
+        AggregatedStats (Stats (-1) (BaseStats (-1) 0 2 (-0.5) 0.5) (BaseStats (-1) 0 1 (-1.0) 0.0))
 unit_Aggregation_initial_plus_1 :: Assertion
 unit_Aggregation_initial_plus_1 =
-    updateAggregation 1 firstStateAggregatedStats Nothing @?= AggregatedStats (Stats 1 0 1 2 0.5 0.5)
+    updateAggregation 1 firstStateAggregatedStats Nothing @?= AggregatedStats (Stats 1 (BaseStats 0 1 2 0.5 0.5) (BaseStats 0 1 1 1.0 0.0))
 unit_Aggregation_initial_zero :: Assertion
 unit_Aggregation_initial_zero =
-    updateAggregation 0 firstStateAggregatedStats Nothing @?= AggregatedStats (Stats 0 0 0 2 0 0)
+    updateAggregation 0 firstStateAggregatedStats Nothing @?= AggregatedStats (Stats 0 (BaseStats 0 0 2 0 0) (BaseStats 0 0 1 0 0))
 
 firstStateAggregatedStats :: Aggregated
-firstStateAggregatedStats = AggregatedStats (Stats 0 0 0 1 0 0)
+firstStateAggregatedStats = AggregatedStats (Stats 0 (BaseStats 0 0 1 0 0) (BaseStats 0 0 0 0 0))
 
 \end{code}
