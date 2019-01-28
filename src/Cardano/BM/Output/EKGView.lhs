@@ -153,6 +153,7 @@ instance IsEffectuator EKGView where
                         queue $ LogNamed statsname $ LogObject lometa (LogValue "last" $ flast stats)
                         qbasestats (fbasic stats) $ statsname <> ".basic"
                         qbasestats (fdelta stats) $ statsname <> ".delta"
+                        qbasestats (ftimed stats) $ statsname <> ".timed"
                         traceAgg r
                 traceAgg ags
             (LogObject _ (LogMessage _)) -> queue item

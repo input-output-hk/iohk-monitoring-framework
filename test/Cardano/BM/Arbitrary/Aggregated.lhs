@@ -39,10 +39,18 @@ instance Arbitrary Aggregated where
                                 (fromIntegral $ length ds)
                                 (m2)
                                 (s2)
+            mkTimedStats = BaseStats
+                                (Nanoseconds 0)
+                                (Nanoseconds 0)
+                                (0)
+                                (0)
+                                (0)
         return $ AggregatedStats (Stats
                                      (PureI (last vs))
+                                     (Nanoseconds 0)
                                      mkBasicStats
-                                     mkDeltaStats)
+                                     mkDeltaStats
+                                     mkTimedStats)
 
 \end{code}
 

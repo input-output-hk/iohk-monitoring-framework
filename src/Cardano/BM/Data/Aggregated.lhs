@@ -118,12 +118,12 @@ instance Num Measurable where
 Pretty printing of |Measurable|. \index{Measurable!instance of Show}
 \begin{code}
 instance Show Measurable where
-    show v@(Microseconds a) = show a  -- ++ showUnits v
-    show v@(Nanoseconds a)  = show a  -- ++ showUnits v
-    show v@(Seconds a)      = show a  -- ++ showUnits v
-    show v@(Bytes a)        = show a  -- ++ showUnits v
-    show v@(PureI a)        = show a  -- ++ showUnits v
-    show v@(PureD a)        = show a  -- ++ showUnits v
+    show (Microseconds a) = show a  -- ++ showUnits v
+    show (Nanoseconds a)  = show a  -- ++ showUnits v
+    show (Seconds a)      = show a  -- ++ showUnits v
+    show (Bytes a)        = show a  -- ++ showUnits v
+    show (PureI a)        = show a  -- ++ showUnits v
+    show (PureD a)        = show a  -- ++ showUnits v
 
 showUnits :: Measurable -> String
 showUnits (Microseconds _) = " µs"
@@ -165,9 +165,10 @@ instance Eq BaseStats where
 
 data Stats = Stats {
     flast  :: !Measurable,
-    -- ftime  :: !Measurable,
+    fold   :: !Measurable,
     fbasic :: !BaseStats,
-    fdelta :: !BaseStats
+    fdelta :: !BaseStats,
+    ftimed :: !BaseStats
     } deriving (Eq, Generic, ToJSON, Show)
 
 \end{code}
@@ -212,11 +213,12 @@ instance Semigroup Stats where
 \label{code:stats2Text}\index{stats2Text}
 \begin{code}
 stats2Text :: Stats -> Text
-stats2Text (Stats slast sbasic sdelta) =
+stats2Text (Stats slast _ sbasic sdelta stimed) =
     pack $
         "{ last=" ++ show slast ++
         ", basic-stats=" ++ showStats' (sbasic) ++
         ", delta-stats=" ++ showStats' (sdelta) ++
+        ", timed-stats=" ++ showStats' (stimed) ++
         " }"
   where
     showStats' :: BaseStats -> String
@@ -272,6 +274,7 @@ instance Semigroup Aggregated where
 singletonStats :: Measurable -> Aggregated
 singletonStats a =
     let stats = Stats { flast  = a
+                      , fold   = 0
                       , fbasic = BaseStats
                                  { fmin   = a
                                  , fmax   = a
@@ -279,6 +282,12 @@ singletonStats a =
                                  , fsum_A = getDouble a
                                  , fsum_B = 0 }
                       , fdelta = BaseStats
+                                 { fmin   = 0
+                                 , fmax   = 0
+                                 , fcount = 0
+                                 , fsum_A = 0
+                                 , fsum_B = 0 }
+                      , ftimed = BaseStats
                                  { fmin   = 0
                                  , fmax   = 0
                                  , fcount = 0

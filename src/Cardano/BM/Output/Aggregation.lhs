@@ -25,6 +25,8 @@ import           Control.Monad.Catch (throwM)
 import           Control.Monad.IO.Class (liftIO)
 import qualified Data.HashMap.Strict as HM
 import           Data.Text (Text)
+import           Data.Time.Calendar (toModifiedJulianDay)
+import           Data.Time.Clock (UTCTime (..))
 import           Data.Word (Word64)
 import           GHC.Clock (getMonotonicTimeNSec)
 
@@ -151,7 +153,7 @@ spawnDispatcher conf aggMap aggregationQueue trace = Async.async $ qProc aggMap
            -> LoggerName
            -> AggregationMap
            -> IO (AggregationMap, [(Text, Aggregated)])
-    update (LogObject _ (LogValue iname value)) logname agmap = do
+    update (LogObject lme (LogValue iname value)) logname agmap = do
         let fullname = logname <> "." <> iname
         aggregated <-
             case HM.lookup fullname agmap of
@@ -163,7 +165,7 @@ spawnDispatcher conf aggMap aggregationQueue trace = Async.async $ qProc aggMap
                         EwmaAK aEWMA -> do
                             let initEWMA = EmptyEWMA aEWMA
                             return $ AggregatedEWMA $ ewma initEWMA value
-                Just a -> return $ updateAggregation value (aeAggregated a) (aeResetAfter a)
+                Just a -> return $ updateAggregation value (aeAggregated a) lme (aeResetAfter a)
         now <- getMonotonicTimeNSec
         let aggregatedX = AggregatedExpanded {
                             aeAggregated = aggregated
@@ -175,23 +177,24 @@ spawnDispatcher conf aggMap aggregationQueue trace = Async.async $ qProc aggMap
         -- use of HM.alter so that in future we can clear the Agrregated
         -- by using as alter's arg a function which returns Nothing.
         return (updatedMap, namedAggregated)
-    update (LogObject _ (ObserveDiff counterState)) logname agmap =
-        updateCounters (csCounters counterState) (logname, "diff") agmap []
-    update (LogObject _ (ObserveOpen counterState)) logname agmap =
-        updateCounters (csCounters counterState) (logname, "open") agmap []
-    update (LogObject _ (ObserveClose counterState)) logname agmap =
-        updateCounters (csCounters counterState) (logname, "close") agmap []
+    update (LogObject lme (ObserveDiff counterState)) logname agmap =
+        updateCounters (csCounters counterState) lme (logname, "diff") agmap []
+    update (LogObject lme (ObserveOpen counterState)) logname agmap =
+        updateCounters (csCounters counterState) lme (logname, "open") agmap []
+    update (LogObject lme (ObserveClose counterState)) logname agmap =
+        updateCounters (csCounters counterState) lme (logname, "close") agmap []
 
     -- TODO for text messages aggregate on delta of timestamps
     update _ _ agmap = return (agmap, [])
 
     updateCounters :: [Counter]
+                   -> LOMeta
                    -> (LoggerName,LoggerName)
                    -> AggregationMap
                    -> [(Text, Aggregated)]
                    -> IO (AggregationMap, [(Text, Aggregated)])
-    updateCounters [] _ aggrMap aggs = return $ (aggrMap, aggs)
-    updateCounters (counter : cs) (logname, msgname) aggrMap aggs = do
+    updateCounters [] _ _ aggrMap aggs = return $ (aggrMap, aggs)
+    updateCounters (counter : cs) lme (logname, msgname) aggrMap aggs = do
         let name = cName counter
             subname = msgname <> "." <> (nameCounter counter) <> "." <> name
             fullname = logname <> "." <> subname
@@ -206,7 +209,7 @@ spawnDispatcher conf aggMap aggregationQueue trace = Async.async $ qProc aggMap
                             EwmaAK aEWMA -> do
                                 let initEWMA = EmptyEWMA aEWMA
                                 return $ AggregatedEWMA $ ewma initEWMA value
-                    Just a -> return $ updateAggregation value (aeAggregated a) (aeResetAfter a)
+                    Just a -> return $ updateAggregation value (aeAggregated a) lme (aeResetAfter a)
         now <- getMonotonicTimeNSec
         let aggregatedX = AggregatedExpanded {
                             aeAggregated = aggregated
@@ -216,7 +219,7 @@ spawnDispatcher conf aggMap aggregationQueue trace = Async.async $ qProc aggMap
             namedAggregated = (subname, aggregated)
             updatedMap = HM.alter (const $ Just $ aggregatedX) fullname aggrMap
 
-        updateCounters cs (logname, msgname) updatedMap (namedAggregated : aggs)
+        updateCounters cs lme (logname, msgname) updatedMap (namedAggregated : aggs)
 
     sendAggregated :: LogObject -> Text -> IO ()
     sendAggregated aggregatedMsg@(LogObject _ (AggregatedMessage _)) logname = do
@@ -235,8 +238,8 @@ We use Welford's online algorithm to update the estimation of mean and variance 
 (see \url{https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford's_Online_algorithm})
 
 \begin{code}
-updateAggregation :: Measurable -> Aggregated -> Maybe Word64 -> Aggregated
-updateAggregation v (AggregatedStats s) resetAfter =
+updateAggregation :: Measurable -> Aggregated -> LOMeta -> Maybe Word64 -> Aggregated
+updateAggregation v (AggregatedStats s) lme resetAfter =
     let count = fcount (fbasic s)
         reset = maybe False (count >=) resetAfter
     in
@@ -245,10 +248,18 @@ updateAggregation v (AggregatedStats s) resetAfter =
         singletonStats v
     else
         AggregatedStats $! Stats { flast  = v
+                                 , fold = mkTimestamp
                                  , fbasic = updateBaseStats (count >= 1) v (fbasic s)
                                  , fdelta = updateBaseStats (count >= 2) (v - flast s) (fdelta s)
+                                 , ftimed = updateBaseStats (count >= 2) (mkTimestamp - fold s) (ftimed s)
                                  }
-updateAggregation v (AggregatedEWMA e) _ = AggregatedEWMA $! ewma e v
+  where
+    mkTimestamp = 
+        let UTCTime days secs = tstamp lme
+        in
+        Nanoseconds $ round $ fromRational $ 1000000000 * toRational secs + toRational (toModifiedJulianDay days) * 365 * 24 * 3600 
+
+updateAggregation v (AggregatedEWMA e) _ _ = AggregatedEWMA $! ewma e v
 
 updateBaseStats :: Bool -> Measurable -> BaseStats -> BaseStats
 updateBaseStats False _ s = s {fcount = fcount s + 1}

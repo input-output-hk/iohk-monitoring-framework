@@ -77,7 +77,7 @@ config = do
                                      (EndsWith ".mean")]),
                             (Drop (StartsWith "#ekgview.#aggregation.complex.observeIO"),
                              Unhide [(Contains "close.RTS"),
-                                     (Contains "diff_OFF.RTS")])
+                                     (Contains "diff.RTS")])
                           ])
     CM.setSubTrace c "complex.observeIO" (Just $ ObservableTrace [GhcRtsStats,MemoryStats])
     forM_ [(1::Int)..10] $ \x ->

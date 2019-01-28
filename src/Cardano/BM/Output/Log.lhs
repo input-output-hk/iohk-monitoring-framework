@@ -54,6 +54,7 @@ import           Katip.Scribes.Handle (brackets)
 
 import qualified Cardano.BM.Configuration as Config
 import           Cardano.BM.Configuration.Model (getScribes, getSetupScribes)
+import           Cardano.BM.Data.Aggregated
 import           Cardano.BM.Data.Backend
 import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.Output
@@ -204,7 +205,7 @@ passN backend katip namedLogItem = do
                                     in
                                     (Info, text, Nothing)
                                 (LogValue name value) ->
-                                    (Debug, name <> " = " <> pack (show value), Nothing)
+                                    (Debug, name <> " = " <> pack (showSI value), Nothing)
                                 KillPill ->
                                     (Info, "Kill pill received!", Nothing)
                     if (msg == "") && (isNothing payload)
