@@ -6,9 +6,11 @@ steps:
     artifact_paths: "docs/IOHK-Monitoring.pdf ; docs/IOHK-Monitoring.log"
     timeout: 5
 
-  - label: "nix build"
-    command: "nix-build release.nix"
+  - label: 'check-hydra'
+    command: 'ci/check-hydra.sh'
     agents:
-      "system=x86_64-linux"
-    artifact_paths: "**/*-tests.log"
-    timeout: 15
+      system: x86_64-linux
+  - label: 'stack2nix'
+    command: 'ci/check-stack2nix.sh'
+    agents:
+      system: x86_64-linux

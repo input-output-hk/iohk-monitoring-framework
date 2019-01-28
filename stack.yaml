@@ -1,0 +1,10 @@
+resolver: lts-13.6
+compiler: ghc-8.6.3
+packages:
+- .
+extra-deps:
+- time-units-1.0.0
+- ekg-0.4.0.15
+- ekg-json-0.1.0.6
+- process-1.6.5.0
+- transformers-0.5.6.2
