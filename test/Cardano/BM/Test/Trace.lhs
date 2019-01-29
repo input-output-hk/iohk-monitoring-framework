@@ -468,14 +468,12 @@ the limit is set to 80.
 unit_append_name :: Assertion
 unit_append_name = do
     cfg <- defaultConfigTesting
-    trace0 <- Setup.setupTrace (Right cfg) "test"
-    trace1 <- appendName bigName trace0
-    (ctx2, _) <- appendName bigName trace1
-    Setup.shutdownTrace trace0
-
-    assertBool
-        ("Found logger name with more than 80 chars: " ++ show (loggerName ctx2))
-        (T.length (loggerName ctx2) <= 80)
+    Setup.withTrace cfg "test" $ \trace0 -> do
+        trace1 <- appendName bigName trace0
+        (ctx2, _) <- appendName bigName trace1
+        assertBool
+            ("Found logger name with more than 80 chars: " ++ show (loggerName ctx2))
+            (T.length (loggerName ctx2) <= 80)
   where
     bigName = T.replicate 30 "abcdefghijklmnopqrstuvwxyz"
 
