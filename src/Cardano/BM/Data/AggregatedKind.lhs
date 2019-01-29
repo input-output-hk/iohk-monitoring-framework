@@ -18,8 +18,8 @@ import           GHC.Generics (Generic)
 %endif
 
 \subsubsection{AggregatedKind}\label{code:AggregatedKind}\index{AggregatedKind}
-\label{StatsAK}\index{AggregatedKind!StatsAK}
-\label{EwmaAK}\index{AggregatedKind!EwmaAK}
+\label{code:StatsAK}\index{AggregatedKind!StatsAK}
+\label{code:EwmaAK}\index{AggregatedKind!EwmaAK}
 This identifies the type of Aggregated.
 \begin{code}
 data AggregatedKind = StatsAK

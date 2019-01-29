@@ -10,9 +10,11 @@
 module Cardano.BM.Data.Aggregated
   ( Aggregated (..)
   , Stats (..)
+  , BaseStats (..)
   , EWMA (..)
   , Measurable (..)
   , showSI
+  , showUnits
   , getInteger
   , getDouble
   , meanOfStats
@@ -31,14 +33,16 @@ import           Data.Word (Word64)
 
 \subsubsection{Measurable}\label{code:Measurable}\index{Measurable}
 A |Measurable| may consist of different types of values.
-
+Time measurements are strict, so are |Bytes| which are externally measured.
+The real or integral numeric values are lazily linked, so we can decide later
+to drop them.
 \begin{code}
 data Measurable = Microseconds {-# UNPACK #-} !Word64
                 | Nanoseconds  {-# UNPACK #-} !Word64
                 | Seconds      {-# UNPACK #-} !Word64
                 | Bytes        {-# UNPACK #-} !Word64
-                | PureI        Integer
                 | PureD        Double
+                | PureI        Integer
                 deriving (Eq, Ord, Generic, ToJSON)
 
 \end{code}
@@ -115,12 +119,12 @@ instance Num Measurable where
 Pretty printing of |Measurable|. \index{Measurable!instance of Show}
 \begin{code}
 instance Show Measurable where
-    show v@(Microseconds a) = show a ++ showUnits v
-    show v@(Nanoseconds a)  = show a ++ showUnits v
-    show v@(Seconds a)      = show a ++ showUnits v
-    show v@(Bytes a)        = show a ++ showUnits v
-    show v@(PureI a)        = show a ++ showUnits v
-    show v@(PureD a)        = show a ++ showUnits v
+    show (Microseconds a) = show a
+    show (Nanoseconds a)  = show a
+    show (Seconds a)      = show a
+    show (Bytes a)        = show a
+    show (PureI a)        = show a
+    show (PureD a)        = show a
 
 showUnits :: Measurable -> String
 showUnits (Microseconds _) = " µs"
@@ -144,26 +148,40 @@ showSI v@(PureD a)      = show a ++ showUnits v
 \end{code}
 
 \subsubsection{Stats}\label{code:Stats}\index{Stats}
+A |Stats| statistics is strictly computed.
 \begin{code}
-data Stats = Stats {
-    flast  :: !Measurable,
+data BaseStats = BaseStats {
     fmin   :: !Measurable,
     fmax   :: !Measurable,
     fcount :: !Word64,
     fsum_A :: !Double,
     fsum_B :: !Double
+    } deriving (Generic, ToJSON, Show)
+
+instance Eq BaseStats where
+    (BaseStats mina maxa counta sumAa sumBa) == (BaseStats minb maxb countb sumAb sumBb) =
+        mina == minb && maxa == maxb && counta == countb &&
+        abs (sumAa - sumAb) < 1.0e-4 &&
+        abs (sumBa - sumBb) < 1.0e-4
+
+data Stats = Stats {
+    flast  :: !Measurable,
+    fold   :: !Measurable,
+    fbasic :: !BaseStats,
+    fdelta :: !BaseStats,
+    ftimed :: !BaseStats
     } deriving (Eq, Generic, ToJSON, Show)
 
 \end{code}
 
 \begin{code}
-meanOfStats :: Stats -> Double
-meanOfStats s = fsum_A s
+meanOfStats :: BaseStats -> Double
+meanOfStats = fsum_A
 
 \end{code}
 
 \begin{code}
-stdevOfStats :: Stats -> Double
+stdevOfStats :: BaseStats -> Double
 stdevOfStats s =
     if fcount s < 2
     then 0
@@ -196,19 +214,36 @@ instance Semigroup Stats where
 \label{code:stats2Text}\index{stats2Text}
 \begin{code}
 stats2Text :: Stats -> Text
-stats2Text s@(Stats slast smin smax scount _ _) =
+stats2Text (Stats slast _ sbasic sdelta stimed) =
     pack $
-        "{ last = " ++ show slast ++
-        ", min = " ++ show smin ++
-        ", max = " ++ show smax ++
-        ", mean = " ++ show (meanOfStats s) ++ showUnits slast ++
-        ", std-dev = " ++ show (stdevOfStats s) ++
-        ", count = " ++ show scount ++
+        "{ last=" ++ show slast ++
+        ", basic-stats=" ++ showStats' (sbasic) ++
+        ", delta-stats=" ++ showStats' (sdelta) ++
+        ", timed-stats=" ++ showStats' (stimed) ++
+        " }"
+  where
+    showStats' :: BaseStats -> String
+    showStats' s = 
+        ", { min=" ++ show  (fmin s) ++
+        ", max=" ++ show (fmax s) ++
+        ", mean=" ++ show (meanOfStats s) ++ showUnits (fmin s) ++
+        ", std-dev=" ++ show (stdevOfStats s) ++
+        ", count=" ++ show (fcount s) ++
         " }"
 
 \end{code}
 
 \subsubsection{Exponentially Weighted Moving Average (EWMA)}\label{code:EWMA}\index{EWMA}
+Following \url{https://en.wikipedia.org/wiki/Moving_average#Exponential_moving_average} we calculate
+the exponential moving average for a series of values $ Y_t $ according to:
+
+$$
+S_t =
+\begin{cases}
+  Y_1,       & t = 1 \\
+  \alpha \cdot Y_t + (1 - \alpha) \cdot S_{t-1},    & t > 1
+\end{cases}
+$$
 \begin{code}
 data EWMA = EmptyEWMA { alpha :: Double }
           | EWMA { alpha :: Double
@@ -240,11 +275,25 @@ instance Semigroup Aggregated where
 singletonStats :: Measurable -> Aggregated
 singletonStats a =
     let stats = Stats { flast  = a
-                      , fmin   = a
-                      , fmax   = a
-                      , fcount = 1
-                      , fsum_A = getDouble a
-                      , fsum_B = 0
+                      , fold   = 0
+                      , fbasic = BaseStats
+                                 { fmin   = a
+                                 , fmax   = a
+                                 , fcount = 1
+                                 , fsum_A = getDouble a
+                                 , fsum_B = 0 }
+                      , fdelta = BaseStats
+                                 { fmin   = 0
+                                 , fmax   = 0
+                                 , fcount = 0
+                                 , fsum_A = 0
+                                 , fsum_B = 0 }
+                      , ftimed = BaseStats
+                                 { fmin   = Nanoseconds 999999999999
+                                 , fmax   = Nanoseconds 0
+                                 , fcount = (-1)
+                                 , fsum_A = 0
+                                 , fsum_B = 0 }
                       }
     in
     AggregatedStats stats
