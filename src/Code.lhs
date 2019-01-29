@@ -126,8 +126,8 @@ where
 
 %include Cardano/BM/Counters.lhs
 %include Cardano/BM/Counters/Common.lhs
-%include ../src-win32/Cardano/BM/Counters/Dummy.lhs
-%include ../src-unix/Cardano/BM/Counters/Linux.lhs
+%include Cardano/BM/Counters/Dummy.lhs
+%include Cardano/BM/Counters/Linux.lhs
 
 %include Cardano/BM/Data/Aggregated.lhs
 %include Cardano/BM/Data/Backend.lhs
