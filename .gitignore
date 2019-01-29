@@ -25,3 +25,5 @@ cabal.project.local~
 docs/IOHK-Monitoring-code.idx
 docs/IOHK-Monitoring-code.ilg
 docs/IOHK-Monitoring-code.ind
+
+/result*

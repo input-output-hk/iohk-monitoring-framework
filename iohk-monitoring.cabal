@@ -24,8 +24,6 @@ library
 
                        Cardano.BM.Counters
                        Cardano.BM.Counters.Common
-                       Cardano.BM.Counters.Dummy
-                       Cardano.BM.Counters.Linux
 
                        Cardano.BM.Data.Aggregated
                        Cardano.BM.Data.AggregatedKind
@@ -51,6 +49,11 @@ library
 
                        Cardano.BM.Setup
                        Cardano.BM.Trace
+  if os(Linux)
+     exposed-modules:  Cardano.BM.Counters.Linux
+  else
+     exposed-modules:  Cardano.BM.Counters.Dummy
+
   other-modules:
   default-language:    Haskell2010
   default-extensions:  OverloadedStrings
@@ -79,10 +82,13 @@ library
                        time,
                        time-units,
                        transformers,
-                       unix,
                        unordered-containers,
                        vector,
                        yaml
+  if os(windows)
+     build-depends:    Win32
+  else
+     build-depends:    unix
 
   ghc-options:         -Wall -O2
                        -fno-ignore-asserts
@@ -138,8 +144,11 @@ executable example-simple
                        iohk-monitoring,
                        async,
                        bytestring,
-                       mtl,
-                       unix
+                       mtl
+  if os(windows)
+     build-depends:    Win32
+  else
+     build-depends:    unix
 
 executable example-complex
   hs-source-dirs:      examples/complex
@@ -154,5 +163,8 @@ executable example-complex
                        download,
                        mtl,
                        random,
-                       text,
-                       unix
+                       text
+  if os(windows)
+     build-depends:    Win32
+  else
+     build-depends:    unix
