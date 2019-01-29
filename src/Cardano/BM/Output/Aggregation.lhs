@@ -24,6 +24,7 @@ import           Control.Monad (unless, void)
 import           Control.Monad.Catch (throwM)
 import           Control.Monad.IO.Class (liftIO)
 import qualified Data.HashMap.Strict as HM
+import qualified Data.Text as T
 import           Data.Text (Text)
 import           Data.Time.Calendar (toModifiedJulianDay)
 import           Data.Time.Clock (UTCTime (..))
@@ -149,23 +150,25 @@ spawnDispatcher conf aggMap aggregationQueue trace = Async.async $ qProc aggMap
                 qProc updatedMap
             Nothing -> return ()
 
+    createNupdate name value lme agmap = do
+        case HM.lookup name agmap of
+            Nothing -> do
+                -- if Aggregated does not exist; initialize it.
+                aggregatedKind <- getAggregatedKind conf name
+                case aggregatedKind of
+                    StatsAK      -> return $ singletonStats value
+                    EwmaAK aEWMA -> do
+                        let initEWMA = EmptyEWMA aEWMA
+                        return $ AggregatedEWMA $ ewma initEWMA value
+            Just a -> return $ updateAggregation value (aeAggregated a) lme (aeResetAfter a)
+
     update :: LogObject
            -> LoggerName
            -> AggregationMap
            -> IO (AggregationMap, [(Text, Aggregated)])
     update (LogObject lme (LogValue iname value)) logname agmap = do
         let fullname = logname <> "." <> iname
-        aggregated <-
-            case HM.lookup fullname agmap of
-                Nothing -> do
-                    -- if Aggregated does not exist; initialize it.
-                    aggregatedKind <- getAggregatedKind conf fullname
-                    case aggregatedKind of
-                        StatsAK      -> return $ singletonStats value
-                        EwmaAK aEWMA -> do
-                            let initEWMA = EmptyEWMA aEWMA
-                            return $ AggregatedEWMA $ ewma initEWMA value
-                Just a -> return $ updateAggregation value (aeAggregated a) lme (aeResetAfter a)
+        aggregated <- createNupdate fullname value lme agmap
         now <- getMonotonicTimeNSec
         let aggregatedX = AggregatedExpanded {
                             aeAggregated = aggregated
@@ -174,9 +177,8 @@ spawnDispatcher conf aggMap aggregationQueue trace = Async.async $ qProc aggMap
                           }
             namedAggregated = [(iname, aeAggregated aggregatedX)]
             updatedMap = HM.alter (const $ Just $ aggregatedX) fullname agmap
-        -- use of HM.alter so that in future we can clear the Agrregated
-        -- by using as alter's arg a function which returns Nothing.
         return (updatedMap, namedAggregated)
+
     update (LogObject lme (ObserveDiff counterState)) logname agmap =
         updateCounters (csCounters counterState) lme (logname, "diff") agmap []
     update (LogObject lme (ObserveOpen counterState)) logname agmap =
@@ -184,7 +186,21 @@ spawnDispatcher conf aggMap aggregationQueue trace = Async.async $ qProc aggMap
     update (LogObject lme (ObserveClose counterState)) logname agmap =
         updateCounters (csCounters counterState) lme (logname, "close") agmap []
 
-    -- TODO for text messages aggregate on delta of timestamps
+    update (LogObject lme (LogMessage msg)) logname agmap = do
+        let iname  = T.pack $ show (liSeverity msg)
+        let fullname = logname <> "." <> iname
+        aggregated <- createNupdate fullname (PureI 0) lme agmap
+        now <- getMonotonicTimeNSec
+        let aggregatedX = AggregatedExpanded {
+                            aeAggregated = aggregated
+                          , aeResetAfter = Nothing
+                          , aeLastSent = now
+                          }
+            namedAggregated = [(iname, aeAggregated aggregatedX)]
+            updatedMap = HM.alter (const $ Just $ aggregatedX) fullname agmap
+        return (updatedMap, namedAggregated)
+
+    -- everything else
     update _ _ agmap = return (agmap, [])
 
     updateCounters :: [Counter]
@@ -199,17 +215,7 @@ spawnDispatcher conf aggMap aggregationQueue trace = Async.async $ qProc aggMap
             subname = msgname <> "." <> (nameCounter counter) <> "." <> name
             fullname = logname <> "." <> subname
             value = cValue counter
-        aggregated <-
-            case HM.lookup fullname aggrMap of
-                    -- if Aggregated does not exist; initialize it.
-                    Nothing -> do
-                        aggregatedKind <- getAggregatedKind conf fullname
-                        case aggregatedKind of
-                            StatsAK      -> return $ singletonStats value
-                            EwmaAK aEWMA -> do
-                                let initEWMA = EmptyEWMA aEWMA
-                                return $ AggregatedEWMA $ ewma initEWMA value
-                    Just a -> return $ updateAggregation value (aeAggregated a) lme (aeResetAfter a)
+        aggregated <- createNupdate fullname value lme aggrMap
         now <- getMonotonicTimeNSec
         let aggregatedX = AggregatedExpanded {
                             aeAggregated = aggregated
@@ -226,7 +232,7 @@ spawnDispatcher conf aggMap aggregationQueue trace = Async.async $ qProc aggMap
         -- enter the aggregated message into the |Trace|
         trace' <- Trace.appendName logname trace
         liftIO $ Trace.traceNamedObject trace' aggregatedMsg
-    -- ingnore every other message that is not of type AggregatedMessage
+    -- ingnore every other message
     sendAggregated _ _ = return ()
 
 \end{code}
@@ -254,10 +260,16 @@ updateAggregation v (AggregatedStats s) lme resetAfter =
                                  , ftimed = updateBaseStats (count >= 2) (mkTimestamp - fold s) (ftimed s)
                                  }
   where
-    mkTimestamp = 
-        let UTCTime days secs = tstamp lme
+    mkTimestamp = utc2ns (tstamp lme)
+    utc2ns (UTCTime days secs) =
+        let yearsecs :: Rational
+            yearsecs = 365 * 24 * 3600
+            rdays,rsecs :: Rational
+            rdays = toRational $ toModifiedJulianDay days
+            rsecs = toRational secs
+            s2ns = 1000000000
         in
-        Nanoseconds $ round $ fromRational $ 1000000000 * toRational secs + toRational (toModifiedJulianDay days) * 365 * 24 * 3600 
+        Nanoseconds $ round $ (fromRational $ s2ns * rsecs + rdays * yearsecs :: Double)
 
 updateAggregation v (AggregatedEWMA e) _ _ = AggregatedEWMA $! ewma e v
 
@@ -271,7 +283,7 @@ updateBaseStats True v s =
         delta2 = newvalue - fsum_A s - dincr
     in
     BaseStats { fmin   = min (fmin s) v
-              , fmax   = max (fmax s) v
+              , fmax   = max v (fmax s)
               , fcount = newcount
               , fsum_A = fsum_A s + dincr
               , fsum_B = fsum_B s + (delta * delta2)

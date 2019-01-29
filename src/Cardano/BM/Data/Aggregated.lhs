@@ -118,12 +118,12 @@ instance Num Measurable where
 Pretty printing of |Measurable|. \index{Measurable!instance of Show}
 \begin{code}
 instance Show Measurable where
-    show (Microseconds a) = show a  -- ++ showUnits v
-    show (Nanoseconds a)  = show a  -- ++ showUnits v
-    show (Seconds a)      = show a  -- ++ showUnits v
-    show (Bytes a)        = show a  -- ++ showUnits v
-    show (PureI a)        = show a  -- ++ showUnits v
-    show (PureD a)        = show a  -- ++ showUnits v
+    show (Microseconds a) = show a
+    show (Nanoseconds a)  = show a
+    show (Seconds a)      = show a
+    show (Bytes a)        = show a
+    show (PureI a)        = show a
+    show (PureD a)        = show a
 
 showUnits :: Measurable -> String
 showUnits (Microseconds _) = " µs"
@@ -288,8 +288,8 @@ singletonStats a =
                                  , fsum_A = 0
                                  , fsum_B = 0 }
                       , ftimed = BaseStats
-                                 { fmin   = 0
-                                 , fmax   = 0
+                                 { fmin   = Nanoseconds 999999999999
+                                 , fmax   = Nanoseconds 0
                                  , fcount = 0
                                  , fsum_A = 0
                                  , fsum_B = 0 }

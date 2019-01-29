@@ -76,8 +76,11 @@ config = do
                                      (EndsWith ".avg"),
                                      (EndsWith ".mean")]),
                             (Drop (StartsWith "#ekgview.#aggregation.complex.observeIO"),
-                             Unhide [(Contains "close.RTS"),
-                                     (Contains "diff.RTS")])
+                             Unhide [(Contains "diff.RTS.cpuNs.timed.")]),
+                            (Drop (StartsWith "#ekgview.#aggregation.complex.observeSTM"),
+                             Unhide [(Contains "diff.RTS.gcNum.timed.")]),
+                            (Drop (StartsWith "#ekgview.#aggregation.complex.message"),
+                             Unhide [(Contains ".timed.m")])
                           ])
     CM.setSubTrace c "complex.observeIO" (Just $ ObservableTrace [GhcRtsStats,MemoryStats])
     forM_ [(1::Int)..10] $ \x ->
@@ -86,18 +89,22 @@ config = do
         ("complex.observeSTM." <> (pack $ show x))
         (Just $ ObservableTrace [GhcRtsStats,MemoryStats])
 
+    CM.setBackends c "complex.message" (Just [AggregationBK, KatipBK])
     CM.setBackends c "complex.random" (Just [AggregationBK, KatipBK])
     CM.setBackends c "complex.random.ewma" (Just [AggregationBK])
     CM.setBackends c "complex.observeIO" (Just [AggregationBK])
-    forM_ [(1::Int)..10] $ \x ->
-      CM.setBackends
-        c
+    forM_ [(1::Int)..10] $ \x -> do
+      CM.setBackends c
         ("complex.observeSTM." <> (pack $ show x))
         (Just [AggregationBK])
+      CM.setBackends c
+        ("#aggregation.complex.observeSTM." <> (pack $ show x))
+        (Just [EKGViewBK])
 
     CM.setAggregatedKind c "complex.random.rr" (Just StatsAK)
     CM.setAggregatedKind c "complex.random.ewma.rr" (Just (EwmaAK 0.42))
 
+    CM.setBackends c "#aggregation.complex.message" (Just [EKGViewBK])
     CM.setBackends c "#aggregation.complex.observeIO" (Just [EKGViewBK])
     CM.setBackends c "#aggregation.complex.random" (Just [EKGViewBK])
     CM.setBackends c "#aggregation.complex.random.ewma" (Just [EKGViewBK])
@@ -187,6 +194,23 @@ stmAction tvarlist = do
 
 \end{code}
 
+\subsubsection{Thread that periodically outputs a message}
+\begin{code}
+msgThr :: Trace IO -> IO (Async.Async ())
+msgThr trace = do
+  logInfo trace "start messaging .."
+  trace' <- subTrace "message" trace
+  Async.async (loop trace')
+  where
+    loop tr = do
+        threadDelay 3000000  -- 3 seconds
+        logNotice tr "N O T I F I C A T I O N ! ! !"
+        logDebug tr "a detailed debug message."
+        logError tr "Boooommm .."
+        loop tr
+
+\end{code}
+
 \subsubsection{Main entry point}
 \begin{code}
 main :: IO ()
@@ -210,7 +234,11 @@ main = do
     -- start threads endlessly observing STM actions operating on the same TVar
     procObsvSTMs <- observeSTM tr
 
+    -- start a thread to output a text messages every n seconds
+    procMsg <- msgThr tr
 
+    -- wait for message thread to finish, ignoring any exception
+    _ <- Async.waitCatch procMsg
     -- wait for observer thread to finish, ignoring any exception
     _ <- forM procObsvSTMs Async.waitCatch
     -- wait for observer thread to finish, ignoring any exception
