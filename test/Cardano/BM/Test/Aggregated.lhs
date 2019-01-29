@@ -10,6 +10,8 @@ module Cardano.BM.Test.Aggregated (
 
 import           System.IO.Unsafe (unsafePerformIO)
 
+import           Control.Concurrent (threadDelay)
+
 import           Cardano.BM.Arbitrary.Aggregated ()
 import           Cardano.BM.Data.Aggregated
 import           Cardano.BM.Data.LogItem
@@ -42,6 +44,7 @@ unit_tests = testGroup "Unit tests" [
       , testCase "initial_plus_1" unit_Aggregation_initial_plus_1
       , testCase "initial_0" unit_Aggregation_initial_zero
       , testCase "initial_plus_1" unit_Aggregation_initial_plus_1_minus_1
+      , testCase "stepwise" unit_Aggregation_stepwise
     ]
 
 prop_Aggregation_minimal :: Bool
@@ -88,6 +91,42 @@ unit_Aggregation_initial_plus_1_minus_1 = do
     let AggregatedStats stats1 = updateAggregation (-1) (updateAggregation 1 firstStateAggregatedStats lometa Nothing) lometa Nothing
     (fbasic stats1) @?= BaseStats (-1) 1 3 0.0 2.0
     (fdelta stats1) @?= BaseStats (-2) 0 2 (-1.0) 2.0
+
+unit_Aggregation_stepwise :: Assertion
+unit_Aggregation_stepwise = do
+    stats0 <- pure $ singletonStats (Bytes 3000)
+    putStrLn $ show stats0
+    threadDelay 50000   -- 0.05 s
+    t1 <- mkLOMeta
+    stats1 <- pure $ updateAggregation (Bytes 5000) stats0 t1 Nothing
+    putStrLn $ show stats1
+    showTimedMean stats1
+    threadDelay 50000   -- 0.05 s
+    t2 <- mkLOMeta
+    stats2 <- pure $ updateAggregation (Bytes 1000) stats1 t2 Nothing
+    putStrLn $ show stats2
+    showTimedMean stats2
+    checkTimedMean stats2
+    threadDelay 50000   -- 0.05 s
+    t3 <- mkLOMeta
+    stats3 <- pure $ updateAggregation (Bytes 3000) stats2 t3 Nothing
+    putStrLn $ show stats3
+    showTimedMean stats3
+    checkTimedMean stats3
+    threadDelay 50000   -- 0.05 s
+    t4 <- mkLOMeta
+    stats4 <- pure $ updateAggregation (Bytes 1000) stats3 t4 Nothing
+    putStrLn $ show stats4
+    showTimedMean stats4
+    checkTimedMean stats4
+  where
+    checkTimedMean (AggregatedEWMA _) = return ()
+    checkTimedMean (AggregatedStats s) = do
+        let mean = meanOfStats (ftimed s)
+        assertBool "the mean should be >= the minimum" (mean >= getDouble (fmin (ftimed s)))
+        assertBool "the mean should be =< the maximum" (mean <= getDouble (fmax (ftimed s)))
+    showTimedMean (AggregatedEWMA _) = return ()
+    showTimedMean (AggregatedStats s) = putStrLn $ "mean = " ++ show (meanOfStats (ftimed s)) ++ showUnits (fmin (ftimed s))
 
 firstStateAggregatedStats :: Aggregated
 firstStateAggregatedStats = AggregatedStats (Stats 0 0 (BaseStats 0 0 1 0 0) (BaseStats 0 0 0 0 0) (BaseStats 0 0 0 0 0))

@@ -14,6 +14,7 @@ module Cardano.BM.Data.Aggregated
   , EWMA (..)
   , Measurable (..)
   , showSI
+  , showUnits
   , getInteger
   , getDouble
   , meanOfStats
@@ -290,7 +291,7 @@ singletonStats a =
                       , ftimed = BaseStats
                                  { fmin   = Nanoseconds 999999999999
                                  , fmax   = Nanoseconds 0
-                                 , fcount = 0
+                                 , fcount = (-1)
                                  , fsum_A = 0
                                  , fsum_B = 0 }
                       }
