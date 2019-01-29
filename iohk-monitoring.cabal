@@ -14,10 +14,6 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs:      src
-  if os(Linux)
-     hs-source-dirs:   src-unix/
-  else
-     hs-source-dirs:   src-win32/
   exposed-modules:     Paths_iohk_monitoring
 
                        Cardano.BM.BaseTrace
