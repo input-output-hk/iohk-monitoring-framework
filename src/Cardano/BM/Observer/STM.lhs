@@ -11,7 +11,7 @@ module Cardano.BM.Observer.STM
     , bracketObserveLogIO
     ) where
 
-import           Control.Monad.Catch (SomeException, catch, throwM)
+import           Control.Exception.Safe (SomeException, catch, throwM)
 import qualified Control.Monad.STM as STM
 
 import           Data.Text
