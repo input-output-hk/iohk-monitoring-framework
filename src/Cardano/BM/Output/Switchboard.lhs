@@ -21,8 +21,8 @@ import           Control.Concurrent.MVar (MVar, modifyMVar_, newEmptyMVar,
                     putMVar, tryTakeMVar, withMVar)
 import           Control.Concurrent.STM (atomically)
 import qualified Control.Concurrent.STM.TBQueue as TBQ
+import           Control.Exception.Safe (throwM)
 import           Control.Monad (forM_, when, void)
-import           Control.Monad.Catch (throwM)
 import           Data.Functor.Contravariant (Op (..))
 
 import qualified Cardano.BM.BaseTrace as BaseTrace

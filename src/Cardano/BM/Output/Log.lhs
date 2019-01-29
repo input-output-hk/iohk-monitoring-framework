@@ -43,6 +43,7 @@ import           Data.Time.Clock (UTCTime, getCurrentTime)
 import           Data.Time.Format (defaultTimeLocale, formatTime)
 import           Data.Version (Version (..), showVersion)
 import           GHC.Conc (atomically)
+import           GHC.IO.Handle (hDuplicate)
 import           System.Directory (createDirectoryIfMissing)
 import           System.FilePath (takeDirectory)
 import           System.IO (BufferMode (LineBuffering), Handle, hClose,
@@ -234,10 +235,18 @@ passN backend katip namedLogItem = do
 \subsubsection{Scribes}
 \begin{code}
 mkStdoutScribe :: IO K.Scribe
-mkStdoutScribe = mkTextFileScribeH stdout True
+mkStdoutScribe = do
+    -- duplicate stdout so that Katip's closing
+    -- action will not close the real stdout
+    stdout' <- hDuplicate stdout
+    mkTextFileScribeH stdout' True
 
 mkStderrScribe :: IO K.Scribe
-mkStderrScribe = mkTextFileScribeH stderr True
+mkStderrScribe = do
+    -- duplicate stderr so that Katip's closing
+    -- action will not close the real stderr
+    stderr' <- hDuplicate stderr
+    mkTextFileScribeH stderr' True
 
 mkTextFileScribeH :: Handle -> Bool -> IO K.Scribe
 mkTextFileScribeH handler color = do

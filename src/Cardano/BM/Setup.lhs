@@ -15,10 +15,12 @@
 module Cardano.BM.Setup
     (
       setupTrace
+    , shutdownTrace
     , withTrace
     , newContext
     ) where
 
+import           Control.Exception.Safe (MonadMask, bracket)
 import           Control.Monad.IO.Class (MonadIO, liftIO)
 import           Data.Text (Text)
 import           System.IO (FilePath)
@@ -37,7 +39,8 @@ import           Cardano.BM.Trace (Trace, natTrace, subTrace)
 
 \subsubsection{setupTrace}\label{code:setupTrace}\index{setupTrace}
 Setup a new |Trace| (\nameref{code:Trace}) with either a given |Configuration| (\nameref{code:Configuration})
-or a |FilePath| to a configuration file.
+or a |FilePath| to a configuration file. After all tracing operations have ended;
+|shutdownTrace| must be called.
 \begin{code}
 
 setupTrace :: MonadIO m => Either FilePath Config.Configuration -> Text -> m (Trace m)
@@ -56,12 +59,19 @@ setupTrace_ c name = do
 
 \end{code}
 
+\subsubsection{shutdownTrace}\label{code:shutdownTrace}\index{shutdownTrace}
+Shut down a Trace and all the |Trace|s related to it.
+\begin{code}
+shutdownTrace :: MonadIO m => Trace m -> m ()
+shutdownTrace (ctx, _) = liftIO $ shutdown ctx
+
+\end{code}
+
 \subsubsection{withTrace}\label{code:withTrace}\index{withTrace}
 \begin{code}
-withTrace :: MonadIO m =>  Config.Configuration -> Text -> (Trace m -> m t) -> m t
-withTrace cfg name action = do
-    logTrace <- setupTrace (Right cfg) name
-    action logTrace
+withTrace :: (MonadIO m, MonadMask m) =>  Config.Configuration -> Text -> (Trace m -> m t) -> m t
+withTrace cfg name action =
+    bracket (setupTrace (Right cfg) name) shutdownTrace action
 
 \end{code}
 

@@ -67,7 +67,6 @@ library
                        directory,
                        ekg,
                        ekg-core,
-                       exceptions,
                        filepath,
                        katip,
                        lens,
