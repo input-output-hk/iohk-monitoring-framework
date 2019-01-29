@@ -8,8 +8,8 @@ SOURCES = ../src/Code.lhs \
 					../src/Cardano/BM/Configuration/View.lhs \
 					../src/Cardano/BM/Counters.lhs \
 					../src/Cardano/BM/Counters/Common.lhs \
-					../src-win32/Cardano/BM/Counters/Dummy.lhs \
-					../src-unix/Cardano/BM/Counters/Linux.lhs \
+					../src/Cardano/BM/Counters/Dummy.lhs \
+					../src/Cardano/BM/Counters/Linux.lhs \
 					../src/Cardano/BM/Data/Aggregated.lhs \
 					../src/Cardano/BM/Data/Backend.lhs \
 					../src/Cardano/BM/Data/BackendKind.lhs \
