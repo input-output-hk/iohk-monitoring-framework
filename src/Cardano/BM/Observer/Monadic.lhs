@@ -205,12 +205,13 @@ observeClose subtrace logTrace initState logObjects = (do
     if counters == []
     then return ()
     else do
+        mle <- mkLOMeta
         -- send closing message to Trace
-        traceNamedObject logTrace =<<
-            LogObject <$> mkLOMeta <*> pure (ObserveClose (CounterState identifier counters))
+        traceNamedObject logTrace $
+            LogObject mle (ObserveClose (CounterState identifier counters))
         -- send diff message to Trace
-        traceNamedObject logTrace =<<
-            LogObject <$> mkLOMeta <*> pure (ObserveDiff (CounterState identifier (diffCounters initialCounters counters)))
+        traceNamedObject logTrace $
+            LogObject mle (ObserveDiff (CounterState identifier (diffCounters initialCounters counters)))
     -- trace the messages gathered from inside the action
     forM_ logObjects $ traceNamedObject logTrace
     return (Right ())) `catch` (return . Left)
