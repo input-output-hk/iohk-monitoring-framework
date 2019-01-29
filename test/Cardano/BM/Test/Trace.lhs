@@ -153,6 +153,7 @@ example_with_named_contexts = do
     -- the named context will include "complex" in the logged message
     logInfo logTrace "done."
     threadDelay 1000
+    Setup.shutdownTrace logTrace
     return ""
   where
     complexWork0 tr msg = Async.async $ logInfo tr ("let's see (0): " `append` msg)
@@ -467,13 +468,12 @@ the limit is set to 80.
 unit_append_name :: Assertion
 unit_append_name = do
     cfg <- defaultConfigTesting
-    trace0 <- Setup.setupTrace (Right cfg) "test"
-    trace1 <- appendName bigName trace0
-    (ctx2, _) <- appendName bigName trace1
-
-    assertBool
-        ("Found logger name with more than 80 chars: " ++ show (loggerName ctx2))
-        (T.length (loggerName ctx2) <= 80)
+    Setup.withTrace cfg "test" $ \trace0 -> do
+        trace1 <- appendName bigName trace0
+        (ctx2, _) <- appendName bigName trace1
+        assertBool
+            ("Found logger name with more than 80 chars: " ++ show (loggerName ctx2))
+            (T.length (loggerName ctx2) <= 80)
   where
     bigName = T.replicate 30 "abcdefghijklmnopqrstuvwxyz"
 
@@ -558,7 +558,7 @@ unit_exception_throwing = do
         trace <- Setup.setupTrace (Right cfg) "test"
 
         logInfo trace message
-        threadDelay 1000
+        Setup.shutdownTrace trace
 
 \end{code}
 
@@ -586,6 +586,6 @@ unit_test_lazy_evaluation = do
         trace <- subTrace "work" trace0
 
         logInfo trace message
-        threadDelay 1000
+        Setup.shutdownTrace trace
 
 \end{code}

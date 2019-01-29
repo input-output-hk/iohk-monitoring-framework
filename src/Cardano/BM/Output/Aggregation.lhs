@@ -20,8 +20,8 @@ import           Control.Concurrent.MVar (MVar, newEmptyMVar,
                      putMVar, readMVar, tryTakeMVar, withMVar)
 import           Control.Concurrent.STM (atomically)
 import qualified Control.Concurrent.STM.TBQueue as TBQ
+import           Control.Exception.Safe (throwM)
 import           Control.Monad (unless, void)
-import           Control.Monad.Catch (throwM)
 import           Control.Monad.IO.Class (liftIO)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Text as T
@@ -125,6 +125,8 @@ instance IsBackend Aggregation where
         -- send terminating item to the queue
         atomically $ TBQ.writeTBQueue queue Nothing
         -- wait for the dispatcher to exit
+        -- TODO add a timeout to waitCatch in order
+        -- to be sure that it will finish
         res <- Async.waitCatch dispatcher
         either throwM return res
         (clearMVar . getAg) aggregation

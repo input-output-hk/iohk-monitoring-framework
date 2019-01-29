@@ -15,10 +15,9 @@ module Cardano.BM.Observer.Monadic
     , observeClose
     ) where
 
+import           Control.Exception.Safe (MonadCatch, SomeException, catch, throwM)
 import           Control.Monad (forM_)
 import           Control.Monad.IO.Class (MonadIO, liftIO)
-import           Control.Monad.Catch (MonadCatch, SomeException, catch, throwM)
-
 import           Data.Text
 import           Data.Unique (newUnique)
 
