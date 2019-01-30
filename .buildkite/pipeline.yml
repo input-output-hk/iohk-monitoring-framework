@@ -3,7 +3,7 @@ steps:
     command: "cd docs; nix-shell --run make"
     agents:
       "system=x86_64-linux"
-    artifact_paths: "docs/IOHK-Monitoring-*.pdf ; docs/IOHK-Monitoring-*.log"
+    artifact_paths: "docs/IOHK-Monitoring.pdf ; docs/IOHK-Monitoring.log"
     timeout: 5
 
   - label: "nix build"
