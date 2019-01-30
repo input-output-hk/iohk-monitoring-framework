@@ -1,6 +1,6 @@
 
 % remake with this 'sed' command
-% sed -ne 's/.*label{code:\([^}]*\)}.*/%format \1 = "\\hyperref[code:\1]{\1}"/p' IOHK-Monitoring-code.tex
+% sed -ne 's/.*label{code:\([^}]*\)}.*/%format \1 = "\\hyperref[code:\1]{\1}"/p' IOHK-Monitoring.tex
 
 %if style /= newcode
 
@@ -45,6 +45,7 @@
 %format logEmergencyP = "\hyperref[code:logEmergencyP]{logEmergencyP}"
 %format subTrace = "\hyperref[code:subTrace]{subTrace}"
 %format setupTrace = "\hyperref[code:setupTrace]{setupTrace}"
+%format shutdownTrace = "\hyperref[code:shutdownTrace]{shutdownTrace}"
 %format withTrace = "\hyperref[code:withTrace]{withTrace}"
 %format newContext = "\hyperref[code:newContext]{newContext}"
 %format diffTimeObserved = "\hyperref[code:diffTimeObserved]{diffTimeObserved}"
@@ -135,5 +136,17 @@
 %format AggregatedExpanded = "\hyperref[code:AggregatedExpanded]{AggregatedExpanded}"
 %format updateAggregation = "\hyperref[code:updateAggregation]{updateAggregation}"
 %format ewma = "\hyperref[code:ewma]{ewma}"
+%format example_with_named_contexts = "\hyperref[code:example_with_named_contexts]{example\_with\_named\_contexts}"
+%format unit_hierarchy = "\hyperref[code:unit_hierarchy]{unit\_hierarchy}"
+%format unit_trace_min_severity = "\hyperref[code:unit_trace_min_severity]{unit\_trace\_min\_severity}"
+%format unit_trace_duplicate = "\hyperref[code:unit_trace_duplicate]{unit\_trace\_duplicate}"
+%format unit_named_min_severity = "\hyperref[code:unit_named_min_severity]{unit\_named\_min\_severity}"
+%format unit_trace_in_fork = "\hyperref[code:unit_trace_in_fork]{unit\_trace\_in\_fork}"
+%format stress_trace_in_fork = "\hyperref[code:stress_trace_in_fork]{stress\_trace\_in\_fork}"
+%format unit_noOpening_Trace = "\hyperref[code:unit_noOpening_Trace]{unit\_noOpening\_Trace}"
+%format unit_append_name = "\hyperref[code:unit_append_name]{unit\_append\_name}"
+%format unit_name_filtering = "\hyperref[code:unit_name_filtering]{unit\_name\_filtering}"
+%format unit_exception_throwing = "\hyperref[code:unit_exception_throwing]{unit\_exception\_throwing}"
+%format unit_test_lazy_evaluation = "\hyperref[code:unit_test_lazy_evaluation]{unit\_test\_lazy\_evaluation}"
 
 %endif

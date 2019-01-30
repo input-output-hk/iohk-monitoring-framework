@@ -1,45 +1,5 @@
-\documentclass[11pt,twoside]{report}
-\pagestyle{headings}
 
-\usepackage{kpfonts}
-\usepackage[margin=1in]{geometry}
-\usepackage[pdfpagelabels,ocgcolorlinks]{hyperref}
-\usepackage{todonotes}
-\usepackage{amsmath}
-\usepackage{mathtools}
-\usepackage{verbatim}
-\usepackage{colortbl}
-
-%include polycode.fmt
-
-%include ../src/local.fmt
-%include references.fmt
-
-\title{Testing benchmarking and logging}
-\author{Alexander Diemand
-  \and
-        Andreas Triantafyllos}
-\date{November 2018}
-
-\begin{document}
-
-\hypersetup{pageanchor=false}
-\begin{titlepage}
-\maketitle
-\end{titlepage}
-
-\hypersetup{pageanchor=true, linkcolor=olive}
-\pagenumbering{arabic}
-
-\tableofcontents
-
-\begin{abstract}
-abstract ...
-\end{abstract}
-
-\chapter{Test coverage}
-
-\section{Coverage}
+\section{Test coverage}
 
 Test coverage is calculated as the fraction of functions which are called from test routines.
 This percentage is calculated by the tool |hpc| with a call to
@@ -59,9 +19,6 @@ library-coverage: & True \\
 \caption{Test coverage of modules in percent as computed by the tool 'hpc'}\label{fig:coverage}
 \end{figure}
 
-
-
-\chapter{Testing}
 
 \section{Test main entry point}
 
@@ -93,11 +50,12 @@ tests =
   ]
 \end{code}
 
-%include Cardano/BM/Arbitrary/Aggregated.lhs
+\section{Test case generation}
+%include ../test/Cardano/BM/Arbitrary/Aggregated.lhs
 
-%include Cardano/BM/Test/Aggregated.lhs
-%include Cardano/BM/Test/STM.lhs
-%include Cardano/BM/Test/Trace.lhs
-%include Cardano/BM/Test/Configuration.lhs
+\section{Tests}
 
-\end{document}
+%include ../test/Cardano/BM/Test/Aggregated.lhs
+%include ../test/Cardano/BM/Test/STM.lhs
+%include ../test/Cardano/BM/Test/Trace.lhs
+%include ../test/Cardano/BM/Test/Configuration.lhs

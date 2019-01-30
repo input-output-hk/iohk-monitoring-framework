@@ -6,8 +6,7 @@ This framework provides logging, benchmarking and monitoring.
 
 ## documentation
 
-Documentation of the [source code](docs/IOHK-Monitoring-code.pdf) and
-[tests](docs/IOHK-Monitoring-tests.pdf) are available in PDF format.
+Documentation of the [source code and tests](docs/IOHK-Monitoring.pdf) in PDF format.
 
 View our first presentation (2018-12-04) on this subject in [html](https://input-output-hk.github.io/iohk-monitoring-framework/pres-20181204/html/index.html)
 

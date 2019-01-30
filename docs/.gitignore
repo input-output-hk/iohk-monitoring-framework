@@ -1,6 +1,12 @@
 *.fls
 *.log
 *.toc
+*.idx
+*.ilg
+*.ind
+SetupProcedure.pdf
+OverviewModules.pdf
+ConfigurationModel.pdf
 IOHK-*.tex
 *.out
 *.ptb
