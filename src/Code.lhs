@@ -55,7 +55,7 @@ frequency than the original message.
 
 \newpage
 
-\chapter{Cardano BM}
+\chapter{Logging, benchmarking and monitoring}
 
 \section{Overview}
 
@@ -147,6 +147,10 @@ where
 %include Cardano/BM/Output/Log.lhs
 %include Cardano/BM/Output/EKGView.lhs
 %include Cardano/BM/Output/Aggregation.lhs
+
+\chapter{Testing}
+
+%include ../test/Test.lhs
 
 \printindex
 

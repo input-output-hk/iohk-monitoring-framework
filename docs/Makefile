@@ -1,5 +1,4 @@
-DOC1 = IOHK-Monitoring-code
-DOC2 = IOHK-Monitoring-tests
+DOC = IOHK-Monitoring
 
 SOURCES = ../src/Code.lhs \
 					../src/Cardano/BM/BaseTrace.lhs \
@@ -34,26 +33,21 @@ SOURCES = ../src/Code.lhs \
 TESTS = ../test/Test.lhs \
 				../test/Cardano/BM/Test/Aggregated.lhs \
 				../test/Cardano/BM/Test/Configuration.lhs \
-				../test/Cardano/BM/Test/Trace.lhs \
+				../test/Cardano/BM/Test/Routing.lhs \
 				../test/Cardano/BM/Test/STM.lhs \
+				../test/Cardano/BM/Test/Trace.lhs \
 				../test/Cardano/BM/Arbitrary/Aggregated.lhs \
 
 ImagePdf = OverviewModules.pdf SetupProcedure.pdf ConfigurationModel.pdf
 
-.PHONY: $(DOC1).pdf all clean
+.PHONY: $(DOC).pdf all clean
 
-all: $(DOC1).pdf $(DOC2).pdf
+all: $(DOC).pdf
 
-$(DOC1).tex: $(SOURCES) ../src/references.fmt
-	cd ../src; lhs2TeX -v -o ../docs/$(DOC1).tex Code.lhs
+$(DOC).tex: $(SOURCES) $(TESTS) test-coverage.tex ../src/references.fmt
+	cd ../src; lhs2TeX -v -o ../docs/$(DOC).tex Code.lhs
 
-$(DOC2).tex: $(TESTS) test-coverage.tex ../test/references.fmt
-	cd ../test; lhs2TeX -v -o ../docs/$(DOC2).tex Test.lhs
-
-$(DOC1).pdf: $(DOC1).tex $(ImagePdf)
-	#latexmk -pdf -pdflatex="pdflatex -interaction=nonstopmode" -use-make $<
-	latexmk -pdf -use-make $<
-$(DOC2).pdf: $(DOC2).tex
+$(DOC).pdf: $(DOC).tex $(ImagePdf)
 	#latexmk -pdf -pdflatex="pdflatex -interaction=nonstopmode" -use-make $<
 	latexmk -pdf -use-make $<
 
