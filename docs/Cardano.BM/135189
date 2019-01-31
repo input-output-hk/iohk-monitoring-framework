@@ -1,6 +1,6 @@
 format 221
 "Data" // Cardano.BM::Data
-  revision 9
+  revision 10
   modified_by 21 "axeld"
   // class settings
   
@@ -367,6 +367,55 @@ ${members}};
 	mysql_decl ""
 	MysqlColumn
       end
+
+      attribute 162197 "cbMapAggregatedKind"
+	private type class_ref 151189 // Map
+	init_value "LoggerName -> AggregatedKind"
+	cpp_decl ""
+	java_decl ""
+	php_decl ""
+	python_decl ""
+	idl_decl "  ${comment}${visibility}${type} ${name};
+"
+	mysql_decl ""
+	MysqlColumn
+      end
+
+      attribute 162325 "cgDefAggregatedKind"
+	private explicit_type "AggregatedKind"
+	cpp_decl ""
+	java_decl ""
+	php_decl ""
+	python_decl ""
+	idl_decl "  ${comment}${visibility}${type} ${name};
+"
+	mysql_decl ""
+	MysqlColumn
+      end
+
+      attribute 162453 "cgPortEKG"
+	private explicit_type "int"
+	cpp_decl ""
+	java_decl ""
+	php_decl ""
+	python_decl ""
+	idl_decl "  ${comment}${visibility}${type} ${name};
+"
+	mysql_decl ""
+	MysqlColumn
+      end
+
+      attribute 162581 "cgPortGUI"
+	private explicit_type "int"
+	cpp_decl ""
+	java_decl ""
+	php_decl ""
+	python_decl ""
+	idl_decl "  ${comment}${visibility}${type} ${name};
+"
+	mysql_decl ""
+	MysqlColumn
+      end
     end
 
     class 144021 "LogObject"
@@ -513,6 +562,14 @@ ${members}};
       classrelation 153109 // <aggregation>
 	relation_ref 152597 // <aggregation>
       end
+
+      classrelation 216597 // <aggregation>
+	relation_ref 213781 // <aggregation>
+      end
+
+      classrelation 216853 // <aggregation>
+	relation_ref 213909 // <aggregation>
+      end
     end
 
     class 151189 "Map"
@@ -599,7 +656,6 @@ ${members}};
 	  b role_name "" private
 	    classrelation_ref 201621 // <association>
       end
-
     end
 
     class 184341 "SubTrace"

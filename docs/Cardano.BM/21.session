@@ -1,15 +1,11 @@
-window_sizes 1754 1176 337 1411 1060 64
+window_sizes 1727 855 313 1408 739 64
 cleanlooks_style
 diagrams
-  classdiagram_ref 128021 // Overview_Classes
-    983 776 100 A4-Landscape 115 0
-  collaborationdiagram_ref 161685 // Setup_Procedure
-    872 591 100 A4 0 0
-  active  classdiagram_ref 174741 // Configuration_Model
-    748 848 100 A4 0 0
+  active  classdiagram_ref 128021 // Overview_Classes
+    985 747 100 A4-Landscape 115 0
 end
 show_stereotypes
-selected class_ref 191765 // ScribeId
+selected class_ref 129941 // TraceContext
 open
   activity_ref 128021 // Concurrent_Trace
   classview_ref 128277 // Counters

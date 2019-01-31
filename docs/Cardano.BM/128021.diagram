@@ -46,7 +46,7 @@ classcanvas 129557 class_ref 129557 // Dummy
 end
 classcanvas 130837 class_ref 129685 // Katip
   classdiagramsettings member_max_width 0 end
-  xyz 230.752 670.038 2000
+  xyz 302.752 666.038 2000
 end
 classcanvas 131861 class_ref 129941 // TraceContext
   classdiagramsettings member_max_width 0 end
@@ -61,8 +61,8 @@ classcanvas 132629 class_ref 130197 // LoggerName
   xyz 61.2212 177.434 2000
 end
 classcanvas 133013 class_ref 136981 // Configuration
-  classdiagramsettings hide_attributes no member_max_width 0 end
-  xyzwh 206.336 95.4927 2000 153 211
+  classdiagramsettings member_max_width 0 end
+  xyzwh 206.336 94.4927 2000 149 147
 end
 classcanvas 133525 class_ref 144021 // LogObject
   classdiagramsettings member_max_width 0 end
@@ -97,30 +97,35 @@ classcanvas 140565 class_ref 144661 // MessageQueue
   color lightgreen
   xyz 51.16 529.52 2006
 end
-classcanvas 142613 class_ref 136981 // Configuration
-  classdiagramsettings member_max_width 0 end
-  color lightgreen
-  xyz 800 548 2000
-end
 classcanvas 143125 class_ref 157717 // NamedLogItem
   classdiagramsettings member_max_width 0 end
   xyz 65 326 2000
 end
 classcanvas 143381 class_ref 164245 // LogRotation
   classdiagramsettings member_max_width 0 end
-  xyz 165 766 2000
+  xyz 235 779 2000
 end
 classcanvas 143893 class_ref 177429 // Stdout
   classdiagramsettings member_max_width 0 end
-  xyz 340 770 2000
+  xyz 354 782 2000
 end
 classcanvas 144021 class_ref 177557 // TextLog
   classdiagramsettings member_max_width 0 end
-  xyz 419 750 2000
+  xyz 440 777 2000
 end
 classcanvas 144149 class_ref 177685 // JsonLog
   classdiagramsettings member_max_width 0 end
-  xyz 436 699 2000
+  xyz 472 713 2000
+end
+classcanvas 144661 class_ref 144661 // MessageQueue
+  classdiagramsettings member_max_width 0 end
+  color lightgreen
+  xyz 685.66 753.02 2006
+end
+classcanvas 144789 class_ref 144661 // MessageQueue
+  classdiagramsettings member_max_width 0 end
+  color lightgreen
+  xyz 112.16 747.52 2006
 end
 relationcanvas 129685 relation_ref 128021 // <unidirectional association>
   from ref 128149 z 2001 to ref 128021
@@ -182,7 +187,7 @@ relationcanvas 134293 relation_ref 150549 // <unidirectional association>
 end
 relationcanvas 135445 relation_ref 151189 // <generalisation>
   geometry VHV unfixed
-  from ref 130837 z 2006 to point 274 647
+  from ref 130837 z 2006 to point 346 647
   line 139669 z 2006 to point 595 647
   line 139797 z 2006 to ref 134805
   no_role_a no_role_b
@@ -240,11 +245,6 @@ relationcanvas 141205 relation_ref 152597 // <aggregation>
   role_a_pos 118 510 3000 no_role_b
   multiplicity_a_pos 90 510 3000 no_multiplicity_b
 end
-relationcanvas 142741 relation_ref 159637 // <aggregation>
-  from ref 134805 z 2006 to ref 142613
-  role_a_pos 752 558 3000 no_role_b
-  multiplicity_a_pos 781 583 3000 no_multiplicity_b
-end
 relationcanvas 142997 relation_ref 166165 // <unidirectional association>
   decenter_end 745
   from ref 129045 z 2001 to ref 133013
@@ -278,6 +278,20 @@ relationcanvas 144405 relation_ref 186389 // <unidirectional association>
 end
 relationcanvas 144533 relation_ref 186517 // <unidirectional association>
   from ref 130837 z 2001 to ref 143893
+  no_role_a no_role_b
+  no_multiplicity_a no_multiplicity_b
+end
+relationcanvas 145173 relation_ref 213781 // <aggregation>
+  decenter_begin 543
+  decenter_end 730
+  from ref 129173 z 2001 to point 194 697
+  line 145301 z 2001 to ref 144789
+  no_role_a no_role_b
+  no_multiplicity_a no_multiplicity_b
+end
+relationcanvas 145429 relation_ref 213909 // <aggregation>
+  from ref 128917 z 2001 to point 739 707
+  line 145557 z 2001 to ref 144661
   no_role_a no_role_b
   no_multiplicity_a no_multiplicity_b
 end
