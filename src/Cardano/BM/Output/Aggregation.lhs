@@ -74,7 +74,7 @@ type Timestamp = Word64
 
 data AggregatedExpanded = AggregatedExpanded
                             { aeAggregated :: !Aggregated
-                            , aeResetAfter :: !(Maybe Word64)
+                            , aeResetAfter :: !(Maybe Int)
                             , aeLastSent   :: {-# UNPACK #-} !Timestamp
                             }
 
@@ -246,7 +246,7 @@ We use Welford's online algorithm to update the estimation of mean and variance 
 (see \url{https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford's_Online_algorithm})
 
 \begin{code}
-updateAggregation :: Measurable -> Aggregated -> LOMeta -> Maybe Word64 -> Aggregated
+updateAggregation :: Measurable -> Aggregated -> LOMeta -> Maybe Int -> Aggregated
 updateAggregation v (AggregatedStats s) lme resetAfter =
     let count = fcount (fbasic s)
         reset = maybe False (count >=) resetAfter
