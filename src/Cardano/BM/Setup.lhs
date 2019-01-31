@@ -24,6 +24,7 @@ import           Control.Exception.Safe (MonadMask, bracket)
 import           Control.Monad.IO.Class (MonadIO, liftIO)
 import           Data.Text (Text)
 import           System.IO (FilePath)
+import           System.Mem.Weak (addFinalizer)
 
 import qualified Cardano.BM.Configuration as Config
 import           Cardano.BM.Data.Backend
@@ -55,15 +56,17 @@ setupTrace_ c name = do
     sev <- liftIO $ Config.minSeverity c
     ctx <- liftIO $ newContext "" c sev sb
 
-    subTrace name $ natTrace liftIO (ctx, Switchboard.mainTrace sb)
+    tr <- subTrace name $ natTrace liftIO (ctx, Switchboard.mainTrace sb)
+    liftIO $ addFinalizer ctx $ shutdownTrace tr
+    return tr
 
 \end{code}
 
 \subsubsection{shutdownTrace}\label{code:shutdownTrace}\index{shutdownTrace}
 Shut down a Trace and all the |Trace|s related to it.
 \begin{code}
-shutdownTrace :: MonadIO m => Trace m -> m ()
-shutdownTrace (ctx, _) = liftIO $ shutdown ctx
+shutdownTrace :: MonadIO m => Trace m -> IO ()
+shutdownTrace (ctx, _) = shutdown ctx
 
 \end{code}
 
@@ -71,7 +74,7 @@ shutdownTrace (ctx, _) = liftIO $ shutdown ctx
 \begin{code}
 withTrace :: (MonadIO m, MonadMask m) =>  Config.Configuration -> Text -> (Trace m -> m t) -> m t
 withTrace cfg name action =
-    bracket (setupTrace (Right cfg) name) shutdownTrace action
+    bracket (setupTrace (Right cfg) name) (liftIO <$> shutdownTrace) action
 
 \end{code}
 
