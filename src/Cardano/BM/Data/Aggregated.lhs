@@ -153,7 +153,7 @@ A |Stats| statistics is strictly computed.
 data BaseStats = BaseStats {
     fmin   :: !Measurable,
     fmax   :: !Measurable,
-    fcount :: !Word64,
+    fcount :: !Int,
     fsum_A :: !Double,
     fsum_B :: !Double
     } deriving (Generic, ToJSON, Show)
