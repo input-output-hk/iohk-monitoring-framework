@@ -25,6 +25,7 @@ import           Data.Map (fromListWith, lookup)
 import           Data.Text (Text, append, pack)
 import qualified Data.Text as T
 import           Data.Unique (newUnique)
+import           System.Mem (performMajorGC)
 
 import           Cardano.BM.Configuration (inspectSeverity,
                      minSeverity, setMinSeverity, setSeverity)
@@ -153,7 +154,9 @@ example_with_named_contexts = do
     -- the named context will include "complex" in the logged message
     logInfo logTrace "done."
     threadDelay 1000
-    Setup.shutdownTrace logTrace
+    -- force garbage collection to allow exceptions to be thrown
+    performMajorGC
+    threadDelay 1000
     return ""
   where
     complexWork0 tr msg = Async.async $ logInfo tr ("let's see (0): " `append` msg)
@@ -165,7 +168,6 @@ example_with_named_contexts = do
             Just $ ObservableTrace observablesSet
         _ <- STMObserver.bracketObserveIO trInner "STM-action" setVar_
         logInfo trInner "let's see: done."
-        -- logInfo logTrace' "let's see: done."
 
 \end{code}
 
@@ -558,7 +560,7 @@ unit_exception_throwing = do
         trace <- Setup.setupTrace (Right cfg) "test"
 
         logInfo trace message
-        Setup.shutdownTrace trace
+        threadDelay 1000
 
 \end{code}
 
@@ -586,6 +588,5 @@ unit_test_lazy_evaluation = do
         trace <- subTrace "work" trace0
 
         logInfo trace message
-        Setup.shutdownTrace trace
 
 \end{code}
