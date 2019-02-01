@@ -57,7 +57,7 @@ setupTrace_ c name = do
     ctx <- liftIO $ newContext "" c sev sb
 
     tr <- subTrace name $ natTrace liftIO (ctx, Switchboard.mainTrace sb)
-    liftIO $ addFinalizer ctx $ shutdownTrace tr
+    liftIO $ addFinalizer tr $ shutdownTrace tr
     return tr
 
 \end{code}

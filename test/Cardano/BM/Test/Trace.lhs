@@ -154,6 +154,7 @@ example_with_named_contexts = do
     -- the named context will include "complex" in the logged message
     logInfo logTrace "done."
     threadDelay 1000
+    -- force garbage collection to allow exceptions to be thrown
     performMajorGC
     threadDelay 1000
     return ""
@@ -559,7 +560,7 @@ unit_exception_throwing = do
         trace <- Setup.setupTrace (Right cfg) "test"
 
         logInfo trace message
-        Setup.shutdownTrace trace
+        threadDelay 1000
 
 \end{code}
 
@@ -587,6 +588,5 @@ unit_test_lazy_evaluation = do
         trace <- subTrace "work" trace0
 
         logInfo trace message
-        Setup.shutdownTrace trace
 
 \end{code}
