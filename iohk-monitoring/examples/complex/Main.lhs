@@ -14,6 +14,10 @@
 #define RUN_ProcObseveDownload
 #define RUN_ProcRandom
 
+#if defined(linux_HOST_OS)
+#define LINUX
+#endif
+
 module Main
   ( main )
   where
