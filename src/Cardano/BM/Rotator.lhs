@@ -3,12 +3,12 @@
 
 Implementation of rotation of logging files.
 
+Monitor log files for max age and max size.
+
 \begin{code}
 
 {-# LANGUAGE CPP             #-}
 {-# LANGUAGE RecordWildCards #-}
-
--- | monitor log files for max age and max size
 
 #if !defined(mingw32_HOST_OS)
 #define POSIX
@@ -44,13 +44,15 @@ import           Cardano.BM.Data.Rotation (RotationParameters (..))
 
 \end{code}
 
-\subsubsection{Add current time to name of log file}\label{code:nameLogFile}\index{nameLogFile}
+\subsubsection{Format of a timestamp to be appended to the name of a file.}
 \begin{code}
--- format of a timestamp
 tsformat :: String
 tsformat = "%Y%m%d%H%M%S"
 
--- get file path to a log file with current time
+\end{code}
+
+\subsubsection{Add current time to name of log file.}\label{code:nameLogFile}\index{nameLogFile}
+\begin{code}
 nameLogFile :: FilePath -> IO FilePath
 nameLogFile filename = do
     now <- getCurrentTime
@@ -59,7 +61,7 @@ nameLogFile filename = do
 
 \end{code}
 
-\subsubsection{Open a new log file}\label{code:evalRotator}\index{evalRotator}
+\subsubsection{Open a new log file.}\label{code:evalRotator}\index{evalRotator}
 \begin{code}
 evalRotator :: RotationParameters -> FilePath -> IO (Handle, Integer, UTCTime)
 evalRotator rotation filename = do
@@ -92,7 +94,10 @@ evalRotator rotation filename = do
 
     return (hdl, maxSize, rottime)
 
--- list filenames in prefix dir which match 'file'
+\end{code}
+
+\subsubsection{List log files in dir which match with the given filename ignoring date.}\label{code:listLogFiles}\index{listLogFiles}
+\begin{code}
 listLogFiles :: FilePath -> IO (Maybe (NonEmpty FilePath))
 listLogFiles file = do
     -- find files in the same directory which begin with
@@ -109,7 +114,10 @@ listLogFiles file = do
                       && take 1 (drop fplen path) == "-"
                       && length (drop (fplen + 1) path) == tslen
 
--- latest log file which matches 'filename'
+\end{code}
+
+\subsubsection{Latest log file which matches filename.}\label{code:latestLogFile}\index{latestLogFile}
+\begin{code}
 latestLogFile :: FilePath -> IO (Maybe FilePath)
 latestLogFile filename =
     listLogFiles filename >>= \fs -> return $ latestLogFile' fs
@@ -118,8 +126,10 @@ latestLogFile filename =
     latestLogFile' Nothing      = Nothing
     latestLogFile' (Just flist) = Just $ NE.last flist
 
--- initialize log file at startup
--- may append to existing file
+\end{code}
+
+\subsubsection{Initialize log file at startup; may append to existing file.}\label{code:initializeRotator}\index{initializeRotator}
+\begin{code}
 initializeRotator :: RotationParameters -> FilePath -> IO (Handle, Integer, UTCTime)
 initializeRotator rotation filename = do
     let maxAge  = toInteger $ rpMaxAgeHours   rotation
@@ -148,7 +158,10 @@ initializeRotator rotation filename = do
   where
     fplen = length filename
 
--- remove old files; count them and only keep n (from config)
+\end{code}
+
+\subsubsection{Remove old files; count them and only keep n (from config).}\label{code:cleanupRotator}\index{cleanupRotator}
+\begin{code}
 cleanupRotator :: RotationParameters -> FilePath -> IO ()
 cleanupRotator rotation filename = do
     let keepN0 = fromIntegral (rpKeepFilesNum rotation) :: Int
@@ -160,7 +173,10 @@ cleanupRotator rotation filename = do
     removeOldFiles n (Just flist) =
         mapM_ removeFile $ reverse $ NE.drop n $ NE.reverse flist
 
--- display message and stack trace of exception on stdout
+\end{code}
+
+\subsubsection{Display message and stack trace of exception on stdout.}\label{code:prtoutException}\index{prtoutException}
+\begin{code}
 prtoutException :: Exception e => String -> e -> IO ()
 prtoutException msg e = do
     putStrLn msg
