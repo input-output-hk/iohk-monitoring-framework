@@ -47,6 +47,7 @@ library
                        Cardano.BM.Output.Log
                        Cardano.BM.Output.Switchboard
 
+                       Cardano.BM.Rotator
                        Cardano.BM.Setup
                        Cardano.BM.Trace
   if os(Linux)

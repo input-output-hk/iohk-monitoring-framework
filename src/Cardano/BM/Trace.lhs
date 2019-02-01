@@ -256,7 +256,6 @@ traceNamedItem trace p s m =
                                                , liSeverity  = s
                                                , liPayload   = m
                                                })
-     
 
 \end{code}
 

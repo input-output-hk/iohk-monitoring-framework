@@ -24,9 +24,8 @@ module Cardano.BM.Output.Log
 
 import           Control.AutoUpdate (UpdateSettings (..), defaultUpdateSettings,
                      mkAutoUpdate)
-import           Control.Concurrent.MVar (MVar, newEmptyMVar, newMVar, putMVar,
-                     withMVar)
-import           Control.Exception (Exception (..))
+import           Control.Concurrent.MVar (MVar, modifyMVar_, newEmptyMVar,
+                     newMVar, putMVar, withMVar)
 import           Control.Exception.Safe (catchIO)
 import           Control.Monad (forM_, void)
 import           Control.Lens ((^.))
@@ -36,9 +35,10 @@ import           Data.Maybe (isNothing)
 import           Data.String (fromString)
 import           Data.Text (Text, isPrefixOf, pack, unpack)
 import qualified Data.Text as T
+import qualified Data.Text.Lazy as TL
 import           Data.Text.Lazy.Builder (Builder, fromText, toLazyText)
-import           Data.Text.Lazy (toStrict)
 import qualified Data.Text.Lazy.IO as TIO
+import           Data.Time (diffUTCTime)
 import           Data.Time.Clock (UTCTime, getCurrentTime)
 import           Data.Time.Format (defaultTimeLocale, formatTime)
 import           Data.Version (Version (..), showVersion)
@@ -59,7 +59,10 @@ import           Cardano.BM.Data.Aggregated
 import           Cardano.BM.Data.Backend
 import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.Output
+import           Cardano.BM.Data.Rotation (RotationParameters (..))
 import           Cardano.BM.Data.Severity
+import           Cardano.BM.Rotator (cleanupRotator, evalRotator,
+                     initializeRotator, prtoutException)
 
 \end{code}
 %endif
@@ -98,10 +101,11 @@ instance IsBackend Log where
             register :: [ScribeDefinition] -> K.LogEnv -> IO K.LogEnv
             register [] le = return le
             register (defsc : dscs) le = do
-                let kind = scKind defsc
-                    name = scName defsc
-                    name' = pack (show kind) <> "::" <> name
-                scr <- createScribe kind name
+                let kind      = scKind     defsc
+                    name      = scName     defsc
+                    rotParams = scRotation defsc
+                    name'     = pack (show kind) <> "::" <> name
+                scr <- createScribe kind name rotParams
                 register dscs =<< K.registerScribe name' scr scribeSettings le
             mockVersion :: Version
             mockVersion = Version [0,1,0,0] []
@@ -110,10 +114,16 @@ instance IsBackend Log where
                 let bufferSize = 5000  -- size of the queue (in log items)
                 in
                 KC.ScribeSettings bufferSize
-            createScribe FileTextSK name = mkTextFileScribe (FileDescription $ unpack name) False
-            createScribe FileJsonSK name = mkJsonFileScribe (FileDescription $ unpack name) False
-            createScribe StdoutSK _ = mkStdoutScribe
-            createScribe StderrSK _ = mkStderrScribe
+            createScribe FileTextSK name rotParams = mkTextFileScribe
+                                                        rotParams
+                                                        (FileDescription $ unpack name)
+                                                        False
+            createScribe FileJsonSK name rotParams = mkJsonFileScribe
+                                                        rotParams
+                                                        (FileDescription $ unpack name)
+                                                        False
+            createScribe StdoutSK _ _ = mkStdoutScribe
+            createScribe StderrSK _ _ = mkStderrScribe
 
         cfoKey <- Config.getOptionOrDefault config (pack "cfokey") (pack "<unknown>")
         le0 <- K.initLogEnv
@@ -189,15 +199,15 @@ passN backend katip namedLogItem = do
                                 (LogMessage logItem) ->
                                      (liSeverity logItem, liPayload logItem, Nothing)
                                 (ObserveDiff _) ->
-                                     let text = toStrict (encodeToLazyText loitem)
+                                     let text = TL.toStrict (encodeToLazyText loitem)
                                      in
                                      (Info, text, Just loitem)
                                 (ObserveOpen _) ->
-                                     let text = toStrict (encodeToLazyText loitem)
+                                     let text = TL.toStrict (encodeToLazyText loitem)
                                      in
                                      (Info, text, Just loitem)
                                 (ObserveClose _) ->
-                                     let text = toStrict (encodeToLazyText loitem)
+                                     let text = TL.toStrict (encodeToLazyText loitem)
                                      in
                                      (Info, text, Just loitem)
                                 (AggregatedMessage aggregated) ->
@@ -268,42 +278,79 @@ mkFileScribeH h formatter colorize = do
                         formatter h colorize K.V0 item
     pure $ K.Scribe logger (hClose h)
 
-mkTextFileScribe :: FileDescription -> Bool -> IO K.Scribe
-mkTextFileScribe fdesc colorize = do
-    mkFileScribe fdesc formatter colorize
+mkTextFileScribe :: Maybe RotationParameters -> FileDescription -> Bool -> IO K.Scribe
+mkTextFileScribe rotParams fdesc colorize = do
+    mkFileScribe rotParams fdesc formatter colorize
   where
-    formatter :: Handle -> Bool -> K.Verbosity -> K.Item a -> IO ()
+    formatter :: Handle -> Bool -> K.Verbosity -> K.Item a -> IO Int
     formatter hdl colorize' v' item =
         case KC._itemMessage item of
                 K.LogStr ""  ->
                     -- if message is empty do not output it
-                    return ()
+                    return 0
                 _ -> do
                     let tmsg = toLazyText $ formatItem colorize' v' item
                     TIO.hPutStrLn hdl tmsg
+                    return $ fromIntegral $ TL.length tmsg
 
-mkJsonFileScribe :: FileDescription -> Bool -> IO K.Scribe
-mkJsonFileScribe fdesc colorize = do
-    mkFileScribe fdesc formatter colorize
+mkJsonFileScribe :: Maybe RotationParameters -> FileDescription -> Bool -> IO K.Scribe
+mkJsonFileScribe rotParams fdesc colorize = do
+    mkFileScribe rotParams fdesc formatter colorize
   where
-    formatter :: (K.LogItem a) => Handle -> Bool -> K.Verbosity -> K.Item a -> IO ()
+    formatter :: (K.LogItem a) => Handle -> Bool -> K.Verbosity -> K.Item a -> IO Int
     formatter h _ verbosity item = do
-        let tmsg = case KC._itemMessage item of
+        let jmsg = case KC._itemMessage item of
                 -- if a message is contained in item then only the
                 -- message is printed and not the data
                 K.LogStr ""  -> K.itemJson verbosity item
                 K.LogStr msg -> K.itemJson verbosity $
                                     item { KC._itemMessage = K.logStr (""::Text)
-                                         , KC._itemPayload = LogItem Both Info $ toStrict $ toLazyText msg
+                                         , KC._itemPayload = LogItem Both Info $ TL.toStrict $ toLazyText msg
                                          }
-        TIO.hPutStrLn h (encodeToLazyText tmsg)
+            tmsg = encodeToLazyText jmsg
+        TIO.hPutStrLn h tmsg
+        return $ fromIntegral $ TL.length tmsg
 
 mkFileScribe
-    :: FileDescription
-    -> (forall a . K.LogItem a => Handle -> Bool -> K.Verbosity -> K.Item a -> IO ())
+    :: Maybe RotationParameters
+    -> FileDescription
+    -> (forall a . K.LogItem a => Handle -> Bool -> K.Verbosity -> K.Item a -> IO Int)
     -> Bool
     -> IO K.Scribe
-mkFileScribe fdesc formatter colorize = do
+mkFileScribe (Just rotParams) fdesc formatter colorize = do
+    let prefixDir = prefixPath fdesc
+    (createDirectoryIfMissing True prefixDir)
+        `catchIO` (prtoutException ("cannot log prefix directory: " ++ prefixDir))
+    let fpath = filePath fdesc
+    trp <- initializeRotator rotParams fpath
+    scribestate <- newMVar trp  -- triple of (handle), (bytes remaining), (rotate time)
+    -- sporadically remove old log files - every 10 seconds
+    cleanup <- mkAutoUpdate defaultUpdateSettings {
+                                updateAction = cleanupRotator rotParams fpath
+                              , updateFreq = 10000000
+                              }
+    let finalizer :: IO ()
+        finalizer = withMVar scribestate $
+                                \(h, _, _) -> hClose h
+    let logger :: forall a. K.LogItem a => K.Item a -> IO ()
+        logger item =
+            modifyMVar_ scribestate $ \(h, bytes, rottime) -> do
+                byteswritten <- formatter h colorize K.V0 item
+                -- remove old files
+                cleanup
+                -- detect log file rotation
+                let bytes' = bytes - (toInteger $ byteswritten)
+                let tdiff' = round $ diffUTCTime rottime (K._itemTime item)
+                if bytes' < 0 || tdiff' < (0 :: Integer)
+                    then do   -- log file rotation
+                        hClose h
+                        (h2, bytes2, rottime2) <- evalRotator rotParams fpath
+                        return (h2, bytes2, rottime2)
+                    else
+                        return (h, bytes', rottime)
+    return $ K.Scribe logger finalizer
+-- log rotation disabled.
+mkFileScribe Nothing fdesc formatter colorize = do
     let prefixDir = prefixPath fdesc
     (createDirectoryIfMissing True prefixDir)
         `catchIO` (prtoutException ("cannot log prefix directory: " ++ prefixDir))
@@ -319,8 +366,8 @@ mkFileScribe fdesc formatter colorize = do
         finalizer = withMVar scribestate hClose
     let logger :: forall a. K.LogItem a => K.Item a -> IO ()
         logger item =
-              withMVar scribestate $ \handler ->
-                  formatter handler colorize K.V0 item
+            withMVar scribestate $ \handler ->
+                void $ formatter handler colorize K.V0 item
     return $ K.Scribe logger finalizer
 
 \end{code}
@@ -380,11 +427,5 @@ data FileDescription = FileDescription {
 
 prefixPath :: FileDescription -> FilePath
 prefixPath = takeDirectory . filePath
-
--- display message and stack trace of exception on stdout
-prtoutException :: Exception e => String -> e -> IO ()
-prtoutException msg e = do
-    putStrLn msg
-    putStrLn ("exception: " ++ displayException e)
 
 \end{code}
