@@ -20,6 +20,7 @@ import           Cardano.BM.Data.BackendKind
 import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.Observable
 import           Cardano.BM.Data.Output
+import           Cardano.BM.Data.Rotation
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.SubTrace
 import           Cardano.BM.Observer.Monadic (bracketObserveIO)
@@ -44,30 +45,34 @@ config = do
                             , scRotation = Nothing
                             }
                          , ScribeDefinition {
-                              scName = "out.odd.json"
+                              scName = "logs/out.odd.json"
                             , scKind = FileJsonSK
                             , scRotation = Nothing
                             }
                          , ScribeDefinition {
-                              scName = "out.even.json"
+                              scName = "logs/out.even.json"
                             , scKind = FileJsonSK
                             , scRotation = Nothing
                             }
                          , ScribeDefinition {
-                              scName = "out.txt"
+                              scName = "logs/out.txt"
                             , scKind = FileTextSK
-                            , scRotation = Nothing
+                            , scRotation = Just $ RotationParameters
+                                              { rpLogLimitBytes = 5000 -- 5kB
+                                              , rpMaxAgeHours   = 24
+                                              , rpKeepFilesNum  = 3
+                                              }
                             }
                          ]
     CM.setDefaultScribes c ["StdoutSK::stdout"]
-    CM.setScribes c "complex.random" (Just ["StdoutSK::stdout", "FileTextSK::out.txt"])
+    CM.setScribes c "complex.random" (Just ["StdoutSK::stdout", "FileTextSK::logs/out.txt"])
     CM.setScribes c "#aggregated.complex.random" (Just ["StdoutSK::stdout"])
     forM_ [(1::Int)..10] $ \x ->
       if odd x
       then
-        CM.setScribes c ("#aggregation.complex.observeSTM." <> (pack $ show x)) $ Just [ "FileJsonSK::out.odd.json" ]
+        CM.setScribes c ("#aggregation.complex.observeSTM." <> (pack $ show x)) $ Just [ "FileJsonSK::logs/out.odd.json" ]
       else
-        CM.setScribes c ("#aggregation.complex.observeSTM." <> (pack $ show x)) $ Just [ "FileJsonSK::out.even.json" ]
+        CM.setScribes c ("#aggregation.complex.observeSTM." <> (pack $ show x)) $ Just [ "FileJsonSK::logs/out.even.json" ]
 
     CM.setSubTrace c "complex.random" (Just $ TeeTrace "ewma")
     CM.setSubTrace c "#ekgview"
@@ -99,7 +104,7 @@ config = do
         (Just [AggregationBK])
       CM.setBackends c
         ("#aggregation.complex.observeSTM." <> (pack $ show x))
-        (Just [EKGViewBK])
+        (Just [EKGViewBK, KatipBK])
 
     CM.setAggregatedKind c "complex.random.rr" (Just StatsAK)
     CM.setAggregatedKind c "complex.random.ewma.rr" (Just (EwmaAK 0.42))
