@@ -349,7 +349,7 @@ mkFileScribe (Just rotParams) fdesc formatter colorize = do
                     else
                         return (h, bytes', rottime)
     return $ K.Scribe logger finalizer
--- Log rotation disabled.
+-- log rotation disabled.
 mkFileScribe Nothing fdesc formatter colorize = do
     let prefixDir = prefixPath fdesc
     (createDirectoryIfMissing True prefixDir)
@@ -427,18 +427,5 @@ data FileDescription = FileDescription {
 
 prefixPath :: FileDescription -> FilePath
 prefixPath = takeDirectory . filePath
-
--- -- check if item passes severity filter
--- checkItem :: Severity -> Configuration -> Item a -> IO Bool
--- checkItem s conf item =
---     -- namedSeverity  <- inspectSeverity conf namedcontext
---     -- globalSeverity <- minSeverity conf
---     -- let severity = fromMaybe globalSeverity namedSeverity
---     severity <- fromMaybe <$> (minSeverity conf) <*> (inspectSeverity conf namedcontext)
---     K.permitItem (sev2klog severity) item
---   where
---     namedcontext :: LoggerName
---     namedcontext = mconcat $ intercalateNs $ _itemNamespace item
-
 
 \end{code}
