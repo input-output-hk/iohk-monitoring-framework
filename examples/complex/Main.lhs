@@ -1,6 +1,11 @@
 \subsubsection{Module header and import directives}
 \begin{code}
+{-# LANGUAGE CPP               #-}
 {-# LANGUAGE OverloadedStrings #-}
+
+#if defined(linux_HOST_OS)
+#define LINUX
+#endif
 
 module Main
   ( main )
@@ -11,6 +16,10 @@ import qualified Control.Concurrent.Async as Async
 import           Control.Monad (forM, forM_)
 import           GHC.Conc.Sync (STM, TVar, atomically, newTVar, readTVar, writeTVar)
 import           Data.Text (pack)
+#ifdef LINUX
+import qualified Data.ByteString.Char8 as BS8
+import           Network.Download (openURI)
+#endif
 import           System.Random
 
 import qualified Cardano.BM.Configuration.Model as CM
@@ -69,6 +78,9 @@ config = do
       else
         CM.setScribes c ("#aggregation.complex.observeSTM." <> (pack $ show x)) $ Just [ "FileJsonSK::out.even.json" ]
 
+#ifdef LINUX
+    CM.setSubTrace c "complex.observeDownload" (Just $ ObservableTrace [IOStats])
+#endif
     CM.setSubTrace c "complex.random" (Just $ TeeTrace "ewma")
     CM.setSubTrace c "#ekgview"
       (Just $ FilterTrace [ (Drop (StartsWith "#ekgview.#aggregation.complex.random"),
@@ -163,8 +175,8 @@ observeDownload trace = loop trace
         bracketObserveIO tr' "" $ do
             license <- openURI "http://www.gnu.org/licenses/gpl.txt"
             case license of
-              Right bs -> logNotice tr' $ pack $ take 100 $ BS8.unpack bs
-              Left _ ->  return ()
+              Right bs -> logNotice tr' $ "downloaded " <> BS8.length bs <> " bytes"
+              Left e ->  logError tr' e
             threadDelay 500000  -- .5 second
             pure ()
         loop tr
@@ -192,6 +204,29 @@ stmAction tvarlist = do
   writeTVar tvarlist $ reverse $ init $ reverse $ list
   pure ()
 
+\end{code}
+
+\subsubsection{Thread that observes an |IO| action which downloads a txt in
+order to observe the I/O statistics}
+\begin{code}
+#ifdef LINUX
+observeDownload :: Trace IO -> IO (Async.Async ())
+observeDownload trace = do
+  proc <- Async.async (loop trace)
+  return proc
+  where
+    loop tr = do
+        threadDelay 1000000  -- 1 second
+        tr' <- appendName "observeDownload" tr
+        bracketObserveIO tr' "" $ do
+            license <- openURI "http://www.gnu.org/licenses/gpl.txt"
+            case license of
+              Right bs -> logNotice tr' $ pack $ BS8.unpack bs
+              Left _ ->  return ()
+            threadDelay 50000  -- .05 second
+            pure ()
+        loop tr
+#endif
 \end{code}
 
 \subsubsection{Thread that periodically outputs a message}
@@ -234,11 +269,20 @@ main = do
     -- start threads endlessly observing STM actions operating on the same TVar
     procObsvSTMs <- observeSTM tr
 
+#ifdef LINUX
+    -- start thread endlessly which downloads sth in order to check the I/O usage
+    procObsvDownload <- observeDownload tr
+#endif
+
     -- start a thread to output a text messages every n seconds
     procMsg <- msgThr tr
 
     -- wait for message thread to finish, ignoring any exception
     _ <- Async.waitCatch procMsg
+#ifdef LINUX
+    -- wait for download thread to finish, ignoring any exception
+    _ <- Async.waitCatch procObsvDownload
+#endif
     -- wait for observer thread to finish, ignoring any exception
     _ <- forM procObsvSTMs Async.waitCatch
     -- wait for observer thread to finish, ignoring any exception

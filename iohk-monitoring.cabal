@@ -160,7 +160,6 @@ executable example-complex
                        iohk-monitoring,
                        async,
                        bytestring,
-                       download,
                        mtl,
                        random,
                        text
@@ -168,3 +167,6 @@ executable example-complex
      build-depends:    Win32
   else
      build-depends:    unix
+
+  if os(linux)
+     build-depends:    download
