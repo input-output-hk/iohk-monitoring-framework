@@ -153,9 +153,9 @@ A |Stats| statistics is strictly computed.
 data BaseStats = BaseStats {
     fmin   :: !Measurable,
     fmax   :: !Measurable,
-    fcount :: !Int,
-    fsum_A :: !Double,
-    fsum_B :: !Double
+    fcount :: {-# UNPACK #-} !Int,
+    fsum_A :: {-# UNPACK #-} !Double,
+    fsum_B :: {-# UNPACK #-} !Double
     } deriving (Generic, ToJSON, Show)
 
 instance Eq BaseStats where

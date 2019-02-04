@@ -4,12 +4,13 @@ SOURCES = ../src/Code.lhs \
 					../src/Cardano/BM/BaseTrace.lhs \
 					../src/Cardano/BM/Configuration.lhs \
 					../src/Cardano/BM/Configuration/Model.lhs \
-					../src/Cardano/BM/Configuration/View.lhs \
+					../src/Cardano/BM/Configuration/Static.lhs \
 					../src/Cardano/BM/Counters.lhs \
 					../src/Cardano/BM/Counters/Common.lhs \
 					../src/Cardano/BM/Counters/Dummy.lhs \
 					../src/Cardano/BM/Counters/Linux.lhs \
 					../src/Cardano/BM/Data/Aggregated.lhs \
+					../src/Cardano/BM/Data/AggregatedKind.lhs \
 					../src/Cardano/BM/Data/Backend.lhs \
 					../src/Cardano/BM/Data/BackendKind.lhs \
 					../src/Cardano/BM/Data/Configuration.lhs \
@@ -26,7 +27,9 @@ SOURCES = ../src/Code.lhs \
 					../src/Cardano/BM/Output/Aggregation.lhs \
 					../src/Cardano/BM/Output/EKGView.lhs \
 					../src/Cardano/BM/Output/Log.lhs \
+					../src/Cardano/BM/Output/Monitoring.lhs \
 					../src/Cardano/BM/Output/Switchboard.lhs \
+					../src/Cardano/BM/Rotator.lhs \
 					../src/Cardano/BM/Setup.lhs \
 					../src/Cardano/BM/Trace.lhs \
 

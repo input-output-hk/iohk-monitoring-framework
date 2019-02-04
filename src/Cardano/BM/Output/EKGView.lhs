@@ -46,7 +46,7 @@ import qualified Cardano.BM.Trace as Trace
 \end{code}
 %endif
 
-\subsubsection{Structure of EKGView}\label{code:EKGView}
+\subsubsection{Structure of EKGView}\label{code:EKGView}\index{EKGView}
 \begin{code}
 type EKGViewMVar = MVar EKGViewInternal
 newtype EKGView = EKGView
@@ -121,18 +121,18 @@ ekgTrace ekg c = do
 \end{code}
 
 
-\subsubsection{EKG view is an effectuator}
+\subsubsection{EKG view is an effectuator}\index{EKGView!instance of IsEffectuator}
 Function |effectuate| is called to pass in a |NamedLogItem| for display in EKG.
 If the log item is an |AggregatedStats| message, then all its constituents are
-put into the queue.
+put into the queue. In case the queue is full, all new items are dropped.
 \begin{code}
 instance IsEffectuator EKGView where
     effectuate ekgview item = do
         ekg <- readMVar (getEV ekgview)
-        let queue a = do
+        let enqueue a = do
                         nocapacity <- atomically $ TBQ.isFullTBQueue (evQueue ekg)
                         if nocapacity
-                        then return ()
+                        then handleOverflow ekgview
                         else atomically $ TBQ.writeTBQueue (evQueue ekg) (Just a)
         case (lnItem item) of
             (LogObject lometa (AggregatedMessage ags)) -> liftIO $ do
@@ -140,29 +140,31 @@ instance IsEffectuator EKGView where
                     traceAgg :: [(Text,Aggregated)] -> IO ()
                     traceAgg [] = return ()
                     traceAgg ((n,AggregatedEWMA ewma):r) = do
-                        queue $ LogNamed (logname <> "." <> n) $ LogObject lometa (LogValue "avg" $ avg ewma)
+                        enqueue $ LogNamed (logname <> "." <> n) $ LogObject lometa (LogValue "avg" $ avg ewma)
                         traceAgg r
                     traceAgg ((n,AggregatedStats stats):r) = do
                         let statsname = logname <> "." <> n
                             qbasestats s' nm = do
-                                queue $ LogNamed nm $ LogObject lometa (LogValue "mean" (PureD $ meanOfStats s'))
-                                queue $ LogNamed nm $ LogObject lometa (LogValue "min" $ fmin s')
-                                queue $ LogNamed nm $ LogObject lometa (LogValue "max" $ fmax s')
-                                queue $ LogNamed nm $ LogObject lometa (LogValue "count" $ PureI $ fromIntegral $ fcount s')
-                                queue $ LogNamed nm $ LogObject lometa (LogValue "stdev" (PureD $ stdevOfStats s'))
-                        queue $ LogNamed statsname $ LogObject lometa (LogValue "last" $ flast stats)
+                                enqueue $ LogNamed nm $ LogObject lometa (LogValue "mean" (PureD $ meanOfStats s'))
+                                enqueue $ LogNamed nm $ LogObject lometa (LogValue "min" $ fmin s')
+                                enqueue $ LogNamed nm $ LogObject lometa (LogValue "max" $ fmax s')
+                                enqueue $ LogNamed nm $ LogObject lometa (LogValue "count" $ PureI $ fromIntegral $ fcount s')
+                                enqueue $ LogNamed nm $ LogObject lometa (LogValue "stdev" (PureD $ stdevOfStats s'))
+                        enqueue $ LogNamed statsname $ LogObject lometa (LogValue "last" $ flast stats)
                         qbasestats (fbasic stats) $ statsname <> ".basic"
                         qbasestats (fdelta stats) $ statsname <> ".delta"
                         qbasestats (ftimed stats) $ statsname <> ".timed"
                         traceAgg r
                 traceAgg ags
-            (LogObject _ (LogMessage _)) -> queue item
-            (LogObject _ (LogValue _ _)) -> queue item
+            (LogObject _ (LogMessage _)) -> enqueue item
+            (LogObject _ (LogValue _ _)) -> enqueue item
             _                            -> return ()
+
+    handleOverflow _ = putStrLn "Notice: EKGViews's queue full, dropping log items!"
 
 \end{code}
 
-\subsubsection{|EKGView| implements |Backend| functions}
+\subsubsection{|EKGView| implements |Backend| functions}\index{EKGView!instance of IsBackend}
 
 |EKGView| is an |IsBackend|
 \begin{code}
