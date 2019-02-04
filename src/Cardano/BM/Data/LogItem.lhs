@@ -96,6 +96,7 @@ data LOContent = LogMessage LogItem
                | ObserveDiff CounterState
                | ObserveClose CounterState
                | AggregatedMessage [(Text, Aggregated)]
+               | MonitoringEffect LogObject
                | KillPill
                  deriving (Generic, Show, ToJSON)
 

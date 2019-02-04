@@ -37,11 +37,15 @@ import           Cardano.BM.Data.SubTrace
 import qualified Cardano.BM.Output.Aggregation
 import qualified Cardano.BM.Output.EKGView
 import qualified Cardano.BM.Output.Log
+import qualified Cardano.BM.Output.Monitoring
 
 \end{code}
 %endif
 
 \subsubsection{Switchboard}\label{code:Switchboard}\index{Switchboard}
+
+We are using an |MVar| because we spawn a set of backends that may try to send messages to
+the switchboard before it is completely setup.
 
 \begin{code}
 type SwitchboardMVar = MVar SwitchboardInternal
@@ -78,13 +82,29 @@ instance IsEffectuator Switchboard where
     effectuate switchboard item = do
         let writequeue :: TBQ.TBQueue NamedLogItem -> NamedLogItem -> IO ()
             writequeue q i = do
-                nocapacity <- atomically $ TBQ.isFullTBQueue q
-                if nocapacity
-                then return ()
-                else atomically $ TBQ.writeTBQueue q i
+                    nocapacity <- atomically $ TBQ.isFullTBQueue q
+                    if nocapacity
+                    then handleOverflow switchboard
+                    else atomically $ TBQ.writeTBQueue q i
+
         sb <- readMVar (getSB switchboard)
         writequeue (sbQueue sb) item
+
+    handleOverflow _ = putStrLn "Error: Switchboard's queue full, dropping log items!"
+
 \end{code}
+
+\begin{spec}
+instead of 'writequeue ...':
+        evalMonitoringAction config item >>=
+            mapM_ (writequeue (sbQueue sb))
+
+evalMonitoringAction :: Configuration -> NamedLogItem -> m [NamedLogItem]
+evalMonitoringAction c item = return [item]
+    -- let action = LogNamed { lnName=(lnName item) <> ".action", lnItem=LogMessage ... }
+    -- return (action : item)
+
+\end{spec}
 
 \subsubsection{|Switchboard| implements |Backend| functions}\index{Switchboard!instance of IsBackend}
 
@@ -114,6 +134,9 @@ instance IsBackend Switchboard where
                             LogObject _ (AggregatedMessage _) -> do
                                 sendMessage nli (filter (/= AggregationBK))
                                 qProc
+                            LogObject _ (MonitoringEffect inner) -> do
+                                sendMessage (nli {lnItem = inner}) (filter (/= MonitoringBK))
+                                qProc
                             _ -> sendMessage nli id >> qProc
                 in
                 Async.async qProc
@@ -129,10 +152,7 @@ instance IsBackend Switchboard where
         -- raises an exception, that exception will be re-thrown in the current
         -- thread, wrapped in ExceptionInLinkedThread.
         Async.link dispatcher
-        putMVar sbref $ SwitchboardInternal {
-                              sbQueue    = q
-                            , sbDispatch = dispatcher
-                            }
+        putMVar sbref $ SwitchboardInternal {sbQueue = q, sbDispatch = dispatcher}
 
         return sb
 
@@ -164,6 +184,12 @@ setupBackends (bk : bes) c sb acc = do
     setupBackends bes c sb ((bk,be') : acc)
 setupBackend' :: BackendKind -> Configuration -> Switchboard -> IO Backend
 setupBackend' SwitchboardBK _ _ = error "cannot instantiate a further Switchboard"
+setupBackend' MonitoringBK c _ = do
+    be :: Cardano.BM.Output.Monitoring.Monitor <- Cardano.BM.Output.Monitoring.realize c
+    return MkBackend
+      { bEffectuate = Cardano.BM.Output.Monitoring.effectuate be
+      , bUnrealize = Cardano.BM.Output.Monitoring.unrealize be
+      }
 setupBackend' EKGViewBK c _ = do
     be :: Cardano.BM.Output.EKGView.EKGView <- Cardano.BM.Output.EKGView.realize c
     return MkBackend

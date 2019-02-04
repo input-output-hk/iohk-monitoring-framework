@@ -1,5 +1,5 @@
 
-\subsection{Trace}
+\subsection{Cardano.BM.Test.Trace}
 
 %if style == newcode
 \begin{code}
@@ -62,35 +62,35 @@ import           Test.Tasty.HUnit (Assertion, assertBool, testCase,
 tests :: TestTree
 tests = testGroup "testing Trace" [
         unit_tests
-      , testCase "forked traces stress testing" stress_trace_in_fork
-      , testCase "stress testing: ObservableTrace vs. NoTrace" timing_Observable_vs_Untimed
-      , testCaseInfo "demonstrating logging" simple_demo
-      , testCaseInfo "demonstrating nested named context logging" example_with_named_contexts
+      , testCase "forked traces stress testing" stressTraceInFork
+      , testCase "stress testing: ObservableTrace vs. NoTrace" timingObservableVsUntimed
+      , testCaseInfo "demonstrating logging" simpleDemo
+      , testCaseInfo "demonstrating nested named context logging" exampleWithNamedContexts
       ]
 
 unit_tests :: TestTree
 unit_tests = testGroup "Unit tests" [
-        testCase "opening messages should not be traced" unit_noOpening_Trace
-      , testCase "hierarchy of traces" unit_hierarchy
-      , testCase "forked traces" unit_trace_in_fork
+        testCase "opening messages should not be traced" unitNoOpeningTrace
+      , testCase "hierarchy of traces" unitHierarchy
+      , testCase "forked traces" unitTraceInFork
       , testCase "hierarchy of traces with NoTrace" $
-            unit_hierarchy' [Neutral, NoTrace, (ObservableTrace observablesSet)]
+            unitHierarchy' [Neutral, NoTrace, (ObservableTrace observablesSet)]
                 onlyLevelOneMessage
       , testCase "hierarchy of traces with DropOpening" $
-            unit_hierarchy' [Neutral, DropOpening, (ObservableTrace observablesSet)]
+            unitHierarchy' [Neutral, DropOpening, (ObservableTrace observablesSet)]
                 notObserveOpen
       , testCase "hierarchy of traces with UntimedTrace" $
-            unit_hierarchy' [Neutral, UntimedTrace, UntimedTrace]
+            unitHierarchy' [Neutral, UntimedTrace, UntimedTrace]
                 observeNoMeasures
       , testCase "changing the minimum severity of a trace at runtime"
-            unit_trace_min_severity
+            unitTraceMinSeverity
       , testCase "changing the minimum severity of a named context at runtime"
-            unit_named_min_severity
-      , testCase "appending names should not exceed 80 chars" unit_append_name
-      , testCase "creat subtrace which duplicates messages" unit_trace_duplicate
-      , testCase "testing name filtering" unit_name_filtering
-      , testCase "testing throwing of exceptions" unit_exception_throwing
-      , testCase "NoTrace: check lazy evaluation" unit_test_lazy_evaluation
+            unitNamedMinSeverity
+      , testCase "appending names should not exceed 80 chars" unitAppendName
+      , testCase "creat subtrace which duplicates messages" unitTraceDuplicate
+      , testCase "testing name filtering" unitNameFiltering
+      , testCase "testing throwing of exceptions" unitExceptionThrowing
+      , testCase "NoTrace: check lazy evaluation" unitTestLazyEvaluation
       ]
       where
         observablesSet = [MonotonicClock, MemoryStats]
@@ -103,7 +103,7 @@ unit_tests = testGroup "Unit tests" [
         onlyLevelOneMessage :: [LogObject] -> Bool
         onlyLevelOneMessage = \case
             [LogObject _ (LogMessage (LogItem _ _ "Message from level 1."))] -> True
-            _                                                  -> False
+            _                                                                -> False
         observeNoMeasures :: [LogObject] -> Bool
         observeNoMeasures obs = notObserveOpen obs && notObserveClose obs && notObserveDiff obs
 
@@ -139,7 +139,7 @@ setTransformer_ (ctx, _) name subtr = do
 
 \end{code}
 
-\subsubsection{Simple demo of logging.}\label{code:example_with_named_contexts}
+\subsubsection{Simple demo of logging.}\label{code:simpleDemo}
 \begin{code}
 simple_demo :: IO String
 simple_demo = do
@@ -160,10 +160,10 @@ simple_demo = do
 
 \end{code}
 
-\subsubsection{Example of using named contexts with |Trace|}\label{code:example_with_named_contexts}
+\subsubsection{Example of using named contexts with |Trace|}\label{code:exampleWithNamedContexts}
 \begin{code}
-example_with_named_contexts :: IO String
-example_with_named_contexts = do
+exampleWithNamedContexts :: IO String
+exampleWithNamedContexts = do
     cfg <- defaultConfigTesting
     logTrace <- Setup.setupTrace (Right cfg) "test"
     putStrLn "\n"
@@ -195,7 +195,7 @@ example_with_named_contexts = do
 
 \end{code}
 
-\subsubsection{Show effect of turning off observables}\label{timing_Observable_vs_Untimed}
+\subsubsection{Show effect of turning off observables}\label{timingObservableVsUntimed}
 \begin{code}
 run_timed_action :: Trace IO -> Int -> IO Measurable
 run_timed_action logTrace reps = do
@@ -210,8 +210,8 @@ run_timed_action logTrace reps = do
         return ()
     action = return $ forM [1::Int ..100] $ \x -> [x] ++ (init $ reverse [1::Int ..10000])
 
-timing_Observable_vs_Untimed :: Assertion
-timing_Observable_vs_Untimed = do
+timingObservableVsUntimed :: Assertion
+timingObservableVsUntimed = do
     msgs1  <- STM.newTVarIO []
     traceObservable <- setupTrace $ TraceConfiguration
                                     (TVarList msgs1)
@@ -251,14 +251,14 @@ timing_Observable_vs_Untimed = do
 
 \end{code}
 
-\subsubsection{Control tracing in a hierarchy of |Trace|s}\label{code:unit_hierarchy}
+\subsubsection{Control tracing in a hierarchy of |Trace|s}\label{code:unitHierarchy}
 We can lay out traces in a hierarchical manner, that the children
 forward traced items to the parent |Trace|.
 A |NoTrace| introduced in this hierarchy will cut off a branch
 from messaging to the root.
 \begin{code}
-unit_hierarchy :: Assertion
-unit_hierarchy = do
+unitHierarchy :: Assertion
+unitHierarchy = do
     msgs <- STM.newTVarIO []
     trace0 <- setupTrace $ TraceConfiguration (TVarList msgs) "test" Neutral Debug
     logInfo trace0 "This should have been displayed!"
@@ -283,12 +283,12 @@ unit_hierarchy = do
 
 \end{code}
 
-\subsubsection{Change a trace's minimum severity}\label{code:unit_trace_min_severity}
+\subsubsection{Change a trace's minimum severity}\label{code:unitTraceMinSeverity}
 A trace is configured with a minimum severity and filters out messages that are labelled
 with a lower severity. This minimum severity of the current trace can be changed.
 \begin{code}
-unit_trace_min_severity :: Assertion
-unit_trace_min_severity = do
+unitTraceMinSeverity :: Assertion
+unitTraceMinSeverity = do
     msgs <- STM.newTVarIO []
     trace@(ctx,_) <- setupTrace $ TraceConfiguration (TVarList msgs) "test min severity" Neutral Debug
     logInfo trace "Message #1"
@@ -320,12 +320,12 @@ unit_trace_min_severity = do
 
 \end{code}
 
-\subsubsection{Define a subtrace's behaviour to duplicate all messages}\label{code:unit_trace_duplicate}
+\subsubsection{Define a subtrace's behaviour to duplicate all messages}\label{code:unitTraceDuplicate}
 The |SubTrace| will duplicate all messages that pass through it. Each message will be in its own named
 context.
 \begin{code}
-unit_trace_duplicate :: Assertion
-unit_trace_duplicate = do
+unitTraceDuplicate :: Assertion
+unitTraceDuplicate = do
     msgs <- STM.newTVarIO []
     trace0@(ctx,_) <- setupTrace $ TraceConfiguration (TVarList msgs) "test duplicate" Neutral Debug
     logInfo trace0 "Message #1"
@@ -347,12 +347,12 @@ unit_trace_duplicate = do
 
 \end{code}
 
-\subsubsection{Change the minimum severity of a named context}\label{code:unit_named_min_severity}
+\subsubsection{Change the minimum severity of a named context}\label{code:unitNamedMinSeverity}
 A trace of a named context can be configured with a minimum severity, such that the trace will
 filter out messages that are labelled with a lower severity.
 \begin{code}
-unit_named_min_severity :: Assertion
-unit_named_min_severity = do
+unitNamedMinSeverity :: Assertion
+unitNamedMinSeverity = do
     msgs <- STM.newTVarIO []
     trace0 <- setupTrace $ TraceConfiguration (TVarList msgs) "test named severity" Neutral Debug
     trace@(ctx, _) <- appendName "sev-change" trace0
@@ -385,8 +385,8 @@ unit_named_min_severity = do
 \end{code}
 
 \begin{code}
-unit_hierarchy' :: [SubTrace] -> ([LogObject] -> Bool) -> Assertion
-unit_hierarchy' subtraces f = do
+unitHierarchy' :: [SubTrace] -> ([LogObject] -> Bool) -> Assertion
+unitHierarchy' subtraces f = do
     let (t1 : t2 : t3 : _) = cycle subtraces
     msgs <- STM.newTVarIO []
     -- create trace of type 1
@@ -412,10 +412,10 @@ unit_hierarchy' subtraces f = do
 
 \end{code}
 
-\subsubsection{Logging in parallel}\label{code:unit_trace_in_fork}
+\subsubsection{Logging in parallel}\label{code:unitTraceInFork}
 \begin{code}
-unit_trace_in_fork :: Assertion
-unit_trace_in_fork = do
+unitTraceInFork :: Assertion
+unitTraceInFork = do
     msgs <- STM.newTVarIO []
     trace <- setupTrace $ TraceConfiguration (TVarListNamed msgs) "test" Neutral Debug
     trace0 <- appendName "work0" trace
@@ -445,10 +445,10 @@ unit_trace_in_fork = do
 
 \end{code}
 
-\subsubsection{Stress testing parallel logging}\label{code:stress_trace_in_fork}
+\subsubsection{Stress testing parallel logging}\label{code:stressTraceInFork}
 \begin{code}
-stress_trace_in_fork :: Assertion
-stress_trace_in_fork = do
+stressTraceInFork :: Assertion
+stressTraceInFork = do
     msgs <- STM.newTVarIO []
     trace <- setupTrace $ TraceConfiguration (TVarListNamed msgs) "test" Neutral Debug
     let names = map (\a -> ("work-" <> pack (show a))) [1..(10::Int)]
@@ -461,7 +461,7 @@ stress_trace_in_fork = do
     let resNames = map lnName res
     let frequencyMap = fromListWith (+) [(x, 1) | x <- resNames]
 
-    -- each trace should have traced 'totalMessages' messages
+    -- each trace should have traced totalMessages' messages
     assertBool
         ("Frequencies of logged messages according to loggername: " ++ show frequencyMap)
         (all (\name -> (lookup ("test." <> name) frequencyMap) == Just totalMessages) names)
@@ -473,10 +473,10 @@ stress_trace_in_fork = do
 
 \end{code}
 
-\subsubsection{Dropping |ObserveOpen| messages in a subtrace}\label{code:unit_noOpening_Trace}
+\subsubsection{Dropping |ObserveOpen| messages in a subtrace}\label{code:unitNoOpeningTrace}
 \begin{code}
-unit_noOpening_Trace :: Assertion
-unit_noOpening_Trace = do
+unitNoOpeningTrace :: Assertion
+unitNoOpeningTrace = do
     msgs <- STM.newTVarIO []
     logTrace <- setupTrace $ TraceConfiguration (TVarList msgs) "test" DropOpening Debug
     _ <- STMObserver.bracketObserveIO logTrace "setTVar" setVar_
@@ -487,12 +487,12 @@ unit_noOpening_Trace = do
 
 \end{code}
 
-\subsubsection{Assert maximum length of log context name}\label{code:unit_append_name}
+\subsubsection{Assert maximum length of log context name}\label{code:unitAppendName}
 The name of the log context cannot grow beyond a maximum number of characters, currently
 the limit is set to 80.
 \begin{code}
-unit_append_name :: Assertion
-unit_append_name = do
+unitAppendName :: Assertion
+unitAppendName = do
     cfg <- defaultConfigTesting
     Setup.withTrace cfg "test" $ \trace0 -> do
         trace1 <- appendName bigName trace0
@@ -515,10 +515,10 @@ setVar_ = do
 
 \end{code}
 
-\subsubsection{Testing log context name filters}\label{code:unit_name_filtering}
+\subsubsection{Testing log context name filters}\label{code:unitNameFiltering}
 \begin{code}
-unit_name_filtering :: Assertion
-unit_name_filtering = do
+unitNameFiltering :: Assertion
+unitNameFiltering = do
     let contextName = "test.sub.1"
     let loname = "sum"  -- would be part of a "LogValue loname 42"
 
@@ -562,11 +562,11 @@ unit_name_filtering = do
 
 \end{code}
 
-\subsubsection{Exception throwing}\label{code:unit_exception_throwing}
+\subsubsection{Exception throwing}\label{code:unitExceptionThrowing}
 Exceptions encountered should be thrown.
 \begin{code}
-unit_exception_throwing :: Assertion
-unit_exception_throwing = do
+unitExceptionThrowing :: Assertion
+unitExceptionThrowing = do
 
     action <- work msg
 
@@ -588,11 +588,11 @@ unit_exception_throwing = do
 
 \end{code}
 
-\subsubsection{Check lazy evaluation of trace}\label{code:unit_test_lazy_evaluation}
+\subsubsection{Check lazy evaluation of trace}\label{code:unitTestLazyEvaluation}
 Exception should not be thrown when type of |Trace| is |NoTrace|.
 \begin{code}
-unit_test_lazy_evaluation :: Assertion
-unit_test_lazy_evaluation = do
+unitTestLazyEvaluation :: Assertion
+unitTestLazyEvaluation = do
 
     action <- work msg
 
