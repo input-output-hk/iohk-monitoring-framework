@@ -8,6 +8,9 @@ module Cardano.BM.Data.MonitoringEval
   ( MEvExpr (..)
   , MEvOp (..)
   , VarName
+  , Environment, EnvValue (..)
+  , evaluate
+  , test1, test2, test3, test4
   )
   where
 
@@ -46,7 +49,7 @@ data EnvValue = MVal Measurable | SVal Severity
 \end{code}
 
 The actual interpreter of an expression returns |True|
-if the expression is a valid model in the |Environment|,
+if the expression is valid in the |Environment|,
 otherwise returns |False|.
 \begin{code}
 evaluate :: Environment -> MEvExpr -> Bool
@@ -98,4 +101,9 @@ test2 = CompS "other" MEQ Error
 
 test3 :: MEvExpr
 test3 = OR test1 (NOT test2)
+
+test4 :: Bool
+test4 = let env = HM.fromList [("some", MVal (Microseconds 1999)), ("other", SVal Error)]
+        in
+        evaluate env test3
 \end{code}
