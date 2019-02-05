@@ -42,8 +42,8 @@ module Cardano.BM.Configuration.Model
     --, takedown
     ) where
 
-import           Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar,
-                     takeMVar, withMVar)
+import           Control.Concurrent.MVar (MVar, newMVar, readMVar,
+                     modifyMVar_)
 import           Control.Monad (when)
 import qualified Data.HashMap.Strict as HM
 import           Data.Maybe (catMaybes)
@@ -122,28 +122,26 @@ For a given context name return the list of backends configured,
 or, in case no such configuration exists, return the default backends.
 \begin{code}
 getBackends :: Configuration -> LoggerName -> IO [BackendKind]
-getBackends configuration name =
-    withMVar (getCG configuration) $ \cg -> do
-        let outs = HM.lookup name (cgMapBackend cg)
-        case outs of
-            Nothing -> do
-                return (cgDefBackendKs cg)
-            Just os -> return os
+getBackends configuration name = do
+    cg <- readMVar $ getCG configuration
+    let outs = HM.lookup name (cgMapBackend cg)
+    case outs of
+        Nothing -> return (cgDefBackendKs cg)
+        Just os -> return os
 
 getDefaultBackends :: Configuration -> IO [BackendKind]
 getDefaultBackends configuration =
-    withMVar (getCG configuration) $ \cg -> do
-        return (cgDefBackendKs cg)
+    cgDefBackendKs <$> (readMVar $ getCG configuration)
 
 setDefaultBackends :: Configuration -> [BackendKind] -> IO ()
-setDefaultBackends configuration bes = do
-    cg <- takeMVar (getCG configuration)
-    putMVar (getCG configuration) $ cg { cgDefBackendKs = bes }
+setDefaultBackends configuration bes =
+    modifyMVar_ (getCG configuration) $ \cg ->
+        return cg { cgDefBackendKs = bes }
 
 setBackends :: Configuration -> LoggerName -> Maybe [BackendKind] -> IO ()
-setBackends configuration name be = do
-    cg <- takeMVar (getCG configuration)
-    putMVar (getCG configuration) $ cg { cgMapBackend = HM.alter (\_ -> be) name (cgMapBackend cg) }
+setBackends configuration name be =
+    modifyMVar_ (getCG configuration) $ \cg ->
+        return cg { cgMapBackend = HM.alter (\_ -> be) name (cgMapBackend cg) }
 
 \end{code}
 
@@ -151,17 +149,15 @@ setBackends configuration name be = do
 Defines the list of |Backend|s that need to be setup by the |Switchboard|.
 \begin{code}
 setSetupBackends :: Configuration -> [BackendKind] -> IO ()
-setSetupBackends configuration bes = do
-    cg <- takeMVar (getCG configuration)
-    putMVar (getCG configuration) $ cg { cgSetupBackends = bes }
+setSetupBackends configuration bes =
+    modifyMVar_ (getCG configuration) $ \cg ->
+        return cg { cgSetupBackends = bes }
 
 getSetupBackends :: Configuration -> IO [BackendKind]
 getSetupBackends configuration =
-    withMVar (getCG configuration) $ \cg ->
-        return $ cgSetupBackends cg
+    cgSetupBackends <$> (readMVar $ getCG configuration)
 
 \end{code}
-
 
 \subsubsection{Scribes configured in the |Log| backend}
 For a given context name return the list of scribes to output to,
@@ -169,7 +165,8 @@ or, in case no such configuration exists, return the default scribes to use.
 \begin{code}
 getScribes :: Configuration -> LoggerName -> IO [ScribeId]
 getScribes configuration name = do
-    (updateCache, scribes) <- withMVar (getCG configuration) $ \cg -> do
+    cg <- readMVar (getCG configuration)
+    (updateCache, scribes) <- do
         let defs = cgDefScribes cg
         let mapScribe = cgMapScribe cg
         let find_s lname = case HM.lookup lname mapScribe of
@@ -195,26 +192,24 @@ getScribes configuration name = do
     dropToDot' (name',_) = Just $ dropWhileEnd (=='.') name'
 
 getCachedScribes :: Configuration -> LoggerName -> IO (Maybe [ScribeId])
-getCachedScribes configuration name =
-    withMVar (getCG configuration) $ \cg -> do
-        return $ HM.lookup name $ cgMapScribeCache cg
+getCachedScribes configuration name = do
+    cg <- readMVar $ getCG configuration
+    return $ HM.lookup name $ cgMapScribeCache cg
 
 setScribes :: Configuration -> LoggerName -> Maybe [ScribeId] -> IO ()
-setScribes configuration name scribes = do
-    cg <- takeMVar (getCG configuration)
-    putMVar (getCG configuration) $
-        cg { cgMapScribe = HM.alter (\_ -> scribes) name (cgMapScribe cg) }
+setScribes configuration name scribes =
+    modifyMVar_ (getCG configuration) $ \cg ->
+        return cg { cgMapScribe = HM.alter (\_ -> scribes) name (cgMapScribe cg) }
 
 setCachedScribes :: Configuration -> LoggerName -> Maybe [ScribeId] -> IO ()
-setCachedScribes configuration name scribes = do
-    cg <- takeMVar (getCG configuration)
-    putMVar (getCG configuration) $
-        cg { cgMapScribeCache = HM.alter (\_ -> scribes) name (cgMapScribeCache cg) }
+setCachedScribes configuration name scribes =
+    modifyMVar_ (getCG configuration) $ \cg ->
+        return cg { cgMapScribeCache = HM.alter (\_ -> scribes) name (cgMapScribeCache cg) }
 
 setDefaultScribes :: Configuration -> [ScribeId] -> IO ()
-setDefaultScribes configuration scs = do
-    cg <- takeMVar (getCG configuration)
-    putMVar (getCG configuration) $ cg { cgDefScribes = scs }
+setDefaultScribes configuration scs =
+    modifyMVar_ (getCG configuration) $ \cg ->
+        return cg { cgDefScribes = scs }
 
 \end{code}
 
@@ -222,14 +217,13 @@ setDefaultScribes configuration scs = do
 Defines the list of |Scribe|s that need to be setup in the |Log| backend.
 \begin{code}
 setSetupScribes :: Configuration -> [ScribeDefinition] -> IO ()
-setSetupScribes configuration sds = do
-    cg <- takeMVar (getCG configuration)
-    putMVar (getCG configuration) $ cg { cgSetupScribes = sds }
+setSetupScribes configuration sds =
+    modifyMVar_ (getCG configuration) $ \cg ->
+        return cg { cgSetupScribes = sds }
 
 getSetupScribes :: Configuration -> IO [ScribeDefinition]
 getSetupScribes configuration =
-    withMVar (getCG configuration) $ \cg -> do
-        return $ cgSetupScribes cg
+    cgSetupScribes <$> readMVar (getCG configuration)
 
 \end{code}
 
@@ -238,23 +232,22 @@ For a given context name return its |AggregatedKind| or in case no
 such configuration exists, return the default |AggregatedKind| to use.
 \begin{code}
 getAggregatedKind :: Configuration -> LoggerName -> IO AggregatedKind
-getAggregatedKind configuration name =
-    withMVar (getCG configuration) $ \cg -> do
-        let outs = HM.lookup name (cgMapAggregatedKind cg)
-        case outs of
-            Nothing -> do
-                return (cgDefAggregatedKind cg)
-            Just os -> return $ os
+getAggregatedKind configuration name = do
+    cg <- readMVar $ getCG configuration
+    let outs = HM.lookup name (cgMapAggregatedKind cg)
+    case outs of
+        Nothing -> return $ cgDefAggregatedKind cg
+        Just os -> return $ os
 
 setDefaultAggregatedKind :: Configuration -> AggregatedKind -> IO ()
-setDefaultAggregatedKind configuration defAK = do
-    cg <- takeMVar (getCG configuration)
-    putMVar (getCG configuration) $ cg { cgDefAggregatedKind = defAK }
+setDefaultAggregatedKind configuration defAK =
+    modifyMVar_ (getCG configuration) $ \cg ->
+        return cg { cgDefAggregatedKind = defAK }
 
 setAggregatedKind :: Configuration -> LoggerName -> Maybe AggregatedKind -> IO ()
-setAggregatedKind configuration name ak = do
-    cg <- takeMVar (getCG configuration)
-    putMVar (getCG configuration) $ cg { cgMapAggregatedKind = HM.alter (\_ -> ak) name (cgMapAggregatedKind cg) }
+setAggregatedKind configuration name ak =
+    modifyMVar_ (getCG configuration) $ \cg ->
+        return cg { cgMapAggregatedKind = HM.alter (\_ -> ak) name (cgMapAggregatedKind cg) }
 
 \end{code}
 
@@ -262,21 +255,21 @@ setAggregatedKind configuration name ak = do
 \begin{code}
 getEKGport :: Configuration -> IO Int
 getEKGport configuration =
-    withMVar (getCG configuration) $ \cg -> do
-        return $ cgPortEKG cg
+    cgPortEKG <$> (readMVar $ getCG configuration)
+
 setEKGport :: Configuration -> Int -> IO ()
-setEKGport configuration port = do
-    cg <- takeMVar (getCG configuration)
-    putMVar (getCG configuration) $ cg { cgPortEKG = port }
+setEKGport configuration port =
+    modifyMVar_ (getCG configuration) $ \cg ->
+        return cg { cgPortEKG = port }
 
 getGUIport :: Configuration -> IO Int
 getGUIport configuration =
-    withMVar (getCG configuration) $ \cg -> do
-        return $ cgPortGUI cg
+    cgPortGUI <$> (readMVar $ getCG configuration)
+
 setGUIport :: Configuration -> Int -> IO ()
-setGUIport configuration port = do
-    cg <- takeMVar (getCG configuration)
-    putMVar (getCG configuration) $ cg { cgPortGUI = port }
+setGUIport configuration port =
+    modifyMVar_ (getCG configuration) $ \cg ->
+        return cg { cgPortGUI = port }
 
 \end{code}
 
@@ -284,23 +277,23 @@ setGUIport configuration port = do
 \begin{code}
 getOption :: Configuration -> Text -> IO (Maybe Text)
 getOption configuration name = do
-    withMVar (getCG configuration) $ \cg ->
-        case HM.lookup name (cgOptions cg) of
-            Nothing -> return Nothing
-            Just o -> return $ Just $ pack $ show o
+    cg <- readMVar $ getCG configuration
+    case HM.lookup name (cgOptions cg) of
+        Nothing -> return Nothing
+        Just o  -> return $ Just $ pack $ show o
 
 \end{code}
 
 \subsubsection{Global setting of minimum severity}
 \begin{code}
 minSeverity :: Configuration -> IO Severity
-minSeverity configuration = withMVar (getCG configuration) $ \cg ->
-    return $ cgMinSeverity cg
+minSeverity configuration =
+    cgMinSeverity <$> (readMVar $ getCG configuration)
 
 setMinSeverity :: Configuration -> Severity -> IO ()
-setMinSeverity configuration sev = do
-    cg <- takeMVar (getCG configuration)
-    putMVar (getCG configuration) $ cg { cgMinSeverity = sev }
+setMinSeverity configuration sev =
+    modifyMVar_ (getCG configuration) $ \cg ->
+        return cg { cgMinSeverity = sev }
 
 \end{code}
 
@@ -308,13 +301,13 @@ setMinSeverity configuration sev = do
 \begin{code}
 inspectSeverity :: Configuration -> Text -> IO (Maybe Severity)
 inspectSeverity configuration name = do
-    withMVar (getCG configuration) $ \cg ->
-        return $ HM.lookup name (cgMapSeverity cg)
+    cg <- readMVar $ getCG configuration
+    return $ HM.lookup name (cgMapSeverity cg)
 
 setSeverity :: Configuration -> Text -> Maybe Severity -> IO ()
-setSeverity configuration name sev = do
-    cg <- takeMVar (getCG configuration)
-    putMVar (getCG configuration) $ cg { cgMapSeverity = HM.alter (\_ -> sev) name (cgMapSeverity cg) }
+setSeverity configuration name sev =
+    modifyMVar_ (getCG configuration) $ \cg ->
+        return cg { cgMapSeverity = HM.alter (\_ -> sev) name (cgMapSeverity cg) }
 
 \end{code}
 
@@ -324,13 +317,13 @@ The function |appendName| (\nameref{code:appendName}) will look up the |SubTrace
 \begin{code}
 findSubTrace :: Configuration -> Text -> IO (Maybe SubTrace)
 findSubTrace configuration name = do
-    withMVar (getCG configuration) $ \cg ->
-        return $ HM.lookup name (cgMapSubtrace cg)
+    cg <- readMVar $ getCG configuration
+    return $ HM.lookup name (cgMapSubtrace cg)
 
 setSubTrace :: Configuration -> Text -> Maybe SubTrace -> IO ()
-setSubTrace configuration name trafo = do
-    cg <- takeMVar (getCG configuration)
-    putMVar (getCG configuration) $ cg { cgMapSubtrace = HM.alter (\_ -> trafo) name (cgMapSubtrace cg) }
+setSubTrace configuration name trafo =
+    modifyMVar_ (getCG configuration) $ \cg ->
+        return cg { cgMapSubtrace = HM.alter (\_ -> trafo) name (cgMapSubtrace cg) }
 
 \end{code}
 
@@ -345,14 +338,13 @@ setup fp = do
 
 setupFromRepresentation :: R.Representation -> IO Configuration
 setupFromRepresentation r = do
-    cgref <- newEmptyMVar
     let mapseverity        = HM.lookup "mapSeverity"        (R.options r)
         mapbackends        = HM.lookup "mapBackends"        (R.options r)
         mapsubtrace        = HM.lookup "mapSubtrace"        (R.options r)
         mapscribes         = HM.lookup "mapScribes"         (R.options r)
         mapAggregatedKinds = HM.lookup "mapAggregatedkinds" (R.options r)
         mapScribe          = parseScribeMap mapscribes
-    putMVar cgref $ ConfigurationInternal
+    cgref <- newMVar $ ConfigurationInternal
         { cgMinSeverity = R.minSeverity r
         , cgMapSeverity = parseSeverityMap mapseverity
         , cgMapSubtrace = parseSubtraceMap mapsubtrace
@@ -430,8 +422,7 @@ setupFromRepresentation r = do
 \begin{code}
 empty :: IO Configuration
 empty = do
-    cgref <- newEmptyMVar
-    putMVar cgref $ ConfigurationInternal Debug HM.empty HM.empty HM.empty HM.empty [] [] HM.empty HM.empty [] [] HM.empty StatsAK 0 0
+    cgref <- newMVar $ ConfigurationInternal Debug HM.empty HM.empty HM.empty HM.empty [] [] HM.empty HM.empty [] [] HM.empty StatsAK 0 0
     return $ Configuration cgref
 
 \end{code}

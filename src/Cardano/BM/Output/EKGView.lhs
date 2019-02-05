@@ -18,7 +18,7 @@ module Cardano.BM.Output.EKGView
 import           Control.Concurrent (killThread)
 import qualified Control.Concurrent.Async as Async
 import           Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar,
-                     readMVar, takeMVar)
+                     readMVar, withMVar, modifyMVar_)
 import           Control.Concurrent.STM (atomically)
 import qualified Control.Concurrent.STM.TBQueue as TBQ
 import           Control.Monad.IO.Class (liftIO)
@@ -105,18 +105,18 @@ ekgTrace ekg c = do
 
             update _ _ _ = return Nothing
 
-        ekgup <- takeMVar (getEV ekgview)
-        let -- strip off some prefixes not necessary for display
-            lognam1 = case stripPrefix "#ekgview.#aggregation." lognamed of
-                      Nothing -> lognamed
-                      Just ln' -> ln'
-            logname = case stripPrefix "#ekgview." lognam1 of
-                      Nothing -> lognam1
-                      Just ln' -> ln'
-        upd <- update lo logname ekgup
-        case upd of
-            Nothing     -> putMVar (getEV ekgview) ekgup
-            Just ekgup' -> putMVar (getEV ekgview) ekgup'
+        modifyMVar_ (getEV ekgview) $ \ekgup -> do
+            let -- strip off some prefixes not necessary for display
+                lognam1 = case stripPrefix "#ekgview.#aggregation." lognamed of
+                        Nothing -> lognamed
+                        Just ln' -> ln'
+                logname = case stripPrefix "#ekgview." lognam1 of
+                        Nothing -> lognam1
+                        Just ln' -> ln'
+            upd <- update lo logname ekgup
+            case upd of
+                Nothing     -> return ekgup
+                Just ekgup' -> return ekgup'
 
 \end{code}
 
@@ -190,9 +190,9 @@ instance IsBackend EKGView where
                         }
         return ekgview
 
-    unrealize ekgview = do
-        ekg <- takeMVar $ getEV ekgview
-        killThread $ serverThreadId $ evServer ekg
+    unrealize ekgview =
+        withMVar (getEV ekgview) $ \ekg ->
+            killThread $ serverThreadId $ evServer ekg
 
 \end{code}
 

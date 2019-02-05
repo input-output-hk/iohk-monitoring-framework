@@ -17,8 +17,8 @@ module Cardano.BM.Output.Switchboard
     ) where
 
 import qualified Control.Concurrent.Async as Async
-import           Control.Concurrent.MVar (MVar, modifyMVar_, newEmptyMVar,
-                    putMVar, tryTakeMVar, withMVar)
+import           Control.Concurrent.MVar (MVar, newEmptyMVar,
+                    putMVar, readMVar, tryTakeMVar, withMVar)
 import           Control.Concurrent.STM (atomically)
 import qualified Control.Concurrent.STM.TBQueue as TBQ
 import           Control.Exception.Safe (throwM)
@@ -82,8 +82,8 @@ instance IsEffectuator Switchboard where
                 if nocapacity
                 then return ()
                 else atomically $ TBQ.writeTBQueue q i
-        withMVar (getSB switchboard) $ \sb ->
-            writequeue (sbQueue sb) item
+        sb <- readMVar (getSB switchboard)
+        writequeue (sbQueue sb) item
 \end{code}
 
 \subsubsection{|Switchboard| implements |Backend| functions}\index{Switchboard!instance of IsBackend}
@@ -120,7 +120,6 @@ instance IsBackend Switchboard where
         in do
         q <- atomically $ TBQ.newTBQueue 2048
         sbref <- newEmptyMVar
-        putMVar sbref $ SwitchboardInternal q $ error "unitialized dispatcher"
         let sb :: Switchboard = Switchboard sbref
 
         backends <- getSetupBackends cfg
@@ -130,7 +129,10 @@ instance IsBackend Switchboard where
         -- raises an exception, that exception will be re-thrown in the current
         -- thread, wrapped in ExceptionInLinkedThread.
         Async.link dispatcher
-        modifyMVar_ sbref $ \sbInternal -> return $ sbInternal {sbDispatch = dispatcher}
+        putMVar sbref $ SwitchboardInternal {
+                              sbQueue    = q
+                            , sbDispatch = dispatcher
+                            }
 
         return sb
 
