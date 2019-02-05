@@ -24,8 +24,8 @@ module Cardano.BM.Output.Log
 
 import           Control.AutoUpdate (UpdateSettings (..), defaultUpdateSettings,
                      mkAutoUpdate)
-import           Control.Concurrent.MVar (MVar, modifyMVar_, newEmptyMVar,
-                     newMVar, putMVar, withMVar)
+import           Control.Concurrent.MVar (MVar, modifyMVar_, readMVar,
+                     newMVar, withMVar)
 import           Control.Exception.Safe (catchIO)
 import           Control.Monad (forM_, void)
 import           Control.Lens ((^.))
@@ -83,7 +83,7 @@ data LogInternal = LogInternal
 \begin{code}
 instance IsEffectuator Log where
     effectuate katip item = do
-        c <- withMVar (getK katip) $ \k -> return (configuration k)
+        c <- configuration <$> readMVar (getK katip)
         selscribes <- getScribes c (lnName item)
         forM_ selscribes $ \sc -> passN sc katip item
 
@@ -135,8 +135,7 @@ instance IsBackend Log where
         scribes <- getSetupScribes config
         le <- register scribes le1
 
-        kref <- newEmptyMVar
-        putMVar kref $ LogInternal le config
+        kref <- newMVar $ LogInternal le config
 
         return $ Log kref
 
@@ -188,7 +187,7 @@ This function is non-blocking.
 \begin{code}
 passN :: Text -> Log -> NamedLogItem -> IO ()
 passN backend katip namedLogItem = do
-    env <- withMVar (getK katip) $ \k -> return (kLogEnv k)
+    env <- kLogEnv <$> readMVar (getK katip)
     forM_ (Map.toList $ K._logEnvScribes env) $
           \(scName, (KC.ScribeHandle _ shChan)) ->
               -- check start of name to match |ScribeKind|
