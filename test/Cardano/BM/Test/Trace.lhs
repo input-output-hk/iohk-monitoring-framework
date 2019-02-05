@@ -141,8 +141,8 @@ setTransformer_ (ctx, _) name subtr = do
 
 \subsubsection{Simple demo of logging.}\label{code:simpleDemo}
 \begin{code}
-simple_demo :: IO String
-simple_demo = do
+simpleDemo :: IO String
+simpleDemo = do
     cfg <- defaultConfigTesting
     logTrace <- Setup.setupTrace (Right cfg) "test"
     putStrLn "\n"
