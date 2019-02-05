@@ -38,7 +38,7 @@ import           Cardano.BM.Data.Rotation
 type Port = Int
 data Representation = Representation
     { minSeverity     :: Severity
-    , rotation        :: RotationParameters
+    , rotation        :: Maybe RotationParameters
     , setupScribes    :: [ScribeDefinition]
     , defaultScribes  :: [(ScribeKind,Text)]
     , setupBackends   :: [BackendKind]

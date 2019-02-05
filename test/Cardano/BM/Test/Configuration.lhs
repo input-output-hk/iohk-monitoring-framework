@@ -18,7 +18,11 @@ import           Data.Yaml
 import           Cardano.BM.Data.Configuration
 import           Cardano.BM.Configuration.Model (Configuration (..),
                      ConfigurationInternal (..), getScribes, getCachedScribes,
-                     empty, setDefaultScribes, setScribes, setup)
+                     getDefaultBackends, getAggregatedKind, getGUIport,
+                     getEKGport, empty, setDefaultScribes, setScribes, setup,
+                     setDefaultAggregatedKind, setAggregatedKind, setGUIport,
+                     setEKGport)
+import           Cardano.BM.Configuration.Static (defaultConfigStdout)
 import           Cardano.BM.Data.AggregatedKind
 import           Cardano.BM.Data.BackendKind
 import           Cardano.BM.Data.Output
@@ -55,6 +59,7 @@ unit_tests = testGroup "Unit tests" [
       , testCase "include_EKG_if_defined" unit_Configuration_check_EKG_positive
       , testCase "not_include_EKG_if_ndef" unit_Configuration_check_EKG_negative
       , testCase "check_scribe_caching" unit_Configuration_check_scribe_cache
+      , testCase "test ops on Configuration" unit_Configuration_ops
     ]
 
 \end{code}
@@ -147,7 +152,11 @@ unit_Configuration_static_representation :: Assertion
 unit_Configuration_static_representation =
     let r = Representation
             { minSeverity = Info
-            , rotation = RotationParameters 5000000 24 10
+            , rotation = Just $ RotationParameters
+                                    { rpLogLimitBytes = 5000000
+                                    , rpMaxAgeHours   = 24
+                                    , rpKeepFilesNum  = 10
+                                    }
             , setupScribes =
                 [ ScribeDefinition { scName = "stdout"
                                 , scKind = StdoutSK
@@ -348,5 +357,43 @@ unit_Configuration_check_scribe_cache = do
     assertBool "Scribes for nameX must not have been cached since getScribes was not called" $
         scribesXcached == Nothing
 
+\end{code}
+
+
+Test operations on Configuration.
+\begin{code}
+unit_Configuration_ops :: Assertion
+unit_Configuration_ops = do
+    configuration <- defaultConfigStdout
+
+    defBackends <- getDefaultBackends configuration
+
+    setDefaultAggregatedKind configuration $ EwmaAK 0.01
+    -- since loggername does not exist the default must be inherited
+    defAggregatedKind <- getAggregatedKind configuration "non-existent loggername"
+
+    setAggregatedKind configuration "name1" $ Just StatsAK
+    name1AggregatedKind <- getAggregatedKind configuration "name1"
+
+    setEKGport configuration 11223
+    ekgPort <- getEKGport configuration
+
+    setGUIport configuration 1080
+    guiPort <- getGUIport configuration
+
+    assertBool "Default backends" $
+        defBackends == [KatipBK]
+
+    assertBool "Default aggregated kind" $
+        defAggregatedKind == EwmaAK 0.01
+
+    assertBool "Specific name aggregated kind" $
+        name1AggregatedKind == StatsAK
+
+    assertBool "Set EKG port" $
+        ekgPort == 11223
+
+    assertBool "Set GUI port" $
+        guiPort == 1080
 
 \end{code}
