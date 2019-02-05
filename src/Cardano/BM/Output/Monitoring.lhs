@@ -65,7 +65,7 @@ instance IsEffectuator Monitor where
         nocapacity <- atomically $ TBQ.isFullTBQueue (monQueue mon)
         if nocapacity
         then handleOverflow monitor
-        else atomically $ TBQ.writeTBQueue (monQueue mon) $! Just item
+        else atomically $ TBQ.writeTBQueue (monQueue mon) $ Just item
 
     handleOverflow _ = putStrLn "Notice: Aggregation's queue full, dropping log items!"
 
@@ -116,6 +116,8 @@ spawnDispatcher mqueue config =
 \end{code}
 
 \subsubsection{Evaluation of monitoring action}\label{code:evalMonitoringAction}
+Inspect the log message and match it against configured thresholds. If positive,
+then run the action on the current state and return the updated state.
 \begin{code}
 evalMonitoringAction :: MonitorMap -> Configuration -> LoggerName -> LogObject -> IO MonitorMap
 evalMonitoringAction mmap _config _logname _logvalue = return mmap

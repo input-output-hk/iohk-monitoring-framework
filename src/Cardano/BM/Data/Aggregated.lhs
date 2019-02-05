@@ -43,7 +43,7 @@ data Measurable = Microseconds {-# UNPACK #-} !Word64
                 | Bytes        {-# UNPACK #-} !Word64
                 | PureD        Double
                 | PureI        Integer
-                deriving (Eq, Ord, Generic, ToJSON)
+                deriving (Eq, Ord, Read, Generic, ToJSON)
 
 \end{code}
 
