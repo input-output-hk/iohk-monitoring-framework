@@ -29,7 +29,6 @@ hasEKG: 12789
 setupScribes:
   - scKind: StdoutSK
     scName: stdout
-    scRotation: null
   - scKind: FileTextSK
     scName: "testlog"
     scRotation:
