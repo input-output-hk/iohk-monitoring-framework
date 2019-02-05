@@ -32,6 +32,7 @@ library
                        Cardano.BM.Data.Configuration
                        Cardano.BM.Data.Counter
                        Cardano.BM.Data.LogItem
+                       Cardano.BM.Data.MonitoringEval
                        Cardano.BM.Data.Observable
                        Cardano.BM.Data.Output
                        Cardano.BM.Data.Rotation
