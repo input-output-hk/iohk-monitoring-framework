@@ -45,8 +45,10 @@ import qualified Cardano.BM.Observer.Monadic as MonadicObserver
 import qualified Cardano.BM.Observer.STM as STMObserver
 import           Cardano.BM.Setup (newContext)
 import qualified Cardano.BM.Setup as Setup
-import           Cardano.BM.Trace (Trace, appendName, evalFilters, logInfo,
-                    subTrace, traceInTVarIO, traceNamedInTVarIO)
+import           Cardano.BM.Trace (Trace, appendName, evalFilters, logDebug,
+                     logInfo, logNotice, logWarning, logError, logCritical,
+                     logAlert, logEmergency, subTrace, traceInTVarIO,
+                     traceNamedInTVarIO)
 import           Cardano.BM.Output.Switchboard (Switchboard(..))
 
 import           Test.Tasty (TestTree, testGroup)
@@ -62,6 +64,7 @@ tests = testGroup "testing Trace" [
         unit_tests
       , testCase "forked traces stress testing" stress_trace_in_fork
       , testCase "stress testing: ObservableTrace vs. NoTrace" timing_Observable_vs_Untimed
+      , testCaseInfo "demonstrating logging" simple_demo
       , testCaseInfo "demonstrating nested named context logging" example_with_named_contexts
       ]
 
@@ -133,6 +136,27 @@ setTransformer_ (ctx, _) name subtr = do
     let c = configuration ctx
         n = (loggerName ctx) <> "." <> name
     setSubTrace c n subtr
+
+\end{code}
+
+\subsubsection{Simple demo of logging.}\label{code:example_with_named_contexts}
+\begin{code}
+simple_demo :: IO String
+simple_demo = do
+    cfg <- defaultConfigTesting
+    logTrace <- Setup.setupTrace (Right cfg) "test"
+    putStrLn "\n"
+
+    logDebug     logTrace "This is how a Debug message likes."
+    logInfo      logTrace "This is how an Info message likes."
+    logNotice    logTrace "This is how a Notice message likes."
+    logWarning   logTrace "This is how a Warning message likes."
+    logError     logTrace "This is how an Error message likes."
+    logCritical  logTrace "This is how a Critical message likes."
+    logAlert     logTrace "This is how an Alert message likes."
+    logEmergency logTrace "This is how an Emergency message likes."
+
+    return ""
 
 \end{code}
 
@@ -223,7 +247,7 @@ timing_Observable_vs_Untimed = do
         ("NoTrace consumed more time than Untimed" ++ (show [t_notrace, t_untimed]))
         True
   where
-    observablesSet = [MonotonicClock, GhcRtsStats, MemoryStats]
+    observablesSet = [MonotonicClock, GhcRtsStats, MemoryStats, IOStats, ProcessStats]
 
 \end{code}
 

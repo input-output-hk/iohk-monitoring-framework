@@ -56,7 +56,9 @@ import           Cardano.BM.Data.BackendKind
 import qualified Cardano.BM.Data.Configuration as R
 import           Cardano.BM.Data.LogItem (LoggerName)
 import           Cardano.BM.Data.Observable
-import           Cardano.BM.Data.Output (ScribeDefinition, ScribeId)
+import           Cardano.BM.Data.Output (ScribeDefinition (..), ScribeId,
+                     ScribeKind (..))
+import           Cardano.BM.Data.Rotation (RotationParameters (..))
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.SubTrace
 
@@ -355,7 +357,7 @@ setupFromRepresentation r = do
         , cgMapScribe = mapScribe
         , cgMapScribeCache = mapScribe
         , cgDefScribes = r_defaultScribes r
-        , cgSetupScribes = R.setupScribes r
+        , cgSetupScribes = fillRotationParams (R.rotation r) (R.setupScribes r)
         , cgMapAggregatedKind = parseAggregatedKindMap mapAggregatedKinds
         , cgDefAggregatedKind = StatsAK
         , cgPortEKG = r_hasEKG r
@@ -368,6 +370,15 @@ setupFromRepresentation r = do
     parseSeverityMap (Just hmv) = HM.mapMaybe mkSeverity hmv
     mkSeverity (String s) = Just (read (unpack s) :: Severity)
     mkSeverity _ = Nothing
+
+    fillRotationParams :: Maybe RotationParameters -> [ScribeDefinition] -> [ScribeDefinition]
+    fillRotationParams defaultRotation = map $ \sd ->
+        if (scKind sd /= StdoutSK) && (scKind sd /= StderrSK)
+        then
+            sd { scRotation = maybe defaultRotation Just (scRotation sd) }
+        else
+            -- stdout and stderr cannot be rotated
+            sd { scRotation = Nothing }
 
     parseBackendMap Nothing = HM.empty
     parseBackendMap (Just hmv) = HM.map mkBackends hmv
