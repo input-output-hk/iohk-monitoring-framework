@@ -19,7 +19,7 @@ import           System.Posix.Process (getProcessID)
 import           System.Posix.Types (ProcessID)
 import           Text.Read (readMaybe)
 
-import           Cardano.BM.Counters.Common (getMonoClock)
+import           Cardano.BM.Counters.Common (getMonoClock, readRTSStats)
 import           Cardano.BM.Data.Counter
 import           Cardano.BM.Data.Observable
 import           Cardano.BM.Data.SubTrace
@@ -49,6 +49,7 @@ readCounters (ObservableTrace tts) = foldrM (\(sel, fun) a ->
                 , (MemoryStats, readProcStatM)
                 , (ProcessStats, readProcStats)
                 , (IOStats, readProcIO)
+                , (GhcRtsStats, readRTSStats)
                 ]
 \end{code}
 
