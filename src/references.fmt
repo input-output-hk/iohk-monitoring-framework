@@ -148,6 +148,7 @@
 %format Monitor = "\hyperref[code:Monitor]{Monitor}"
 %format MonitorState = "\hyperref[code:MonitorState]{MonitorState}"
 %format evalMonitoringAction = "\hyperref[code:evalMonitoringAction]{evalMonitoringAction}"
+%format simpleDemo = "\hyperref[code:simpleDemo]{simpleDemo}"
 %format exampleWithNamedContexts = "\hyperref[code:exampleWithNamedContexts]{exampleWithNamedContexts}"
 %format unitHierarchy = "\hyperref[code:unitHierarchy]{unitHierarchy}"
 %format unitTraceMinSeverity = "\hyperref[code:unitTraceMinSeverity]{unitTraceMinSeverity}"

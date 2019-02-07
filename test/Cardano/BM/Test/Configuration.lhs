@@ -233,6 +233,16 @@ unit_Configuration_parsed_representation = do
                     \    iohk.background.process: StatsAK\n\
                     \  cfokey:\n\
                     \    value: Release-1.0.0\n\
+                    \  mapMonitors:\n\
+                    \    chain.creation.block:\n\
+                    \    - monitor: ((time > 23 s) Or (time < 17 s))\n\
+                    \    - actions:\n\
+                    \      - AlterMinSeverity \"chain.creation\" Debug\n\
+                    \    ! '#aggregation.critproc.observable':\n\
+                    \    - monitor: (mean >= 42)\n\
+                    \    - actions:\n\
+                    \      - CreateMessage \"exceeded\" \"the observable has been too long too high!\"\n\
+                    \      - AlterGlobalMinSeverity Info\n\
                     \  mapScribes:\n\
                     \    iohk.interesting.value:\n\
                     \    - StdoutSK::stdout\n\
@@ -281,6 +291,15 @@ unit_Configuration_parsed = do
                                                         [String "GhcRtsStats"
                                                         ,String "MonotonicClock"])]))
                             ,("iohk.deadend",String "NoTrace")])
+            , ("mapMonitors", HM.fromList [("chain.creation.block",Array $ V.fromList
+                                            [Object (HM.fromList [("monitor",String "((time > 23 s) Or (time < 17 s))")])
+                                            ,Object (HM.fromList [("actions",Array $ V.fromList
+                                                [String "AlterMinSeverity \"chain.creation\" Debug"])])])
+                                          ,("#aggregation.critproc.observable",Array $ V.fromList
+                                            [Object (HM.fromList [("monitor",String "(mean >= 42)")])
+                                            ,Object (HM.fromList [("actions",Array $ V.fromList
+                                                [String "CreateMessage \"exceeded\" \"the observable has been too long too high!\""
+                                                ,String "AlterGlobalMinSeverity Info"])])])])
             , ("mapSeverity", HM.fromList [("iohk.startup",String "Debug")
                                           ,("iohk.background.process",String "Error")
                                           ,("iohk.testing.uncritical",String "Warning")])
@@ -328,6 +347,7 @@ unit_Configuration_parsed = do
                                             , ("iohk.background.process", StatsAK)
                                             ]
         , cgDefAggregatedKind = StatsAK
+        , cgMonitors          = HM.empty
         , cgPortEKG           = 12789
         , cgPortGUI           = 0
         }

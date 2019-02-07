@@ -28,6 +28,9 @@ import           Data.Aeson (ToJSON)
 import           Data.Scientific (fromFloatDigits)
 import           Data.Text (Text, pack)
 import           Data.Word (Word64)
+
+import qualified Cardano.BM.Data.Severity as S
+
 \end{code}
 %endif
 
@@ -43,6 +46,7 @@ data Measurable = Microseconds {-# UNPACK #-} !Word64
                 | Bytes        {-# UNPACK #-} !Word64
                 | PureD        Double
                 | PureI        Integer
+                | Severity     S.Severity
                 deriving (Eq, Ord, Read, Generic, ToJSON)
 
 \end{code}
@@ -56,6 +60,7 @@ getInteger (Seconds a)      = toInteger a
 getInteger (Bytes a)        = toInteger a
 getInteger (PureI a)        = a
 getInteger (PureD a)        = round a
+getInteger (Severity a)     = toInteger (fromEnum a)
 
 \end{code}
 
@@ -68,6 +73,7 @@ getDouble (Seconds a)      = fromIntegral a
 getDouble (Bytes a)        = fromIntegral a
 getDouble (PureI a)        = fromInteger a
 getDouble (PureD a)        = a
+getDouble (Severity a)     = fromIntegral (fromEnum a)
 
 \end{code}
 
@@ -97,6 +103,7 @@ instance Num Measurable where
     abs (Bytes a)        = Bytes        (abs a)
     abs (PureI a)        = PureI        (abs a)
     abs (PureD a)        = PureD        (abs a)
+    abs (Severity _)     = error "cannot compute absolute value for Severity"
 
     signum (Microseconds a) = Microseconds (signum a)
     signum (Nanoseconds a)  = Nanoseconds  (signum a)
@@ -104,6 +111,7 @@ instance Num Measurable where
     signum (Bytes a)        = Bytes        (signum a)
     signum (PureI a)        = PureI        (signum a)
     signum (PureD a)        = PureD        (signum a)
+    signum (Severity _)     = error "cannot compute sign of Severity"
 
     negate (Microseconds a) = Microseconds (negate a)
     negate (Nanoseconds a)  = Nanoseconds (negate a)
@@ -111,6 +119,7 @@ instance Num Measurable where
     negate (Bytes a)        = Bytes        (negate a)
     negate (PureI a)        = PureI        (negate a)
     negate (PureD a)        = PureD        (negate a)
+    negate (Severity _)     = error "cannot negate Severity"
 
     fromInteger = PureI
 
@@ -125,6 +134,7 @@ instance Show Measurable where
     show (Bytes a)        = show a
     show (PureI a)        = show a
     show (PureD a)        = show a
+    show (Severity a)     = show a
 
 showUnits :: Measurable -> String
 showUnits (Microseconds _) = " µs"
@@ -133,6 +143,7 @@ showUnits (Seconds _)      = " s"
 showUnits (Bytes _)        = " B"
 showUnits (PureI _)        = ""
 showUnits (PureD _)        = ""
+showUnits (Severity _)     = ""
 
 -- show in S.I. units
 showSI :: Measurable -> String
@@ -144,6 +155,7 @@ showSI v@(Seconds a)    = show a ++ showUnits v
 showSI v@(Bytes a)      = show a ++ showUnits v
 showSI v@(PureI a)      = show a ++ showUnits v
 showSI v@(PureD a)      = show a ++ showUnits v
+showSI v@(Severity a)   = show a ++ showUnits v
 
 \end{code}
 

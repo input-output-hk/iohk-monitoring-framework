@@ -4,47 +4,226 @@
 %if style == newcode
 \begin{code}
 
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RankNTypes        #-}
+
 module Cardano.BM.Data.MonitoringEval
   ( MEvExpr (..)
-  , MEvOp (..)
+  , MEvAction
   , VarName
-  , Environment, EnvValue (..)
+  , Environment
   , evaluate
+  , parseEither
+  , parseMaybe
   , test1, test2, test3, test4
   )
   where
 
+import           Control.Applicative ((<|>))
+import           Control.Monad (void)
+import           Data.Aeson (FromJSON (..), Value (..))
+import qualified Data.Attoparsec.Text as P
+import           Data.Char (isSpace)
 import qualified Data.HashMap.Strict as HM
+import           Data.Text (Text, unpack)
+import           Data.Word (Word64)
 
 import           Cardano.BM.Data.Aggregated
-import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.Severity
-import           Cardano.BM.Configuration.Model (Configuration)
 
 \end{code}
 %endif
 
-\subsubsection{Expressions}
+\subsubsection{Expressions}\label{code:MEvExpr}
 Evaluation in monitoring will evaluate expressions
 \begin{code}
-type VarName = String
-data MEvExpr = CompM VarName MEvOp Measurable
-             | CompS VarName MEvOp Severity
+type VarName = Text
+data MEvExpr = Compare VarName (Measurable -> Bool)
              | AND MEvExpr MEvExpr
              | OR MEvExpr MEvExpr
              | NOT MEvExpr
-             deriving (Show, Read)
 
-data MEvOp = MGT | MGE | MLT | MLE | MEQ | MNE
-           deriving (Show, Read)
+            -- parsing: "(some >= (2000 µs))"  =>  Compare "some" (>= (Microseconds 2000))
+            -- parser "((lastreported >= (5 s)) Or ((other >= (0 s)) And (some > (1500 µs))))"
+
+instance Eq MEvExpr where
+    (==) (Compare vn1 _) (Compare vn2 _) = vn1 == vn2
+    (==) (AND e11 e12) (AND e21 e22) = (e11 == e21 && e12 == e22) || (e11 == e22 && e12 == e21)
+    (==) (OR e11 e12) (OR e21 e22) = (e11 == e21 && e12 == e22) || (e11 == e22 && e12 == e21)
+    (==) (NOT e1) (NOT e2) = (e1 == e2)
+    (==) _ _ = False
+
+instance FromJSON MEvExpr where
+    parseJSON (String s) =
+        case parseEither s of
+            Left e     -> error e
+            Right expr -> pure expr
+    parseJSON _ = error "cannot parse such an expression!"
+
+instance Show MEvExpr where
+    show (Compare vn _) = "compare " ++ (unpack vn)
+    show (AND e1 e2)    = "(" ++ (show e1) ++ ") And (" ++ (show e2) ++ ")"
+    show (OR e1 e2)    = "(" ++ (show e1) ++ ") Or (" ++ (show e2) ++ ")"
+    show (NOT e)    = "Not (" ++ (show e) ++ ")"
+\end{code}
+
+\subsubsection{Monitoring actions}\label{code:MEvAction}
+If evaluation of a monitoring expression is |True|, then a set of actions are
+executed for alerting.
+\begin{code}
+type MEvAction = Text
 
 \end{code}
 
-\subsubsection{Evaluate expression}\label{code:Environment}\label{code:EnvValue}\label{evaluate}
-This is an interpreter of |MEvExpr|.
+\subsubsection{Parsing an expression from textual representation}\label{code:parseEither}\label{code:parseMaybe}
 \begin{code}
-type Environment = HM.HashMap VarName EnvValue
-data EnvValue = MVal Measurable | SVal Severity
+parseEither :: Text -> Either String MEvExpr
+parseEither t =
+    let r = P.parse parseExpr t
+    in
+    P.eitherResult r
+
+parseMaybe :: Text -> Maybe MEvExpr
+parseMaybe t =
+    let r = P.parse parseExpr t
+    in
+    P.maybeResult r
+
+parseExpr :: P.Parser MEvExpr
+parseExpr =
+        parseComp
+    <|> parseAnd
+    <|> parseOr
+    <|> parseNot
+
+openPar, closePar :: P.Parser ()
+openPar = void $ P.char '('
+closePar = void $ P.char ')'
+token :: Text -> P.Parser ()
+token s = void $ P.string s
+
+parseOr :: P.Parser MEvExpr
+parseOr = do
+    openPar
+    P.skipSpace
+    e1 <- parseExpr
+    P.skipSpace
+    token "Or"
+    P.skipSpace
+    e2 <- parseExpr
+    P.skipSpace
+    closePar
+    return (OR e1 e2)
+
+parseAnd :: P.Parser MEvExpr
+parseAnd = do
+    openPar
+    P.skipSpace
+    e1 <- parseExpr
+    P.skipSpace
+    token "And"
+    P.skipSpace
+    e2 <- parseExpr
+    P.skipSpace
+    closePar
+    return (AND e1 e2)
+
+parseNot :: P.Parser MEvExpr
+parseNot = do
+    openPar
+    P.skipSpace
+    token "Not"
+    P.skipSpace
+    e <- parseExpr
+    P.skipSpace
+    closePar
+    return (NOT e)
+
+parseComp :: P.Parser MEvExpr
+parseComp = do
+    openPar
+    vn <- parseVname
+    P.skipSpace
+    op <- parseOp
+    P.skipSpace
+    m <- parseMeasurable
+    closePar
+    return $ Compare vn (op m)
+
+parseVname :: P.Parser VarName
+parseVname = do
+    -- _ <- P.char '$'
+    P.takeTill (isSpace)
+
+parseOp :: (Ord a, Eq a) => P.Parser (a -> a -> Bool)
+parseOp = do
+        (P.string ">=" >> return (>=))
+    <|> (P.string "==" >> return (==))
+    <|> (P.string "/=" >> return (/=))
+    <|> (P.string "!=" >> return (/=))
+    <|> (P.string "<>" >> return (/=))
+    <|> (P.string "<=" >> return (<=))
+    <|> (P.string "<"  >> return (<))
+    <|> (P.string ">"  >> return (>))
+
+parseMeasurable :: P.Parser Measurable
+parseMeasurable = do
+    openPar
+    P.skipSpace
+    m <- parseMeasurable'
+    P.skipSpace
+    closePar
+    return m
+parseMeasurable' :: P.Parser Measurable
+parseMeasurable' =
+        parseTime
+    <|> parseBytes
+    <|> parseSeverity
+    <|> (P.double >>= return . PureD)
+    <|> (P.decimal >>= return . PureI)
+
+parseTime :: P.Parser Measurable
+parseTime = do
+    n <- P.decimal
+    P.skipSpace
+    tryUnit n
+  where
+    tryUnit :: Word64 -> P.Parser Measurable
+    tryUnit n =
+            (P.string "ns" >> return (Nanoseconds n))
+        <|> (P.string "µs" >> return (Microseconds n))
+        <|> (P.string "s"  >> return (Seconds n))
+
+parseBytes :: P.Parser Measurable
+parseBytes = do
+    n <- P.decimal
+    P.skipSpace
+    tryUnit n
+  where
+    tryUnit :: Word64 -> P.Parser Measurable
+    tryUnit n =
+            (P.string "kB"    >> return (Bytes (n * 1000)))
+        <|> (P.string "bytes" >> return (Bytes n))
+        <|> (P.string "byte"  >> return (Bytes n))
+        <|> (P.string "MB"    >> return (Bytes (n * 1000 * 1000)))
+        <|> (P.string "GB"    >> return (Bytes (n * 1000 * 1000 * 1000)))
+
+parseSeverity :: P.Parser Measurable
+parseSeverity =
+        (P.string "Debug"     >> return (Severity Debug))
+    <|> (P.string "Info"      >> return (Severity Info))
+    <|> (P.string "Notice"    >> return (Severity Notice))
+    <|> (P.string "Warning"   >> return (Severity Warning))
+    <|> (P.string "Error"     >> return (Severity Error))
+    <|> (P.string "Critical"  >> return (Severity Critical))
+    <|> (P.string "Alert"     >> return (Severity Alert))
+    <|> (P.string "Emergency" >> return (Severity Emergency))
+\end{code}
+
+\subsubsection{Evaluate expression}\label{code:Environment}\label{code:evaluate}
+This is an interpreter of |MEvExpr| in an |Environment|.
+\begin{code}
+type Environment = HM.HashMap VarName Measurable
 
 \end{code}
 
@@ -54,39 +233,20 @@ otherwise returns |False|.
 \begin{code}
 evaluate :: Environment -> MEvExpr -> Bool
 evaluate ev expr = case expr of
-    CompM vn op m -> evalOp op (getMeasurable ev vn) m
-    CompS vn op s -> evalOp op (getSeverity ev vn) s
+    Compare vn op -> op (getMeasurable ev vn)
     AND e1 e2     -> evaluate ev e1 && evaluate ev e2
-    OR e1 e2      -> evaluate ev e1 && evaluate ev e2
+    OR e1 e2      -> evaluate ev e1 || evaluate ev e2
     NOT e         -> not $ evaluate ev e
-
-\end{code}
-
-A parametrised function to compare two values each of class |Ord|.
-\begin{code}
-evalOp :: (Ord a) => MEvOp -> a -> a -> Bool
-evalOp MGT m1 m2 = m1 > m2
-evalOp MGE m1 m2 = m1 >= m2
-evalOp MEQ m1 m2 = m1 == m2
-evalOp MNE m1 m2 = m1 /= m2
-evalOp MLT m1 m2 = m1 < m2
-evalOp MLE m1 m2 = m1 <= m2
 
 \end{code}
 
 Helper functions to extract named values from the |Environment|.
 \begin{code}
-getSeverity :: Environment -> VarName -> Severity
-getSeverity ev vn = do
-    case HM.lookup vn ev of
-        Nothing -> Debug  -- not expected
-        Just (SVal s') -> s'
-
 getMeasurable :: Environment -> VarName -> Measurable
 getMeasurable ev vn = do
     case HM.lookup vn ev of
         Nothing -> PureI (-394194783483399491091)  -- not expected
-        Just (MVal m') -> m'
+        Just m' -> m'
 
 \end{code}
 
@@ -94,16 +254,16 @@ getMeasurable ev vn = do
 
 \begin{code}
 test1 :: MEvExpr
-test1 = CompM "some" MGT (Microseconds 2000)
+test1 = Compare "some" (> (Microseconds 2000))
 
 test2 :: MEvExpr
-test2 = CompS "other" MEQ Error
+test2 = Compare "other" (== (Severity Error))
 
 test3 :: MEvExpr
 test3 = OR test1 (NOT test2)
 
 test4 :: Bool
-test4 = let env = HM.fromList [("some", MVal (Microseconds 1999)), ("other", SVal Error)]
+test4 = let env = HM.fromList [("some", Microseconds 1999), ("other", Severity Error)]
         in
         evaluate env test3
 \end{code}
