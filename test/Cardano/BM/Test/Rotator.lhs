@@ -13,20 +13,24 @@ import           Prelude hiding (lookup)
 
 import           Control.Monad (forM_, replicateM)
 import qualified Data.List.NonEmpty as NE
-import           System.Directory (createDirectoryIfMissing, removeFile,
-                     removePathForcibly)
+import           Data.Time (getCurrentTime)
+import           Data.Time.Format (defaultTimeLocale, formatTime)
+import           System.Directory (createDirectoryIfMissing, getTemporaryDirectory,
+                     removeFile)
 import           System.IO (IOMode (WriteMode), openFile)
 import           System.FilePath ((</>), takeDirectory)
 
-import           Cardano.BM.Rotator (nameLogFile, cleanupRotator, listLogFiles)
+import           Cardano.BM.Rotator (nameLogFile, cleanupRotator, listLogFiles, tsformat)
 import           Cardano.BM.Data.Rotation (RotationParameters (..))
 
 import           Test.Tasty (TestTree, testGroup)
 import           Test.Tasty.QuickCheck (Property, testProperty)
 import qualified Test.QuickCheck as QC
 import           Test.QuickCheck.Arbitrary (Arbitrary)
-import           Test.QuickCheck.Modifiers (Small (..))
+import           Test.QuickCheck.Modifiers (Positive (..))
 import           Test.QuickCheck.Monadic (assert, monadicIO, run)
+
+import           Test.QuickCheck.Property (ioProperty)
 
 \end{code}
 %endif
@@ -52,7 +56,7 @@ property_tests = testGroup "Property tests" [
 
 \end{code}
 
-\subsubsection{Check that name giver only adds 15 digits to the name of the file.}\label{code:prop_name_giving}
+\subsubsection{Check that full file name has only added 15 digits to the base name of the file.}\label{code:prop_name_giving}
 \begin{code}
 prop_name_giving :: FilePath -> Property
 prop_name_giving name = monadicIO $ do
@@ -61,7 +65,10 @@ prop_name_giving name = monadicIO $ do
 
 \end{code}
 
-\subsubsection{Check cleanup of rotator.}\label{code:prop_cleanup}
+\subsubsection{Test cleanup of rotator.}\label{code:prop_cleanup}
+This test creates a random number of files with the same name but with different dates and
+afterwards it calls the |cleanupRotator| function which removes old log files keeping only
+|rpKeepFilesNum| files and deleting the others.
 \begin{code}
 
 data LocalFilePath = Dir FilePath
@@ -69,29 +76,34 @@ data LocalFilePath = Dir FilePath
 
 instance Arbitrary LocalFilePath where
     arbitrary = do
-        start <- QC.sized $ \n -> replicateM n (QC.elements $ ['a'..'z'])
-        x <- QC.sized $ \n -> replicateM n (QC.elements $ ['a'..'z'] ++ "/")
-        pure $ Dir ("./test-rot" </> (start ++ x))
+        start <- QC.sized $ \n -> replicateM (n+1) (QC.elements $ ['a'..'z'])
+        x     <- QC.sized $ \n -> replicateM n (QC.elements $ ['a'..'z'] ++ "/")
+        pure $ Dir $ start ++ x
 
     shrink _ = []
 
-prop_cleanup :: RotationParameters -> LocalFilePath -> Small Int -> Property
-prop_cleanup rotationParams (Dir path) (Small n) = monadicIO $ do
-    dates <- run $ replicateM (abs n) $ QC.generate $ replicateM 14 (QC.elements ['0'..'9'])
-    let files = map (\a -> path ++ ('-' : a)) dates
+prop_cleanup :: RotationParameters -> LocalFilePath -> Positive Int -> Positive Int -> Property
+prop_cleanup rotationParams (Dir filename) (Positive nFiles) (Positive maxDev) = ioProperty $ do
+    tmpDir <- getTemporaryDirectory
+    let path = tmpDir </> filename
+    -- generate nFiles different dates
+    now <- getCurrentTime
+    let tsnow = formatTime defaultTimeLocale tsformat now
+    deviations <- replicateM nFiles $ QC.generate $ QC.choose (1, maxDev)
+    let dates = map show $ scanl (+) (read tsnow) deviations
+        files = map (\a -> path ++ ('-' : a)) dates
 
-    run $ createDirectoryIfMissing True $ takeDirectory path
-    run $ forM_ (files) $ \f -> openFile f WriteMode
+    createDirectoryIfMissing True $ takeDirectory path
+    forM_ (files) $ \f -> openFile f WriteMode
 
-    run $ cleanupRotator rotationParams path
+    cleanupRotator rotationParams path
 
-    filesRemained <- run $ listLogFiles path
-    let keeped = case filesRemained of
+    filesRemained <- listLogFiles path
+    let kept = case filesRemained of
             Nothing -> []
             Just l  -> NE.toList l
     -- delete the files
-    run $ forM_ keeped removeFile
-    run $ removePathForcibly "./test-rot"
-    assert $ rpKeepFilesNum rotationParams >= fromIntegral (length keeped)
+    forM_ kept removeFile
+    return $ rpKeepFilesNum rotationParams >= fromIntegral (length kept)
 
 \end{code}

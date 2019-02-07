@@ -196,7 +196,7 @@ instance IsBackend EKGView where
 
 \end{code}
 
-\subsubsection{Asynchrouniously reading log items from the queue and their processing}
+\subsubsection{Asynchronously reading log items from the queue and their processing}
 \begin{code}
 spawnDispatcher :: TBQ.TBQueue (Maybe NamedLogItem)
                 -> Trace.Trace IO
