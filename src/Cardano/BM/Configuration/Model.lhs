@@ -40,6 +40,7 @@ module Cardano.BM.Configuration.Model
     , getOption
     , findSubTrace
     , setSubTrace
+    , getMonitors
     , getEKGport
     , setEKGport
     , getGUIport
@@ -59,6 +60,8 @@ import           Cardano.BM.Data.AggregatedKind (AggregatedKind(..))
 import           Cardano.BM.Data.BackendKind
 import qualified Cardano.BM.Data.Configuration as R
 import           Cardano.BM.Data.LogItem (LoggerName)
+import           Cardano.BM.Data.MonitoringEval (MEvAction, MEvExpr)
+import qualified Cardano.BM.Data.MonitoringEval as MEv
 import           Cardano.BM.Data.Observable
 import           Cardano.BM.Data.Output (ScribeDefinition (..), ScribeId,
                      ScribeKind (..))
@@ -119,6 +122,7 @@ data ConfigurationInternal = ConfigurationInternal
     , cgDefAggregatedKind :: AggregatedKind
     -- kind of Aggregated that will be used if a set of scribes for the
     -- specific loggername is not set
+    , cgMonitors          :: HM.HashMap LoggerName (MEvExpr, [MEvAction])
     , cgPortEKG           :: Int
     -- port for EKG server
     , cgPortGUI           :: Int
@@ -178,8 +182,8 @@ getScribes configuration name = do
     cg <- readMVar (getCG configuration)
     (updateCache, scribes) <- do
         let defs = cgDefScribes cg
-        let mapScribe = cgMapScribe cg
-        let find_s lname = case HM.lookup lname mapScribe of
+        let mapscribes = cgMapScribe cg
+        let find_s lname = case HM.lookup lname mapscribes of
                 Nothing ->
                     case dropToDot lname of
                         Nothing     -> defs
@@ -389,6 +393,14 @@ setSubTrace configuration name trafo =
 
 \end{code}
 
+\subsubsection{Monitors}
+\begin{code}
+getMonitors :: Configuration -> IO (HM.HashMap LoggerName (MEvExpr, [MEvAction]))
+getMonitors configuration = do
+    cg <- readMVar $ getCG configuration
+    return (cgMonitors cg)
+\end{code}
+
 \subsubsection{Parse configuration from file}
 Parse the configuration into an internal representation first. Then, fill in |Configuration|
 after refinement.
@@ -400,40 +412,72 @@ setup fp = do
 
 setupFromRepresentation :: R.Representation -> IO Configuration
 setupFromRepresentation r = do
-    let mapseverity        = HM.lookup "mapSeverity"        (R.options r)
+    let mapseverities0        = HM.lookup "mapSeverity"        (R.options r)
         mapbackends        = HM.lookup "mapBackends"        (R.options r)
         mapsubtrace        = HM.lookup "mapSubtrace"        (R.options r)
-        mapscribes         = HM.lookup "mapScribes"         (R.options r)
-        mapAggregatedKinds = HM.lookup "mapAggregatedkinds" (R.options r)
-        mapSeverity        = parseSeverityMap mapseverity
-        mapScribe          = parseScribeMap mapscribes
+        mapscribes0        = HM.lookup "mapScribes"         (R.options r)
+        mapaggregatedkinds = HM.lookup "mapAggregatedkinds" (R.options r)
+        mapmonitors        = HM.lookup "mapMonitors"        (R.options r)
+        mapseverities      = parseSeverityMap mapseverities0
+        mapscribes         = parseScribeMap mapscribes0
+
     cgref <- newMVar $ ConfigurationInternal
-        { cgMinSeverity = R.minSeverity r
-        , cgMapSeverity = mapSeverity
+        { cgMinSeverity       = R.minSeverity r
+        , cgMapSeverity       = mapseverities
 #ifdef MemoizeSeverity
-        , cgMapSeverityCache = mapSeverity
+        , cgMapSeverityCache  = mapseverities
 #endif
-        , cgMapSubtrace = parseSubtraceMap mapsubtrace
-        , cgOptions = R.options r
-        , cgMapBackend = parseBackendMap mapbackends
-        , cgDefBackendKs = R.defaultBackends r
-        , cgSetupBackends = R.setupBackends r
-        , cgMapScribe = mapScribe
-        , cgMapScribeCache = mapScribe
-        , cgDefScribes = r_defaultScribes r
-        , cgSetupScribes = fillRotationParams (R.rotation r) (R.setupScribes r)
-        , cgMapAggregatedKind = parseAggregatedKindMap mapAggregatedKinds
+        , cgMapSubtrace       = parseSubtraceMap mapsubtrace
+        , cgOptions           = R.options r
+        , cgMapBackend        = parseBackendMap mapbackends
+        , cgDefBackendKs      = R.defaultBackends r
+        , cgSetupBackends     = R.setupBackends r
+        , cgMapScribe         = mapscribes
+        , cgMapScribeCache    = mapscribes
+        , cgDefScribes        = r_defaultScribes r
+        , cgSetupScribes      = fillRotationParams (R.rotation r) (R.setupScribes r)
+        , cgMapAggregatedKind = parseAggregatedKindMap mapaggregatedkinds
         , cgDefAggregatedKind = StatsAK
-        , cgPortEKG = r_hasEKG r
-        , cgPortGUI = r_hasGUI r
+        , cgMonitors          = parseMonitors mapmonitors
+        , cgPortEKG           = r_hasEKG r
+        , cgPortGUI           = r_hasGUI r
         }
     return $ Configuration cgref
   where
+    parseMonitors :: Maybe (HM.HashMap Text Value) -> HM.HashMap LoggerName (MEvExpr, [MEvAction])
+    parseMonitors Nothing = HM.empty
+    parseMonitors (Just hmv) = HM.mapMaybe mkMonitor hmv
+      where
+        mkMonitor (Array a) =
+            if Vector.length a == 2
+            then do
+                e  <- mkExpression $ a Vector.! 0
+                as <- mkActions $ a Vector.! 1
+                return (e, as)
+            else Nothing
+        mkMonitor _ = Nothing
+        mkExpression :: Value -> Maybe MEvExpr
+        mkExpression (Object o1) =
+            case HM.lookup "monitor" o1 of
+                Nothing            -> Nothing
+                Just (String expr) -> MEv.parseMaybe expr
+                Just _             -> Nothing
+        mkExpression _ = Nothing
+        mkActions :: Value -> Maybe [MEvAction]
+        mkActions (Object o2) = 
+            case HM.lookup "actions" o2 of
+                Nothing -> Nothing
+                Just (Array as) -> Just $ map (\(String s) -> s) $ Vector.toList as
+                Just _             -> Nothing
+
+        mkActions _ = Nothing
+
     parseSeverityMap :: Maybe (HM.HashMap Text Value) -> HM.HashMap Text Severity
     parseSeverityMap Nothing = HM.empty
     parseSeverityMap (Just hmv) = HM.mapMaybe mkSeverity hmv
-    mkSeverity (String s) = Just (read (unpack s) :: Severity)
-    mkSeverity _ = Nothing
+      where
+        mkSeverity (String s) = Just (read (unpack s) :: Severity)
+        mkSeverity _ = Nothing
 
     fillRotationParams :: Maybe RotationParameters -> [ScribeDefinition] -> [ScribeDefinition]
     fillRotationParams defaultRotation = map $ \sd ->
@@ -446,32 +490,35 @@ setupFromRepresentation r = do
 
     parseBackendMap Nothing = HM.empty
     parseBackendMap (Just hmv) = HM.map mkBackends hmv
-    mkBackends (Array bes) = catMaybes $ map mkBackend $ Vector.toList bes
-    mkBackends _ = []
-    mkBackend (String s) = Just (read (unpack s) :: BackendKind)
-    mkBackend _ = Nothing
+      where
+        mkBackends (Array bes) = catMaybes $ map mkBackend $ Vector.toList bes
+        mkBackends _ = []
+        mkBackend (String s) = Just (read (unpack s) :: BackendKind)
+        mkBackend _ = Nothing
 
     parseScribeMap Nothing = HM.empty
     parseScribeMap (Just hmv) = HM.map mkScribes hmv
-    mkScribes (Array scs) = catMaybes $ map mkScribe $ Vector.toList scs
-    mkScribes (String s) = [(s :: ScribeId)]
-    mkScribes _ = []
-    mkScribe (String s) = Just (s :: ScribeId)
-    mkScribe _ = Nothing
+      where
+        mkScribes (Array scs) = catMaybes $ map mkScribe $ Vector.toList scs
+        mkScribes (String s) = [(s :: ScribeId)]
+        mkScribes _ = []
+        mkScribe (String s) = Just (s :: ScribeId)
+        mkScribe _ = Nothing
 
     parseSubtraceMap :: Maybe (HM.HashMap Text Value) -> HM.HashMap Text SubTrace
     parseSubtraceMap Nothing = HM.empty
     parseSubtraceMap (Just hmv) = HM.mapMaybe mkSubtrace hmv
-    mkSubtrace (String s) = Just (read (unpack s) :: SubTrace)
-    mkSubtrace (Object hm) = mkSubtrace' (HM.lookup "tag" hm) (HM.lookup "contents" hm)
-    mkSubtrace _ = Nothing
-    mkSubtrace' Nothing _ = Nothing
-    mkSubtrace' _ Nothing = Nothing
-    mkSubtrace' (Just (String tag)) (Just (Array cs)) =
-        if tag == "ObservableTrace"
-        then Just $ ObservableTrace $ map (\(String s) -> (read (unpack s) :: ObservableInstance)) $ Vector.toList cs
-        else Nothing
-    mkSubtrace' _ _ = Nothing
+      where
+        mkSubtrace (String s) = Just (read (unpack s) :: SubTrace)
+        mkSubtrace (Object hm) = mkSubtrace' (HM.lookup "tag" hm) (HM.lookup "contents" hm)
+        mkSubtrace _ = Nothing
+        mkSubtrace' Nothing _ = Nothing
+        mkSubtrace' _ Nothing = Nothing
+        mkSubtrace' (Just (String tag)) (Just (Array cs)) =
+            if tag == "ObservableTrace"
+            then Just $ ObservableTrace $ map (\(String s) -> (read (unpack s) :: ObservableInstance)) $ Vector.toList cs
+            else Nothing
+        mkSubtrace' _ _ = Nothing
 
     r_hasEKG repr = case (R.hasEKG repr) of
                        Nothing -> 0
@@ -488,8 +535,9 @@ setupFromRepresentation r = do
             mapAggregatedKind = HM.fromList $ catMaybes $ map mkAggregatedKind listv
         in
         mapAggregatedKind
-    mkAggregatedKind (name, String s) = Just (name, read (unpack s) :: AggregatedKind)
-    mkAggregatedKind _ = Nothing
+      where
+        mkAggregatedKind (name, String s) = Just (name, read (unpack s) :: AggregatedKind)
+        mkAggregatedKind _ = Nothing
 
 \end{code}
 
@@ -498,25 +546,26 @@ setupFromRepresentation r = do
 empty :: IO Configuration
 empty = do
     cgref <- newMVar $ ConfigurationInternal
-                        { cgMinSeverity       = Debug
-                        , cgMapSeverity       = HM.empty
+                           { cgMinSeverity       = Debug
+                           , cgMapSeverity       = HM.empty
 #ifdef MemoizeSeverity
-                        , cgMapSeverityCache  = HM.empty
+                           , cgMapSeverityCache  = HM.empty
 #endif
-                        , cgMapSubtrace       = HM.empty
-                        , cgOptions           = HM.empty
-                        , cgMapBackend        = HM.empty
-                        , cgDefBackendKs      = []
-                        , cgSetupBackends     = []
-                        , cgMapScribe         = HM.empty
-                        , cgMapScribeCache    = HM.empty
-                        , cgDefScribes        = []
-                        , cgSetupScribes      = []
-                        , cgMapAggregatedKind = HM.empty
-                        , cgDefAggregatedKind = StatsAK
-                        , cgPortEKG           = 0
-                        , cgPortGUI           = 0
-                        }
+                           , cgMapSubtrace       = HM.empty
+                           , cgOptions           = HM.empty
+                           , cgMapBackend        = HM.empty
+                           , cgDefBackendKs      = []
+                           , cgSetupBackends     = []
+                           , cgMapScribe         = HM.empty
+                           , cgMapScribeCache    = HM.empty
+                           , cgDefScribes        = []
+                           , cgSetupScribes      = []
+                           , cgMapAggregatedKind = HM.empty
+                           , cgDefAggregatedKind = StatsAK
+                           , cgMonitors          = HM.empty
+                           , cgPortEKG           = 0
+                           , cgPortGUI           = 0
+                           }
     return $ Configuration cgref
 
 \end{code}

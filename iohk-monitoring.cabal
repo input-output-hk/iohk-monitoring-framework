@@ -65,6 +65,7 @@ library
                        aeson,
                        array,
                        async,
+                       attoparsec,
                        auto-update,
                        bytestring,
                        clock,
