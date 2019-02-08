@@ -60,7 +60,7 @@ import           Test.Tasty.HUnit (Assertion, assertBool, testCase,
 
 \begin{code}
 tests :: TestTree
-tests = testGroup "testing Trace" [
+tests = testGroup "Testing Trace" [
         unit_tests
       , testCase "forked traces stress testing" stressTraceInFork
       , testCase "stress testing: ObservableTrace vs. NoTrace" timingObservableVsUntimed
@@ -195,10 +195,10 @@ exampleWithNamedContexts = do
 
 \end{code}
 
-\subsubsection{Show effect of turning off observables}\label{timingObservableVsUntimed}
+\subsubsection{Show effect of turning off observables}\label{code:runTimedAction}
 \begin{code}
-run_timed_action :: Trace IO -> Int -> IO Measurable
-run_timed_action logTrace reps = do
+runTimedAction :: Trace IO -> Int -> IO Measurable
+runTimedAction logTrace reps = do
     runid <- newUnique
     t0 <- getMonoClock
     forM_ [(1::Int)..reps] $ const $ observeAction logTrace
@@ -233,9 +233,9 @@ timingObservableVsUntimed = do
                                     NoTrace
                                     Debug
 
-    t_observable <- run_timed_action traceObservable 100
-    t_untimed    <- run_timed_action traceUntimed 100
-    t_notrace    <- run_timed_action traceNoTrace 100
+    t_observable <- runTimedAction traceObservable 100
+    t_untimed    <- runTimedAction traceUntimed 100
+    t_notrace    <- runTimedAction traceNoTrace 100
 
     assertBool
         ("Untimed consumed more time than ObservableTrace " ++ (show [t_untimed, t_observable]))
@@ -584,7 +584,7 @@ unitExceptionThrowing = do
         trace <- Setup.setupTrace (Right cfg) "test"
 
         logInfo trace message
-        threadDelay 1000
+        threadDelay 10000
 
 \end{code}
 

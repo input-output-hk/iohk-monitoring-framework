@@ -108,6 +108,7 @@ test-suite tests
                        Cardano.BM.Test.STM
                        Cardano.BM.Test.Configuration
                        Cardano.BM.Test.Rotator
+                       Cardano.BM.Test.Monitoring
                        Cardano.BM.Test.Routing
                        Cardano.BM.Arbitrary.Aggregated
   default-language:    Haskell2010

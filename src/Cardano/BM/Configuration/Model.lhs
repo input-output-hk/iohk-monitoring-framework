@@ -10,7 +10,7 @@
 module Cardano.BM.Configuration.Model
     ( Configuration (..)
     , ConfigurationInternal (..)
-    , setup
+    , setup, parseMonitors
     , setupFromRepresentation
     , empty
     , minSeverity
@@ -56,6 +56,7 @@ import           Data.Text (Text, breakOnEnd, dropWhileEnd, pack, unpack)
 import qualified Data.Vector as Vector
 import           Data.Yaml as Y
 
+import           Cardano.BM.Data.Aggregated
 import           Cardano.BM.Data.AggregatedKind (AggregatedKind(..))
 import           Cardano.BM.Data.BackendKind
 import qualified Cardano.BM.Data.Configuration as R
@@ -394,6 +395,21 @@ setSubTrace configuration name trafo =
 \end{code}
 
 \subsubsection{Monitors}
+
+\begin{spec}
+Just (
+  fromList [
+    ("chain.creation.block", Array [
+      Object (fromList [("monitor", String "((time > 23 s) Or (time < 17 s))")]),
+      Object (fromList [("actions", Array [
+        String "AlterMinSeverity \"chain.creation\" Debug"])])])
+  , ("#aggregation.critproc.observable", Array [
+      Object (fromList [("monitor", String "(mean >= 42)")]),
+      Object (fromList [("actions", Array [
+        String "CreateMessage \"exceeded\" \"the observable has been too long too high!\"",
+        String "AlterGlobalMinSeverity Info"])]) ]) ] )
+\end{spec}
+
 \begin{code}
 getMonitors :: Configuration -> IO (HM.HashMap LoggerName (MEvExpr, [MEvAction]))
 getMonitors configuration = do
@@ -408,7 +424,46 @@ after refinement.
 setup :: FilePath -> IO Configuration
 setup fp = do
     r <- R.parseRepresentation fp
-    setupFromRepresentation r
+    c <- setupFromRepresentation r
+
+    -- print $ parseMonitors $ HM.lookup "mapMonitors" (R.options r)
+
+    -- testing
+    -- mon <- getMonitors c
+    -- print $ HM.toList mon
+
+    return c
+
+parseMonitors :: Maybe (HM.HashMap Text Value) -> HM.HashMap LoggerName (MEvExpr, [MEvAction])
+parseMonitors Nothing = HM.empty
+parseMonitors (Just hmv) = HM.mapMaybe mkMonitor hmv
+    where
+    mkMonitor (Array a) =
+        if Vector.length a == 2
+        then do
+            e  <- mkExpression $ a Vector.! 0
+            as <- mkActions $ a Vector.! 1
+            -- e <- Just (MEv.Compare (pack $ show (a Vector.! 1)) (== (Severity Error)) )
+            -- as <- Just ["test1", "test2"]
+            return (e, as)
+        else Nothing
+    mkMonitor _ = Nothing
+    mkExpression :: Value -> Maybe MEvExpr
+    mkExpression (Object o1) =
+        case HM.lookup "monitor" o1 of
+            Nothing            -> Just (MEv.Compare "just null" (== (Severity Warning)))
+            Just (String expr) -> MEv.parseMaybe expr
+            Just _             -> Just (MEv.Compare "something else" (== (Severity Error)))
+    mkExpression _ = Nothing
+    mkActions :: Value -> Maybe [MEvAction]
+    mkActions (Object o2) = 
+        case HM.lookup "actions" o2 of
+            Nothing -> Nothing
+            Just (Array as) -> Just $ map (\(String s) -> s) $ Vector.toList as
+            Just _             -> Nothing
+
+    mkActions _ = Nothing
+
 
 setupFromRepresentation :: R.Representation -> IO Configuration
 setupFromRepresentation r = do
@@ -444,34 +499,6 @@ setupFromRepresentation r = do
         }
     return $ Configuration cgref
   where
-    parseMonitors :: Maybe (HM.HashMap Text Value) -> HM.HashMap LoggerName (MEvExpr, [MEvAction])
-    parseMonitors Nothing = HM.empty
-    parseMonitors (Just hmv) = HM.mapMaybe mkMonitor hmv
-      where
-        mkMonitor (Array a) =
-            if Vector.length a == 2
-            then do
-                e  <- mkExpression $ a Vector.! 0
-                as <- mkActions $ a Vector.! 1
-                return (e, as)
-            else Nothing
-        mkMonitor _ = Nothing
-        mkExpression :: Value -> Maybe MEvExpr
-        mkExpression (Object o1) =
-            case HM.lookup "monitor" o1 of
-                Nothing            -> Nothing
-                Just (String expr) -> MEv.parseMaybe expr
-                Just _             -> Nothing
-        mkExpression _ = Nothing
-        mkActions :: Value -> Maybe [MEvAction]
-        mkActions (Object o2) = 
-            case HM.lookup "actions" o2 of
-                Nothing -> Nothing
-                Just (Array as) -> Just $ map (\(String s) -> s) $ Vector.toList as
-                Just _             -> Nothing
-
-        mkActions _ = Nothing
-
     parseSeverityMap :: Maybe (HM.HashMap Text Value) -> HM.HashMap Text Severity
     parseSeverityMap Nothing = HM.empty
     parseSeverityMap (Just hmv) = HM.mapMaybe mkSeverity hmv
