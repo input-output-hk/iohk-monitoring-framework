@@ -48,9 +48,9 @@ data MEvExpr = Compare VarName (Measurable -> Bool)
 
 instance Eq MEvExpr where
     (==) (Compare vn1 _) (Compare vn2 _) = vn1 == vn2
-    (==) (AND e11 e12) (AND e21 e22) = (e11 == e21 && e12 == e22) || (e11 == e22 && e12 == e21)
-    (==) (OR e11 e12) (OR e21 e22) = (e11 == e21 && e12 == e22) || (e11 == e22 && e12 == e21)
-    (==) (NOT e1) (NOT e2) = (e1 == e2)
+    (==) (AND e11 e12) (AND e21 e22)     = (e11 == e21 && e12 == e22)    -- || (e11 == e22 && e12 == e21)
+    (==) (OR e11 e12) (OR e21 e22)       = (e11 == e21 && e12 == e22)    -- || (e11 == e22 && e12 == e21)
+    (==) (NOT e1) (NOT e2)               = (e1 == e2)
     (==) _ _ = False
 
 instance FromJSON MEvExpr where
@@ -91,10 +91,10 @@ parseMaybe t =
 
 parseExpr :: P.Parser MEvExpr
 parseExpr =
-        parseComp
-    <|> parseAnd
+        parseAnd
     <|> parseOr
     <|> parseNot
+    <|> parseComp
 
 openPar, closePar :: P.Parser ()
 openPar = void $ P.char '('
@@ -234,9 +234,9 @@ otherwise returns |False|.
 evaluate :: Environment -> MEvExpr -> Bool
 evaluate ev expr = case expr of
     Compare vn op -> op (getMeasurable ev vn)
-    AND e1 e2     -> evaluate ev e1 && evaluate ev e2
-    OR e1 e2      -> evaluate ev e1 || evaluate ev e2
-    NOT e         -> not $ evaluate ev e
+    AND e1 e2     -> (evaluate ev e1) && (evaluate ev e2)
+    OR e1 e2      -> (evaluate ev e1) || (evaluate ev e2)
+    NOT e         -> not (evaluate ev e)
 
 \end{code}
 

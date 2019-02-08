@@ -11,7 +11,7 @@ import           Test.Tasty.QuickCheck
 
 
 tests :: TestTree
-tests = testGroup "observing STM actions" [
+tests = testGroup "Observing STM actions" [
       testProperty "minimal" prop_STM_observer
     ]
 

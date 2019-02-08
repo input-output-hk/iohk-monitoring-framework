@@ -17,6 +17,7 @@ module Cardano.BM.Configuration
     , CM.setSubTrace
     , CM.getEKGport
     , CM.getGUIport
+    , CM.getMonitors
     , getOptionOrDefault
     ) where
 

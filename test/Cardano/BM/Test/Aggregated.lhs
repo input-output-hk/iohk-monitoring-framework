@@ -28,24 +28,24 @@ import           Test.Tasty.QuickCheck (testProperty)
 \begin{code}
 
 tests :: TestTree
-tests = testGroup "aggregation measurements" [
-            property_tests
-          , unit_tests
+tests = testGroup "Aggregation measurements" [
+            propertyTests
+          , unitTests
         ]
 
-property_tests :: TestTree
-property_tests = testGroup "Properties" [
+propertyTests :: TestTree
+propertyTests = testGroup "Properties" [
         testProperty "minimal" prop_Aggregation_minimal
       , testProperty "commutative" prop_Aggregation_comm
     ]
 
-unit_tests :: TestTree
-unit_tests = testGroup "Unit tests" [
-        testCase "initial_minus_1" unit_Aggregation_initial_minus_1
-      , testCase "initial_plus_1" unit_Aggregation_initial_plus_1
-      , testCase "initial_0" unit_Aggregation_initial_zero
-      , testCase "initial_plus_1" unit_Aggregation_initial_plus_1_minus_1
-      , testCase "stepwise" unit_Aggregation_stepwise
+unitTests :: TestTree
+unitTests = testGroup "Unit tests" [
+        testCase "initial -1" unitAggregationInitialMinus1
+      , testCase "initial +1" unitAggregationInitialPlus1
+      , testCase "initial +0" unitAggregationInitialZero
+      , testCase "initial +1, -1" unitAggregationInitialPlus1Minus1
+      , testCase "stepwise" unitAggregationStepwise
     ]
 
 prop_Aggregation_minimal :: Bool
@@ -66,59 +66,59 @@ prop_Aggregation_comm v1 v2 ag =
 implies :: Bool -> Property -> Property
 implies p1 p2 = property (not p1) .||. p2
 
-unit_Aggregation_initial_minus_1 :: Assertion
-unit_Aggregation_initial_minus_1 = do
+unitAggregationInitialMinus1 :: Assertion
+unitAggregationInitialMinus1 = do
     let AggregatedStats stats1 = updateAggregation (-1) firstStateAggregatedStats lometa Nothing
     flast stats1 @?= (-1)
     (fbasic stats1) @?= BaseStats (-1) 0 2 (-0.5) 0.5
     (fdelta stats1) @?= BaseStats 0 0 1 0 0
         -- AggregatedStats (Stats (-1) 0 (BaseStats (-1) 0 2 (-0.5) 0.5) (BaseStats 0 0 1 0 0) (BaseStats 0 0 1 0 0))
-unit_Aggregation_initial_plus_1 :: Assertion
-unit_Aggregation_initial_plus_1 = do
+unitAggregationInitialPlus1 :: Assertion
+unitAggregationInitialPlus1 = do
     let AggregatedStats stats1 = updateAggregation 1 firstStateAggregatedStats lometa Nothing
     flast stats1 @?= 1
     (fbasic stats1) @?= BaseStats 0 1 2 0.5 0.5
     (fdelta stats1) @?= BaseStats 0 0 1 0 0
         -- AggregatedStats (Stats 1 0 (BaseStats 0 1 2 0.5 0.5) (BaseStats 0 0 1 0 0) (BaseStats 0 0 1 0 0))
-unit_Aggregation_initial_zero :: Assertion
-unit_Aggregation_initial_zero = do
+unitAggregationInitialZero :: Assertion
+unitAggregationInitialZero = do
     let AggregatedStats stats1 = updateAggregation 0 firstStateAggregatedStats lometa Nothing
     flast stats1 @?= 0
     (fbasic stats1) @?= BaseStats 0 0 2 0 0
     (fdelta stats1) @?= BaseStats 0 0 1 0 0
         -- AggregatedStats (Stats 0 0 (BaseStats 0 0 2 0 0) (BaseStats 0 0 1 0 0) (BaseStats 0 0 1 0 0))
-unit_Aggregation_initial_plus_1_minus_1 :: Assertion
-unit_Aggregation_initial_plus_1_minus_1 = do
+unitAggregationInitialPlus1Minus1 :: Assertion
+unitAggregationInitialPlus1Minus1 = do
     let AggregatedStats stats1 = updateAggregation (-1) (updateAggregation 1 firstStateAggregatedStats lometa Nothing) lometa Nothing
     (fbasic stats1) @?= BaseStats (-1) 1 3 0.0 2.0
     (fdelta stats1) @?= BaseStats (-2) 0 2 (-1.0) 2.0
 
-unit_Aggregation_stepwise :: Assertion
-unit_Aggregation_stepwise = do
+unitAggregationStepwise :: Assertion
+unitAggregationStepwise = do
     stats0 <- pure $ singletonStats (Bytes 3000)
-    putStrLn $ show stats0
+    -- putStrLn $ show stats0
     threadDelay 50000   -- 0.05 s
     t1 <- mkLOMeta
     stats1 <- pure $ updateAggregation (Bytes 5000) stats0 t1 Nothing
-    putStrLn $ show stats1
-    showTimedMean stats1
+    -- putStrLn $ show stats1
+    -- showTimedMean stats1
     threadDelay 50000   -- 0.05 s
     t2 <- mkLOMeta
     stats2 <- pure $ updateAggregation (Bytes 1000) stats1 t2 Nothing
-    putStrLn $ show stats2
-    showTimedMean stats2
+    -- putStrLn $ show stats2
+    -- showTimedMean stats2
     checkTimedMean stats2
     threadDelay 50000   -- 0.05 s
     t3 <- mkLOMeta
     stats3 <- pure $ updateAggregation (Bytes 3000) stats2 t3 Nothing
-    putStrLn $ show stats3
-    showTimedMean stats3
+    -- putStrLn $ show stats3
+    -- showTimedMean stats3
     checkTimedMean stats3
     threadDelay 50000   -- 0.05 s
     t4 <- mkLOMeta
     stats4 <- pure $ updateAggregation (Bytes 1000) stats3 t4 Nothing
-    putStrLn $ show stats4
-    showTimedMean stats4
+    -- putStrLn $ show stats4
+    -- showTimedMean stats4
     checkTimedMean stats4
   where
     checkTimedMean (AggregatedEWMA _) = return ()
