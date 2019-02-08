@@ -11,12 +11,14 @@ module Cardano.BM.Test.Rotator (
 
 import           Prelude hiding (lookup)
 
-import           Control.Monad (forM_, replicateM)
+import           Control.Monad (forM_, replicateM, when)
+import           Data.List (groupBy, intercalate, sort)
 import qualified Data.List.NonEmpty as NE
+import           Data.List.Split (splitOn)
 import           Data.Time (getCurrentTime)
 import           Data.Time.Format (defaultTimeLocale, formatTime)
 import           System.Directory (createDirectoryIfMissing, getTemporaryDirectory,
-                     removeFile)
+                     removeFile, removePathForcibly)
 import           System.IO (IOMode (WriteMode), openFile)
 import           System.FilePath ((</>), takeDirectory)
 
@@ -44,7 +46,7 @@ tests = testGroup "testing Trace" [
 property_tests :: TestTree
 property_tests = testGroup "Property tests" [
         testProperty "rotator: name giving" prop_name_giving
-      , testProperty "rotator: cleanup" (prop_cleanup (rot n))
+      , testProperty "rotator: cleanup" $ prop_cleanup $ rot n
       ]
   where
     n = 5
@@ -77,21 +79,54 @@ data LocalFilePath = Dir FilePath
 instance Arbitrary LocalFilePath where
     arbitrary = do
         start <- QC.sized $ \n -> replicateM (n+1) (QC.elements $ ['a'..'z'])
-        x     <- QC.sized $ \n -> replicateM n (QC.elements $ ['a'..'z'] ++ "/")
-        pure $ Dir $ start ++ x
+        x     <- QC.sized $ \n -> replicateM n     (QC.elements $ ['a'..'d'] ++ "/")
+        pure $ Dir $ start ++ removeAdjacentAndLastSlashes x
+
+    shrink (Dir path) = map (Dir . removeAdjacentAndLastSlashes . (intercalate "/")) $
+        product' $ map (filter (/= "")) $ map QC.shrink (splitOn "/" path)
+      where
+        product' :: [[a]] -> [[a]]
+        product' = mapM (\x -> x >>= return)
+
+removeAdjacentAndLastSlashes :: FilePath -> FilePath
+removeAdjacentAndLastSlashes = concat . filter (/= "/") . groupBy (\_ b -> b /= '/')
+
+data SmallAndLargeInt = SL Int
+    deriving (Show)
+
+instance Arbitrary SmallAndLargeInt where
+    arbitrary = do
+        QC.oneof [ smallGen
+                 , largeGen
+                 ]
+      where
+        smallGen :: QC.Gen SmallAndLargeInt
+        smallGen = do
+            QC.Small x <- (QC.arbitrary :: QC.Gen (QC.Small Int))
+            pure $ SL $ abs x
+        largeGen :: QC.Gen SmallAndLargeInt
+        largeGen = do
+            let maxBoundary = 00100000000000 -- 10 years for the format which is used
+                minBoundary = 00000000010000 -- 1  hour   for the format which is used
+            x <- QC.choose (minBoundary, maxBoundary)
+            pure $ SL x
 
     shrink _ = []
 
-prop_cleanup :: RotationParameters -> LocalFilePath -> Positive Int -> Positive Int -> Property
-prop_cleanup rotationParams (Dir filename) (Positive nFiles) (Positive maxDev) = ioProperty $ do
+prop_cleanup :: RotationParameters -> LocalFilePath -> Positive Int -> SmallAndLargeInt -> Property
+prop_cleanup rotationParams (Dir filename) (Positive nFiles) (SL maxDev) = ioProperty $ do
     tmpDir <- getTemporaryDirectory
     let path = tmpDir </> filename
     -- generate nFiles different dates
     now <- getCurrentTime
     let tsnow = formatTime defaultTimeLocale tsformat now
-    deviations <- replicateM nFiles $ QC.generate $ QC.choose (1, maxDev)
+    deviations <- replicateM nFiles $ QC.generate $ QC.choose (1, maxDev + 1)
+    --TODO if generated within the same sec we have a problem
     let dates = map show $ scanl (+) (read tsnow) deviations
         files = map (\a -> path ++ ('-' : a)) dates
+        sortedFiles = reverse $ sort files
+        keepFilesNum = fromIntegral $ rpKeepFilesNum rotationParams
+        toBeKept = reverse $ take keepFilesNum sortedFiles
 
     createDirectoryIfMissing True $ takeDirectory path
     forM_ (files) $ \f -> openFile f WriteMode
@@ -102,8 +137,11 @@ prop_cleanup rotationParams (Dir filename) (Positive nFiles) (Positive maxDev) =
     let kept = case filesRemained of
             Nothing -> []
             Just l  -> NE.toList l
-    -- delete the files
+    -- delete the files left
     forM_ kept removeFile
-    return $ rpKeepFilesNum rotationParams >= fromIntegral (length kept)
+    -- delete folders created
+    when (dropWhile (/= '/') filename /= "") $
+        removePathForcibly $ "/tmp" </> takeWhile (/= '/') filename
+    return $ kept == toBeKept
 
 \end{code}
