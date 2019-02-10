@@ -349,26 +349,16 @@ unitConfigurationParsed = do
                                             , ("iohk.background.process", StatsAK)
                                             ]
         , cgDefAggregatedKind = StatsAK
-        , cgMonitors          = HM.fromList [ ("chain.creation.block", ((OR (Compare "time" ((>) (Agg.Seconds 23))) (Compare "time" ((<) (Agg.Seconds 17))))
+        , cgMonitors          = HM.fromList [ ("chain.creation.block", ((OR (Compare "time" ((>), (Agg.Seconds 23))) (Compare "time" ((<), (Agg.Seconds 17))))
                                                                        , ["AlterMinSeverity \"chain.creation\" Debug"]
                                                                        )
                                               )
-                                            , ("#aggregation.critproc.observable", (Compare "mean" ((>=) (Agg.PureI 42))
+                                            , ("#aggregation.critproc.observable", (Compare "mean" ((>=), (Agg.PureI 42))
                                                                                    , ["CreateMessage \"exceeded\" \"the observable has been too long too high!\""
                                                                                    , "AlterGlobalMinSeverity Info"]
                                                                                    )
                                               )
                                             ]
-        -- , cgMonitors          = HM.fromList [ ("chain.creation.block", Array $ V.fromList
-        --                                         [Object (HM.fromList [("monitor", String "((time > (23 s)) Or (time < (17 s)))")])
-        --                                         ,Object (HM.fromList [("actions", Array $ V.fromList
-        --                                                                              [String "AlterMinSeverity \"chain.creation\" Debug"])])] )
-        --                                     , ("#aggregation.critproc.observable", Array $ V.fromList
-        --                                         [Object (HM.fromList [("monitor", String "(mean >= (42))")])
-        --                                         ,Object (HM.fromList [("actions", Array $ V.fromList
-        --                                                                              [String "CreateMessage \"exceeded\" \"the observable has been too long too high!\""
-        --                                                                              ,String "AlterGlobalMinSeverity Info"])])] )
-        --                                     ]
         , cgPortEKG           = 12789
         , cgPortGUI           = 0
         }

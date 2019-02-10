@@ -15,6 +15,7 @@ import           Control.Concurrent (threadDelay)
 import           Cardano.BM.Arbitrary.Aggregated ()
 import           Cardano.BM.Data.Aggregated
 import           Cardano.BM.Data.LogItem
+import           Cardano.BM.Data.Severity
 import           Cardano.BM.Output.Aggregation (updateAggregation)
 
 import           Test.QuickCheck (Property, (===), (.&&.), (.||.), property)
@@ -30,7 +31,8 @@ import           Test.Tasty.QuickCheck (testProperty)
 tests :: TestTree
 tests = testGroup "Aggregation measurements" [
             propertyTests
-          , unitTests
+          , unitTests1
+          , unitTests2
         ]
 
 propertyTests :: TestTree
@@ -39,14 +41,28 @@ propertyTests = testGroup "Properties" [
       , testProperty "commutative" prop_Aggregation_comm
     ]
 
-unitTests :: TestTree
-unitTests = testGroup "Unit tests" [
+unitTests1 :: TestTree
+unitTests1 = testGroup "Unit tests for Aggregated" [
+        testCase "compare equal >" unitAggregatedEqualGT
+      , testCase "compare equal <" unitAggregatedEqualLT
+      , testCase "compare different >" unitAggregatedDiffGT
+      , testCase "compare different <" unitAggregatedDiffLT
+    ]
+
+unitTests2 :: TestTree
+unitTests2 = testGroup "Unit tests for Aggregation" [
         testCase "initial -1" unitAggregationInitialMinus1
       , testCase "initial +1" unitAggregationInitialPlus1
       , testCase "initial +0" unitAggregationInitialZero
       , testCase "initial +1, -1" unitAggregationInitialPlus1Minus1
       , testCase "stepwise" unitAggregationStepwise
     ]
+
+\end{code}
+
+\subsubsection{Property tests}
+
+\begin{code}
 
 prop_Aggregation_minimal :: Bool
 prop_Aggregation_minimal = True
@@ -65,6 +81,11 @@ prop_Aggregation_comm v1 v2 ag =
 -- implication: if p1 is true, then return p2; otherwise true
 implies :: Bool -> Property -> Property
 implies p1 p2 = property (not p1) .||. p2
+
+\end{code}
+
+\subsubsection{Unit tests for Aggregation}
+\begin{code}
 
 unitAggregationInitialMinus1 :: Assertion
 unitAggregationInitialMinus1 = do
@@ -89,35 +110,35 @@ unitAggregationInitialZero = do
         -- AggregatedStats (Stats 0 0 (BaseStats 0 0 2 0 0) (BaseStats 0 0 1 0 0) (BaseStats 0 0 1 0 0))
 unitAggregationInitialPlus1Minus1 :: Assertion
 unitAggregationInitialPlus1Minus1 = do
-    let AggregatedStats stats1 = updateAggregation (-1) (updateAggregation 1 firstStateAggregatedStats lometa Nothing) lometa Nothing
-    (fbasic stats1) @?= BaseStats (-1) 1 3 0.0 2.0
-    (fdelta stats1) @?= BaseStats (-2) 0 2 (-1.0) 2.0
+    let AggregatedStats stats1 = updateAggregation (PureI (-1)) (updateAggregation (PureI 1) firstStateAggregatedStats lometa Nothing) lometa Nothing
+    -- (fbasic stats1) @?= BaseStats (PureI (-1)) (PureI 1) 3   0.0  2.0
+    (fdelta stats1) @?= BaseStats (PureI (-2)) (PureI 0) 2 (-1.0) 2.0
 
 unitAggregationStepwise :: Assertion
 unitAggregationStepwise = do
     stats0 <- pure $ singletonStats (Bytes 3000)
-    -- putStrLn $ show stats0
+    putStrLn $ show stats0
     threadDelay 50000   -- 0.05 s
     t1 <- mkLOMeta
     stats1 <- pure $ updateAggregation (Bytes 5000) stats0 t1 Nothing
-    -- putStrLn $ show stats1
+    putStrLn $ show stats1
     -- showTimedMean stats1
     threadDelay 50000   -- 0.05 s
     t2 <- mkLOMeta
     stats2 <- pure $ updateAggregation (Bytes 1000) stats1 t2 Nothing
-    -- putStrLn $ show stats2
+    putStrLn $ show stats2
     -- showTimedMean stats2
     checkTimedMean stats2
     threadDelay 50000   -- 0.05 s
     t3 <- mkLOMeta
     stats3 <- pure $ updateAggregation (Bytes 3000) stats2 t3 Nothing
-    -- putStrLn $ show stats3
+    putStrLn $ show stats3
     -- showTimedMean stats3
     checkTimedMean stats3
     threadDelay 50000   -- 0.05 s
     t4 <- mkLOMeta
     stats4 <- pure $ updateAggregation (Bytes 1000) stats3 t4 Nothing
-    -- putStrLn $ show stats4
+    putStrLn $ show stats4
     -- showTimedMean stats4
     checkTimedMean stats4
   where
@@ -126,10 +147,57 @@ unitAggregationStepwise = do
         let mean = meanOfStats (ftimed s)
         assertBool "the mean should be >= the minimum" (mean >= getDouble (fmin (ftimed s)))
         assertBool "the mean should be =< the maximum" (mean <= getDouble (fmax (ftimed s)))
-    showTimedMean (AggregatedEWMA _) = return ()
-    showTimedMean (AggregatedStats s) = putStrLn $ "mean = " ++ show (meanOfStats (ftimed s)) ++ showUnits (fmin (ftimed s))
+    -- showTimedMean (AggregatedEWMA _) = return ()
+    -- showTimedMean (AggregatedStats s) = putStrLn $ "mean = " ++ show (meanOfStats (ftimed s)) ++ showUnits (fmin (ftimed s))
 
 firstStateAggregatedStats :: Aggregated
-firstStateAggregatedStats = AggregatedStats (Stats 0 0 (BaseStats 0 0 1 0 0) (BaseStats 0 0 0 0 0) (BaseStats 0 0 0 0 0))
+firstStateAggregatedStats = AggregatedStats (Stats z z (BaseStats z z 1 0 0) (BaseStats z z 0 0 0) (BaseStats z z 0 0 0))
+  where
+    z = PureI 0
+
+\end{code}
+
+\subsubsection{Unit tests for Aggregated}
+\begin{code}
+
+unitAggregatedEqualGT :: Assertion
+unitAggregatedEqualGT = do
+    assertBool "comparing seconds"
+        ((Seconds 3) > (Seconds 2))
+    assertBool "comparing microseconds"
+        ((Microseconds 3000) > (Microseconds 2000))
+    assertBool "comparing nanoseconds"
+        ((Nanoseconds 3000000) > (Nanoseconds 2000000))
+    assertBool "comparing bytes"
+        ((Bytes 2048) > (Bytes 1024))
+    assertBool "comparing doubles"
+        ((PureD 2.34) > (PureD 1.42))
+    assertBool "comparing integers"
+        ((PureI 2) > (PureI 1))
+    assertBool "comparing severities"
+        ((Severity Error) > (Severity Warning))
+
+unitAggregatedEqualLT :: Assertion
+unitAggregatedEqualLT = do
+    assertBool "comparing seconds"
+        ((Seconds 2) < (Seconds 3))
+    assertBool "comparing microseconds"
+        ((Microseconds 2000) < (Microseconds 3000))
+    assertBool "comparing nanoseconds"
+        ((Nanoseconds 2000000) < (Nanoseconds 3000000))
+    assertBool "comparing bytes"
+        ((Bytes 1024) < (Bytes 2048))
+    assertBool "comparing doubles"
+        ((PureD 1.34) < (PureD 2.42))
+    assertBool "comparing integers"
+        ((PureI 1) < (PureI 2))
+    assertBool "comparing severities"
+        ((Severity Info) < (Severity Notice))
+
+unitAggregatedDiffGT :: Assertion
+unitAggregatedDiffGT = return ()
+
+unitAggregatedDiffLT :: Assertion
+unitAggregatedDiffLT = return ()
 
 \end{code}

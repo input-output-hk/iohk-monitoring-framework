@@ -38,12 +38,12 @@ import           Cardano.BM.Data.Severity
 Evaluation in monitoring will evaluate expressions
 \begin{code}
 type VarName = Text
-data MEvExpr = Compare VarName (Measurable -> Bool)
+data MEvExpr = Compare VarName (Measurable -> Measurable -> Bool, Measurable)
              | AND MEvExpr MEvExpr
              | OR MEvExpr MEvExpr
              | NOT MEvExpr
 
-            -- parsing: "(some >= (2000 µs))"  =>  Compare "some" (>= (Microseconds 2000))
+            -- parsing: "(some >= (2000 µs))"  =>  Compare "some" ((>=), (Microseconds 2000))
             -- parser "((lastreported >= (5 s)) Or ((other >= (0 s)) And (some > (1500 µs))))"
 
 instance Eq MEvExpr where
@@ -89,70 +89,70 @@ parseMaybe t =
     in
     P.maybeResult r
 
-parseExpr :: P.Parser MEvExpr
-parseExpr =
-        parseAnd
-    <|> parseOr
-    <|> parseNot
-    <|> parseComp
-
 openPar, closePar :: P.Parser ()
 openPar = void $ P.char '('
 closePar = void $ P.char ')'
 token :: Text -> P.Parser ()
 token s = void $ P.string s
 
-parseOr :: P.Parser MEvExpr
-parseOr = do
-    openPar
-    P.skipSpace
-    e1 <- parseExpr
-    P.skipSpace
-    token "Or"
-    P.skipSpace
-    e2 <- parseExpr
-    P.skipSpace
-    closePar
-    return (OR e1 e2)
+\end{code}
 
-parseAnd :: P.Parser MEvExpr
-parseAnd = do
+\label{code:parseExpr}
+An expression is enclosed in parentheses. Either it is a negation, starting with 'Not',
+or a binary operand like 'And', 'Or', or a comparison of a named variable.
+\begin{code}
+parseExpr :: P.Parser MEvExpr
+parseExpr = do
     openPar
     P.skipSpace
-    e1 <- parseExpr
-    P.skipSpace
-    token "And"
-    P.skipSpace
-    e2 <- parseExpr
+    e <- do
+            (nextIsChar 'N' >> parseNot)
+        <|> (nextIsChar '(' >> parseBi)
+        <|> parseComp
     P.skipSpace
     closePar
-    return (AND e1 e2)
+    return e
+
+\end{code}
+
+\label{code:nextIsChar}
+\begin{code}
+nextIsChar :: Char -> P.Parser ()
+nextIsChar c = do
+    c' <- P.peekChar'
+    if c == c'
+    then return ()
+    else fail $ "cannot parse char: " ++ [c]
+
+parseBi :: P.Parser MEvExpr
+parseBi = do
+    e1 <- parseExpr
+    P.skipSpace
+    op <-     (token "And" >> return AND)
+          <|> (token "Or" >> return OR)
+    P.skipSpace
+    e2 <- parseExpr
+    return (op e1 e2)
 
 parseNot :: P.Parser MEvExpr
 parseNot = do
-    openPar
-    P.skipSpace
     token "Not"
     P.skipSpace
     e <- parseExpr
     P.skipSpace
-    closePar
     return (NOT e)
 
 parseComp :: P.Parser MEvExpr
 parseComp = do
-    openPar
     vn <- parseVname
     P.skipSpace
     op <- parseOp
     P.skipSpace
     m <- parseMeasurable
-    closePar
-    return $ Compare vn (op m)
+    return $ Compare vn (op, m)
 
 parseVname :: P.Parser VarName
 parseVname = do
-    -- _ <- P.char '$'
     P.takeTill (isSpace)
 
 parseOp :: (Ord a, Eq a) => P.Parser (a -> a -> Bool)
@@ -232,21 +232,22 @@ if the expression is valid in the |Environment|,
 otherwise returns |False|.
 \begin{code}
 evaluate :: Environment -> MEvExpr -> Bool
-evaluate ev expr = case expr of
-    Compare vn op -> op (getMeasurable ev vn)
-    AND e1 e2     -> (evaluate ev e1) && (evaluate ev e2)
-    OR e1 e2      -> (evaluate ev e1) || (evaluate ev e2)
-    NOT e         -> not (evaluate ev e)
+evaluate ev expr =
+    case expr of
+        Compare vn (op, m2) ->
+                     case getMeasurable ev vn of
+                        Nothing -> False
+                        Just m1 -> op m1 m2
+        AND e1 e2 -> (evaluate ev e1) && (evaluate ev e2)
+        OR e1 e2  -> (evaluate ev e1) || (evaluate ev e2)
+        NOT e     -> not (evaluate ev e)
 
 \end{code}
 
 Helper functions to extract named values from the |Environment|.
 \begin{code}
-getMeasurable :: Environment -> VarName -> Measurable
-getMeasurable ev vn = do
-    case HM.lookup vn ev of
-        Nothing -> PureI (-394194783483399491091)  -- not expected
-        Just m' -> m'
+getMeasurable :: Environment -> VarName -> Maybe Measurable
+getMeasurable ev vn = HM.lookup vn ev
 
 \end{code}
 
@@ -254,16 +255,17 @@ getMeasurable ev vn = do
 
 \begin{code}
 test1 :: MEvExpr
-test1 = Compare "some" (> (Microseconds 2000))
+test1 = Compare "some" ((>), (Microseconds 2000))
 
 test2 :: MEvExpr
-test2 = Compare "other" (== (Severity Error))
+test2 = Compare "other" ((==), (Severity Error))
 
 test3 :: MEvExpr
 test3 = OR test1 (NOT test2)
 
 test4 :: Bool
-test4 = let env = HM.fromList [("some", Microseconds 1999), ("other", Severity Error)]
-        in
-        evaluate env test3
+test4 =
+    let env = HM.fromList [("some", Microseconds 1999), ("other", Severity Error)]
+    in
+    evaluate env test3
 \end{code}

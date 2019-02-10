@@ -38,7 +38,7 @@ unitTests = testGroup "Unit tests" [
                       parseEvalExpression "(time > (19 s))" False $ HM.fromList [("some", (Seconds 22))]
                 , testCase
                       "parse and eval simple expression; must return True" $
-                      parseEvalExpression "(time > (19 s))" False $ HM.fromList [("time", (Seconds 20))]
+                      parseEvalExpression "(time > (19 s))" True $ HM.fromList [("time", (Seconds 20))]
                 , testCase
                       "parse and eval OR expression; must return True" $
                       parseEvalExpression "((time > (22 s)) Or (time < (18 s)))" True $ HM.fromList [("time", (Seconds 16))]
@@ -47,11 +47,11 @@ unitTests = testGroup "Unit tests" [
                       parseEvalExpression "((time > (22 s)) Or (time < (18 s)))" True $ HM.fromList [("time", (Seconds 23))]
                 , testCase
                       "parse and eval OR expression; must return False" $
-                      parseEvalExpression "((time > (22 s)) Or (time < (18 s)))" True $ HM.fromList [("time", (Seconds 21))]
+                      parseEvalExpression "((time > (22 s)) Or (time < (18 s)))" False $ HM.fromList [("time", (Seconds 21))]
                 , testCase
                       "parse and eval AND expression; must return True" $
                       parseEvalExpression "((time > (22 s)) And (lastalert > (300 s)))" True $
-                                          HM.fromList [("lastalert", (Seconds 539)),("time", (Seconds 23))]
+                                          HM.fromList [("lastalert", (Seconds 539)), ("time", (Seconds 23))]
             ]
 
 \end{code}
