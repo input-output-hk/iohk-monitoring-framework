@@ -47,7 +47,29 @@ data Measurable = Microseconds {-# UNPACK #-} !Word64
                 | PureD        Double
                 | PureI        Integer
                 | Severity     S.Severity
-                deriving (Eq, Ord, Read, Generic, ToJSON)
+                deriving (Eq, Read, Generic, ToJSON)
+
+\end{code}
+
+|Measurable| can be transformed to an integral value.
+\begin{code}
+instance Ord Measurable where
+    compare (Seconds a) (Seconds b)              = compare a b
+    compare (Microseconds a) (Microseconds b)    = compare a b
+    compare (Nanoseconds a) (Nanoseconds b)      = compare a b
+    compare (Seconds a) (Microseconds b)         = compare (a * 1000000) b
+    compare (Nanoseconds a) (Microseconds b)     = compare a (b * 1000)
+    compare (Seconds a) (Nanoseconds b)          = compare (a * 1000000000) b
+    compare a@(Microseconds _) b@(Nanoseconds _) = compare b a
+    compare a@(Microseconds _) b@(Seconds _)     = compare b a
+    compare a@(Nanoseconds _) b@(Seconds _)      = compare b a
+    compare (Bytes a) (Bytes b)                  = compare a b
+    compare (PureD a) (PureD b)                  = compare a b
+    compare (PureI a) (PureI b)                  = compare a b
+    compare a@(PureD _) (PureI b)                = compare (getInteger a) b
+    compare a@(PureI _) b@(PureD _)              = compare b a
+    compare (Severity a) (Severity b)            = compare a b
+    compare a  b                                 = error $ "cannot compare " ++ (showType a) ++ " " ++ (show a) ++ " against this value: " ++ (showType b) ++ " " ++ (show b)
 
 \end{code}
 
@@ -98,7 +120,7 @@ instance Num Measurable where
     (*)  _                _               = error "Trying to multiply values with different units"
 
     abs (Microseconds a) = Microseconds (abs a)
-    abs (Nanoseconds a)  = Nanoseconds (abs a)
+    abs (Nanoseconds a)  = Nanoseconds  (abs a)
     abs (Seconds a)      = Seconds      (abs a)
     abs (Bytes a)        = Bytes        (abs a)
     abs (PureI a)        = PureI        (abs a)
@@ -114,7 +136,7 @@ instance Num Measurable where
     signum (Severity _)     = error "cannot compute sign of Severity"
 
     negate (Microseconds a) = Microseconds (negate a)
-    negate (Nanoseconds a)  = Nanoseconds (negate a)
+    negate (Nanoseconds a)  = Nanoseconds  (negate a)
     negate (Seconds a)      = Seconds      (negate a)
     negate (Bytes a)        = Bytes        (negate a)
     negate (PureI a)        = PureI        (negate a)
@@ -144,6 +166,15 @@ showUnits (Bytes _)        = " B"
 showUnits (PureI _)        = ""
 showUnits (PureD _)        = ""
 showUnits (Severity _)     = ""
+
+showType :: Measurable -> String
+showType (Microseconds _) = "Microseconds"
+showType (Nanoseconds _)  = "Nanoseconds"
+showType (Seconds _)      = "Seconds"
+showType (Bytes _)        = "Bytes"
+showType (PureI _)        = "PureI"
+showType (PureD _)        = "PureD"
+showType (Severity _)     = "Severity"
 
 -- show in S.I. units
 showSI :: Measurable -> String
@@ -287,7 +318,7 @@ instance Semigroup Aggregated where
 singletonStats :: Measurable -> Aggregated
 singletonStats a =
     let stats = Stats { flast  = a
-                      , fold   = 0
+                      , fold   = Nanoseconds 0
                       , fbasic = BaseStats
                                  { fmin   = a
                                  , fmax   = a

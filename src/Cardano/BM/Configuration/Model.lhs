@@ -56,7 +56,6 @@ import           Data.Text (Text, breakOnEnd, dropWhileEnd, pack, unpack)
 import qualified Data.Vector as Vector
 import           Data.Yaml as Y
 
-import           Cardano.BM.Data.Aggregated
 import           Cardano.BM.Data.AggregatedKind (AggregatedKind(..))
 import           Cardano.BM.Data.BackendKind
 import qualified Cardano.BM.Data.Configuration as R
@@ -424,15 +423,7 @@ after refinement.
 setup :: FilePath -> IO Configuration
 setup fp = do
     r <- R.parseRepresentation fp
-    c <- setupFromRepresentation r
-
-    -- print $ parseMonitors $ HM.lookup "mapMonitors" (R.options r)
-
-    -- testing
-    -- mon <- getMonitors c
-    -- print $ HM.toList mon
-
-    return c
+    setupFromRepresentation r
 
 parseMonitors :: Maybe (HM.HashMap Text Value) -> HM.HashMap LoggerName (MEvExpr, [MEvAction])
 parseMonitors Nothing = HM.empty
@@ -443,17 +434,15 @@ parseMonitors (Just hmv) = HM.mapMaybe mkMonitor hmv
         then do
             e  <- mkExpression $ a Vector.! 0
             as <- mkActions $ a Vector.! 1
-            -- e <- Just (MEv.Compare (pack $ show (a Vector.! 1)) (== (Severity Error)) )
-            -- as <- Just ["test1", "test2"]
             return (e, as)
         else Nothing
     mkMonitor _ = Nothing
     mkExpression :: Value -> Maybe MEvExpr
     mkExpression (Object o1) =
         case HM.lookup "monitor" o1 of
-            Nothing            -> Just (MEv.Compare "just null" (== (Severity Warning)))
+            Nothing            -> Nothing
             Just (String expr) -> MEv.parseMaybe expr
-            Just _             -> Just (MEv.Compare "something else" (== (Severity Error)))
+            Just _             -> Nothing
     mkExpression _ = Nothing
     mkActions :: Value -> Maybe [MEvAction]
     mkActions (Object o2) = 
