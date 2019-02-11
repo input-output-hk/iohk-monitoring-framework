@@ -111,34 +111,34 @@ unitAggregationInitialZero = do
 unitAggregationInitialPlus1Minus1 :: Assertion
 unitAggregationInitialPlus1Minus1 = do
     let AggregatedStats stats1 = updateAggregation (PureI (-1)) (updateAggregation (PureI 1) firstStateAggregatedStats lometa Nothing) lometa Nothing
-    -- (fbasic stats1) @?= BaseStats (PureI (-1)) (PureI 1) 3   0.0  2.0
+    (fbasic stats1) @?= BaseStats (PureI (-1)) (PureI 1) 3   0.0  2.0
     (fdelta stats1) @?= BaseStats (PureI (-2)) (PureI 0) 2 (-1.0) 2.0
 
 unitAggregationStepwise :: Assertion
 unitAggregationStepwise = do
     stats0 <- pure $ singletonStats (Bytes 3000)
-    putStrLn $ show stats0
+    -- putStrLn (show stats0)
     threadDelay 50000   -- 0.05 s
     t1 <- mkLOMeta
     stats1 <- pure $ updateAggregation (Bytes 5000) stats0 t1 Nothing
-    putStrLn $ show stats1
+    -- putStrLn (show stats1)
     -- showTimedMean stats1
     threadDelay 50000   -- 0.05 s
     t2 <- mkLOMeta
     stats2 <- pure $ updateAggregation (Bytes 1000) stats1 t2 Nothing
-    putStrLn $ show stats2
+    -- putStrLn (show stats2)
     -- showTimedMean stats2
     checkTimedMean stats2
     threadDelay 50000   -- 0.05 s
     t3 <- mkLOMeta
     stats3 <- pure $ updateAggregation (Bytes 3000) stats2 t3 Nothing
-    putStrLn $ show stats3
+    -- putStrLn (show stats3)
     -- showTimedMean stats3
     checkTimedMean stats3
     threadDelay 50000   -- 0.05 s
     t4 <- mkLOMeta
     stats4 <- pure $ updateAggregation (Bytes 1000) stats3 t4 Nothing
-    putStrLn $ show stats4
+    -- putStrLn (show stats4)
     -- showTimedMean stats4
     checkTimedMean stats4
   where
@@ -147,9 +147,16 @@ unitAggregationStepwise = do
         let mean = meanOfStats (ftimed s)
         assertBool "the mean should be >= the minimum" (mean >= getDouble (fmin (ftimed s)))
         assertBool "the mean should be =< the maximum" (mean <= getDouble (fmax (ftimed s)))
-    -- showTimedMean (AggregatedEWMA _) = return ()
-    -- showTimedMean (AggregatedStats s) = putStrLn $ "mean = " ++ show (meanOfStats (ftimed s)) ++ showUnits (fmin (ftimed s))
 
+\end{code}
+
+commented out:
+\begin{spec}
+    showTimedMean (AggregatedEWMA _) = return ()
+    showTimedMean (AggregatedStats s) = putStrLn $ "mean = " ++ show (meanOfStats (ftimed s)) ++ showUnits (fmin (ftimed s))
+\end{spec}
+
+\begin{code}
 firstStateAggregatedStats :: Aggregated
 firstStateAggregatedStats = AggregatedStats (Stats z z (BaseStats z z 1 0 0) (BaseStats z z 0 0 0) (BaseStats z z 0 0 0))
   where
@@ -195,9 +202,33 @@ unitAggregatedEqualLT = do
         ((Severity Info) < (Severity Notice))
 
 unitAggregatedDiffGT :: Assertion
-unitAggregatedDiffGT = return ()
+unitAggregatedDiffGT = do
+    assertBool "comparing time (µs vs. s)"
+        ((Microseconds 3000000) > (Seconds 2))
+    assertBool "comparing time (µs vs. ns)"
+        ((Microseconds 30) > (Nanoseconds 29999999))
+    assertBool "comparing nanoseconds"
+        ((Nanoseconds 3000000) > (Microseconds 2900))
+    assertBool "comparing bytes"
+        ((Bytes 2048) > (PureI 1024))
+    assertBool "comparing doubles"
+        ((PureD 2.34) > (PureI 1))
+    assertBool "comparing integers"
+        ((PureI 2) > (PureD 1.42))
 
 unitAggregatedDiffLT :: Assertion
-unitAggregatedDiffLT = return ()
+unitAggregatedDiffLT = do
+    assertBool "comparing time (µs vs. s)"
+        ((Microseconds 2999999) < (Seconds 3))
+    assertBool "comparing time (µs vs. ns)"
+        ((Microseconds 30) < (Nanoseconds 30001))
+    assertBool "comparing nanoseconds"
+        ((Nanoseconds 3000000) < (Microseconds 3001))
+    assertBool "comparing bytes"
+        ((PureI 1024) < (Bytes 2048))
+    assertBool "comparing doubles"
+        ((PureD 2.34) < (PureI 3))
+    assertBool "comparing integers"
+        ((PureI 2) < (PureD 3.42))
 
 \end{code}
