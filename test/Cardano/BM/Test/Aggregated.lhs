@@ -206,7 +206,7 @@ unitAggregatedDiffGT = do
     assertBool "comparing time (µs vs. s)"
         ((Microseconds 3000000) > (Seconds 2))
     assertBool "comparing time (µs vs. ns)"
-        ((Microseconds 30) > (Nanoseconds 29999999))
+        ((Microseconds 30) > (Nanoseconds 29999))
     assertBool "comparing nanoseconds"
         ((Nanoseconds 3000000) > (Microseconds 2900))
     assertBool "comparing bytes"
