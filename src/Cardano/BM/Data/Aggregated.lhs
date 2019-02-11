@@ -60,9 +60,9 @@ instance Ord Measurable where
     compare (Seconds a) (Microseconds b)         = compare (a * 1000000) b
     compare (Nanoseconds a) (Microseconds b)     = compare a (b * 1000)
     compare (Seconds a) (Nanoseconds b)          = compare (a * 1000000000) b
-    compare a@(Microseconds _) b@(Nanoseconds _) = compare b a
-    compare a@(Microseconds _) b@(Seconds _)     = compare b a
-    compare a@(Nanoseconds _) b@(Seconds _)      = compare b a
+    compare (Microseconds a) (Nanoseconds b)     = compare (a * 1000) b
+    compare (Microseconds a) (Seconds b)         = compare a (b * 1000000)
+    compare (Nanoseconds a) (Seconds b)          = compare a (b * 1000000000)
     compare (Bytes a) (Bytes b)                  = compare a b
     compare (PureD a) (PureD b)                  = compare a b
     compare (PureI a) (PureI b)                  = compare a b
@@ -71,12 +71,12 @@ instance Ord Measurable where
     compare (PureI a) (Microseconds b)  | a >= 0 = compare a (toInteger b)
     compare (PureI a) (Nanoseconds b)   | a >= 0 = compare a (toInteger b)
     compare (PureI a) (Bytes b)         | a >= 0 = compare a (toInteger b)
-    compare a@(Seconds _) b@(PureI _)            = compare b a
-    compare a@(Microseconds _) b@(PureI _)       = compare b a
-    compare a@(Nanoseconds _) b@(PureI _)        = compare b a
-    compare a@(Bytes _) b@(PureI _)              = compare b a
+    compare (Seconds a)      (PureI b)  | b >= 0 = compare (toInteger a) b
+    compare (Microseconds a) (PureI b)  | b >= 0 = compare (toInteger a) b
+    compare (Nanoseconds a)  (PureI b)  | b >= 0 = compare (toInteger a) b
+    compare (Bytes a)        (PureI b)  | b >= 0 = compare (toInteger a) b
     compare a@(PureD _) (PureI b)                = compare (getInteger a) b
-    compare a@(PureI _) b@(PureD _)              = compare b a
+    compare (PureI a) b@(PureD _)                = compare a (getInteger b)
     compare a  b                                 = error $ "cannot compare " ++ (showType a) ++ " " ++ (show a) ++ " against this value: " ++ (showType b) ++ " " ++ (show b)
 
 \end{code}
