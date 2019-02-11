@@ -34,6 +34,7 @@ import qualified Cardano.BM.Test.Aggregated (tests)
 import qualified Cardano.BM.Test.STM (tests)
 import qualified Cardano.BM.Test.Trace (tests)
 import qualified Cardano.BM.Test.Configuration (tests)
+import qualified Cardano.BM.Test.Rotator (tests)
 import qualified Cardano.BM.Test.Routing (tests)
 
 main :: IO ()
@@ -46,6 +47,7 @@ tests =
   , Cardano.BM.Test.STM.tests
   , Cardano.BM.Test.Trace.tests
   , Cardano.BM.Test.Configuration.tests
+  , Cardano.BM.Test.Rotator.tests
   , Cardano.BM.Test.Routing.tests
   ]
 \end{code}
@@ -59,3 +61,4 @@ tests =
 %include ../test/Cardano/BM/Test/STM.lhs
 %include ../test/Cardano/BM/Test/Trace.lhs
 %include ../test/Cardano/BM/Test/Configuration.lhs
+%include ../test/Cardano/BM/Test/Rotator.lhs
