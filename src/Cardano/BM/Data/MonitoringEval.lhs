@@ -15,7 +15,6 @@ module Cardano.BM.Data.MonitoringEval
   , evaluate
   , parseEither
   , parseMaybe
-  , test1, test2, test3, test4
   )
   where
 
@@ -249,23 +248,4 @@ Helper functions to extract named values from the |Environment|.
 getMeasurable :: Environment -> VarName -> Maybe Measurable
 getMeasurable ev vn = HM.lookup vn ev
 
-\end{code}
-
-
-
-\begin{code}
-test1 :: MEvExpr
-test1 = Compare "some" ((>), (Microseconds 2000))
-
-test2 :: MEvExpr
-test2 = Compare "other" ((==), (Severity Error))
-
-test3 :: MEvExpr
-test3 = OR test1 (NOT test2)
-
-test4 :: Bool
-test4 =
-    let env = HM.fromList [("some", Microseconds 1999), ("other", Severity Error)]
-    in
-    evaluate env test3
 \end{code}
