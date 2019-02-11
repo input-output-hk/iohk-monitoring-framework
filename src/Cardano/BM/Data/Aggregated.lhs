@@ -66,9 +66,17 @@ instance Ord Measurable where
     compare (Bytes a) (Bytes b)                  = compare a b
     compare (PureD a) (PureD b)                  = compare a b
     compare (PureI a) (PureI b)                  = compare a b
+    compare (Severity a) (Severity b)            = compare a b
+    compare (PureI a) (Seconds b)       | a >= 0 = compare a (toInteger b)
+    compare (PureI a) (Microseconds b)  | a >= 0 = compare a (toInteger b)
+    compare (PureI a) (Nanoseconds b)   | a >= 0 = compare a (toInteger b)
+    compare (PureI a) (Bytes b)         | a >= 0 = compare a (toInteger b)
+    compare a@(Seconds _) b@(PureI _)            = compare b a
+    compare a@(Microseconds _) b@(PureI _)       = compare b a
+    compare a@(Nanoseconds _) b@(PureI _)        = compare b a
+    compare a@(Bytes _) b@(PureI _)              = compare b a
     compare a@(PureD _) (PureI b)                = compare (getInteger a) b
     compare a@(PureI _) b@(PureD _)              = compare b a
-    compare (Severity a) (Severity b)            = compare a b
     compare a  b                                 = error $ "cannot compare " ++ (showType a) ++ " " ++ (show a) ++ " against this value: " ++ (showType b) ++ " " ++ (show b)
 
 \end{code}
