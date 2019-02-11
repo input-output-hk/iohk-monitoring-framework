@@ -10,7 +10,7 @@
 module Cardano.BM.Configuration.Model
     ( Configuration (..)
     , ConfigurationInternal (..)
-    , setup, parseMonitors
+    , setup
     , setupFromRepresentation
     , empty
     , minSeverity
@@ -399,11 +399,11 @@ setSubTrace configuration name trafo =
 Just (
   fromList [
     ("chain.creation.block", Array [
-      Object (fromList [("monitor", String "((time > 23 s) Or (time < 17 s))")]),
+      Object (fromList [("monitor", String "((time > (23 s)) Or (time < (17 s)))")]),
       Object (fromList [("actions", Array [
         String "AlterMinSeverity \"chain.creation\" Debug"])])])
   , ("#aggregation.critproc.observable", Array [
-      Object (fromList [("monitor", String "(mean >= 42)")]),
+      Object (fromList [("monitor", String "(mean >= (42))")]),
       Object (fromList [("actions", Array [
         String "CreateMessage \"exceeded\" \"the observable has been too long too high!\"",
         String "AlterGlobalMinSeverity Info"])]) ]) ] )
