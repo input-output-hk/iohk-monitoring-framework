@@ -20,6 +20,9 @@ module Cardano.BM.Rotator
        , initializeRotator
        , latestLogFile
        , prtoutException
+       , nameLogFile
+       , tsformat
+       , listLogFiles
        ) where
 
 import           Control.Exception.Safe (Exception (..), catchIO)
