@@ -456,7 +456,7 @@ parseMonitors (Just hmv) = HM.mapMaybe mkMonitor hmv
 
 setupFromRepresentation :: R.Representation -> IO Configuration
 setupFromRepresentation r = do
-    let mapseverities0        = HM.lookup "mapSeverity"        (R.options r)
+    let mapseverities0     = HM.lookup "mapSeverity"        (R.options r)
         mapbackends        = HM.lookup "mapBackends"        (R.options r)
         mapsubtrace        = HM.lookup "mapSubtrace"        (R.options r)
         mapscribes0        = HM.lookup "mapScribes"         (R.options r)
