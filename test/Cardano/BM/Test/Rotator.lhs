@@ -28,10 +28,9 @@ import           Cardano.BM.Data.Rotation (RotationParameters (..))
 import           Test.Tasty (TestTree, testGroup)
 import           Test.Tasty.QuickCheck (Property, testProperty)
 import qualified Test.QuickCheck as QC
+import           Test.QuickCheck ((===))
 import           Test.QuickCheck.Arbitrary (Arbitrary)
 import           Test.QuickCheck.Modifiers (Positive (..))
-import           Test.QuickCheck.Monadic (assert, monadicIO, run)
-
 import           Test.QuickCheck.Property (ioProperty)
 
 \end{code}
@@ -61,9 +60,9 @@ property_tests = testGroup "Property tests" [
 \subsubsection{Check that full file name has only added 15 digits to the base name of the file.}\label{code:prop_name_giving}
 \begin{code}
 prop_name_giving :: FilePath -> Property
-prop_name_giving name = monadicIO $ do
-    filename <- run $ nameLogFile name
-    assert $ length filename == length name + 15
+prop_name_giving name = ioProperty $ do
+    filename <- nameLogFile name
+    return $ length filename === length name + 15
 
 \end{code}
 
@@ -142,6 +141,6 @@ prop_cleanup rotationParams (Dir filename) (Positive nFiles) (SL maxDev) = ioPro
     -- delete folders created
     when (dropWhile (/= '/') filename /= "") $
         removePathForcibly $ "/tmp" </> takeWhile (/= '/') filename
-    return $ kept == toBeKept
+    return $ kept === toBeKept
 
 \end{code}

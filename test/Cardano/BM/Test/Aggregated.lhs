@@ -17,9 +17,10 @@ import           Cardano.BM.Data.Aggregated
 import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Output.Aggregation (updateAggregation)
 
+import           Test.QuickCheck (Property, (===), (.&&.), (.||.), property)
 import           Test.Tasty
 import           Test.Tasty.HUnit
-import           Test.Tasty.QuickCheck
+import           Test.Tasty.QuickCheck (testProperty)
 
 \end{code}
 %endif
@@ -53,17 +54,17 @@ prop_Aggregation_minimal = True
 lometa :: LOMeta
 lometa = unsafePerformIO $ mkLOMeta
 
-prop_Aggregation_comm :: Integer -> Integer -> Aggregated -> Bool
+prop_Aggregation_comm :: Integer -> Integer -> Aggregated -> Property
 prop_Aggregation_comm v1 v2 ag =
     let AggregatedStats stats1 = updateAggregation (PureI v1) (updateAggregation (PureI v2) ag lometa Nothing) lometa Nothing
         AggregatedStats stats2 = updateAggregation (PureI v2) (updateAggregation (PureI v1) ag lometa Nothing) lometa Nothing
     in
-    fbasic stats1 == fbasic stats2 &&
-    (v1 == v2) `implies` (flast stats1 == flast stats2)
+    fbasic stats1 === fbasic stats2 .&&.
+    (v1 == v2) `implies` (flast stats1 === flast stats2)
 
 -- implication: if p1 is true, then return p2; otherwise true
-implies :: Bool -> Bool -> Bool
-implies p1 p2 = (not p1) || p2
+implies :: Bool -> Property -> Property
+implies p1 p2 = property (not p1) .||. p2
 
 unit_Aggregation_initial_minus_1 :: Assertion
 unit_Aggregation_initial_minus_1 = do
