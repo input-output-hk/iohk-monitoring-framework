@@ -21,7 +21,6 @@ module Cardano.BM.Trace
     , natTrace
     , subTrace
     , typeofTrace
-    , updateTracetype
     , evalFilters
     -- * log functions
     , traceNamedObject

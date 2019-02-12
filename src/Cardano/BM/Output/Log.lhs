@@ -67,7 +67,7 @@ import           Cardano.BM.Rotator (cleanupRotator, evalRotator,
 \end{code}
 %endif
 
-\subsubsection{Internal representation}\label{code:Log}
+\subsubsection{Internal representation}\label{code:Log}\index{Log}
 \begin{code}
 type LogMVar = MVar LogInternal
 newtype Log = Log
@@ -79,7 +79,7 @@ data LogInternal = LogInternal
 
 \end{code}
 
-\subsubsection{Log implements |effectuate|}
+\subsubsection{Log implements |effectuate|}\index{Log!instance of IsEffectuator}
 \begin{code}
 instance IsEffectuator Log where
     effectuate katip item = do
@@ -87,9 +87,11 @@ instance IsEffectuator Log where
         selscribes <- getScribes c (lnName item)
         forM_ selscribes $ \sc -> passN sc katip item
 
+    handleOverflow _ = putStrLn "Notice: Katip's queue full, dropping log items!"
+
 \end{code}
 
-\subsubsection{Log implements backend functions}
+\subsubsection{Log implements backend functions}\index{Log!instance of IsBackend}
 \begin{code}
 instance IsBackend Log where
     typeof _ = KatipBK
@@ -162,6 +164,7 @@ example = do
                                             { lnName = "test"
                                             , lnItem = LogValue "cpu-no" 1
                                             }
+
 \end{spec}
 
 Needed instances for |katip|:
@@ -216,6 +219,10 @@ passN backend katip namedLogItem = do
                                     (Info, text, Nothing)
                                 (LogValue name value) ->
                                     (Debug, name <> " = " <> pack (showSI value), Nothing)
+                                (MonitoringEffect logitem) ->
+                                     let text = TL.toStrict (encodeToLazyText logitem)
+                                     in
+                                     (Info, text, Just loitem)
                                 KillPill ->
                                     (Info, "Kill pill received!", Nothing)
                     if (msg == "") && (isNothing payload)
@@ -239,6 +246,7 @@ passN backend katip namedLogItem = do
                                 }
                         void $ atomically $ KC.tryWriteTBQueue shChan (KC.NewItem itemKatip)
                 else return ()
+
 \end{code}
 
 \subsubsection{Scribes}

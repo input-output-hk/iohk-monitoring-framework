@@ -1,5 +1,5 @@
 
-\subsection{STM}
+\subsection{Cardano.BM.Test.STM}
 
 \begin{code}
 module Cardano.BM.Test.STM (
@@ -11,7 +11,7 @@ import           Test.Tasty.QuickCheck
 
 
 tests :: TestTree
-tests = testGroup "observing STM actions" [
+tests = testGroup "Observing STM actions" [
       testProperty "minimal" prop_STM_observer
     ]
 

@@ -28,6 +28,9 @@ import           Data.Aeson (ToJSON)
 import           Data.Scientific (fromFloatDigits)
 import           Data.Text (Text, pack)
 import           Data.Word (Word64)
+
+import qualified Cardano.BM.Data.Severity as S
+
 \end{code}
 %endif
 
@@ -43,7 +46,38 @@ data Measurable = Microseconds {-# UNPACK #-} !Word64
                 | Bytes        {-# UNPACK #-} !Word64
                 | PureD        Double
                 | PureI        Integer
-                deriving (Eq, Ord, Generic, ToJSON)
+                | Severity     S.Severity
+                deriving (Eq, Read, Generic, ToJSON)
+
+\end{code}
+
+|Measurable| can be transformed to an integral value.
+\begin{code}
+instance Ord Measurable where
+    compare (Seconds a) (Seconds b)              = compare a b
+    compare (Microseconds a) (Microseconds b)    = compare a b
+    compare (Nanoseconds a) (Nanoseconds b)      = compare a b
+    compare (Seconds a) (Microseconds b)         = compare (a * 1000000) b
+    compare (Nanoseconds a) (Microseconds b)     = compare a (b * 1000)
+    compare (Seconds a) (Nanoseconds b)          = compare (a * 1000000000) b
+    compare (Microseconds a) (Nanoseconds b)     = compare (a * 1000) b
+    compare (Microseconds a) (Seconds b)         = compare a (b * 1000000)
+    compare (Nanoseconds a) (Seconds b)          = compare a (b * 1000000000)
+    compare (Bytes a) (Bytes b)                  = compare a b
+    compare (PureD a) (PureD b)                  = compare a b
+    compare (PureI a) (PureI b)                  = compare a b
+    compare (Severity a) (Severity b)            = compare a b
+    compare (PureI a) (Seconds b)       | a >= 0 = compare a (toInteger b)
+    compare (PureI a) (Microseconds b)  | a >= 0 = compare a (toInteger b)
+    compare (PureI a) (Nanoseconds b)   | a >= 0 = compare a (toInteger b)
+    compare (PureI a) (Bytes b)         | a >= 0 = compare a (toInteger b)
+    compare (Seconds a)      (PureI b)  | b >= 0 = compare (toInteger a) b
+    compare (Microseconds a) (PureI b)  | b >= 0 = compare (toInteger a) b
+    compare (Nanoseconds a)  (PureI b)  | b >= 0 = compare (toInteger a) b
+    compare (Bytes a)        (PureI b)  | b >= 0 = compare (toInteger a) b
+    compare a@(PureD _) (PureI b)                = compare (getInteger a) b
+    compare (PureI a) b@(PureD _)                = compare a (getInteger b)
+    compare a  b                                 = error $ "cannot compare " ++ (showType a) ++ " " ++ (show a) ++ " against this value: " ++ (showType b) ++ " " ++ (show b)
 
 \end{code}
 
@@ -56,6 +90,7 @@ getInteger (Seconds a)      = toInteger a
 getInteger (Bytes a)        = toInteger a
 getInteger (PureI a)        = a
 getInteger (PureD a)        = round a
+getInteger (Severity a)     = toInteger (fromEnum a)
 
 \end{code}
 
@@ -68,6 +103,7 @@ getDouble (Seconds a)      = fromIntegral a
 getDouble (Bytes a)        = fromIntegral a
 getDouble (PureI a)        = fromInteger a
 getDouble (PureD a)        = a
+getDouble (Severity a)     = fromIntegral (fromEnum a)
 
 \end{code}
 
@@ -92,11 +128,12 @@ instance Num Measurable where
     (*)  _                _               = error "Trying to multiply values with different units"
 
     abs (Microseconds a) = Microseconds (abs a)
-    abs (Nanoseconds a)  = Nanoseconds (abs a)
+    abs (Nanoseconds a)  = Nanoseconds  (abs a)
     abs (Seconds a)      = Seconds      (abs a)
     abs (Bytes a)        = Bytes        (abs a)
     abs (PureI a)        = PureI        (abs a)
     abs (PureD a)        = PureD        (abs a)
+    abs (Severity _)     = error "cannot compute absolute value for Severity"
 
     signum (Microseconds a) = Microseconds (signum a)
     signum (Nanoseconds a)  = Nanoseconds  (signum a)
@@ -104,13 +141,15 @@ instance Num Measurable where
     signum (Bytes a)        = Bytes        (signum a)
     signum (PureI a)        = PureI        (signum a)
     signum (PureD a)        = PureD        (signum a)
+    signum (Severity _)     = error "cannot compute sign of Severity"
 
     negate (Microseconds a) = Microseconds (negate a)
-    negate (Nanoseconds a)  = Nanoseconds (negate a)
+    negate (Nanoseconds a)  = Nanoseconds  (negate a)
     negate (Seconds a)      = Seconds      (negate a)
     negate (Bytes a)        = Bytes        (negate a)
     negate (PureI a)        = PureI        (negate a)
     negate (PureD a)        = PureD        (negate a)
+    negate (Severity _)     = error "cannot negate Severity"
 
     fromInteger = PureI
 
@@ -125,6 +164,7 @@ instance Show Measurable where
     show (Bytes a)        = show a
     show (PureI a)        = show a
     show (PureD a)        = show a
+    show (Severity a)     = show a
 
 showUnits :: Measurable -> String
 showUnits (Microseconds _) = " µs"
@@ -133,6 +173,16 @@ showUnits (Seconds _)      = " s"
 showUnits (Bytes _)        = " B"
 showUnits (PureI _)        = ""
 showUnits (PureD _)        = ""
+showUnits (Severity _)     = ""
+
+showType :: Measurable -> String
+showType (Microseconds _) = "Microseconds"
+showType (Nanoseconds _)  = "Nanoseconds"
+showType (Seconds _)      = "Seconds"
+showType (Bytes _)        = "Bytes"
+showType (PureI _)        = "PureI"
+showType (PureD _)        = "PureD"
+showType (Severity _)     = "Severity"
 
 -- show in S.I. units
 showSI :: Measurable -> String
@@ -144,6 +194,7 @@ showSI v@(Seconds a)    = show a ++ showUnits v
 showSI v@(Bytes a)      = show a ++ showUnits v
 showSI v@(PureI a)      = show a ++ showUnits v
 showSI v@(PureD a)      = show a ++ showUnits v
+showSI v@(Severity a)   = show a ++ showUnits v
 
 \end{code}
 
@@ -153,9 +204,9 @@ A |Stats| statistics is strictly computed.
 data BaseStats = BaseStats {
     fmin   :: !Measurable,
     fmax   :: !Measurable,
-    fcount :: !Int,
-    fsum_A :: !Double,
-    fsum_B :: !Double
+    fcount :: {-# UNPACK #-} !Int,
+    fsum_A :: {-# UNPACK #-} !Double,
+    fsum_B :: {-# UNPACK #-} !Double
     } deriving (Generic, ToJSON, Show)
 
 instance Eq BaseStats where
@@ -275,7 +326,7 @@ instance Semigroup Aggregated where
 singletonStats :: Measurable -> Aggregated
 singletonStats a =
     let stats = Stats { flast  = a
-                      , fold   = 0
+                      , fold   = Nanoseconds 0
                       , fbasic = BaseStats
                                  { fmin   = a
                                  , fmax   = a

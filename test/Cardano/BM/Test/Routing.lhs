@@ -31,7 +31,7 @@ import           Test.Tasty.HUnit
 \subsubsection{Test declarations}
 \begin{code}
 tests :: TestTree
-tests = testGroup "routing tests" [
+tests = testGroup "Routing tests" [
             unit_tests
         ]
 

@@ -130,23 +130,28 @@ where
 %include Cardano/BM/Counters/Linux.lhs
 
 %include Cardano/BM/Data/Aggregated.lhs
+%include Cardano/BM/Data/AggregatedKind.lhs
 %include Cardano/BM/Data/Backend.lhs
+%include Cardano/BM/Data/BackendKind.lhs
 %include Cardano/BM/Data/Configuration.lhs
 %include Cardano/BM/Data/Counter.lhs
 %include Cardano/BM/Data/LogItem.lhs
 %include Cardano/BM/Data/Observable.lhs
 %include Cardano/BM/Data/Output.lhs
+%include Cardano/BM/Data/Rotation.lhs
 %include Cardano/BM/Data/Severity.lhs
 %include Cardano/BM/Data/SubTrace.lhs
 %include Cardano/BM/Data/Trace.lhs
 
 %include Cardano/BM/Configuration.lhs
 %include Cardano/BM/Configuration/Model.lhs
+%include Cardano/BM/Configuration/Static.lhs
 
 %include Cardano/BM/Output/Switchboard.lhs
 %include Cardano/BM/Output/Log.lhs
 %include Cardano/BM/Output/EKGView.lhs
 %include Cardano/BM/Output/Aggregation.lhs
+%include Cardano/BM/Output/Monitoring.lhs
 
 \chapter{Testing}
 

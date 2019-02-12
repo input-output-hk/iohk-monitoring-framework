@@ -27,10 +27,11 @@ import           Cardano.BM.Configuration.Model (Configuration)
 Instances of this type class accept a |NamedLogItem| and deal with it.
 \begin{code}
 class IsEffectuator t where
-    effectuate  :: t -> NamedLogItem -> IO ()
+    effectuate     :: t -> NamedLogItem -> IO ()
     effectuatefrom :: forall s . (IsEffectuator s) => t -> NamedLogItem -> s -> IO ()
     default effectuatefrom :: forall s . (IsEffectuator s) => t -> NamedLogItem -> s -> IO ()
     effectuatefrom t nli _ = effectuate t nli
+    handleOverflow :: t -> IO ()
 
 \end{code}
 

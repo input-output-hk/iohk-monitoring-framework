@@ -23,8 +23,10 @@ import           Cardano.BM.Configuration.Model (Configuration (..),
                      setDefaultAggregatedKind, setAggregatedKind, setGUIport,
                      setEKGport)
 import           Cardano.BM.Configuration.Static (defaultConfigStdout)
+import qualified Cardano.BM.Data.Aggregated as Agg
 import           Cardano.BM.Data.AggregatedKind
 import           Cardano.BM.Data.BackendKind
+import           Cardano.BM.Data.MonitoringEval
 import           Cardano.BM.Data.Output
 import           Cardano.BM.Data.Observable (ObservableInstance (..))
 import           Cardano.BM.Data.Severity
@@ -42,24 +44,24 @@ import           Test.Tasty.QuickCheck
 \begin{code}
 tests :: TestTree
 tests = testGroup "config tests" [
-            property_tests
-          , unit_tests
+            propertyTests
+          , unitTests
         ]
 
-property_tests :: TestTree
-property_tests = testGroup "Properties" [
+propertyTests :: TestTree
+propertyTests = testGroup "Properties" [
         testProperty "minimal" prop_Configuration_minimal
     ]
 
-unit_tests :: TestTree
-unit_tests = testGroup "Unit tests" [
-        testCase "static_representation" unit_Configuration_static_representation
-      , testCase "parsed_representation" unit_Configuration_parsed_representation
-      , testCase "parsed_configuration" unit_Configuration_parsed
-      , testCase "include_EKG_if_defined" unit_Configuration_check_EKG_positive
-      , testCase "not_include_EKG_if_ndef" unit_Configuration_check_EKG_negative
-      , testCase "check_scribe_caching" unit_Configuration_check_scribe_cache
-      , testCase "test ops on Configuration" unit_Configuration_ops
+unitTests :: TestTree
+unitTests = testGroup "Unit tests" [
+        testCase "static representation" unitConfigurationStaticRepresentation
+      , testCase "parsed representation" unitConfigurationParsedRepresentation
+      , testCase "parsed configuration" unitConfigurationParsed
+      , testCase "include EKG if defined" unitConfigurationCheckEKGpositive
+      , testCase "not include EKG if not def" unitConfigurationCheckEKGnegative
+      , testCase "check scribe caching" unitConfigurationCheckScribeCache
+      , testCase "test ops on Configuration" unitConfigurationOps
     ]
 
 \end{code}
@@ -77,8 +79,8 @@ The configuration file only indicates that EKG is listening on port nnnnn. Infer
 |EKGViewBK| needs to be started as a backend.
 
 \begin{code}
-unit_Configuration_check_EKG_positive :: Assertion
-unit_Configuration_check_EKG_positive = do
+unitConfigurationCheckEKGpositive :: Assertion
+unitConfigurationCheckEKGpositive = do
     let c = [ "rotation:"
             , "  rpLogLimitBytes: 5000000"
             , "  rpKeepFilesNum: 10"
@@ -111,8 +113,8 @@ unit_Configuration_check_EKG_positive = do
 
 If there is no port defined for EKG, then do not start it even if present in the config.
 \begin{code}
-unit_Configuration_check_EKG_negative :: Assertion
-unit_Configuration_check_EKG_negative = do
+unitConfigurationCheckEKGnegative :: Assertion
+unitConfigurationCheckEKGnegative = do
     let c = [ "rotation:"
             , "  rpLogLimitBytes: 5000000"
             , "  rpKeepFilesNum: 10"
@@ -148,8 +150,8 @@ unit_Configuration_check_EKG_negative = do
 \end{code}
 
 \begin{code}
-unit_Configuration_static_representation :: Assertion
-unit_Configuration_static_representation =
+unitConfigurationStaticRepresentation :: Assertion
+unitConfigurationStaticRepresentation =
     let r = Representation
             { minSeverity = Info
             , rotation = Just $ RotationParameters
@@ -198,8 +200,8 @@ unit_Configuration_static_representation =
                  \hasEKG: 18321\n\
                  \minSeverity: Info\n"
 
-unit_Configuration_parsed_representation :: Assertion
-unit_Configuration_parsed_representation = do
+unitConfigurationParsedRepresentation :: Assertion
+unitConfigurationParsedRepresentation = do
     repr <- parseRepresentation "test/config.yaml"
     encode repr @?= "\
                     \rotation:\n\
@@ -233,6 +235,16 @@ unit_Configuration_parsed_representation = do
                     \    iohk.background.process: StatsAK\n\
                     \  cfokey:\n\
                     \    value: Release-1.0.0\n\
+                    \  mapMonitors:\n\
+                    \    chain.creation.block:\n\
+                    \    - monitor: ((time > (23 s)) Or (time < (17 s)))\n\
+                    \    - actions:\n\
+                    \      - AlterMinSeverity \"chain.creation\" Debug\n\
+                    \    ! '#aggregation.critproc.observable':\n\
+                    \    - monitor: (mean >= (42))\n\
+                    \    - actions:\n\
+                    \      - CreateMessage \"exceeded\" \"the observable has been too long too high!\"\n\
+                    \      - AlterGlobalMinSeverity Info\n\
                     \  mapScribes:\n\
                     \    iohk.interesting.value:\n\
                     \    - StdoutSK::stdout\n\
@@ -255,8 +267,8 @@ unit_Configuration_parsed_representation = do
                     \hasEKG: 12789\n\
                     \minSeverity: Info\n"
 
-unit_Configuration_parsed :: Assertion
-unit_Configuration_parsed = do
+unitConfigurationParsed :: Assertion
+unitConfigurationParsed = do
     cfg <- setup "test/config.yaml"
     cfgInternal <- readMVar $ getCG cfg
     cfgInternal @?= ConfigurationInternal
@@ -281,6 +293,15 @@ unit_Configuration_parsed = do
                                                         [String "GhcRtsStats"
                                                         ,String "MonotonicClock"])]))
                             ,("iohk.deadend",String "NoTrace")])
+            , ("mapMonitors", HM.fromList [("chain.creation.block",Array $ V.fromList
+                                            [Object (HM.fromList [("monitor",String "((time > (23 s)) Or (time < (17 s)))")])
+                                            ,Object (HM.fromList [("actions",Array $ V.fromList
+                                                [String "AlterMinSeverity \"chain.creation\" Debug"])])])
+                                          ,("#aggregation.critproc.observable",Array $ V.fromList
+                                            [Object (HM.fromList [("monitor",String "(mean >= (42))")])
+                                            ,Object (HM.fromList [("actions",Array $ V.fromList
+                                                [String "CreateMessage \"exceeded\" \"the observable has been too long too high!\""
+                                                ,String "AlterGlobalMinSeverity Info"])])])])
             , ("mapSeverity", HM.fromList [("iohk.startup",String "Debug")
                                           ,("iohk.background.process",String "Error")
                                           ,("iohk.testing.uncritical",String "Warning")])
@@ -328,6 +349,16 @@ unit_Configuration_parsed = do
                                             , ("iohk.background.process", StatsAK)
                                             ]
         , cgDefAggregatedKind = StatsAK
+        , cgMonitors          = HM.fromList [ ("chain.creation.block", ((OR (Compare "time" ((>), (Agg.Seconds 23))) (Compare "time" ((<), (Agg.Seconds 17))))
+                                                                       , ["AlterMinSeverity \"chain.creation\" Debug"]
+                                                                       )
+                                              )
+                                            , ("#aggregation.critproc.observable", (Compare "mean" ((>=), (Agg.PureI 42))
+                                                                                   , ["CreateMessage \"exceeded\" \"the observable has been too long too high!\""
+                                                                                   , "AlterGlobalMinSeverity Info"]
+                                                                                   )
+                                              )
+                                            ]
         , cgPortEKG           = 12789
         , cgPortGUI           = 0
         }
@@ -336,8 +367,8 @@ unit_Configuration_parsed = do
 
 Test caching and inheritance of Scribes.
 \begin{code}
-unit_Configuration_check_scribe_cache :: Assertion
-unit_Configuration_check_scribe_cache = do
+unitConfigurationCheckScribeCache :: Assertion
+unitConfigurationCheckScribeCache = do
     configuration <- empty
 
     let defScribes = ["FileTextSK::node.log"]
@@ -366,8 +397,8 @@ unit_Configuration_check_scribe_cache = do
 
 Test operations on Configuration.
 \begin{code}
-unit_Configuration_ops :: Assertion
-unit_Configuration_ops = do
+unitConfigurationOps :: Assertion
+unitConfigurationOps = do
     configuration <- defaultConfigStdout
 
     defBackends <- getDefaultBackends configuration

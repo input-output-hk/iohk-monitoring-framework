@@ -80,9 +80,9 @@ data AggregatedExpanded = AggregatedExpanded
 
 \end{code}
 
-\subsubsection{|Aggregation| implements |effectuate|}
+\subsubsection{|Aggregation| implements |effectuate|}\index{Aggregation!instance of IsEffectuator}
 
-|Aggregation| is an \nameref{code:IsEffectuator}
+|Aggregation| is an |IsEffectuator|
 Enter the log item into the |Aggregation| queue.
 \begin{code}
 instance IsEffectuator Aggregation where
@@ -90,14 +90,15 @@ instance IsEffectuator Aggregation where
         ag <- readMVar (getAg agg)
         nocapacity <- atomically $ TBQ.isFullTBQueue (agQueue ag)
         if nocapacity
-        then return ()
-        else atomically $! TBQ.writeTBQueue (agQueue ag) $ Just item
+        then handleOverflow agg
+        else atomically $ TBQ.writeTBQueue (agQueue ag) $! Just item
 
+    handleOverflow _ = putStrLn "Notice: Aggregation's queue full, dropping log items!"
 \end{code}
 
-\subsubsection{|Aggregation| implements |Backend| functions}
+\subsubsection{|Aggregation| implements |Backend| functions}\index{Aggregation!instance of IsBackend}
 
-|Aggregation| is an \nameref{code:IsBackend}
+|Aggregation| is an |IsBackend|
 \begin{code}
 instance IsBackend Aggregation where
     typeof _ = AggregationBK

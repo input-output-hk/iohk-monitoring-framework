@@ -32,6 +32,7 @@ library
                        Cardano.BM.Data.Configuration
                        Cardano.BM.Data.Counter
                        Cardano.BM.Data.LogItem
+                       Cardano.BM.Data.MonitoringEval
                        Cardano.BM.Data.Observable
                        Cardano.BM.Data.Output
                        Cardano.BM.Data.Rotation
@@ -45,6 +46,7 @@ library
                        Cardano.BM.Output.Aggregation
                        Cardano.BM.Output.EKGView
                        Cardano.BM.Output.Log
+                       Cardano.BM.Output.Monitoring
                        Cardano.BM.Output.Switchboard
 
                        Cardano.BM.Rotator
@@ -63,6 +65,7 @@ library
                        aeson,
                        array,
                        async,
+                       attoparsec,
                        auto-update,
                        bytestring,
                        clock,
@@ -105,6 +108,7 @@ test-suite tests
                        Cardano.BM.Test.STM
                        Cardano.BM.Test.Configuration
                        Cardano.BM.Test.Rotator
+                       Cardano.BM.Test.Monitoring
                        Cardano.BM.Test.Routing
                        Cardano.BM.Arbitrary.Aggregated
   default-language:    Haskell2010
