@@ -28,9 +28,9 @@ import           Cardano.BM.Data.Rotation (RotationParameters (..))
 import           Test.Tasty (TestTree, testGroup)
 import           Test.Tasty.QuickCheck (Property, testProperty)
 import qualified Test.QuickCheck as QC
+import           Test.QuickCheck ((===))
 import           Test.QuickCheck.Arbitrary (Arbitrary)
 import           Test.QuickCheck.Modifiers (Positive (..))
-
 import           Test.QuickCheck.Property (ioProperty)
 
 \end{code}
@@ -62,7 +62,7 @@ property_tests = testGroup "Property tests" [
 prop_name_giving :: FilePath -> Property
 prop_name_giving name = ioProperty $ do
     filename <- nameLogFile name
-    return $ length filename QC.=== length name + 15
+    return $ length filename === length name + 15
 
 \end{code}
 
@@ -141,6 +141,6 @@ prop_cleanup rotationParams (Dir filename) (Positive nFiles) (SL maxDev) = ioPro
     -- delete folders created
     when (dropWhile (/= '/') filename /= "") $
         removePathForcibly $ "/tmp" </> takeWhile (/= '/') filename
-    return $ kept QC.=== toBeKept
+    return $ kept === toBeKept
 
 \end{code}
