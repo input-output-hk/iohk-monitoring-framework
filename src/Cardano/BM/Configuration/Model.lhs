@@ -498,24 +498,25 @@ setupFromRepresentation r = do
 empty :: IO Configuration
 empty = do
     cgref <- newMVar $ ConfigurationInternal
-                            Debug
-                            HM.empty
-                            HM.empty
+                        { cgMinSeverity       = Debug
+                        , cgMapSeverity       = HM.empty
 #ifdef MemoizeSeverity
-                            HM.empty
+                        , cgMapSeverityCache  = HM.empty
 #endif
-                            HM.empty
-                            HM.empty
-                            []
-                            []
-                            HM.empty
-                            HM.empty
-                            []
-                            []
-                            HM.empty
-                            StatsAK
-                            0
-                            0
+                        , cgMapSubtrace       = HM.empty
+                        , cgOptions           = HM.empty
+                        , cgMapBackend        = HM.empty
+                        , cgDefBackendKs      = []
+                        , cgSetupBackends     = []
+                        , cgMapScribe         = HM.empty
+                        , cgMapScribeCache    = HM.empty
+                        , cgDefScribes        = []
+                        , cgSetupScribes      = []
+                        , cgMapAggregatedKind = HM.empty
+                        , cgDefAggregatedKind = StatsAK
+                        , cgPortEKG           = 0
+                        , cgPortGUI           = 0
+                        }
     return $ Configuration cgref
 
 \end{code}
