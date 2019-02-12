@@ -3,7 +3,7 @@
 
 %if style == newcode
 \begin{code}
-{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module Cardano.BM.Test.Configuration (
     tests
@@ -262,6 +262,10 @@ unit_Configuration_parsed = do
     cfgInternal @?= ConfigurationInternal
         { cgMinSeverity       = Info
         , cgMapSeverity       = HM.fromList [ ("iohk.startup", Debug)
+                                            , ("iohk.background.process", Error)
+                                            , ("iohk.testing.uncritical", Warning)
+                                            ]
+        , cgMapSeverityCache  = HM.fromList [ ("iohk.startup", Debug)
                                             , ("iohk.background.process", Error)
                                             , ("iohk.testing.uncritical", Warning)
                                             ]
