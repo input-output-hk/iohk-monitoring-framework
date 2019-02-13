@@ -40,7 +40,7 @@ import           Cardano.BM.Trace
 \end{code}
 
 \subsubsection{Define configuration}
-The output can be viewed in EKG on \url{http://localhost:12789}.
+Selected values can be viewed in EKG on \url{http://localhost:12789}.
 \begin{code}
 config :: IO CM.Configuration
 config = do

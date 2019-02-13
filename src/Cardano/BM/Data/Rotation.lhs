@@ -1,5 +1,6 @@
 
 \subsection{Cardano.BM.Data.Rotation}
+\label{code:Cardano.BM.Data.Rotation}
 
 %if style == newcode
 \begin{code}

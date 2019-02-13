@@ -1,5 +1,6 @@
 
 \subsection{Cardano.BM.Data.SubTrace}
+\label{code:Cardano.BM.Data.SubTrace}
 
 %if style == newcode
 \begin{code}

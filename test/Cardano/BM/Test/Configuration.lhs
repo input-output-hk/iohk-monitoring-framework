@@ -1,5 +1,6 @@
 
 \subsection{Testing configuration}
+\label{code:Cardano.BM.Test.Configuration}
 
 %if style == newcode
 \begin{code}

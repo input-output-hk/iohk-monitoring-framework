@@ -1,5 +1,6 @@
 
 \subsection{Cardano.BM.Configuration}
+\label{code:Cardano.BM.Configuration}
 
 %if style == newcode
 \begin{code}
@@ -27,7 +28,7 @@ import qualified Cardano.BM.Configuration.Model as CM
 \end{code}
 %endif
 
-see \nameref{module:Cardano.BM.Configuration.Model} for the implementation.
+see |Cardano.BM.Configuration.Model| for the implementation.
 
 \label{code:getOptionOrDefault}\index{getOptionOrDefault}
 \begin{code}

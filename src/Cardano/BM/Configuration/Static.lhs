@@ -1,6 +1,6 @@
 
 \subsection{Cardano.BM.Configuration.Static}
-\label{module:Cardano.BM.Configuration.Static}
+\label{code:Cardano.BM.Configuration.Static}
 
 %if style == newcode
 \begin{code}

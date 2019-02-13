@@ -1,5 +1,6 @@
 
 \subsection{Cardano.BM.Setup}
+\label{code:Cardano.BM.Setup}
 
 \begin{figure}[htp]
 \centering{

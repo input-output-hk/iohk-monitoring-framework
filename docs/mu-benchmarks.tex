@@ -1,0 +1,27 @@
+
+% mu-benchmarks.tex
+
+\subsection{Micro-benchmarks record observables}
+
+Micro-benchmarks are recording observables that measure resource usage of the
+whole program for a specific time. These measurements are then associated with
+the subsystem that was observed at that time.
+Caveat: if the executable under observation runs on a multiprocessor computer
+where more than one parallel thread executes at the same time, it becomes
+difficult to associate resource usage to a single function. Even more so, as
+Haskell's thread do not map directly to operating system threads. So the
+expressiveness of our approach is only valid statistically when a large number
+of observables have been captured.
+
+\subsubsection{Requirements}
+
+
+\subsubsection{Implementing micro-benchmarks}
+
+In a micro-benchmark we capture operating system counters before a function of
+interest is run, and afterwards. Then, we compute the difference between the
+two and report all three measurements via a |Trace| to the logging system.
+
+
+\subsubsection{Configuration of mu-benchmarks}
+

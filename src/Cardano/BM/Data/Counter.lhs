@@ -1,5 +1,6 @@
 
 \subsection{Cardano.BM.Data.Counter}
+\label{code:Cardano.BM.Data.Counter}
 
 %if style == newcode
 \begin{code}

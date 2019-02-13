@@ -21,7 +21,7 @@
 %include local.fmt
 %include references.fmt
 
-\title{Cardano.BM - benchmarking and logging}
+\title{Cardano.BM - logging, benchmarking and monitoring}
 \author{Alexander Diemand
   \and
         Andreas Triantafyllos}
@@ -60,49 +60,71 @@ frequency than the original message.
 \section{Overview}
 
 In figure \ref{fig:overview} we display the relationships among modules
-in |Cardano.BM|. The arrows indicate import of a module. The arrows with
-a triangle at one end would signify "inheritance" in object-oriented programming,
-but we use it to show that one module replaces the other in the namespace,
-thus refines its interface.
+in |Cardano.BM|. Central is the |Switchboard| (see Cardano.BM.Output.Switchboard)
+that will redirect incoming log messages to selected backends according the
+|Configuration| (see Cardano.BM.Configuration.Model). The log items are created
+in the application's context and passed via a hierarchy of |Trace|s (see
+Cardano.BM.Trace). Such a hierarchy can be built with the function |subTrace|.
+The newly added child |Trace| will add its name to the logging context and
+behave as configured. Among the different kinds of |Trace|s implemented are
+|NoTrace| which suppresses all log items, |FilterTrace| which filters the
+log items passing through it, and |ObservableTrace| which allows capturing of
+operating system counters (see Cardano.BM.Data.SubTrace).
+The backend |EKGView| (see Cardano.BM.Output.EKGView) displays selected values
+in a browser. The |Log| backend is based on |katip| and outputs log items in
+files or the console. The format can be chosen to be textual or JSON representation.
+And finally, the |Aggregation| backend computes simple statistics over incoming
+log items (e.g. last, min, max, mean, etc.) (see Cardano.BM.Data.Aggregated).
+
+Output selection determines which log items of a named context are routed to
+which backend. In the case of the |Log| output, this includes a configured
+output sink (e.g. which file). Items that are aggregated lead to the creation
+of an output of their current statistics. To prevent a potential infinite loop
+these aggregation statistics cannot be routed again back into the |Aggregation|. 
+
+With |Monitoring| we aim to shortcut the logging-analysis cycle and immediately
+evaluate monitors on logged values when they become available. In case a monitor
+is triggered a number of actions can be run: either internal actions that can
+alter the |Configuration|, or actions that can lead to alerting in external
+systems.
+
+It is not the intention that this framework should (as part of normal use)
+record sufficient information so as to make the sequence of events reproducible,
+i.e. it is not an audit or transaction log.
 
 \begin{figure}[h]
 \centering{
   \includegraphics[scale=0.48]{OverviewModules.pdf}
 }
-\caption{Overview of module relationships}\label{fig:overview}
+\caption{Overview of module relationships. The arrows indicate import of a module. The arrows with
+a triangle at one end would signify "inheritance" in object-oriented programming,
+but we use it to show that one module replaces the other in the namespace,
+thus specializes its interface.}\label{fig:overview}
 \end{figure}
 
 \section{Introduction}
 
-\subsection{Logging with |Trace|}
+%include ../docs/traces.tex
 
-\subsection{Setup procedure}
+%include ../docs/mu-benchmarks.tex
 
-\begin{figure}[htp]
-\centering{
-  \includegraphics[scale=0.54]{SetupProcedure.pdf}
-}
-\caption{Setup procedure}\label{fig:setup}
-\end{figure}
+%include ../docs/aggregation.tex
 
-\subsubsection{Hierarchy of |Trace|s}
+%include ../docs/output-selection.tex
 
-\subsection{Measuring |Observable|s}
-\subsection{Information reduction in |Aggregation|}
-\subsection{Output selection}
-\subsection{Monitoring}
+%include ../docs/monitoring.tex
 
 \section{Examples}
 
-\subsection{Observing evaluation of a STM action}
+\subsection{Micro-benchmarking a STM action}
 
-\subsection{Observing evaluation of a monad action}
+\subsection{Micro-benchmarking a monadic action}
 
 \subsection{Simple example showing plain logging}
 
 %include ../examples/simple/Main.lhs
 
-\subsection{Complex example showing logging, aggregation of log items, and observing |IO| actions}
+\subsection{Complex example showing logging, aggregation, and observing |IO| actions}
 
 %include ../examples/complex/Main.lhs
 

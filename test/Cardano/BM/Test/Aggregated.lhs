@@ -1,5 +1,6 @@
 
 \subsection{Testing aggregation}
+\label{code:Cardano.BM.Test.Aggregated}
 
 %if style == newcode
 \begin{code}
