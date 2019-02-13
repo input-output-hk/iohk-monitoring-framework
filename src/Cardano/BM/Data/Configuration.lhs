@@ -1,5 +1,6 @@
 
 \subsection{Cardano.BM.Data.Configuration}
+\label{code:Cardano.BM.Data.Configuration}
 
 Data structure to help parsing configuration files.
 

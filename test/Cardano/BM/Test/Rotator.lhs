@@ -1,5 +1,6 @@
 
 \subsection{Rotator}
+\label{code:Cardano.BM.Test.Rotator}
 
 %if style == newcode
 \begin{code}
@@ -44,8 +45,8 @@ tests = testGroup "testing Trace" [
 
 property_tests :: TestTree
 property_tests = testGroup "Property tests" [
-        testProperty "rotator: name giving" prop_name_giving
-      , testProperty "rotator: cleanup" $ prop_cleanup $ rot n
+        testProperty "rotator: name giving" propNameGiving
+      , testProperty "rotator: cleanup" $ propCleanup $ rot n
       ]
   where
     n = 5
@@ -57,16 +58,16 @@ property_tests = testGroup "Property tests" [
 
 \end{code}
 
-\subsubsection{Check that full file name has only added 15 digits to the base name of the file.}\label{code:prop_name_giving}
+\subsubsection{Check that full file name has only added 15 digits to the base name of the file.}\label{code:propNameGiving}
 \begin{code}
-prop_name_giving :: FilePath -> Property
-prop_name_giving name = ioProperty $ do
+propNameGiving :: FilePath -> Property
+propNameGiving name = ioProperty $ do
     filename <- nameLogFile name
     return $ length filename === length name + 15
 
 \end{code}
 
-\subsubsection{Test cleanup of rotator.}\label{code:prop_cleanup}
+\subsubsection{Test cleanup of rotator.}\label{code:propCleanup}
 This test creates a random number of files with the same name but with different dates and
 afterwards it calls the |cleanupRotator| function which removes old log files keeping only
 |rpKeepFilesNum| files and deleting the others.
@@ -112,8 +113,8 @@ instance Arbitrary SmallAndLargeInt where
 
     shrink _ = []
 
-prop_cleanup :: RotationParameters -> LocalFilePath -> Positive Int -> SmallAndLargeInt -> Property
-prop_cleanup rotationParams (Dir filename) (Positive nFiles) (SL maxDev) = ioProperty $ do
+propCleanup :: RotationParameters -> LocalFilePath -> Positive Int -> SmallAndLargeInt -> Property
+propCleanup rotationParams (Dir filename) (Positive nFiles) (SL maxDev) = ioProperty $ do
     tmpDir <- getTemporaryDirectory
     let path = tmpDir </> filename
     -- generate nFiles different dates

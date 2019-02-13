@@ -1,5 +1,6 @@
 
 \subsection{\tt{instance} Arbitrary Aggregated}
+\label{code:Cardano.BM.Arbitrary.Aggregated}
 
 %if style == newcode
 \begin{code}

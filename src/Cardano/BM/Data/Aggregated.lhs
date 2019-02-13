@@ -1,5 +1,6 @@
 
 \subsection{Cardano.BM.Data.Aggregated}
+\label{code:Cardano.BM.Data.Aggregated}
 
 %if style == newcode
 \begin{code}

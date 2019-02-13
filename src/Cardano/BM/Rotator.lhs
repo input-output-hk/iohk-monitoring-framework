@@ -1,5 +1,6 @@
 
 \subsection{Cardano.BM.Rotator}
+\label{code:Cardano.BM.Rotator}
 
 Implementation of rotation of logging files.
 

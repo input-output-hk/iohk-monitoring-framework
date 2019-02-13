@@ -1,5 +1,6 @@
 
 \subsection{Cardano.BM.Counters}
+\label{code:Cardano.BM.Counters}
 
 Here the platform is chosen on which we compile this program.
 

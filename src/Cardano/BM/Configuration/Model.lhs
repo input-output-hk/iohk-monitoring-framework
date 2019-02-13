@@ -1,6 +1,6 @@
 
 \subsection{Cardano.BM.Configuration.Model}
-\label{module:Cardano.BM.Configuration.Model}
+\label{code:Cardano.BM.Configuration.Model}
 
 %if style == newcode
 \begin{code}

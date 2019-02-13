@@ -1,5 +1,6 @@
 
 \subsection{Cardano.BM.Counters.Common}
+\label{code:Cardano.BM.Counters.Common}
 
 Common functions that serve |readCounters| on all platforms.
 
