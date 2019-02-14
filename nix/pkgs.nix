@@ -2,8 +2,6 @@
 , iohk-overlay ? {}
 , iohk-module ? {}
 , haskell
-, hackage
-, stackage
 , ...
 }:
 let
@@ -38,17 +36,13 @@ let
   #  packages.cbors.patches = [ ./one.patch ];
   #  packages.cbors.flags.optimize-gmp = false;
   #
-  compiler = (stack-pkgs.overlay hackage).compiler.nix-name;
-  pkgSet = haskell.mkNewPkgSet {
-    inherit pkgs;
-    pkg-def = stackage.${stack-pkgs.resolver};
+  compiler = (stack-pkgs.overlay haskell.hackage).compiler.nix-name;
+  pkgSet = haskell.mkStackPkgSet {
+    inherit stack-pkgs;
     pkg-def-overlays = [
-      stack-pkgs.overlay
       iohk-overlay.${compiler}
     ];
     modules = [
-      haskell.ghcHackagePatches.${compiler}
-
       (iohk-module { nixpkgs = pkgs;
                      inherit th-packages; })
 
