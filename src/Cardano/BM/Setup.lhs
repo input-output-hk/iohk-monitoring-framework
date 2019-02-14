@@ -24,7 +24,6 @@ import           Control.Exception.Safe (MonadMask, bracket)
 import           Control.Monad.IO.Class (MonadIO, liftIO)
 import           Data.Text (Text)
 import           System.IO (FilePath)
-import           System.Mem.Weak (addFinalizer)
 
 import qualified Cardano.BM.Configuration as Config
 import           Cardano.BM.Data.Backend
@@ -57,7 +56,6 @@ setupTrace_ c name = do
     ctx <- liftIO $ newContext "" c sev sb
 
     tr <- subTrace name $ natTrace liftIO (ctx, Switchboard.mainTrace sb)
-    liftIO $ addFinalizer tr $ shutdownTrace tr
     return tr
 
 \end{code}

@@ -12,7 +12,7 @@ module Cardano.BM.Counters.Linux
     ) where
 
 import           Data.Foldable (foldrM)
-import           Data.Text (Text)
+import           Data.Text (Text, pack)
 import           System.FilePath.Posix ((</>))
 import           System.IO (FilePath)
 import           System.Posix.Process (getProcessID)
@@ -40,17 +40,20 @@ readCounters (TeeTrace _)        = return []
 readCounters (FilterTrace _)     = return []
 readCounters UntimedTrace        = return []
 readCounters DropOpening         = return []
-readCounters (ObservableTrace tts) = foldrM (\(sel, fun) a ->
-    if any (== sel) tts
-    then (fun >>= \xs -> return $ a ++ xs)
-    else return a) [] selectors
+readCounters (ObservableTrace tts) = do
+    pid <- getProcessID
+    foldrM (\(sel, fun) a ->
+       if any (== sel) tts
+       then (fun >>= \xs -> return $ a ++ xs)
+       else return a) [] (selectors pid)
   where
-    selectors = [ (MonotonicClock, getMonoClock)
-                , (MemoryStats, readProcStatM)
-                , (ProcessStats, readProcStats)
-                , (IOStats, readProcIO)
-                , (GhcRtsStats, readRTSStats)
-                ]
+    selectors pid = [ (MonotonicClock, getMonoClock)
+                    , (MemoryStats, readProcStatM pid)
+                    , (ProcessStats, readProcStats pid)
+                    , (NetStats, readProcNet pid)
+                    , (IOStats, readProcIO pid)
+                    , (GhcRtsStats, readRTSStats)
+                    ]
 \end{code}
 
 \begin{code}
@@ -63,6 +66,8 @@ pathProcStatM :: ProcessID -> FilePath
 pathProcStatM pid = pathProc </> (show pid) </> "statm"
 pathProcIO :: ProcessID -> FilePath
 pathProcIO pid = pathProc </> (show pid) </> "io"
+pathProcNet :: ProcessID -> FilePath
+pathProcNet pid = pathProc </> (show pid) </> "net" </> "netstat"
 \end{code}
 
 \subsubsection{Reading from a file in /proc/\textless pid \textgreater}
@@ -96,9 +101,8 @@ readProcList fp = do
 
 \begin{code}
 
-readProcStatM :: IO [Counter]
-readProcStatM = do
-    pid <- getProcessID
+readProcStatM :: ProcessID -> IO [Counter]
+readProcStatM pid = do
     ps0 <- readProcList (pathProcStatM pid)
     let ps = zip colnames ps0
         psUseful = filter (("unused" /=) . fst) ps
@@ -344,9 +348,8 @@ readProcStatM = do
 \end{scriptsize}
 
 \begin{code}
-readProcStats :: IO [Counter]
-readProcStats = do
-    pid <- getProcessID
+readProcStats :: ProcessID -> IO [Counter]
+readProcStats pid = do
     ps0 <- readProcList (pathProcStat pid)
     let ps = zip colnames ps0
         psUseful = filter (("unused" /=) . fst) ps
@@ -422,9 +425,9 @@ readProcStats = do
 \end{scriptsize}
 
 \begin{code}
-readProcIO :: IO [Counter]
-readProcIO = do
-    pid <- getProcessID
+readProcIO :: ProcessID -> IO [Counter]
+readProcIO pid = do
+
     ps0 <- readProcList (pathProcIO pid)
     let ps = zip3 colnames ps0 units
     return $ map (\(n,i,u) -> Counter IOCounter n (u i)) ps
@@ -432,5 +435,50 @@ readProcIO = do
     colnames :: [Text]
     colnames = [ "rchar","wchar","syscr","syscw","rbytes","wbytes","cxwbytes" ]
     units    = [  Bytes . fromInteger , Bytes . fromInteger , PureI  , PureI  , Bytes . fromInteger  , Bytes . fromInteger  , Bytes . fromInteger     ]
+
+\end{code}
+
+\subsubsection{Network TCP/IP counters}
+
+\begin{scriptsize}
+\begin{verbatim}
+example:
+\\
+cat /proc/<pid>/net/netstat
+\\
+TcpExt: SyncookiesSent SyncookiesRecv SyncookiesFailed EmbryonicRsts PruneCalled RcvPruned OfoPruned OutOfWindowIcmps LockDroppedIcmps ArpFilter TW TWRecycled TWKilled PAWSActive PAWSEstab DelayedACKs DelayedACKLocked DelayedACKLost ListenOverflows ListenDrops TCPHPHits TCPPureAcks TCPHPAcks TCPRenoRecovery TCPSackRecovery TCPSACKReneging TCPSACKReorder TCPRenoReorder TCPTSReorder TCPFullUndo TCPPartialUndo TCPDSACKUndo TCPLossUndo TCPLostRetransmit TCPRenoFailures TCPSackFailures TCPLossFailures TCPFastRetrans TCPSlowStartRetrans TCPTimeouts TCPLossProbes TCPLossProbeRecovery TCPRenoRecoveryFail TCPSackRecoveryFail TCPRcvCollapsed TCPDSACKOldSent TCPDSACKOfoSent TCPDSACKRecv TCPDSACKOfoRecv TCPAbortOnData TCPAbortOnClose TCPAbortOnMemory TCPAbortOnTimeout TCPAbortOnLinger TCPAbortFailed TCPMemoryPressures TCPMemoryPressuresChrono TCPSACKDiscard TCPDSACKIgnoredOld TCPDSACKIgnoredNoUndo TCPSpuriousRTOs TCPMD5NotFound TCPMD5Unexpected TCPMD5Failure TCPSackShifted TCPSackMerged TCPSackShiftFallback TCPBacklogDrop PFMemallocDrop TCPMinTTLDrop TCPDeferAcceptDrop IPReversePathFilter TCPTimeWaitOverflow TCPReqQFullDoCookies TCPReqQFullDrop TCPRetransFail TCPRcvCoalesce TCPOFOQueue TCPOFODrop TCPOFOMerge TCPChallengeACK TCPSYNChallenge TCPFastOpenActive TCPFastOpenActiveFailTCPFastOpenPassive TCPFastOpenPassiveFail TCPFastOpenListenOverflow TCPFastOpenCookieReqd TCPFastOpenBlackhole TCPSpuriousRtxHostQueues BusyPollRxPackets TCPAutoCorking TCPFromZeroWindowAdv TCPToZeroWindowAdv TCPWantZeroWindowAdv TCPSynRetrans TCPOrigDataSent TCPHystartTrainDetect TCPHystartTrainCwnd TCPHystartDelayDetect TCPHystartDelayCwnd TCPACKSkippedSynRecv TCPACKSkippedPAWS TCPACKSkippedSeq TCPACKSkippedFinWait2 TCPACKSkippedTimeWait TCPACKSkippedChallenge TCPWinProbe TCPKeepAlive TCPMTUPFail TCPMTUPSuccess TCPDelivered TCPDeliveredCE TCPAckCompressed
+TcpExt: 0 0 0 0 28 0 0 0 0 0 1670 1 0 0 6 6029 1 1766 0 0 384612 66799 105553 0 21 0 638 0 1 7 1 1 32 128 0 1 0 22 0 116 383 19 0 0 0 1788 224 178 0 435 224 0 13 0 0 0 0 0 0 67 0 0 0 0 3 1 668 0 0 0 4 0 0 0 0 0 91870 4468 0 224 22 23 0 0 0 0 0 0 0 6 0 21492 0 0 11 188 188680 6 145 13 425 0 3 4 0 0 1 117 22984 0 0 192495 0 4500
+IpExt: InNoRoutes InTruncatedPkts InMcastPkts OutMcastPkts InBcastPkts OutBcastPkts InOctets OutOctets InMcastOctets OutMcastOctets InBcastOctets OutBcastOctets InCsumErrors InNoECTPkts InECT1Pkts InECT0Pkts InCEPkts
+IpExt: 0 0 20053 8977 2437 23 3163525943 196480057 2426648 1491754 394285 5523 0 3513269 0 217426 0
+\end{verbatim}
+\end{scriptsize}
+
+\begin{code}
+readProcNet :: ProcessID -> IO [Counter]
+readProcNet pid = do
+    ls0 <- lines <$> readFile (pathProcNet pid)
+    let ps0 = readinfo ls0
+    let ps1 = map (\(n,c) -> (n, readMaybe c :: Maybe Integer)) ps0
+    return $ mapCounters $ filter selcolumns ps1
+  where
+    construct "IpExt:OutOctets" i = Bytes $ fromInteger i
+    construct "IpExt:InOctets"  i = Bytes $ fromInteger i
+    construct _ i = PureI i
+    -- only a few selected columns will be returned
+    selcolumns (n,_) = n `elem` ["IpExt:OutOctets","IpExt:InOctets"]
+    mapCounters []          = []
+    mapCounters ((n,c) : r) = case c of
+       Nothing -> mapCounters r
+       Just i  -> mapCounters r <> [Counter NetCounter (pack n) (construct n i)]
+    readinfo :: [String] -> [(String, String)]
+    readinfo []            = []
+    readinfo (_:[])        = []
+    readinfo (l1 : l2 : r) = 
+       let col0 = words l1
+           cols = tail col0
+           vals = tail $ words l2
+           pref = head col0
+       in
+       readinfo r <> zip (map (\n -> pref ++ n) cols) vals
 
 \end{code}
