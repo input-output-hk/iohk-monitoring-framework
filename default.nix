@@ -7,7 +7,7 @@
 # - nix build -f default.nix nix-tools.tests.iohk-monitoring.tests
 # - nix build -f default.nix nix-tools.exes.iohk-monitoring # All `iohk-monitoring` executables
 # - nix build -f default.nix nix-tools.cexes.iohk-monitoring.example-simple
-# 
+#
 # Generated targets include anything from stack.yaml (via
 # nix-tools:stack-to-nix and the nix/regenerate.sh script)
 # or cabal.project (via nix-tools:plan-to-nix), including all
@@ -21,9 +21,9 @@
 # Please run `nix/regenerate.sh` after modifying stack.yaml
 # or relevant part of cabal configuration files.
 # When switching to recent stackage or hackage package version,
-# you might also need to update the iohk-nix common lib. You 
+# you might also need to update the iohk-nix common lib. You
 # can do so by running the `nix/update-iohk-nix.sh` script.
-# 
+#
 # More information about iohk-nix and nix-tools is available at:
 # https://github.com/input-output-hk/iohk-nix/blob/master/docs/nix-toolification.org#for-a-stackage-project
 #
@@ -43,8 +43,8 @@ in
 { ... }@args:
 # We will instantiate the default-nix template with the
 # nix/pkgs.nix file...
-commonLib.nix-tools.default-nix ./nix/pkgs.nix args 
+commonLib.nix-tools.default-nix ./nix/pkgs.nix args
 # ... and add additional non-haskell packages we want to build on CI:
 // {
-  
+
 }

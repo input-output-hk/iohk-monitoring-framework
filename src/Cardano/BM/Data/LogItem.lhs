@@ -20,11 +20,10 @@ module Cardano.BM.Data.LogItem
   )
   where
 
-import           Control.Concurrent (ThreadId, myThreadId)
+import           Control.Concurrent (myThreadId)
 import           Data.Aeson (FromJSON, ToJSON, object, toJSON, (.=))
-import           Data.Text (Text)
+import           Data.Text (Text, pack)
 import           Data.Time.Clock (UTCTime, getCurrentTime)
-
 import           GHC.Generics (Generic)
 
 import           Cardano.BM.Data.Aggregated (Aggregated (..), Measurable (..))
@@ -72,11 +71,14 @@ data LogObject = LogObject LOMeta LOContent
 
 \end{code}
 
-Meta data for a |LogObject|:
+Meta data for a |LogObject|.
+Text was selected over ThreadId in order to be able to use the logging system
+under SimM of ouroboros-network because ThreadId from Control.Concurrent lacks a Read
+instance.
 \begin{code}
 data LOMeta = LOMeta {
                 tstamp :: {-# UNPACK #-} !UTCTime
-              , tid    :: {-# UNPACK #-} !ThreadId
+              , tid    :: {-# UNPACK #-} !Text
               }
               deriving (Show)
 
@@ -87,7 +89,7 @@ instance ToJSON LOMeta where
 mkLOMeta :: IO LOMeta
 mkLOMeta =
     LOMeta <$> getCurrentTime
-           <*> myThreadId
+           <*> (pack . show <$> myThreadId)
 
 \end{code}
 
