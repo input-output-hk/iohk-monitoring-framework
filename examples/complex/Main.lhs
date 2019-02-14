@@ -64,6 +64,11 @@ config = do
                             , scRotation = Nothing
                             }
                          , ScribeDefinition {
+                              scName = "logs/downloading.json"
+                            , scKind = FileJsonSK
+                            , scRotation = Nothing
+                            }
+                         , ScribeDefinition {
                               scName = "logs/out.txt"
                             , scKind = FileTextSK
                             , scRotation = Just $ RotationParameters
@@ -84,7 +89,9 @@ config = do
         CM.setScribes c ("#aggregation.complex.observeSTM." <> (pack $ show x)) $ Just [ "FileJsonSK::logs/out.even.json" ]
 
 #ifdef LINUX
-    CM.setSubTrace c "complex.observeDownload" (Just $ ObservableTrace [IOStats])
+    CM.setSubTrace c "complex.observeDownload" (Just $ ObservableTrace [IOStats,NetStats])
+    CM.setBackends c "complex.observeDownload" (Just [KatipBK])
+    CM.setScribes c "complex.observeDownload" (Just ["StdoutSK::stdout", "FileJsonSK::logs/downloading.json"])
 #endif
     CM.setSubTrace c "complex.random" (Just $ TeeTrace "ewma")
     CM.setSubTrace c "#ekgview"
@@ -116,7 +123,7 @@ config = do
         (Just [AggregationBK])
       CM.setBackends c
         ("#aggregation.complex.observeSTM." <> (pack $ show x))
-        (Just [EKGViewBK, KatipBK])
+        (Just [KatipBK])
 
     CM.setAggregatedKind c "complex.random.rr" (Just StatsAK)
     CM.setAggregatedKind c "complex.random.ewma.rr" (Just (EwmaAK 0.42))
@@ -180,8 +187,8 @@ observeDownload trace = loop trace
         bracketObserveIO tr' "" $ do
             license <- openURI "http://www.gnu.org/licenses/gpl.txt"
             case license of
-              Right bs -> logNotice tr' $ "downloaded " <> BS8.length bs <> " bytes"
-              Left e ->  logError tr' e
+                Right bs -> logNotice tr' $ "downloaded " <> BS8.length bs <> " bytes"
+                Left e ->  logError tr' e
             threadDelay 500000  -- .5 second
             pure ()
         loop tr

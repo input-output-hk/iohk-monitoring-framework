@@ -43,6 +43,7 @@ data CounterType = MonotonicClockTime
                  | MemoryCounter
                  | StatInfo
                  | IOCounter
+                 | NetCounter
                  | CpuCounter
                  | RTSStats
                    deriving (Eq, Show, Generic, ToJSON)
@@ -60,6 +61,7 @@ nameCounter (Counter MonotonicClockTime _ _) = "Time-interval"
 nameCounter (Counter MemoryCounter      _ _) = "Mem"
 nameCounter (Counter StatInfo           _ _) = "Stat"
 nameCounter (Counter IOCounter          _ _) = "IO"
+nameCounter (Counter NetCounter         _ _) = "Net"
 nameCounter (Counter CpuCounter         _ _) = "Cpu"
 nameCounter (Counter RTSStats           _ _) = "RTS"
 
