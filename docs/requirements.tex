@@ -43,3 +43,77 @@ tests performed.
 Recording the start and end times allows us to derive the time spent for a
 single test. (although this measurement is wrong as it includes the time spent
 in QuickCheck setting up the test case (and shrinking?))
+
+\subsection{Traces}
+Log items are sent as streams of events to the logging system for processing
+(aggregation, ..) before output. Functions that need to log events must accept
+a \emph{Trace} argument. There is no monad related to logging in the monad
+stack, thus this can work in any monadic environment.
+
+\subsubsection{Trace Context}
+A Trace maintains a named context stack. A new name can be put onto it, and all
+subsequent log messages are labeled with this named context. This is also true
+to all downstream functions which receive the modified Trace. We thus can see
+the call tree and how the evaluation entered the context where a logging
+function was called.
+The context also maintains a mapping from name to Severity: this way a logging
+function call can early end and not produce a log item when the minimum severity
+is not reached.
+
+\subsubsection{SubTrace}
+A Trace is created in \emph{IO} within setupTrace with the intent to pass the
+traced items to a downstream logging framework for outputting to various
+destinations in different formats. Apart from adding a name to the naming stack
+we can also alter the behaviour of the Trace. The newly created Trace with a
+specific function to process the recorded items will forward these to the
+upstream Trace. This way we can, for example, locally turn on aggregation of
+observables and only report a summary to the logs.
+
+\subsection{Aggregation}
+Log items contain a named context, severity and a payload (message, structured
+value). Thinking of a relation \begin{verbatim}
+    (name, severity) -> value
+\end{verbatim}, folding a summarizing function over it outputs \begin{verbatim}
+    (name, severity) -> Summary
+\end{verbatim}.
+Depending on the type of \emph{value}, the summary could provide for example:
+
+\begin{itemize}
+\item * : first, last, count, the time between events (mean, sigma)
+\item Num : min, max, median, quartiles, mean, sigma, the delta between events (mean, sigma)
+\end{itemize}
+
+Other possible aggregations:
+\begin{itemize}
+\item exponentially weighted moving average
+\item histograms
+\end{itemize}
+
+\subsection{Monitoring}
+\begin{itemize}
+\item Enable (or disable) measuring events and performance at runtime
+(e.g. measure how block holding time has changed).
+\item Send alarms when observables give evidence for abnormalities
+\item Observe actions in progress, i.e. have started and not yet finished
+\item Bridge to \emph{Datadog}?
+\end{itemize}
+
+\subsection{Reporting}
+We might want to buffer events in case an exception is detected. This FIFO queue
+could then be output to the log for post-factum inspection. 
+
+\subsection{Visualisation}
+
+\subsubsection{EKG}
+\url{https://hackage.haskell.org/package/ekg}
+\\
+This library allows live monitor a running instance over HTTP. There is a way
+we can add our own metrics to it and update them.
+
+\subsubsection{Log files}
+The output of observables immediately or aggregated to log files. The format is chosen to be JSON for easier post-processing.
+
+\subsubsection{Web app}
+Could combine EKG, log files and parameterization into one GUI.
+\\
+(e.g. \url{https://github.com/HeinrichApfelmus/threepenny-gui})

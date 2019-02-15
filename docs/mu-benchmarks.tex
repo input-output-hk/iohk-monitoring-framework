@@ -15,32 +15,32 @@ of observables have been captured.
 
 \subsubsection{Counters}
 
-The framework provides access to the following O/S counters (defined in |ObservableInstance|):
+The framework provides access to the following O/S counters (defined in |ObservableInstance|) on \emph{Linux}:
 \\
 \begin{itemize}
-\item monotonic clock (see MonotonicClock)
-\item CPU or total time (\emph{/proc/\textless pid \textgreater/stat}) (see CPUTimeStats)
-\item memory allocation (\emph{/proc/\textless pid \textgreater/statm}) (see MemoryStats)
-\item network bytes received/sent (\emph{/proc/\textless pid \textgreater/net/netstats}) (see NetStats)
-\item disk input/output (\emph{/proc/\textless pid \textgreater/io}) (see IOStats)
+\item monotonic clock (see |MonotonicClock|)
+\item CPU or total time (\emph{/proc/\textless pid \textgreater/stat}) (see |ProcessStats|)
+\item memory allocation (\emph{/proc/\textless pid \textgreater/statm}) (see |MemoryStats|)
+\item network bytes received/sent (\emph{/proc/\textless pid \textgreater/net/netstat}) (see |NetStats|)
+\item disk input/output (\emph{/proc/\textless pid \textgreater/io}) (see |IOStats|)
 \end{itemize}
+
+On all platforms, access is provided to the \emph{RTS} counters (see |GhcRtsStats|).
 
 \subsubsection{Implementing micro-benchmarks}
 
-In a micro-benchmark we capture operating system counters before a function of
-interest is run, and afterwards. Then, we compute the difference between the
-two and report all three measurements via a |Trace| to the logging system.
+In a micro-benchmark we capture operating system counters over an STM evaluation
+or a function, before and afterwards. Then, we compute the difference between the
+two and report all three measurements via a \emph{Trace} to the logging system.
 Here we refer to the example that can be found in \hyperref[sec:examplecomplex]{complex example}.
 
 \begin{wrapfigure}{r}{0.5\textwidth}
     \begin{center}\begin{scriptsize}\begin{verbatim}
-        STM.bracketObserveIO trace "observeSTM" (stmAction args)
+    STM.bracketObserveIO trace "observeSTM" (stmAction args)
     \end{verbatim}\end{scriptsize}\end{center}
 \end{wrapfigure}
-  
-This we can do over a \emph{STM} evaluation or a function evalution.
 
-The capturing of STM actions is defined in Cardano.BM.Observer.STM and the
+The capturing of STM actions is defined in |Cardano.BM.Observer.STM| and the
 function \emph{STM.bracketObserveIO} has type:
 \begin{verbatim}
     bracketObserveIO :: Trace IO -> Text -> STM.STM t -> IO t
@@ -48,23 +48,11 @@ function \emph{STM.bracketObserveIO} has type:
 It accepts a Trace to which it logs, adds a name to the context name and enters
 this with a SubTrace, and finally the STM action which will be evaluated.
 Because this evaluation can be retried, we cannot pass to it a Trace to which it
-could log directly. A variant of this function \mbox{\emph{bracketObserveLogIO}} also
+could log directly. A variant of this function |bracketObserveLogIO| also
 captures log items in its result, which then are threaded through the Trace.
 \\
-\begin{wrapfigure}{r}{0.5\textwidth}
-    \begin{center}\begin{scriptsize}\begin{verbatim}
-        bracketObserveIO trace "observeDownload" $ do
-            license <- openURI "http://www.gnu.org/licenses/gpl.txt"
-            case license of
-              Right bs -> logInfo trace $ pack $ BS8.unpack bs
-              Left e   -> logError trace $ "failed to download; error: " ++ (show e)
-            threadDelay 50000  -- .05 second
-            pure ()
-    \end{verbatim}\end{scriptsize}\end{center}
-  \end{wrapfigure}
-
 Capturing observables for a function evaluation in \emph{IO}, the type of
-\mbox{bracketObserveIO} (defined in Cardano.BM.Observer.Monadic) is:
+\mbox{bracketObserveIO} (defined in |Cardano.BM.Observer.Monadic|) is:
 \begin{verbatim}
     bracketObserveIO :: Trace IO -> Text -> IO t -> IO t
 \end{verbatim}
@@ -72,9 +60,22 @@ Capturing observables for a function evaluation in \emph{IO}, the type of
 It accepts a Trace to which it logs items, adds a name to the context name and
 enters this with a SubTrace, and then the IO action which will be evaluated.
 
+\begin{wrapfigure}{r}{0.5\textwidth}
+    \vspace{-10pt}
+    \begin{center}\begin{scriptsize}\begin{verbatim}
+    bracketObserveIO trace "observeDownload" $ do
+        license <- openURI "http://www.gnu.org/licenses/gpl.txt"
+        case license of
+            Right bs -> logInfo trace $ pack $ BS8.unpack bs
+            Left e   -> logError trace $ "failed to download; error: " ++ (show e)
+        threadDelay 50000  -- .05 second
+        pure ()
+    \end{verbatim}\end{scriptsize}\end{center}
+  \end{wrapfigure}
+
 Counters are evaluated before the evaluation and afterwards. We trace these as
-log items \emph{ObserveOpen} and \emph{ObserveClose}, as well as the difference
-with type \emph{ObserveDiff}.
+log items |ObserveOpen| and |ObserveClose|, as well as the difference
+with type |ObserveDiff|.
 
 \subsubsection{Configuration of mu-benchmarks}
 
@@ -86,7 +87,7 @@ context. We can define this in the configuration for our example:
 \end{verbatim}
 
 This enables the capturing of network and I/O stats from the operating system.
-Other Observables are implemented in Cardano.BM.Data.Observable.
+Other Observables are implemented in |Cardano.BM.Data.Observable|.
 \\
 Captured observables need to be routed to backends. In our example we configure:
 \begin{verbatim}
