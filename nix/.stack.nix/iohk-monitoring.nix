@@ -3,7 +3,7 @@
     flags = {};
     package = {
       specVersion = "1.10";
-      identifier = { name = "iohk-monitoring"; version = "0.1.1.0"; };
+      identifier = { name = "iohk-monitoring"; version = "0.1.2.0"; };
       license = "MIT";
       copyright = "2018 IOHK";
       maintainer = "";
@@ -45,6 +45,7 @@
           (hsPkgs.unordered-containers)
           (hsPkgs.vector)
           (hsPkgs.yaml)
+          (hsPkgs.libyaml)
           ] ++ (if system.isWindows
           then [ (hsPkgs.Win32) ]
           else [ (hsPkgs.unix) ]);
@@ -108,6 +109,7 @@
             (hsPkgs.vector)
             (hsPkgs.void)
             (hsPkgs.yaml)
+            (hsPkgs.libyaml)
             ];
           };
         };

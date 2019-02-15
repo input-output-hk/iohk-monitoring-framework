@@ -1,5 +1,5 @@
 name:                iohk-monitoring
-version:             0.1.1.0
+version:             0.1.2.0
 synopsis:            logging, benchmarking and monitoring framework
 -- description:
 license:             MIT
@@ -75,7 +75,7 @@ library
                        ekg,
                        ekg-core,
                        filepath,
-                       katip,
+                       katip < 0.8,
                        lens,
                        mtl,
                        safe-exceptions,
@@ -88,7 +88,7 @@ library
                        transformers,
                        unordered-containers,
                        vector,
-                       yaml
+                       yaml, libyaml > 0.1.0
   if os(windows)
      build-depends:    Win32
   else
@@ -141,7 +141,7 @@ test-suite tests
                        unordered-containers,
                        vector,
                        void,
-                       yaml
+                       yaml, libyaml > 0.1.0
   ghc-options:         -Wall
 
 executable example-simple
