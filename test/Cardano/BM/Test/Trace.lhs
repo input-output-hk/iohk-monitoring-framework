@@ -177,10 +177,11 @@ exampleWithNamedContexts = do
     Async.wait work1
     -- the named context will include "complex" in the logged message
     logInfo logTrace "done."
-    threadDelay 1000
+    threadDelay 100000
     -- force garbage collection to allow exceptions to be thrown
     performMajorGC
-    threadDelay 1000
+    threadDelay 100000
+    Setup.shutdownTrace logTrace
     return ""
   where
     complexWork0 tr msg = Async.async $ logInfo tr ("let's see (0): " `append` msg)

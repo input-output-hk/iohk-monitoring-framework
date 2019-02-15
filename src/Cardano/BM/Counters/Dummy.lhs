@@ -37,9 +37,6 @@ readCounters (ObservableTrace tts) = foldrM (\(sel, fun) a ->
     else return a) [] selectors
   where
     selectors = [ (MonotonicClock, getMonoClock)
-                -- , (MemoryStats, readProcStatM)
-                -- , (ProcessStats, readProcStats)
-                -- , (IOStats, readProcIO)
                    , (GhcRtsStats, readRTSStats)
                 ]
 \end{code}
