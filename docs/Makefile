@@ -42,7 +42,7 @@ TESTS = ../test/Test.lhs \
 				../test/Cardano/BM/Test/Trace.lhs \
 				../test/Cardano/BM/Arbitrary/Aggregated.lhs \
 
-TeXs = aggregation.tex monitoring.tex mu-benchmarks.tex output-selection.tex traces.tex
+TeXs = aggregation.tex monitoring.tex mu-benchmarks.tex output-selection.tex requirements.tex traces.tex
 
 ImagePdf = OverviewModules.pdf SetupProcedure.pdf ConfigurationModel.pdf
 

@@ -1,5 +1,6 @@
 
 \subsection{Cardano.BM.Observer.Monadic}
+\label{code:Cardano.BM.Observer.Monadic}
 
 %if style == newcode
 \begin{code}
