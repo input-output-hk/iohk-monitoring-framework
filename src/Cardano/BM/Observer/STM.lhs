@@ -1,5 +1,6 @@
 
 \subsection{Cardano.BM.Observer.STM}
+\label{code:Cardano.BM.Observer.STM}
 
 %if style == newcode
 \begin{code}
@@ -46,7 +47,7 @@ bracketObserveIO logTrace0 name action = do
     bracketObserveIO' subtrace logTrace act = do
         mCountersid <- observeOpen subtrace logTrace
 
-        -- run action; if an exception is caught will be logged and rethrown.
+        -- run action; if an exception is caught, then it will be logged and rethrown.
         t <- (STM.atomically act) `catch` (\(e :: SomeException) -> (logError logTrace (pack (show e)) >> throwM e))
 
         case mCountersid of
@@ -81,7 +82,7 @@ bracketObserveLogIO logTrace0 name action = do
         mCountersid <- observeOpen subtrace logTrace
 
         -- run action, return result and log items; if an exception is
-        -- caught will be logged and rethrown.
+        -- caught, then it will be logged and rethrown.
         (t, as) <- (STM.atomically $ stmWithLog act) `catch`
                     (\(e :: SomeException) -> (logError logTrace (pack (show e)) >> throwM e))
 

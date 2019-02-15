@@ -1,5 +1,6 @@
 
 \subsection{Testing configuration}
+\label{code:Cardano.BM.Test.Configuration}
 
 %if style == newcode
 \begin{code}
@@ -240,7 +241,7 @@ unitConfigurationParsedRepresentation = do
                     \    - monitor: ((time > (23 s)) Or (time < (17 s)))\n\
                     \    - actions:\n\
                     \      - AlterMinSeverity \"chain.creation\" Debug\n\
-                    \    ! '#aggregation.critproc.observable':\n\
+                    \    '#aggregation.critproc.observable':\n\
                     \    - monitor: (mean >= (42))\n\
                     \    - actions:\n\
                     \      - CreateMessage \"exceeded\" \"the observable has been too long too high!\"\n\

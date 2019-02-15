@@ -1,5 +1,6 @@
 
 \subsection{Cardano.BM.Data.Observable}
+\label{code:Cardano.BM.Data.Observable}
 
 %if style == newcode
 \begin{code}

@@ -1,5 +1,6 @@
 
 \subsection{Cardano.BM.Test.STM}
+\label{code:Cardano.BM.Test.STM}
 
 \begin{code}
 module Cardano.BM.Test.STM (

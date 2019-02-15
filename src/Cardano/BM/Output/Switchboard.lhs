@@ -1,5 +1,6 @@
 
-\subsection{Cardano.BM.Output.Switchboard}\label{sec:Switchboard}
+\subsection{Cardano.BM.Output.Switchboard}
+\label{code:Cardano.BM.Output.Switchboard}
 
 %if style == newcode
 \begin{code}

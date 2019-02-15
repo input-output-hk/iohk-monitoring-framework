@@ -1,5 +1,6 @@
 
 \subsection{Testing scribes and backends configuration routing}
+\label{code:Cardano.BM.Test.Routing}
 
 %if style == newcode
 \begin{code}

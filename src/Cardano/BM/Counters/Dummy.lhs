@@ -1,5 +1,6 @@
 
 \subsection{Cardano.BM.Counters.Dummy}
+\label{code:Cardano.BM.Counters.Dummy}
 
 This is a dummy definition of |readCounters| on platforms that do not support the
 'proc' filesystem from which we would read the counters.

@@ -1,5 +1,6 @@
 
 \subsection{Cardano.BM.Test.Trace}
+\label{code:Cardano.BM.Test.Trace}
 
 %if style == newcode
 \begin{code}
@@ -196,7 +197,7 @@ exampleWithNamedContexts = do
 
 \end{code}
 
-\subsubsection{Show effect of turning off observables}\label{code:runTimedAction}
+\subsubsection{Show effect of turning off observables}\label{timingObservableVsUntimed}
 \begin{code}
 runTimedAction :: Trace IO -> Int -> IO Measurable
 runTimedAction logTrace reps = do

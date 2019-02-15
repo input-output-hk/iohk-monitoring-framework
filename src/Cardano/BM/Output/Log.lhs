@@ -1,5 +1,6 @@
 
 \subsection{Cardano.BM.Output.Log}
+\label{code:Cardano.BM.Output.Log}
 
 %if style == newcode
 \begin{code}

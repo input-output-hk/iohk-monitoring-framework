@@ -40,7 +40,7 @@ import           Cardano.BM.Trace
 \end{code}
 
 \subsubsection{Define configuration}
-The output can be viewed in EKG on \url{http://localhost:12789}.
+Selected values can be viewed in EKG on \url{http://localhost:12789}.
 \begin{code}
 config :: IO CM.Configuration
 config = do
@@ -174,27 +174,6 @@ observeIO trace = do
 
 \end{code}
 
-\subsubsection{Thread that observes an |IO| action which downloads a txt in
-order to observe the I/O statistics}
-\todo[inline]{disabled for now! on Mac OSX this function was blocking all IO.}
-\begin{spec}
-observeDownload :: Trace IO -> IO ()
-observeDownload trace = loop trace
-  where
-    loop tr = do
-        threadDelay 10000000  -- 10 seconds
-        tr' <- appendName "observeDownload" tr
-        bracketObserveIO tr' "" $ do
-            license <- openURI "http://www.gnu.org/licenses/gpl.txt"
-            case license of
-                Right bs -> logNotice tr' $ "downloaded " <> BS8.length bs <> " bytes"
-                Left e ->  logError tr' e
-            threadDelay 500000  -- .5 second
-            pure ()
-        loop tr
-
-\end{spec}
-
 \subsubsection{Threads that observe |STM| actions on the same TVar}
 \begin{code}
 observeSTM :: Trace IO -> IO [Async.Async ()]
@@ -218,7 +197,7 @@ stmAction tvarlist = do
 
 \end{code}
 
-\subsubsection{Thread that observes an |IO| action which downloads a txt in
+\subsubsection{Thread that observes an |IO| action which downloads a text in
 order to observe the I/O statistics}
 \begin{code}
 #ifdef LINUX

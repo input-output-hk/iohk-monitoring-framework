@@ -1,5 +1,6 @@
 
 \subsection{Cardano.BM.Data.Trace}
+\label{code:Cardano.BM.Data.Trace}
 
 %if style == newcode
 \begin{code}

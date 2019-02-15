@@ -1,5 +1,6 @@
 
 \subsection{Cardano.BM.Data.Severity}
+\label{code:Cardano.BM.Data.Severity}
 
 %if style == newcode
 \begin{code}

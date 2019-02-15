@@ -1,6 +1,6 @@
 
 \subsection{Cardano.BM.Output.EKGView}
-\label{module:Cardano.BM.Output.EKGView}
+\label{code:Cardano.BM.Output.EKGView}
 
 %if style == newcode
 \begin{code}

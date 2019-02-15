@@ -18,6 +18,7 @@ stdenv.mkDerivation {
 
                       #graphicx
                       pstricks
+		      wrapfig
 
                       # build tools
                       latexmk

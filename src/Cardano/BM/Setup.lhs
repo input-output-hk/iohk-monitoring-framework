@@ -1,7 +1,8 @@
 
 \subsection{Cardano.BM.Setup}
+\label{code:Cardano.BM.Setup}
 
-\begin{figure}[htp]
+\begin{figure}[ht]
 \centering{
   \includegraphics[scale=0.54]{SetupProcedure.pdf}
 }

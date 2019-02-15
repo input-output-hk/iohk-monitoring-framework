@@ -1,5 +1,6 @@
 
 \subsection{Cardano.BM.Data.Backend}
+\label{code:Cardano.BM.Data.Backend}
 
 %if style == newcode
 \begin{code}

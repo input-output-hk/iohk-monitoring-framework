@@ -1,5 +1,6 @@
 
 \subsection{Cardano.BM.Data.LogItem}
+\label{code:Cardano.BM.Data.LogItem}
 
 %if style == newcode
 \begin{code}
@@ -62,6 +63,8 @@ deriving instance (ToJSON item, Generic item) => ToJSON (LogNamed item)
 
 \subsubsection{Logging of outcomes with |LogObject|}
 \label{code:LogObject}\index{LogObject}
+\label{code:LOMeta}\index{LOMeta}
+\label{code:LOContent}\index{LOContent}
 
 \begin{code}
 data LogObject = LogObject LOMeta LOContent
@@ -88,6 +91,12 @@ mkLOMeta =
 
 \end{code}
 
+\label{code:LogMessage}\index{LogMessage}
+\label{code:LogValue}\index{LogValue}
+\label{code:ObserveOpen}\index{ObserveOpen}
+\label{code:ObserveDiff}\index{ObserveDiff}
+\label{code:ObserveClose}\index{ObserveClose}
+\label{code:AggregatedMessage}\index{AggregatedMessage}
 Payload of a |LogObject|:
 \begin{code}
 data LOContent = LogMessage LogItem
