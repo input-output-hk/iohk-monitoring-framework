@@ -1,0 +1,45 @@
+
+% requirements.tex
+
+\subsection{Observables}
+
+We can observe the passage of the flow of execution through particular points
+in the code (really the points at which the graph is reduced). Typically
+observables would be part of an outcome (which has a start and an end). Where
+the environment permits these outcomes could also gather additional
+environmental context (e.g read system counters, ‘know’ the time).
+The proposed framework would be able to aggregate, filter such outcome measures
+so as to calculation things (where appropriate) such as:
+\\
+\begin{itemize}
+\item min/max/mean/variance of the resource costs of achieving an outcome
+\item elapsed wall-clock time
+\item CPU cycles
+\item memory allocations, etc
+\item exponentially weighted moving average of outcomes, events
+\item min/max/mean/variance of inter-arrival times of demand for service (the arrival pattern)
+\item measuring offered load against the system (e.g rate/distribution of requests against the wallet by an exchange, transactions being forwarded between nodes)
+\end{itemize}
+
+\subsubsection{STM evaluation} We treat STM evaluation as a black box and
+register measurables (counters) before entering, and report the difference at
+exit together with the result.
+Logging in an STM will keep a list of log items which at the exit of the
+evaluation will be passed to the logging subsystem. Since we do not know the
+exact time an event occurred in the STM action, we annotate the event
+afterwards with the time interval of the STM action.
+
+\subsubsection{Function evaluation} We treat a function call as a black box and
+register measurables (counters) before entering, and report the difference at
+exit together with the result.
+The function is expected to accept a `Trace` argument which receives the events.
+
+\subsubsection{QuickCheck properties \emph{tentatively}} The function
+\begin{verbatim}
+    quickCheckResult :: Testable prop => prop -> IO Result
+\end{verbatim}
+will return a |Result| data structure from which we can extract the number of
+tests performed.
+Recording the start and end times allows us to derive the time spent for a
+single test. (although this measurement is wrong as it includes the time spent
+in QuickCheck setting up the test case (and shrinking?))

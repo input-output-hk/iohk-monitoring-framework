@@ -13,6 +13,7 @@
 \usepackage{graphicx}
 \usepackage{pstricks}
 \usepackage{fancyvrb}
+\usepackage{wrapfig}
 \usepackage{makeidx}
 \makeindex
 
@@ -92,7 +93,7 @@ It is not the intention that this framework should (as part of normal use)
 record sufficient information so as to make the sequence of events reproducible,
 i.e. it is not an audit or transaction log.
 
-\begin{figure}[h]
+\begin{figure}[ht]
 \centering{
   \includegraphics[scale=0.48]{OverviewModules.pdf}
 }
@@ -102,7 +103,11 @@ but we use it to show that one module replaces the other in the namespace,
 thus specializes its interface.}\label{fig:overview}
 \end{figure}
 
-\section{Introduction}
+\section{Requirements}
+
+%include ../docs/requirements.tex
+
+\section{Description}
 
 %include ../docs/traces.tex
 
@@ -116,15 +121,11 @@ thus specializes its interface.}\label{fig:overview}
 
 \section{Examples}
 
-\subsection{Micro-benchmarking a STM action}
-
-\subsection{Micro-benchmarking a monadic action}
-
-\subsection{Simple example showing plain logging}
+\subsection{Simple example showing plain logging}\label{sec:examplesimple}
 
 %include ../examples/simple/Main.lhs
 
-\subsection{Complex example showing logging, aggregation, and observing |IO| actions}
+\subsection{Complex example showing logging, aggregation, and observing |IO| actions}\label{sec:examplecomplex}
 
 %include ../examples/complex/Main.lhs
 

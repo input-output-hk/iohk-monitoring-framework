@@ -73,7 +73,7 @@ import           Cardano.BM.Data.SubTrace
 %endif
 
 \subsubsection{Configuration.Model}\label{code:Configuration}
-\begin{figure}[htp]
+\begin{figure}[ht]
 \centering{
   \includegraphics[scale=0.54]{ConfigurationModel.pdf}
 }
@@ -377,7 +377,7 @@ setCachedSeverity configuration name severity =
 
 \end{code}
 
-\subsubsection{Relation of context name to SubTrace}
+\subsubsection{Relation of context name to SubTrace}\label{code:findSubTrace}\label{code:setSubTrace}
 A new context may contain a different type of |Trace|.
 The function |appendName| (\nameref{code:appendName}) will look up the |SubTrace| for the context's name.
 \begin{code}
