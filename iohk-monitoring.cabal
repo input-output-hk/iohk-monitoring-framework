@@ -21,6 +21,7 @@ library
                        Cardano.BM.Configuration
                        Cardano.BM.Configuration.Model
                        Cardano.BM.Configuration.Static
+                       Cardano.BM.Configuration.Editor
 
                        Cardano.BM.Counters
                        Cardano.BM.Counters.Common
@@ -85,6 +86,7 @@ library
                        text,
                        time,
                        time-units,
+                       threepenny-gui,
                        transformers,
                        unordered-containers,
                        vector,
