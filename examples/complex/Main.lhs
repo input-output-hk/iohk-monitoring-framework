@@ -22,6 +22,7 @@ import           Network.Download (openURI)
 #endif
 import           System.Random
 
+import qualified Cardano.BM.Configuration.Editor as CME
 import qualified Cardano.BM.Configuration.Model as CM
 import           Cardano.BM.Data.Aggregated (Measurable (..))
 import           Cardano.BM.Data.AggregatedKind
@@ -147,6 +148,7 @@ config = do
     CM.setBackends c "#aggregation.complex.random" (Just [EKGViewBK])
     CM.setBackends c "#aggregation.complex.random.ewma" (Just [EKGViewBK])
     CM.setEKGport c 12789
+    CM.setGUIport c 13789
 
     return c
 
@@ -257,6 +259,9 @@ main :: IO ()
 main = do
     -- create configuration
     c <- config
+
+    -- start configuration editor
+    CME.startup c
 
     -- create initial top-level Trace
     tr <- setupTrace (Right c) "complex"
