@@ -278,10 +278,6 @@ unitConfigurationParsed = do
                                             , ("iohk.background.process", Error)
                                             , ("iohk.testing.uncritical", Warning)
                                             ]
-        , cgMapSeverityCache  = HM.fromList [ ("iohk.startup", Debug)
-                                            , ("iohk.background.process", Error)
-                                            , ("iohk.testing.uncritical", Warning)
-                                            ]
         , cgMapSubtrace       = HM.fromList [ ("iohk.benchmarking",
                                                     ObservableTrace [GhcRtsStats, MonotonicClock])
                                             , ("iohk.deadend", NoTrace)
