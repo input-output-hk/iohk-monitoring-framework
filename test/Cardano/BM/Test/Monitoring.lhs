@@ -14,9 +14,7 @@ import qualified Data.HashMap.Strict as HM
 import           Data.Text (Text)
 
 import           Cardano.BM.Data.Aggregated
-import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.MonitoringEval
-import           Cardano.BM.Data.Severity
 
 import           Test.Tasty
 import           Test.Tasty.HUnit
