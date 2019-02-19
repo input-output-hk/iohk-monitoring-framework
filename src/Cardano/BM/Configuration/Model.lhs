@@ -4,7 +4,6 @@
 
 %if style == newcode
 \begin{code}
-{-# LANGUAGE CPP               #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Cardano.BM.Configuration.Model
@@ -17,10 +16,6 @@ module Cardano.BM.Configuration.Model
     , setMinSeverity
     , inspectSeverity
     , setSeverity
-#ifdef MemoizeSeverity
-    , getSeverity
-    , getCachedSeverity
-#endif
     , getBackends
     , setBackends
     , getDefaultBackends
@@ -92,10 +87,6 @@ data ConfigurationInternal = ConfigurationInternal
     , cgMapSeverity       :: HM.HashMap LoggerName Severity
     -- severity filter per loggername
     , cgMapSubtrace       :: HM.HashMap LoggerName SubTrace
-#ifdef MemoizeSeverity
-    , cgMapSeverityCache  :: HM.HashMap LoggerName Severity
-    -- map to cache info of the cgMapScribe
-#endif
     -- type of trace per loggername
     , cgOptions           :: HM.HashMap Text Object
     -- options needed for tracing, logging and monitoring
@@ -212,13 +203,9 @@ getCachedScribes configuration name = do
     return $ HM.lookup name $ cgMapScribeCache cg
 
 setScribes :: Configuration -> LoggerName -> Maybe [ScribeId] -> IO ()
-setScribes configuration name scribes = do
+setScribes configuration name scribes =
     modifyMVar_ (getCG configuration) $ \cg ->
         return cg { cgMapScribe = HM.alter (\_ -> scribes) name (cgMapScribe cg) }
-#ifdef MemoizeSeverity
-    -- delete cached scribes
-    setCachedScribes configuration name Nothing
-#endif
 
 setCachedScribes :: Configuration -> LoggerName -> Maybe [ScribeId] -> IO ()
 setCachedScribes configuration name scribes =
@@ -312,12 +299,7 @@ minSeverity configuration =
 setMinSeverity :: Configuration -> Severity -> IO ()
 setMinSeverity configuration sev =
     modifyMVar_ (getCG configuration) $ \cg ->
-        return cg { cgMinSeverity = sev
-#ifdef MemoizeSeverity
-                  -- delete cached severities
-                  , cgMapSeverityCache = HM.empty
-#endif
-                  }
+        return cg { cgMinSeverity = sev }
 
 \end{code}
 
@@ -328,52 +310,10 @@ inspectSeverity configuration name = do
     cg <- readMVar $ getCG configuration
     return $ HM.lookup name (cgMapSeverity cg)
 
-#ifdef MemoizeSeverity
-getSeverity :: Configuration -> Severity -> LoggerName -> IO Severity
-getSeverity configuration minTraceSeverity name = do
-    cg <- readMVar (getCG configuration)
-    (updateCache, sev) <- do
-        let def = max minTraceSeverity $ cgMinSeverity cg
-        let mapSeverity = cgMapSeverity cg
-        let find_s lname = case HM.lookup lname mapSeverity of
-                Nothing ->
-                    case dropToDot lname of
-                        Nothing     -> def
-                        Just lname' -> find_s lname'
-                Just sev -> sev
-        let cachedSeverity = HM.lookup name (cgMapSeverityCache cg)
-        -- look if severity is already cached
-        return $ case cachedSeverity of
-            -- if no cached severity found; search the appropriate severity that
-            -- they must inherit and update the cached map
-            Nothing  -> (True, max def $ find_s name)
-            Just sev -> (False, sev)
-
-    when updateCache $ setCachedSeverity configuration name $ Just sev
-    return sev
-
-getCachedSeverity :: Configuration -> LoggerName -> IO (Maybe Severity)
-getCachedSeverity configuration name = do
-    cg <- readMVar $ getCG configuration
-    return $ HM.lookup name $ cgMapSeverityCache cg
-#endif
-
 setSeverity :: Configuration -> Text -> Maybe Severity -> IO ()
-setSeverity configuration name sev = do
+setSeverity configuration name sev =
     modifyMVar_ (getCG configuration) $ \cg ->
         return cg { cgMapSeverity = HM.alter (\_ -> sev) name (cgMapSeverity cg) }
-#ifdef MemoizeSeverity
-    -- delete cached severity
-    setCachedSeverity configuration name Nothing
-#endif
-
-#ifdef MemoizeSeverity
-setCachedSeverity :: Configuration -> LoggerName -> Maybe Severity -> IO ()
-setCachedSeverity configuration name severity =
-    modifyMVar_ (getCG configuration) $ \cg ->
-        return cg { cgMapSeverityCache = HM.alter (\_ -> severity) name (cgMapSeverityCache cg) }
-
-#endif
 
 \end{code}
 
@@ -445,7 +385,7 @@ parseMonitors (Just hmv) = HM.mapMaybe mkMonitor hmv
             Just _             -> Nothing
     mkExpression _ = Nothing
     mkActions :: Value -> Maybe [MEvAction]
-    mkActions (Object o2) = 
+    mkActions (Object o2) =
         case HM.lookup "actions" o2 of
             Nothing -> Nothing
             Just (Array as) -> Just $ map (\(String s) -> s) $ Vector.toList as
@@ -468,9 +408,6 @@ setupFromRepresentation r = do
     cgref <- newMVar $ ConfigurationInternal
         { cgMinSeverity       = R.minSeverity r
         , cgMapSeverity       = mapseverities
-#ifdef MemoizeSeverity
-        , cgMapSeverityCache  = mapseverities
-#endif
         , cgMapSubtrace       = parseSubtraceMap mapsubtrace
         , cgOptions           = R.options r
         , cgMapBackend        = parseBackendMap mapbackends
@@ -564,9 +501,6 @@ empty = do
     cgref <- newMVar $ ConfigurationInternal
                            { cgMinSeverity       = Debug
                            , cgMapSeverity       = HM.empty
-#ifdef MemoizeSeverity
-                           , cgMapSeverityCache  = HM.empty
-#endif
                            , cgMapSubtrace       = HM.empty
                            , cgOptions           = HM.empty
                            , cgMapBackend        = HM.empty

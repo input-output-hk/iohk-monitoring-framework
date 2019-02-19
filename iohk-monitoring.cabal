@@ -97,8 +97,6 @@ library
   ghc-options:         -Wall -O2
                        -fno-ignore-asserts
 
-  cpp-options:         -DMemoizeSeverity
-
 test-suite tests
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test
