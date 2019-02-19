@@ -9,7 +9,6 @@ module Cardano.BM.Test.Monitoring (
     tests
   ) where
 
--- import           Control.Monad (forM_)
 import qualified Data.HashMap.Strict as HM
 import           Data.Text (Text)
 

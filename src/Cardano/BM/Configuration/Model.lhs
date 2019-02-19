@@ -332,10 +332,7 @@ getSeverity configuration minTraceSeverity name = do
         let def = max minTraceSeverity $ cgMinSeverity cg
         let mapSeverity = cgMapSeverity cg
         let find_s lname = case HM.lookup lname mapSeverity of
-                Nothing ->
-                    case dropToDot lname of
-                        Nothing     -> def
-                        Just lname' -> find_s lname'
+                Nothing -> def
                 Just sev -> sev
         let cachedSeverity = HM.lookup name (cgMapSeverityCache cg)
         -- look if severity is already cached

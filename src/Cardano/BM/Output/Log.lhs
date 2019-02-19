@@ -114,7 +114,7 @@ instance IsBackend Log where
             mockVersion = Version [0,1,0,0] []
             scribeSettings :: KC.ScribeSettings
             scribeSettings =
-                let bufferSize = 5000  -- size of the queue (in log items)
+                let bufferSize = 5000000  -- size of the queue (in log items)
                 in
                 KC.ScribeSettings bufferSize
             createScribe FileTextSK name rotParams = mkTextFileScribe

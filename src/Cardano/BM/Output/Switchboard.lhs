@@ -142,7 +142,7 @@ instance IsBackend Switchboard where
                 in
                 Async.async qProc
         in do
-        q <- atomically $ TBQ.newTBQueue 2048
+        q <- atomically $ TBQ.newTBQueue 204800
         sbref <- newEmptyMVar
         let sb :: Switchboard = Switchboard sbref
 

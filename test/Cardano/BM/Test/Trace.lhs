@@ -261,18 +261,23 @@ timingMemoizedSeverityFilter :: Assertion
 timingMemoizedSeverityFilter = do
 
     c0 <- devNullConfig True
-    tr0 <- Setup.setupTrace (Right c0) "test"
-    t_memoized <- runTimedAction (logInfo tr0 "Hello") 10000
-    Setup.shutdownTrace tr0
-
     c1 <- devNullConfig False
+
+    -- threadDelay 100000
+
     tr1 <- Setup.setupTrace (Right c1) "test"
-    t_notmemoized <- runTimedAction (logInfo tr1 "Hello") 10000
+    t_notmemoized <- runTimedAction (logInfo tr1 "Hello") 100000
     Setup.shutdownTrace tr1
 
+    -- threadDelay 100000
+
+    -- tr0 <- Setup.setupTrace (Right c0) "test"
+    -- t_memoized <- runTimedAction (logInfo tr0 "Hello") 100000
+    -- Setup.shutdownTrace tr0
+
     assertBool
-        ("Memoized severity filter consumed more time than the original " ++ (show [t_memoized, t_notmemoized]))
-        (t_memoized < t_notmemoized)
+        ("Memoized severity filter consumed more time than the original " ++ (show [{-t_memoized, -}t_notmemoized]))
+        False --(t_memoized < t_notmemoized)
   where
     devNullConfig :: Bool -> IO CM.Configuration
     devNullConfig memoizeSeverity = do
@@ -282,12 +287,12 @@ timingMemoizedSeverityFilter = do
         CM.setSetupBackends c [KatipBK]
         CM.setDefaultBackends c [KatipBK]
         CM.setSetupScribes c [ ScribeDefinition {
-                                  scName = "/dev/null"
+                                  scName = "ttt"
                                 , scKind = FileTextSK
                                 , scRotation = Nothing
                                 }
                         ]
-        CM.setDefaultScribes c ["FileTextSK::/dev/null"]
+        CM.setDefaultScribes c ["FileTextSK::ttt"]
         return c
 
 \end{code}
