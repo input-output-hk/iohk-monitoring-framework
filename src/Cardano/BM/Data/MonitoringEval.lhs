@@ -47,8 +47,8 @@ data MEvExpr = Compare VarName (Measurable -> Measurable -> Bool, Measurable)
 
 instance Eq MEvExpr where
     (==) (Compare vn1 _) (Compare vn2 _) = vn1 == vn2
-    (==) (AND e11 e12) (AND e21 e22)     = (e11 == e21 && e12 == e22)    -- || (e11 == e22 && e12 == e21)
-    (==) (OR e11 e12) (OR e21 e22)       = (e11 == e21 && e12 == e22)    -- || (e11 == e22 && e12 == e21)
+    (==) (AND e11 e12) (AND e21 e22)     = (e11 == e21 && e12 == e22)
+    (==) (OR e11 e12) (OR e21 e22)       = (e11 == e21 && e12 == e22)
     (==) (NOT e1) (NOT e2)               = (e1 == e2)
     (==) _ _ = False
 
@@ -62,8 +62,8 @@ instance FromJSON MEvExpr where
 instance Show MEvExpr where
     show (Compare vn _) = "compare " ++ (unpack vn)
     show (AND e1 e2)    = "(" ++ (show e1) ++ ") And (" ++ (show e2) ++ ")"
-    show (OR e1 e2)    = "(" ++ (show e1) ++ ") Or (" ++ (show e2) ++ ")"
-    show (NOT e)    = "Not (" ++ (show e) ++ ")"
+    show (OR e1 e2)     = "(" ++ (show e1) ++ ") Or ("  ++ (show e2) ++ ")"
+    show (NOT e)        = "Not (" ++ (show e) ++ ")"
 \end{code}
 
 \subsubsection{Monitoring actions}\label{code:MEvAction}
