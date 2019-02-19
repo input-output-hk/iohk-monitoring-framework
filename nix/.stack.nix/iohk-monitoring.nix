@@ -41,6 +41,7 @@
           (hsPkgs.text)
           (hsPkgs.time)
           (hsPkgs.time-units)
+          (hsPkgs.threepenny-gui)
           (hsPkgs.transformers)
           (hsPkgs.unordered-containers)
           (hsPkgs.vector)
