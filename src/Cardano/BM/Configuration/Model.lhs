@@ -17,10 +17,10 @@ module Cardano.BM.Configuration.Model
     , setMinSeverity
     , inspectSeverity
     , setSeverity
-#ifdef MemoizeSeverity
     , getSeverity
     , getCachedSeverity
-#endif
+    , setMemoizeSeverity
+    , getMemoizeSeverity
     , getBackends
     , setBackends
     , getDefaultBackends
@@ -92,11 +92,10 @@ data ConfigurationInternal = ConfigurationInternal
     , cgMapSeverity       :: HM.HashMap LoggerName Severity
     -- severity filter per loggername
     , cgMapSubtrace       :: HM.HashMap LoggerName SubTrace
-#ifdef MemoizeSeverity
+    -- type of trace per loggername
+    , cgMemoizeSeverity   :: Bool
     , cgMapSeverityCache  :: HM.HashMap LoggerName Severity
     -- map to cache info of the cgMapScribe
-#endif
-    -- type of trace per loggername
     , cgOptions           :: HM.HashMap Text Object
     -- options needed for tracing, logging and monitoring
     , cgMapBackend        :: HM.HashMap LoggerName [BackendKind]
@@ -213,12 +212,12 @@ getCachedScribes configuration name = do
 
 setScribes :: Configuration -> LoggerName -> Maybe [ScribeId] -> IO ()
 setScribes configuration name scribes = do
+    memoizeSeverity <- getMemoizeSeverity configuration
     modifyMVar_ (getCG configuration) $ \cg ->
         return cg { cgMapScribe = HM.alter (\_ -> scribes) name (cgMapScribe cg) }
-#ifdef MemoizeSeverity
-    -- delete cached scribes
-    setCachedScribes configuration name Nothing
-#endif
+    when memoizeSeverity $
+        -- delete cached scribes
+        setCachedScribes configuration name Nothing
 
 setCachedScribes :: Configuration -> LoggerName -> Maybe [ScribeId] -> IO ()
 setCachedScribes configuration name scribes =
@@ -313,10 +312,8 @@ setMinSeverity :: Configuration -> Severity -> IO ()
 setMinSeverity configuration sev =
     modifyMVar_ (getCG configuration) $ \cg ->
         return cg { cgMinSeverity = sev
-#ifdef MemoizeSeverity
                   -- delete cached severities
                   , cgMapSeverityCache = HM.empty
-#endif
                   }
 
 \end{code}
@@ -328,7 +325,6 @@ inspectSeverity configuration name = do
     cg <- readMVar $ getCG configuration
     return $ HM.lookup name (cgMapSeverity cg)
 
-#ifdef MemoizeSeverity
 getSeverity :: Configuration -> Severity -> LoggerName -> IO Severity
 getSeverity configuration minTraceSeverity name = do
     cg <- readMVar (getCG configuration)
@@ -356,24 +352,29 @@ getCachedSeverity :: Configuration -> LoggerName -> IO (Maybe Severity)
 getCachedSeverity configuration name = do
     cg <- readMVar $ getCG configuration
     return $ HM.lookup name $ cgMapSeverityCache cg
-#endif
 
 setSeverity :: Configuration -> Text -> Maybe Severity -> IO ()
 setSeverity configuration name sev = do
+    memoizeSeverity <- getMemoizeSeverity configuration
     modifyMVar_ (getCG configuration) $ \cg ->
         return cg { cgMapSeverity = HM.alter (\_ -> sev) name (cgMapSeverity cg) }
-#ifdef MemoizeSeverity
-    -- delete cached severity
-    setCachedSeverity configuration name Nothing
-#endif
+    when memoizeSeverity $
+        -- delete cached severity
+        setCachedSeverity configuration name Nothing
 
-#ifdef MemoizeSeverity
+setMemoizeSeverity :: Configuration -> Bool -> IO ()
+setMemoizeSeverity configuration bool =
+    modifyMVar_ (getCG configuration) $ \cg ->
+        return cg { cgMemoizeSeverity = bool }
+
+getMemoizeSeverity :: Configuration -> IO Bool
+getMemoizeSeverity configuration =
+    cgMemoizeSeverity <$> (readMVar $ getCG configuration)
+
 setCachedSeverity :: Configuration -> LoggerName -> Maybe Severity -> IO ()
 setCachedSeverity configuration name severity =
     modifyMVar_ (getCG configuration) $ \cg ->
         return cg { cgMapSeverityCache = HM.alter (\_ -> severity) name (cgMapSeverityCache cg) }
-
-#endif
 
 \end{code}
 
@@ -445,7 +446,7 @@ parseMonitors (Just hmv) = HM.mapMaybe mkMonitor hmv
             Just _             -> Nothing
     mkExpression _ = Nothing
     mkActions :: Value -> Maybe [MEvAction]
-    mkActions (Object o2) = 
+    mkActions (Object o2) =
         case HM.lookup "actions" o2 of
             Nothing -> Nothing
             Just (Array as) -> Just $ map (\(String s) -> s) $ Vector.toList as
@@ -468,10 +469,9 @@ setupFromRepresentation r = do
     cgref <- newMVar $ ConfigurationInternal
         { cgMinSeverity       = R.minSeverity r
         , cgMapSeverity       = mapseverities
-#ifdef MemoizeSeverity
-        , cgMapSeverityCache  = mapseverities
-#endif
         , cgMapSubtrace       = parseSubtraceMap mapsubtrace
+        , cgMemoizeSeverity   = False
+        , cgMapSeverityCache  = mapseverities
         , cgOptions           = R.options r
         , cgMapBackend        = parseBackendMap mapbackends
         , cgDefBackendKs      = R.defaultBackends r
@@ -564,10 +564,9 @@ empty = do
     cgref <- newMVar $ ConfigurationInternal
                            { cgMinSeverity       = Debug
                            , cgMapSeverity       = HM.empty
-#ifdef MemoizeSeverity
-                           , cgMapSeverityCache  = HM.empty
-#endif
                            , cgMapSubtrace       = HM.empty
+                           , cgMemoizeSeverity   = False
+                           , cgMapSeverityCache  = HM.empty
                            , cgOptions           = HM.empty
                            , cgMapBackend        = HM.empty
                            , cgDefBackendKs      = []

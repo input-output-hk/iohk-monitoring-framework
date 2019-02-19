@@ -19,7 +19,6 @@ import           Cardano.BM.Data.LogItem (LoggerName)
 import           Cardano.BM.Data.Output
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.Trace
--- import qualified Cardano.BM.Output.Switchboard as Switchboard
 import           Cardano.BM.Setup
 import           Cardano.BM.Trace
 

@@ -43,9 +43,7 @@ import           Control.Monad.IO.Class (MonadIO, liftIO)
 import qualified Control.Monad.STM as STM
 import           Data.Aeson.Text (encodeToLazyText)
 import           Data.Functor.Contravariant (Contravariant (..), Op (..))
-#ifndef MemoizeSeverity
 import           Data.Maybe (fromMaybe)
-#endif
 import           Data.Monoid ((<>))
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
@@ -54,9 +52,7 @@ import           System.IO.Unsafe (unsafePerformIO)
 
 import qualified Cardano.BM.BaseTrace as BaseTrace
 import qualified Cardano.BM.Configuration as Config
-#ifdef MemoizeSeverity
-import           Cardano.BM.Configuration.Model (getSeverity)
-#endif
+import           Cardano.BM.Configuration.Model (getMemoizeSeverity, getSeverity)
 import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.Trace
@@ -233,14 +229,15 @@ traceConditionally
     -> LogObject
     -> m ()
 traceConditionally logTrace@(ctx, _) msg@(LogObject _ (LogMessage item)) = do
-#ifdef MemoizeSeverity
-    minsev <-liftIO $ getSeverity (configuration ctx) (minSeverity ctx) (loggerName ctx)
-#else
-    globminsev <- liftIO $ Config.minSeverity (configuration ctx)
-    globnamesev <- liftIO $ Config.inspectSeverity (configuration ctx) (loggerName ctx)
-    let minsev =
-            max (minSeverity ctx) $ max globminsev $ fromMaybe Debug globnamesev
-#endif
+    let conf = configuration ctx
+    memoizeSeverity <- liftIO $ getMemoizeSeverity conf
+    minsev <- liftIO $ if memoizeSeverity
+            then
+                getSeverity conf (minSeverity ctx) (loggerName ctx)
+            else do
+                globminsev <- Config.minSeverity conf
+                globnamesev <- Config.inspectSeverity conf (loggerName ctx)
+                return $ max (minSeverity ctx) $ max globminsev $ fromMaybe Debug globnamesev
     let flag = (liSeverity item) >= minsev
     when flag $ traceNamedObject logTrace msg
 traceConditionally logTrace logObject =

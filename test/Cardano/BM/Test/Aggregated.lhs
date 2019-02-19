@@ -4,10 +4,10 @@
 
 %if style == newcode
 \begin{code}
-module Cardano.BM.Test.Aggregated (
-    tests
-    ,prop_Aggregation_comm
-  ) where
+module Cardano.BM.Test.Aggregated
+        ( tests
+        , prop_Aggregation_comm
+        ) where
 
 import           System.IO.Unsafe (unsafePerformIO)
 

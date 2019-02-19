@@ -28,8 +28,10 @@ import qualified Data.Text as T
 import           Data.Unique (newUnique)
 import           System.Mem (performMajorGC)
 
+import           Cardano.BM.Data.BackendKind (BackendKind (KatipBK))
 import           Cardano.BM.Configuration (inspectSeverity,
                      minSeverity, setMinSeverity, setSeverity)
+import qualified Cardano.BM.Configuration.Model as CM
 import           Cardano.BM.Configuration.Model (empty, setSubTrace)
 import           Cardano.BM.Configuration.Static (defaultConfigTesting)
 import           Cardano.BM.Counters (diffTimeObserved, getMonoClock)
@@ -65,6 +67,7 @@ tests = testGroup "Testing Trace" [
         unit_tests
       , testCase "forked traces stress testing" stressTraceInFork
       , testCase "stress testing: ObservableTrace vs. NoTrace" timingObservableVsUntimed
+      , testCase "stress testing: Memoized severity filter" timingMemoizedSeverityFilter
       , testCaseInfo "demonstrating logging" simpleDemo
       , testCaseInfo "demonstrating nested named context logging" exampleWithNamedContexts
       ]
@@ -199,18 +202,13 @@ exampleWithNamedContexts = do
 
 \subsubsection{Show effect of turning off observables}\label{timingObservableVsUntimed}
 \begin{code}
-runTimedAction :: Trace IO -> Int -> IO Measurable
-runTimedAction logTrace reps = do
+runTimedAction :: IO () -> Int -> IO Measurable
+runTimedAction action reps = do
     runid <- newUnique
     t0 <- getMonoClock
-    forM_ [(1::Int)..reps] $ const $ observeAction logTrace
+    forM_ [(1::Int)..reps] $ const action
     t1 <- getMonoClock
     return $ diffTimeObserved (CounterState runid t0) (CounterState runid t1)
-  where
-    observeAction trace = do
-        _ <- MonadicObserver.bracketObserveIO trace "" action
-        return ()
-    action = return $ forM [1::Int ..100] $ \x -> [x] ++ (init $ reverse [1::Int ..10000])
 
 timingObservableVsUntimed :: Assertion
 timingObservableVsUntimed = do
@@ -235,9 +233,9 @@ timingObservableVsUntimed = do
                                     NoTrace
                                     Debug
 
-    t_observable <- runTimedAction traceObservable 100
-    t_untimed    <- runTimedAction traceUntimed 100
-    t_notrace    <- runTimedAction traceNoTrace 100
+    t_observable <- runTimedAction (observeAction traceObservable) 100
+    t_untimed    <- runTimedAction (observeAction traceUntimed)    100
+    t_notrace    <- runTimedAction (observeAction traceNoTrace)    100
 
     assertBool
         ("Untimed consumed more time than ObservableTrace " ++ (show [t_untimed, t_observable]))
@@ -250,6 +248,47 @@ timingObservableVsUntimed = do
         True
   where
     observablesSet = [MonotonicClock, GhcRtsStats, MemoryStats, IOStats, ProcessStats]
+    observeAction trace = do
+        _ <- MonadicObserver.bracketObserveIO trace "" action
+        return ()
+    action = return $ forM [1::Int ..100] $ \x -> [x] ++ (init $ reverse [1::Int ..10000])
+
+\end{code}
+
+\subsubsection{Show effect of turning off observables}\label{timingMemoizedSeverityFilter}
+\begin{code}
+timingMemoizedSeverityFilter :: Assertion
+timingMemoizedSeverityFilter = do
+
+    c0 <- devNullConfig True
+    tr0 <- Setup.setupTrace (Right c0) "test"
+    t_memoized <- runTimedAction (logInfo tr0 "Hello") 10000
+    Setup.shutdownTrace tr0
+
+    c1 <- devNullConfig False
+    tr1 <- Setup.setupTrace (Right c1) "test"
+    t_notmemoized <- runTimedAction (logInfo tr1 "Hello") 10000
+    Setup.shutdownTrace tr1
+
+    assertBool
+        ("Memoized severity filter consumed more time than the original " ++ (show [t_memoized, t_notmemoized]))
+        (t_memoized < t_notmemoized)
+  where
+    devNullConfig :: Bool -> IO CM.Configuration
+    devNullConfig memoizeSeverity = do
+        c <- CM.empty
+        CM.setMemoizeSeverity c memoizeSeverity
+        CM.setMinSeverity c Debug
+        CM.setSetupBackends c [KatipBK]
+        CM.setDefaultBackends c [KatipBK]
+        CM.setSetupScribes c [ ScribeDefinition {
+                                  scName = "/dev/null"
+                                , scKind = FileTextSK
+                                , scRotation = Nothing
+                                }
+                        ]
+        CM.setDefaultScribes c ["FileTextSK::/dev/null"]
+        return c
 
 \end{code}
 
