@@ -5,6 +5,7 @@ SOURCES = ../src/Code.lhs \
 					../src/Cardano/BM/Configuration.lhs \
 					../src/Cardano/BM/Configuration/Model.lhs \
 					../src/Cardano/BM/Configuration/Static.lhs \
+					../src/Cardano/BM/Configuration/Editor.lhs \
 					../src/Cardano/BM/Counters.lhs \
 					../src/Cardano/BM/Counters/Common.lhs \
 					../src/Cardano/BM/Counters/Dummy.lhs \
