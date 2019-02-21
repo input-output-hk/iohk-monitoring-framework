@@ -1,0 +1,35 @@
+<!doctype html>
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <title>Configuration Editor</title>
+  <link rel="stylesheet" href="static/css/w3.css">
+  <link rel="stylesheet" href="haskell.css">
+  <link rel="stylesheet" href="static/css/configuration-editor.css">
+
+  <!-- See https://stackoverflow.com/a/37480521  -->
+  <script>if (typeof module === 'object') {window.module = module; module = undefined;}</script>
+  <script src="haskell.js"></script>
+  <script>if (window.module) { module = window.module; }</script>
+
+  <script type="text/javascript" charset="utf-8">
+    Haskell.initFFI();
+  </script>
+</head>
+<body>
+  <noscript>Please enable JavaScript.</noscript>
+ <div id="masthead">
+   <img src="static/images/iohk-logo.png" alt="IOHK logo">
+ </div>
+ <div id="target">
+ </div>
+ <div id="outputtable">
+   <table id="output">
+     
+   </table>
+  </div>
+ </body>
+</html>
+
