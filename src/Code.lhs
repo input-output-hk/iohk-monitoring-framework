@@ -169,6 +169,7 @@ where
 %include Cardano/BM/Configuration.lhs
 %include Cardano/BM/Configuration/Model.lhs
 %include Cardano/BM/Configuration/Static.lhs
+%include Cardano/BM/Configuration/Editor.lhs
 
 %include Cardano/BM/Output/Switchboard.lhs
 %include Cardano/BM/Output/Log.lhs
