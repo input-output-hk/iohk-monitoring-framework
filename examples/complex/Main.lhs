@@ -271,17 +271,17 @@ main = do
 
     {- start thread sending unbounded sequence of random numbers
        to a trace which aggregates them into a statistics (sent to EKG) -}
-    procRandom <- randomThr tr
+    -- procRandom <- randomThr tr
 
     -- start thread endlessly reversing lists of random length
-    procObsvIO <- observeIO tr
+    -- procObsvIO <- observeIO tr
 
     -- start threads endlessly observing STM actions operating on the same TVar
-    procObsvSTMs <- observeSTM tr
+    -- procObsvSTMs <- observeSTM tr
 
 #ifdef LINUX
     -- start thread endlessly which downloads sth in order to check the I/O usage
-    procObsvDownload <- observeDownload tr
+    -- procObsvDownload <- observeDownload tr
 #endif
 
     -- start a thread to output a text messages every n seconds
@@ -291,14 +291,14 @@ main = do
     _ <- Async.waitCatch procMsg
 #ifdef LINUX
     -- wait for download thread to finish, ignoring any exception
-    _ <- Async.waitCatch procObsvDownload
+    -- _ <- Async.waitCatch procObsvDownload
 #endif
     -- wait for observer thread to finish, ignoring any exception
-    _ <- forM procObsvSTMs Async.waitCatch
+    -- _ <- forM procObsvSTMs Async.waitCatch
     -- wait for observer thread to finish, ignoring any exception
-    _ <- Async.waitCatch procObsvIO
+    -- _ <- Async.waitCatch procObsvIO
     -- wait for random thread to finish, ignoring any exception
-    _ <- Async.waitCatch procRandom
+    -- _ <- Async.waitCatch procRandom
 
     return ()
 

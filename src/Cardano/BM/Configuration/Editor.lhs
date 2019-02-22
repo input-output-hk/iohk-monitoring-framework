@@ -24,6 +24,7 @@ import           Graphics.UI.Threepenny.Core hiding (delete)
 import           Cardano.BM.Configuration
 import qualified Cardano.BM.Configuration.Model as CM
 import           Cardano.BM.Data.LogItem (LoggerName)
+import           Cardano.BM.Data.Severity
 
 \end{code}
 %endif
@@ -48,11 +49,11 @@ startup config = do
 
 \begin{code}
 
-data Cmds = Backends | Scribes | Severities | SubTrace
+data Cmds = Backends | Scribes | Severities | SubTrace | Aggregation
             deriving (Show)
 
 prepare :: Configuration -> Window -> UI ()
-prepare config window = do
+prepare config window = void $ do
     return window # set title "IOHK logging and monitoring"
 
     let delItem sel n = undefined
@@ -78,28 +79,54 @@ prepare config window = do
                 ) $ HM.toList (sel cg)
 
     -- commands
-    let switchTo Backends   = listPairs CM.cgMapBackend
-        switchTo Severities = listPairs CM.cgMapSeverity
-        switchTo Scribes    = listPairs CM.cgMapScribe
-        switchTo SubTrace   = listPairs CM.cgMapSubtrace
+    let switchTo Backends    = listPairs CM.cgMapBackend
+        switchTo Severities  = listPairs CM.cgMapSeverity
+        switchTo Scribes     = listPairs CM.cgMapScribe
+        switchTo SubTrace    = listPairs CM.cgMapSubtrace
+        switchTo Aggregation = listPairs CM.cgMapAggregatedKind
 
     let mkCommandButtons =
             let btns = map (\n -> do
                             b <- UI.button #. "cmdbutton" #+ [string (show n)]
                             on UI.click b $ const $ (switchTo n)
                             return b)
-                            [Backends, Scribes, Severities, SubTrace]
+                            [Backends, Scribes, Severities, SubTrace, Aggregation]
             in row btns
+
+    let setMinSev _el sev = liftIO $
+            putStrLn $ "setting min severity to " ++ (show sev)
+
+    minsev <- UI.select #. "minsevfield" #+ [
+                    UI.option # set UI.text (show Debug)
+                              # set UI.value (show Debug)
+                 ,  UI.option # set UI.text (show Info)
+                              # set UI.value (show Info)
+                 ,  UI.option # set UI.text (show Notice)
+                              # set UI.value (show Notice)
+                 ,  UI.option # set UI.text (show Warning)
+                              # set UI.value (show Warning)
+                 ,  UI.option # set UI.text (show Error)
+                              # set UI.value (show Error)
+                 ,  UI.option # set UI.text (show Critical)
+                              # set UI.value (show Critical)
+                 ,  UI.option # set UI.text (show Alert)
+                              # set UI.value (show Alert)
+                 ,  UI.option # set UI.text (show Emergency)
+                              # set UI.value (show Emergency)
+                 ]
+    on UI.selectionChange minsev $ setMinSev minsev
+    let mkMinSevEntry = row [string "min. severity", element minsev]
 
     -- GUI layout
     let glue = string " "
     let topGrid = [grid
                     [[mkCommandButtons]
                     ,[row [string " "], glue]
+                    ,[mkMinSevEntry]
                     ]
                   ]
     
-    tgt <- getElementById window "target"
+    tgt <- getElementById window "gridtarget"
     case tgt of
         Nothing -> pure ()
         Just t  -> void $ element t #+ topGrid
