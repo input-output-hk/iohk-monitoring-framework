@@ -24,14 +24,14 @@ module Cardano.BM.Trace
     -- * log functions
     , traceNamedObject
     , traceNamedItem
-    , logAlert,     logAlertS,     logAlertP,     logAlertUnsafeP
-    , logCritical,  logCriticalS,  logCriticalP,  logCriticalUnsafeP
-    , logDebug,     logDebugS,     logDebugP,     logDebugUnsafeP
-    , logEmergency, logEmergencyS, logEmergencyP, logEmergencyUnsafeP
-    , logError,     logErrorS,     logErrorP,     logErrorUnsafeP
-    , logInfo,      logInfoS,      logInfoP,      logInfoUnsafeP
-    , logNotice,    logNoticeS,    logNoticeP,    logNoticeUnsafeP
-    , logWarning,   logWarningS,   logWarningP,   logWarningUnsafeP
+    , logAlert,     logAlertS
+    , logCritical,  logCriticalS
+    , logDebug,     logDebugS
+    , logEmergency, logEmergencyS
+    , logError,     logErrorS
+    , logInfo,      logInfoS
+    , logNotice,    logNoticeS
+    , logWarning,   logWarningS
     ) where
 
 import           Control.Concurrent.MVar (MVar, newMVar, withMVar)
@@ -261,28 +261,20 @@ traceNamedItem trace p s m =
 \subsubsection{Logging functions}
 \label{code:logDebug}\index{logDebug}
 \label{code:logDebugS}\index{logDebugS}
-\label{code:logDebugP}\index{logDebugP}
 \label{code:logInfo}\index{logInfo}
 \label{code:logInfoS}\index{logInfoS}
-\label{code:logInfoP}\index{logInfoP}
 \label{code:logNotice}\index{logNotice}
 \label{code:logNoticeS}\index{logNoticeS}
-\label{code:logNoticeP}\index{logNoticeP}
 \label{code:logWarning}\index{logWarning}
 \label{code:logWarningS}\index{logWarningS}
-\label{code:logWarningP}\index{logWarningP}
 \label{code:logError}\index{logError}
 \label{code:logErrorS}\index{logErrorS}
-\label{code:logErrorP}\index{logErrorP}
 \label{code:logCritical}\index{logCritical}
 \label{code:logCriticalS}\index{logCriticalS}
-\label{code:logCriticalP}\index{logCriticalP}
 \label{code:logAlert}\index{logAlert}
 \label{code:logAlertS}\index{logAlertS}
-\label{code:logAlertP}\index{logAlertP}
 \label{code:logEmergency}\index{logEmergency}
 \label{code:logEmergencyS}\index{logEmergencyS}
-\label{code:logEmergencyP}\index{logEmergencyP}
 \begin{code}
 logDebug, logInfo, logNotice, logWarning, logError, logCritical, logAlert, logEmergency
     :: MonadIO m => Trace m -> T.Text -> m ()
@@ -306,41 +298,10 @@ logCriticalS  logTrace = traceNamedItem logTrace Private Critical
 logAlertS     logTrace = traceNamedItem logTrace Private Alert
 logEmergencyS logTrace = traceNamedItem logTrace Private Emergency
 
-logDebugP, logInfoP, logNoticeP, logWarningP, logErrorP, logCriticalP, logAlertP, logEmergencyP
-    :: MonadIO m => Trace m -> T.Text -> m ()
-logDebugP     logTrace = traceNamedItem logTrace Public Debug
-logInfoP      logTrace = traceNamedItem logTrace Public Info
-logNoticeP    logTrace = traceNamedItem logTrace Public Notice
-logWarningP   logTrace = traceNamedItem logTrace Public Warning
-logErrorP     logTrace = traceNamedItem logTrace Public Error
-logCriticalP  logTrace = traceNamedItem logTrace Public Critical
-logAlertP     logTrace = traceNamedItem logTrace Public Alert
-logEmergencyP logTrace = traceNamedItem logTrace Public Emergency
-
-logDebugUnsafeP, logInfoUnsafeP, logNoticeUnsafeP, logWarningUnsafeP, logErrorUnsafeP,
-    logCriticalUnsafeP, logAlertUnsafeP, logEmergencyUnsafeP
-    :: MonadIO m => Trace m -> T.Text -> m ()
-logDebugUnsafeP     logTrace = traceNamedItem logTrace PublicUnsafe Debug
-logInfoUnsafeP      logTrace = traceNamedItem logTrace PublicUnsafe Info
-logNoticeUnsafeP    logTrace = traceNamedItem logTrace PublicUnsafe Notice
-logWarningUnsafeP   logTrace = traceNamedItem logTrace PublicUnsafe Warning
-logErrorUnsafeP     logTrace = traceNamedItem logTrace PublicUnsafe Error
-logCriticalUnsafeP  logTrace = traceNamedItem logTrace PublicUnsafe Critical
-logAlertUnsafeP     logTrace = traceNamedItem logTrace PublicUnsafe Alert
-logEmergencyUnsafeP logTrace = traceNamedItem logTrace PublicUnsafe Emergency
-
 \end{code}
 
 %if style == newcode
 \begin{spec}
-
-{-
-logMessage, logMessageS, logMessageP :: Trace m -> Severity -> T.Text -> m ()
-logMessage logTrace  = traceNamedItem logTrace Both
-logMessageS logTrace = traceNamedItem logTrace Private
-logMessageP logTrace = traceNamedItem logTrace Public
--}
-
 example :: IO ()
 example = do
     let logTrace0 = stdoutTrace

@@ -126,15 +126,11 @@ data LogItem = LogItem
 \end{code}
 
 \label{code:LogSelection}\index{LogSelection}
-\label{code:Public}\index{LogSelection!Public}
-\label{code:PublicUnsafe}\index{LogSelection!PublicUnsafe}
 \label{code:Private}\index{LogSelection!Private}
 \label{code:Both}\index{LogSelection!Both}
 \begin{code}
 data LogSelection =
-      Public       -- only to public logs.
-    | PublicUnsafe -- only to public logs, not console.
-    | Private      -- only to private logs.
+      Private      -- only to private logs.
     | Both         -- to public and private logs.
     deriving (Show, Generic, ToJSON, FromJSON)
 
