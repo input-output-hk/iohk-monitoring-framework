@@ -31,6 +31,7 @@ defaultConfigStdout = do
     CM.setSetupScribes c [ ScribeDefinition {
                               scName = "stdout"
                             , scKind = StdoutSK
+                            , scPrivacy = ScPublic
                             , scRotation = Nothing
                             }
                       ]
@@ -50,6 +51,7 @@ defaultConfigTesting = do
     CM.setSetupScribes c [ ScribeDefinition {
                               scName = "stdout"
                             , scKind = StdoutSK
+                            , scPrivacy = ScPublic
                             , scRotation = Nothing
                             }
                       ]

@@ -32,6 +32,7 @@ import           Control.Monad (forM_, void)
 import           Control.Lens ((^.))
 import           Data.Aeson.Text (encodeToLazyText)
 import qualified Data.Map as Map
+import           Data.List (find)
 import           Data.Maybe (isNothing)
 import           Data.String (fromString)
 import           Data.Text (Text, isPrefixOf, pack, unpack)
@@ -85,8 +86,23 @@ data LogInternal = LogInternal
 instance IsEffectuator Log where
     effectuate katip item = do
         c <- configuration <$> readMVar (getK katip)
+        setupScribes <- getSetupScribes c
         selscribes <- getScribes c (lnName item)
-        forM_ selscribes $ \sc -> passN sc katip item
+        let selscribesFiltered =
+                case lnItem item of
+                    LogObject _ (LogMessage (LogItem Private _ _))
+                        -> removePublicScribes setupScribes selscribes
+                    _   -> selscribes
+        forM_ selscribesFiltered $ \sc -> passN sc katip item
+      where
+        removePublicScribes allScribes = filter $ \sc ->
+            let (_, nameD) = T.breakOn "::" sc
+                -- drop "::" from the start of name
+                name = T.drop 2 nameD
+            in
+            case find (\x -> scName x == name) allScribes of
+                Nothing     -> False
+                Just scribe -> scPrivacy scribe == ScPrivate
 
     handleOverflow _ = putStrLn "Notice: Katip's queue full, dropping log items!"
 
@@ -189,7 +205,7 @@ that match on their name.
 Compare start of name of scribe to |(show backend <> "::")|.
 This function is non-blocking.
 \begin{code}
-passN :: Text -> Log -> NamedLogItem -> IO ()
+passN :: ScribeId -> Log -> NamedLogItem -> IO ()
 passN backend katip namedLogItem = do
     env <- kLogEnv <$> readMVar (getK katip)
     forM_ (Map.toList $ K._logEnvScribes env) $

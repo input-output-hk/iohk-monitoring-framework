@@ -108,6 +108,7 @@ unit_generic_scribe_backend defaultBackends setBackends defaultScribes setScribe
     CM.setSetupScribes c [ ScribeDefinition {
                               scName = "out-test.txt"
                             , scKind = FileTextSK
+                            , scPrivacy = ScPublic
                             , scRotation = Nothing
                             }
                          ]

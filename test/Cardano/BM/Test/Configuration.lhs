@@ -162,8 +162,9 @@ unitConfigurationStaticRepresentation =
                                     }
             , setupScribes =
                 [ ScribeDefinition { scName = "stdout"
-                                , scKind = StdoutSK
-                                , scRotation = Nothing }
+                                   , scKind = StdoutSK
+                                   , scPrivacy = ScPublic
+                                   , scRotation = Nothing }
                 ]
             , defaultScribes = [(StdoutSK, "stdout")]
             , setupBackends = [ EKGViewBK, KatipBK ]
@@ -198,6 +199,7 @@ unitConfigurationStaticRepresentation =
                  \- scName: stdout\n\
                  \  scRotation: null\n\
                  \  scKind: StdoutSK\n\
+                 \  scPrivacy: ScPublic\n\
                  \hasEKG: 18321\n\
                  \minSeverity: Info\n"
 
@@ -262,9 +264,11 @@ unitConfigurationParsedRepresentation = do
                     \    rpKeepFilesNum: 3\n\
                     \    rpMaxAgeHours: 24\n\
                     \  scKind: FileTextSK\n\
+                    \  scPrivacy: ScPrivate\n\
                     \- scName: stdout\n\
                     \  scRotation: null\n\
                     \  scKind: StdoutSK\n\
+                    \  scPrivacy: ScPublic\n\
                     \hasEKG: 12789\n\
                     \minSeverity: Info\n"
 
@@ -330,6 +334,7 @@ unitConfigurationParsed = do
         , cgSetupScribes      = [ ScribeDefinition
                                     { scKind     = FileTextSK
                                     , scName     = "testlog"
+                                    , scPrivacy  = ScPrivate
                                     , scRotation = Just $ RotationParameters
                                                     { rpLogLimitBytes = 25000000
                                                     , rpMaxAgeHours   = 24
@@ -339,6 +344,7 @@ unitConfigurationParsed = do
                                 , ScribeDefinition
                                     { scKind = StdoutSK
                                     , scName = "stdout"
+                                    , scPrivacy = ScPublic
                                     , scRotation = Nothing
                                     }
                                 ]
