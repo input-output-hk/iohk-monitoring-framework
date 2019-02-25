@@ -31,6 +31,7 @@ setupScribes:
     scName: stdout
   - scKind: FileTextSK
     scName: "testlog"
+    scPrivacy: ScPrivate
     scRotation:
       rpLogLimitBytes: 25000000
       rpKeepFilesNum:  3
