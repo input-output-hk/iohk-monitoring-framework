@@ -26,15 +26,21 @@ import           Data.Map (fromListWith, lookup)
 import           Data.Text (Text, append, pack)
 import qualified Data.Text as T
 import           Data.Unique (newUnique)
+import           System.Directory (getTemporaryDirectory, removeFile)
 import           System.Mem (performMajorGC)
+import           System.FilePath ((</>))
+-- import           System.IO (openFile, IOMode(WriteMode))
 
 import           Cardano.BM.Configuration (inspectSeverity,
                      minSeverity, setMinSeverity, setSeverity)
-import           Cardano.BM.Configuration.Model (empty, setSubTrace)
+import           Cardano.BM.Configuration.Model (empty, setDefaultBackends,
+                     setDefaultScribes, setSubTrace, setSetupBackends,
+                     setSetupScribes)
 import           Cardano.BM.Configuration.Static (defaultConfigTesting)
 import           Cardano.BM.Counters (diffTimeObserved, getMonoClock)
 import qualified Cardano.BM.BaseTrace as BaseTrace
 import           Cardano.BM.Data.Aggregated
+import           Cardano.BM.Data.BackendKind (BackendKind (..))
 import           Cardano.BM.Data.Counter
 import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.Observable
@@ -47,9 +53,9 @@ import qualified Cardano.BM.Observer.STM as STMObserver
 import           Cardano.BM.Setup (newContext)
 import qualified Cardano.BM.Setup as Setup
 import           Cardano.BM.Trace (Trace, appendName, evalFilters, logDebug,
-                     logInfo, logNotice, logWarning, logError, logCritical,
-                     logAlert, logEmergency, subTrace, traceInTVarIO,
-                     traceNamedInTVarIO)
+                     logInfo, logInfoS, logNotice, logWarning, logError,
+                     logCritical, logAlert, logEmergency, subTrace,
+                     traceInTVarIO, traceNamedInTVarIO)
 import           Cardano.BM.Output.Switchboard (Switchboard(..))
 
 import           Test.Tasty (TestTree, testGroup)
@@ -92,6 +98,7 @@ unit_tests = testGroup "Unit tests" [
       , testCase "testing name filtering" unitNameFiltering
       , testCase "testing throwing of exceptions" unitExceptionThrowing
       , testCase "NoTrace: check lazy evaluation" unitTestLazyEvaluation
+      , testCase "private messages should not be logged into private files" unitLoggingPrivate
       ]
       where
         observablesSet = [MonotonicClock, MemoryStats]
@@ -614,5 +621,60 @@ unitTestLazyEvaluation = do
         trace <- subTrace "work" trace0
 
         logInfo trace message
+
+\end{code}
+
+\subsubsection{Check that private messages do not end up in public log files.}\label{code:unitLoggingPrivate}
+\begin{code}
+unitLoggingPrivate :: Assertion
+unitLoggingPrivate = do
+
+    tmpDir <- getTemporaryDirectory
+    let privateFile = tmpDir </> "private.log"
+        publicFile  = tmpDir </> "public.log"
+
+    conf <- empty
+    setDefaultBackends conf [KatipBK]
+    setSetupBackends conf [KatipBK]
+    setDefaultScribes conf [ "FileTextSK::" <> pack privateFile
+                           , "FileTextSK::" <> pack publicFile
+                           ]
+    setSetupScribes conf [ ScribeDefinition
+                            { scKind     = FileTextSK
+                            , scName     = pack privateFile
+                            , scPrivacy  = ScPrivate
+                            , scRotation = Nothing
+                            }
+                         , ScribeDefinition
+                            { scKind     = FileTextSK
+                            , scName     = pack publicFile
+                            , scPrivacy  = ScPublic
+                            , scRotation = Nothing
+                            }
+                         ]
+
+    trace <- Setup.setupTrace (Right conf) "test"
+
+    -- should log in both files
+    logInfo  trace message
+    -- should only log in private file
+    logInfoS trace message
+
+    Setup.shutdownTrace trace
+
+    countPublic  <- length . lines <$> readFile publicFile
+    countPrivate <- length . lines <$> readFile privateFile
+
+    -- delete files
+    forM_ [privateFile, publicFile] removeFile
+
+    assertBool
+        ("Private file should contain 2 lines and it contains " ++ show countPrivate ++ ".\n" ++
+         "Public file should contain 1 line and it contains "   ++ show countPublic  ++ ".\n"
+        )
+        (countPublic == 1 && countPrivate == 2)
+  where
+    message :: Text
+    message = "Just a message"
 
 \end{code}

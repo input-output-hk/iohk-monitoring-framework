@@ -51,26 +51,31 @@ config = do
     CM.setSetupScribes c [ ScribeDefinition {
                               scName = "stdout"
                             , scKind = StdoutSK
+                            , scPrivacy = ScPublic
                             , scRotation = Nothing
                             }
                          , ScribeDefinition {
                               scName = "logs/out.odd.json"
                             , scKind = FileJsonSK
+                            , scPrivacy = ScPublic
                             , scRotation = Nothing
                             }
                          , ScribeDefinition {
                               scName = "logs/out.even.json"
                             , scKind = FileJsonSK
+                            , scPrivacy = ScPublic
                             , scRotation = Nothing
                             }
                          , ScribeDefinition {
                               scName = "logs/downloading.json"
                             , scKind = FileJsonSK
+                            , scPrivacy = ScPublic
                             , scRotation = Nothing
                             }
                          , ScribeDefinition {
                               scName = "logs/out.txt"
                             , scKind = FileTextSK
+                            , scPrivacy = ScPublic
                             , scRotation = Just $ RotationParameters
                                               { rpLogLimitBytes = 5000 -- 5kB
                                               , rpMaxAgeHours   = 24
