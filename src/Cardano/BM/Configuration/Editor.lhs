@@ -4,7 +4,6 @@
 %if style == newcode
 \begin{code}
 {-# LANGUAGE OverloadedStrings #-}
-{- # LANGUAGE RecursiveDo       # -}
 
 module Cardano.BM.Configuration.Editor
     (
@@ -14,7 +13,7 @@ module Cardano.BM.Configuration.Editor
 import           Prelude hiding (lookup)
 import qualified Control.Concurrent.Async as Async
 import           Control.Concurrent.MVar (readMVar)
-import           Control.Monad  (void)
+import           Control.Monad  (forM, void)
 import qualified Data.HashMap.Strict as HM
 import           Data.Text (unpack)
 
@@ -44,7 +43,7 @@ startup config = do
         Async.link thd
         pure ()
     else pure ()
-    
+
 \end{code}
 
 \begin{code}
@@ -54,7 +53,7 @@ data Cmds = Backends | Scribes | Severities | SubTrace | Aggregation
 
 prepare :: Configuration -> Window -> UI ()
 prepare config window = void $ do
-    return window # set title "IOHK logging and monitoring"
+    void $ return window # set title "IOHK logging and monitoring"
 
     let delItem sel n = undefined
     let mkPairItem :: Show t => (CM.ConfigurationInternal -> HM.HashMap LoggerName t) -> LoggerName -> t -> UI Element
@@ -93,29 +92,19 @@ prepare config window = void $ do
                             [Backends, Scribes, Severities, SubTrace, Aggregation]
             in row btns
 
-    let setMinSev _el sev = liftIO $
-            putStrLn $ "setting min severity to " ++ (show sev)
+    -- control global minimum severity
+    confMinSev <- liftIO $ minSeverity config
+    let setMinSev _el Nothing    = pure ()
+        setMinSev _el (Just sev) = liftIO $ do
+            setMinSeverity config (toEnum sev :: Severity)
+        mkSevOption sev = UI.option # set UI.text (show sev)
+                                    # set UI.value (show sev)
+                                    # if (confMinSev == sev) then set UI.selected True else id
+    minsev <- UI.select #. "minsevfield" #+
+                 map mkSevOption (enumFrom Debug)   -- for all severities
 
-    minsev <- UI.select #. "minsevfield" #+ [
-                    UI.option # set UI.text (show Debug)
-                              # set UI.value (show Debug)
-                 ,  UI.option # set UI.text (show Info)
-                              # set UI.value (show Info)
-                 ,  UI.option # set UI.text (show Notice)
-                              # set UI.value (show Notice)
-                 ,  UI.option # set UI.text (show Warning)
-                              # set UI.value (show Warning)
-                 ,  UI.option # set UI.text (show Error)
-                              # set UI.value (show Error)
-                 ,  UI.option # set UI.text (show Critical)
-                              # set UI.value (show Critical)
-                 ,  UI.option # set UI.text (show Alert)
-                              # set UI.value (show Alert)
-                 ,  UI.option # set UI.text (show Emergency)
-                              # set UI.value (show Emergency)
-                 ]
     on UI.selectionChange minsev $ setMinSev minsev
-    let mkMinSevEntry = row [string "min. severity", element minsev]
+    let mkMinSevEntry = row [string "set min. severity: ", element minsev]
 
     -- GUI layout
     let glue = string " "
@@ -125,7 +114,7 @@ prepare config window = void $ do
                     ,[mkMinSevEntry]
                     ]
                   ]
-    
+
     tgt <- getElementById window "gridtarget"
     case tgt of
         Nothing -> pure ()
