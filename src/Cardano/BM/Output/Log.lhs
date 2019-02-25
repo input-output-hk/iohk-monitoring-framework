@@ -245,7 +245,7 @@ passN backend katip namedLogItem = do
                     if (msg == "") && (isNothing payload)
                     then return ()
                     else do
-                        let threadIdText = KC.mkThreadIdText (tid lometa)
+                        let threadIdText = KC.ThreadIdText $ tid lometa
                         let ns = lnName namedLogItem
                         let itemTime = tstamp lometa
                         let itemKatip = K.Item {
@@ -263,7 +263,6 @@ passN backend katip namedLogItem = do
                                 }
                         void $ atomically $ KC.tryWriteTBQueue shChan (KC.NewItem itemKatip)
                 else return ()
-
 \end{code}
 
 \subsubsection{Scribes}

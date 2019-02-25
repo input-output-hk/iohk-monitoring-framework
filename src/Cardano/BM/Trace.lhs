@@ -22,6 +22,7 @@ module Cardano.BM.Trace
     , typeofTrace
     , evalFilters
     -- * log functions
+    , traceConditionally
     , traceNamedObject
     , traceNamedItem
     , logAlert,     logAlertS
