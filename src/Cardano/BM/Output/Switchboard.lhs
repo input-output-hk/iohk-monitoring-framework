@@ -163,7 +163,7 @@ instance IsBackend Switchboard where
 
         (dispatcher, queue) <- withMVar (getSB switchboard) (\sb -> return (sbDispatch sb, sbQueue sb))
         -- send terminating item to the queue
-        lo <- LogObject <$> mkLOMeta <*> pure KillPill
+        lo <- LogObject <$> (mkLOMeta Warning) <*> pure KillPill
         atomically $ TBQ.writeTBQueue queue $ LogNamed "kill.switchboard" lo
         -- wait for the dispatcher to exit
         res <- Async.waitCatch dispatcher

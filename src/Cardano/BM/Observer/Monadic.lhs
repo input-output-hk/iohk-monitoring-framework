@@ -24,9 +24,10 @@ import           Data.Unique (newUnique)
 
 import           Cardano.BM.Data.Counter (CounterState (..), diffCounters)
 import           Cardano.BM.Data.LogItem (LogObject (..), LOContent (..), mkLOMeta)
+import           Cardano.BM.Data.Severity (Severity)
 import           Cardano.BM.Data.SubTrace (SubTrace (NoTrace))
 import           Cardano.BM.Counters (readCounters)
-import           Cardano.BM.Trace (Trace, logError, logNotice, subTrace, traceNamedObject,
+import           Cardano.BM.Trace (Trace, logError, logNotice, subTrace, traceConditionally,
                      typeofTrace)
 \end{code}
 %endif
@@ -113,15 +114,15 @@ in a configuration file (YAML) means
 -------------------
 
 \begin{code}
-bracketObserveIO :: Trace IO -> Text -> IO t -> IO t
-bracketObserveIO logTrace0 name action = do
+bracketObserveIO :: Trace IO -> Severity -> Text -> IO t -> IO t
+bracketObserveIO logTrace0 severity name action = do
     logTrace <- subTrace name logTrace0
-    bracketObserveIO' (typeofTrace logTrace) logTrace action
+    bracketObserveIO' (typeofTrace logTrace) severity logTrace action
   where
-    bracketObserveIO' :: SubTrace -> Trace IO -> IO t -> IO t
-    bracketObserveIO' NoTrace _ act = act
-    bracketObserveIO' subtrace logTrace act = do
-        mCountersid <- observeOpen subtrace logTrace
+    bracketObserveIO' :: SubTrace -> Severity -> Trace IO -> IO t -> IO t
+    bracketObserveIO' NoTrace _ _ act = act
+    bracketObserveIO' subtrace sev logTrace act = do
+        mCountersid <- observeOpen subtrace sev logTrace
 
         -- run action; if an exception is caught will be logged and rethrown.
         t <- act `catch` (\(e :: SomeException) -> (logError logTrace (pack (show e)) >> throwM e))
@@ -132,7 +133,7 @@ bracketObserveIO logTrace0 name action = do
                 -- however the result of the action is returned
                 logNotice logTrace ("ObserveOpen: " <> pack (show openException))
             Right countersid -> do
-                    res <- observeClose subtrace logTrace countersid []
+                    res <- observeClose subtrace sev logTrace countersid []
                     case res of
                         Left ex -> logNotice logTrace ("ObserveClose: " <> pack (show ex))
                         _ -> pure ()
@@ -145,15 +146,15 @@ Observes a |MonadIO m => m| action and adds a name to the logger
 name of the passed in |Trace|. An empty |Text| leaves
 the logger name untouched.
 \begin{code}
-bracketObserveM :: (MonadCatch m, MonadIO m) => Trace IO -> Text -> m t -> m t
-bracketObserveM logTrace0 name action = do
+bracketObserveM :: (MonadCatch m, MonadIO m) => Trace IO -> Severity -> Text -> m t -> m t
+bracketObserveM logTrace0 severity name action = do
     logTrace <- liftIO $ subTrace name logTrace0
-    bracketObserveM' (typeofTrace logTrace) logTrace action
+    bracketObserveM' (typeofTrace logTrace) severity logTrace action
   where
-    bracketObserveM' :: (MonadCatch m, MonadIO m) => SubTrace -> Trace IO -> m t -> m t
-    bracketObserveM' NoTrace _ act = act
-    bracketObserveM' subtrace logTrace act = do
-        mCountersid <- liftIO $ observeOpen subtrace logTrace
+    bracketObserveM' :: (MonadCatch m, MonadIO m) => SubTrace -> Severity -> Trace IO -> m t -> m t
+    bracketObserveM' NoTrace _ _ act = act
+    bracketObserveM' subtrace sev logTrace act = do
+        mCountersid <- liftIO $ observeOpen subtrace sev logTrace
 
         -- run action; if an exception is caught will be logged and rethrown.
         t <- act `catch`
@@ -165,7 +166,7 @@ bracketObserveM logTrace0 name action = do
                 -- however the result of the action is returned
                 liftIO $ logNotice logTrace ("ObserveOpen: " <> pack (show openException))
             Right countersid -> do
-                    res <- liftIO $ observeClose subtrace logTrace countersid []
+                    res <- liftIO $ observeClose subtrace sev logTrace countersid []
                     case res of
                         Left ex -> liftIO (logNotice logTrace ("ObserveClose: " <> pack (show ex)))
                         _ -> pure ()
@@ -176,8 +177,8 @@ bracketObserveM logTrace0 name action = do
 
 \subsubsection{observerOpen}\label{observeOpen}
 \begin{code}
-observeOpen :: SubTrace -> Trace IO -> IO (Either SomeException CounterState)
-observeOpen subtrace logTrace = (do
+observeOpen :: SubTrace -> Severity -> Trace IO -> IO (Either SomeException CounterState)
+observeOpen subtrace severity logTrace = (do
     identifier <- newUnique
 
     -- take measurement
@@ -187,16 +188,22 @@ observeOpen subtrace logTrace = (do
     then return ()
     else do
         -- send opening message to Trace
-        traceNamedObject logTrace =<<
-            LogObject <$> mkLOMeta <*> pure (ObserveOpen state)
+        traceConditionally logTrace =<<
+            LogObject <$> (mkLOMeta severity) <*> pure (ObserveOpen state)
     return (Right state)) `catch` (return . Left)
 
 \end{code}
 
 \subsubsection{observeClose}\label{observeClose}
 \begin{code}
-observeClose :: SubTrace -> Trace IO -> CounterState -> [LogObject] -> IO (Either SomeException ())
-observeClose subtrace logTrace initState logObjects = (do
+observeClose
+    :: SubTrace
+    -> Severity
+    -> Trace IO
+    -> CounterState
+    -> [LogObject]
+    -> IO (Either SomeException ())
+observeClose subtrace sev logTrace initState logObjects = (do
     let identifier = csIdentifier initState
         initialCounters = csCounters initState
 
@@ -205,15 +212,15 @@ observeClose subtrace logTrace initState logObjects = (do
     if counters == []
     then return ()
     else do
-        mle <- mkLOMeta
+        mle <- mkLOMeta sev
         -- send closing message to Trace
-        traceNamedObject logTrace $
+        traceConditionally logTrace $
             LogObject mle (ObserveClose (CounterState identifier counters))
         -- send diff message to Trace
-        traceNamedObject logTrace $
+        traceConditionally logTrace $
             LogObject mle (ObserveDiff (CounterState identifier (diffCounters initialCounters counters)))
     -- trace the messages gathered from inside the action
-    forM_ logObjects $ traceNamedObject logTrace
+    forM_ logObjects $ traceConditionally logTrace
     return (Right ())) `catch` (return . Left)
 
 \end{code}

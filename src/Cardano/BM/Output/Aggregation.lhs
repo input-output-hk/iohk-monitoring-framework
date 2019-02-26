@@ -189,8 +189,8 @@ spawnDispatcher conf aggMap aggregationQueue trace = Async.async $ qProc aggMap
     update (LogObject lme (ObserveClose counterState)) logname agmap =
         updateCounters (csCounters counterState) lme (logname, "close") agmap []
 
-    update (LogObject lme (LogMessage msg)) logname agmap = do
-        let iname  = T.pack $ show (liSeverity msg)
+    update (LogObject lme (LogMessage _)) logname agmap = do
+        let iname  = T.pack $ show (severity lme)
         let fullname = logname <> "." <> iname
         aggregated <- createNupdate fullname (PureI 0) lme agmap
         now <- getMonotonicTimeNSec
@@ -234,7 +234,7 @@ spawnDispatcher conf aggMap aggregationQueue trace = Async.async $ qProc aggMap
     sendAggregated aggregatedMsg@(LogObject _ (AggregatedMessage _)) logname = do
         -- enter the aggregated message into the |Trace|
         trace' <- Trace.appendName logname trace
-        liftIO $ Trace.traceNamedObject trace' aggregatedMsg
+        liftIO $ Trace.traceConditionally trace' aggregatedMsg
     -- ingnore every other message
     sendAggregated _ _ = return ()
 

@@ -34,9 +34,6 @@ import           Cardano.BM.Data.Aggregated
 import           Cardano.BM.Data.Backend
 import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.MonitoringEval
--- import           Cardano.BM.Data.Severity
--- import           Cardano.BM.Data.SubTrace
--- import           Cardano.BM.Data.Trace
 
 \end{code}
 %endif
@@ -162,8 +159,8 @@ evalMonitoringAction mmap logname logvalue =
                                  ]
         in
         HM.union addenv env
-    updateEnv env (LogObject lometa (LogMessage logitem)) =
-        let addenv = HM.fromList [ ("severity", (Severity (liSeverity logitem)))
+    updateEnv env (LogObject lometa (LogMessage _logitem)) =
+        let addenv = HM.fromList [ ("severity", (Severity (severity lometa)))
                                 --  , ("selection", (liSelection logitem))
                                 --  , ("message", (liPayload logitem))
                                  , ("timestamp", utc2ns (tstamp lometa))

@@ -155,8 +155,8 @@ randomThr trace = do
     loop tr = do
         threadDelay 500000  -- 0.5 second
         num <- randomRIO (42-42, 42+42) :: IO Double
-        lo <- LogObject <$> mkLOMeta <*> pure (LogValue "rr" (PureD num))
-        traceNamedObject tr lo
+        lo <- LogObject <$> (mkLOMeta Debug) <*> pure (LogValue "rr" (PureD num))
+        traceConditionally tr lo
         loop tr
 
 \end{code}
@@ -171,7 +171,7 @@ observeIO trace = do
   where
     loop tr = do
         threadDelay 5000000  -- 5 seconds
-        _ <- bracketObserveIO tr "observeIO" $ do
+        _ <- bracketObserveIO tr Debug "observeIO" $ do
             num <- randomRIO (100000, 200000) :: IO Int
             ls <- return $ reverse $ init $ reverse $ 42 : [1 .. num]
             pure $ const ls ()
@@ -191,7 +191,7 @@ observeSTM trace = do
   where
     loop tr tvarlist name = do
         threadDelay 10000000  -- 10 seconds
-        STM.bracketObserveIO tr ("observeSTM." <> name) (stmAction tvarlist)
+        STM.bracketObserveIO tr Debug ("observeSTM." <> name) (stmAction tvarlist)
         loop tr tvarlist name
 
 stmAction :: TVar [Int] -> STM ()
@@ -214,7 +214,7 @@ observeDownload trace = do
     loop tr = do
         threadDelay 1000000  -- 1 second
         tr' <- appendName "observeDownload" tr
-        bracketObserveIO tr' "" $ do
+        bracketObserveIO tr' Debug "" $ do
             license <- openURI "http://www.gnu.org/licenses/gpl.txt"
             case license of
               Right bs -> logNotice tr' $ pack $ BS8.unpack bs
