@@ -81,6 +81,7 @@ library
                        katip < 0.8,
                        lens,
                        mtl,
+                       safe,
                        safe-exceptions,
                        scientific,
                        stm,

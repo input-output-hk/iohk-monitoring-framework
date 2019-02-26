@@ -13,17 +13,22 @@ module Cardano.BM.Configuration.Editor
 import           Prelude hiding (lookup)
 import qualified Control.Concurrent.Async as Async
 import           Control.Concurrent.MVar (readMVar)
-import           Control.Monad  (forM, void)
+import           Control.Monad  (void)
 import qualified Data.HashMap.Strict as HM
-import           Data.Text (unpack)
+import           Data.Text (pack, unpack)
+import           Safe (readMay)
 
 import qualified Graphics.UI.Threepenny as UI
 import           Graphics.UI.Threepenny.Core hiding (delete)
 
 import           Cardano.BM.Configuration
 import qualified Cardano.BM.Configuration.Model as CM
+import           Cardano.BM.Data.AggregatedKind
+import           Cardano.BM.Data.BackendKind
 import           Cardano.BM.Data.LogItem (LoggerName)
+import           Cardano.BM.Data.Output (ScribeId)
 import           Cardano.BM.Data.Severity
+import           Cardano.BM.Data.SubTrace
 
 \end{code}
 %endif
@@ -48,21 +53,32 @@ startup config = do
 
 \begin{code}
 
-data Cmds = Backends | Scribes | Severities | SubTrace | Aggregation
-            deriving (Show)
+data Cmd = Backends | Scribes | Severities | SubTrace | Aggregation
+           deriving (Show, Read)
 
 prepare :: Configuration -> Window -> UI ()
 prepare config window = void $ do
     void $ return window # set title "IOHK logging and monitoring"
 
-    let delItem sel n = undefined
-    let mkPairItem :: Show t => (CM.ConfigurationInternal -> HM.HashMap LoggerName t) -> LoggerName -> t -> UI Element
-        mkPairItem sel n v =
+    -- editing or adding map entry
+    inputKey <- UI.input #. "inputkey"
+    inputValue <- UI.input #. "inputvalue"
+    inputMap <- UI.p #. "inputmap"
+    void $ element inputKey # set UI.size "30"
+    void $ element inputValue # set UI.size "60"
+    outputMsg <- UI.input #. "outputmsg"
+    void $ element outputMsg # set UI.size "60"
+
+    let mkPairItem :: Show t => Cmd -> LoggerName -> t -> UI Element
+        mkPairItem cmd n v =
             let entries = [ UI.td #+ [string (unpack n)]
                           , UI.td #+ [string (show v)]
                           , UI.td #+ [do
-                              b <- UI.button #. "itmbutton" #+ [string "x"]
-                              on UI.click b $ const $ (delItem sel n)
+                              b <- UI.button #. "itmbutton" #+ [string "edit"]
+                              on UI.click b $ const $ do
+                                  void $ element inputKey # set UI.value (unpack n)
+                                  void $ element inputValue # set UI.value (show v)
+                                  void $ element inputMap # set UI.value (show cmd)
                               return b]
                           ]
             in UI.tr #. "itemrow" #+ entries
@@ -71,18 +87,18 @@ prepare config window = void $ do
             case tgt of
                 Nothing -> pure ()
                 Just t  -> f t
-    let listPairs sel = do
+    let listPairs cmd sel = do
             apply2output $ \t -> void $ element t # set children []
             cg <- liftIO $ readMVar (CM.getCG config)
-            mapM_ (\(n,v) -> apply2output $ \t -> void $ element t #+ [mkPairItem sel n v]
+            mapM_ (\(n,v) -> apply2output $ \t -> void $ element t #+ [mkPairItem cmd n v]
                 ) $ HM.toList (sel cg)
 
     -- commands
-    let switchTo Backends    = listPairs CM.cgMapBackend
-        switchTo Severities  = listPairs CM.cgMapSeverity
-        switchTo Scribes     = listPairs CM.cgMapScribe
-        switchTo SubTrace    = listPairs CM.cgMapSubtrace
-        switchTo Aggregation = listPairs CM.cgMapAggregatedKind
+    let switchTo c@Backends    = listPairs c CM.cgMapBackend
+        switchTo c@Severities  = listPairs c CM.cgMapSeverity
+        switchTo c@Scribes     = listPairs c CM.cgMapScribe
+        switchTo c@SubTrace    = listPairs c CM.cgMapSubtrace
+        switchTo c@Aggregation = listPairs c CM.cgMapAggregatedKind
 
     let mkCommandButtons =
             let btns = map (\n -> do
@@ -106,12 +122,68 @@ prepare config window = void $ do
     on UI.selectionChange minsev $ setMinSev minsev
     let mkMinSevEntry = row [string "set min. severity: ", element minsev]
 
+    let setError m = void $ element outputMsg # set UI.value ("ERROR: " ++ m)
+    let setMessage m = void $ element outputMsg # set UI.value m
+
+    -- construct row with input fields
+    let removeItem Backends    k = CM.setBackends config k Nothing
+        removeItem Severities  k = CM.setSeverity config k Nothing
+        removeItem Scribes     k = CM.setScribes config k Nothing
+        removeItem SubTrace    k = CM.setSubTrace config k Nothing
+        removeItem Aggregation k = CM.setAggregatedKind config k Nothing
+    let delItem = do
+            k <- inputKey # get UI.value
+            m <- inputMap # get UI.value
+            case (readMay m :: Maybe Cmd) of
+                Nothing -> setError "parse error on cmd"
+                Just c  -> do
+                    setMessage $ "deleting " ++ k ++ " from " ++ m
+                    liftIO $ removeItem c (pack k)
+                    switchTo c
+    let updateItem Backends    k v = case (readMay v :: Maybe [BackendKind]) of
+                                         Nothing -> setError "parse error on backend list"
+                                         Just v' -> liftIO $ CM.setBackends config k $ Just v'
+        updateItem Severities  k v = case (readMay v :: Maybe Severity) of
+                                         Nothing -> setError "parse error on severity"
+                                         Just v' -> liftIO $ CM.setSeverity config k $ Just v'
+        updateItem Scribes     k v = case (readMay v :: Maybe [ScribeId]) of
+                                         Nothing -> setError "parse error on scribe list"
+                                         Just v' -> liftIO $ CM.setScribes config k $ Just v'
+        updateItem SubTrace    k v = case (readMay v :: Maybe SubTrace) of
+                                         Nothing -> setError "parse error on subtrace"
+                                         Just v' -> liftIO $ CM.setSubTrace config k $ Just v'
+        updateItem Aggregation k v = case (readMay v :: Maybe AggregatedKind) of
+                                         Nothing -> setError "parse error on aggregated kind"
+                                         Just v' -> liftIO $ CM.setAggregatedKind config k $ Just v'
+    let setItem = do
+            k <- inputKey # get UI.value
+            v <- inputValue # get UI.value
+            m <- inputMap # get UI.value
+            case (readMay m :: Maybe Cmd) of
+                Nothing -> setError "parse error on cmd"
+                Just c  -> do
+                    setMessage $ "setting " ++ k ++ " => " ++ v ++ " in " ++ m
+                    updateItem c (pack k) v
+                    switchTo c
+    let mkRowEdit = row [string "edit/add entry: ", element inputKey, string " => " , element inputValue]
+        mkRowBtns = row [do { b <- UI.button #. "itmbutton" #+ [string "delete"]
+                            ; on UI.click b $ const $ (delItem)
+                            ; return b}
+                        ,do { b <- UI.button #. "itmbutton" #+ [string "store"]
+                            ; on UI.click b $ const $ (setItem)
+                            ; return b}
+                        ]
+
     -- GUI layout
     let glue = string " "
     let topGrid = [grid
-                    [[mkCommandButtons]
-                    ,[row [string " "], glue]
-                    ,[mkMinSevEntry]
+                    [ [mkCommandButtons]
+                    , [row [string " "], glue]
+                    , [mkMinSevEntry]
+                    , [row [string " "], glue]
+                    , [mkRowEdit]
+                    , [mkRowBtns]
+                    , [element outputMsg]
                     ]
                   ]
 
