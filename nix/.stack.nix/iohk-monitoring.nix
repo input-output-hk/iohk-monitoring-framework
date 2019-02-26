@@ -34,6 +34,7 @@
           (hsPkgs.katip)
           (hsPkgs.lens)
           (hsPkgs.mtl)
+          (hsPkgs.safe)
           (hsPkgs.safe-exceptions)
           (hsPkgs.scientific)
           (hsPkgs.stm)
