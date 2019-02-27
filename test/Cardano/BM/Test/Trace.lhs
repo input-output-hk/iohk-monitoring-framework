@@ -110,7 +110,7 @@ unit_tests = testGroup "Unit tests" [
         notObserveDiff = all (\case {LogObject _ (ObserveDiff _) -> False; _ -> True})
         onlyLevelOneMessage :: [LogObject] -> Bool
         onlyLevelOneMessage = \case
-            [LogObject _ (LogMessage (LogItem _ _ "Message from level 1."))] -> True
+            [LogObject _ (LogMessage (LogItem _ "Message from level 1."))] -> True
             _                                                                -> False
         observeNoMeasures :: [LogObject] -> Bool
         observeNoMeasures obs = notObserveOpen obs && notObserveClose obs && notObserveDiff obs
@@ -199,7 +199,7 @@ exampleWithNamedContexts = do
         let observablesSet = [MonotonicClock]
         setSubTrace (configuration ctx) "test.complex-work-1.inner-work-1.STM-action" $
             Just $ ObservableTrace observablesSet
-        _ <- STMObserver.bracketObserveIO trInner "STM-action" setVar_
+        _ <- STMObserver.bracketObserveIO trInner Debug "STM-action" setVar_
         logInfo trInner "let's see: done."
 
 \end{code}
@@ -215,7 +215,7 @@ runTimedAction logTrace reps = do
     return $ diffTimeObserved (CounterState runid t0) (CounterState runid t1)
   where
     observeAction trace = do
-        _ <- MonadicObserver.bracketObserveIO trace "" action
+        _ <- MonadicObserver.bracketObserveIO trace Debug "" action
         return ()
     action = return $ forM [1::Int ..100] $ \x -> [x] ++ (init $ reverse [1::Int ..10000])
 
@@ -325,7 +325,11 @@ unitTraceMinSeverity = do
         (length res == 2)
     assertBool
         ("Found Info message when Warning was minimum severity: " ++ show res)
-        (all (\case {LogObject _ (LogMessage (LogItem _ Info "Message #2")) -> False; _ -> True}) res)
+        (all
+            (\case
+                LogObject (LOMeta _ _ Info) (LogMessage (LogItem _ "Message #2")) -> False
+                _ -> True)
+            res)
 
 \end{code}
 
@@ -389,7 +393,11 @@ unitNamedMinSeverity = do
         (length res == 2)
     assertBool
         ("Found Info message when Warning was minimum severity: " ++ show res)
-        (all (\case {LogObject _ (LogMessage (LogItem _ Info "Message #2")) -> False; _ -> True}) res)
+        (all
+            (\case
+                LogObject (LOMeta _ _ Info) (LogMessage (LogItem _ "Message #2")) -> False
+                _ -> True)
+            res)
 
 \end{code}
 
@@ -409,7 +417,7 @@ unitHierarchy' subtraces f = do
 
     -- subsubtrace of type 3
     setTransformer_ trace2 "innermost" (Just t3)
-    _ <- STMObserver.bracketObserveIO trace2 "innermost" setVar_
+    _ <- STMObserver.bracketObserveIO trace2 Debug "innermost" setVar_
     logInfo trace2 "Message from level 3."
     -- acquire the traced objects
     res <- STM.readTVarIO msgs
@@ -488,7 +496,7 @@ unitNoOpeningTrace :: Assertion
 unitNoOpeningTrace = do
     msgs <- STM.newTVarIO []
     logTrace <- setupTrace $ TraceConfiguration (TVarList msgs) "test" DropOpening Debug
-    _ <- STMObserver.bracketObserveIO logTrace "setTVar" setVar_
+    _ <- STMObserver.bracketObserveIO logTrace Debug "setTVar" setVar_
     res <- STM.readTVarIO msgs
     assertBool
         ("Found non-expected ObserveOpen message: " ++ show res)

@@ -90,7 +90,7 @@ instance IsEffectuator Log where
         selscribes <- getScribes c (lnName item)
         let selscribesFiltered =
                 case lnItem item of
-                    LogObject _ (LogMessage (LogItem Private _ _))
+                    LogObject _ (LogMessage (LogItem Private _))
                         -> removePublicScribes setupScribes selscribes
                     _   -> selscribes
         forM_ selscribesFiltered $ \sc -> passN sc katip item
@@ -216,32 +216,32 @@ passN backend katip namedLogItem = do
                     let (LogObject lometa loitem) = lnItem namedLogItem
                     let (sev, msg, payload) = case loitem of
                                 (LogMessage logItem) ->
-                                     (liSeverity logItem, liPayload logItem, Nothing)
+                                     (severity lometa, liPayload logItem, Nothing)
                                 (ObserveDiff _) ->
                                      let text = TL.toStrict (encodeToLazyText loitem)
                                      in
-                                     (Info, text, Just loitem)
+                                     (severity lometa, text, Just loitem)
                                 (ObserveOpen _) ->
                                      let text = TL.toStrict (encodeToLazyText loitem)
                                      in
-                                     (Info, text, Just loitem)
+                                     (severity lometa, text, Just loitem)
                                 (ObserveClose _) ->
                                      let text = TL.toStrict (encodeToLazyText loitem)
                                      in
-                                     (Info, text, Just loitem)
+                                     (severity lometa, text, Just loitem)
                                 (AggregatedMessage aggregated) ->
                                      let text = T.concat $ (flip map) aggregated $ \(name, agg) ->
                                                 "\n" <> name <> ": " <> pack (show agg)
                                     in
-                                    (Info, text, Nothing)
+                                    (severity lometa, text, Nothing)
                                 (LogValue name value) ->
-                                    (Debug, name <> " = " <> pack (showSI value), Nothing)
+                                    (severity lometa, name <> " = " <> pack (showSI value), Nothing)
                                 (MonitoringEffect logitem) ->
                                      let text = TL.toStrict (encodeToLazyText logitem)
                                      in
-                                     (Info, text, Just loitem)
+                                     (severity lometa, text, Just loitem)
                                 KillPill ->
-                                    (Info, "Kill pill received!", Nothing)
+                                    (severity lometa, "Kill pill received!", Nothing)
                     if (msg == "") && (isNothing payload)
                     then return ()
                     else do
@@ -328,7 +328,8 @@ mkJsonFileScribe rotParams fdesc colorize = do
                 K.LogStr ""  -> K.itemJson verbosity item
                 K.LogStr msg -> K.itemJson verbosity $
                                     item { KC._itemMessage = K.logStr (""::Text)
-                                         , KC._itemPayload = LogItem Both Info $ TL.toStrict $ toLazyText msg
+                                         , KC._itemPayload = LogItem Both $ TL.toStrict $ toLazyText msg
+                                         -- do we need the severity from meta?
                                          }
             tmsg = encodeToLazyText jmsg
         TIO.hPutStrLn h tmsg

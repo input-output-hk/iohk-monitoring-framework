@@ -17,9 +17,10 @@ import qualified Control.Monad.STM as STM
 
 import           Data.Text
 
-import           Cardano.BM.Data.LogItem
+import           Cardano.BM.Data.LogItem (LogObject)
 import           Cardano.BM.Data.SubTrace
 import           Cardano.BM.Observer.Monadic (observeClose, observeOpen)
+import           Cardano.BM.Data.Severity (Severity)
 import           Cardano.BM.Trace (Trace, logError, logNotice, subTrace, typeofTrace)
 
 \end{code}
@@ -35,17 +36,17 @@ stmWithLog action = action
 With given name, create a |SubTrace| according to |Configuration|
 and run the passed |STM| action on it.
 \begin{code}
-bracketObserveIO :: Trace IO -> Text -> STM.STM t -> IO t
-bracketObserveIO logTrace0 name action = do
+bracketObserveIO :: Trace IO -> Severity -> Text -> STM.STM t -> IO t
+bracketObserveIO logTrace0 severity name action = do
     logTrace <- subTrace name logTrace0
     let subtrace = typeofTrace logTrace
-    bracketObserveIO' subtrace logTrace action
+    bracketObserveIO' subtrace severity logTrace action
   where
-    bracketObserveIO' :: SubTrace -> Trace IO -> STM.STM t -> IO t
-    bracketObserveIO' NoTrace _ act =
+    bracketObserveIO' :: SubTrace -> Severity -> Trace IO -> STM.STM t -> IO t
+    bracketObserveIO' NoTrace _ _ act =
         STM.atomically act
-    bracketObserveIO' subtrace logTrace act = do
-        mCountersid <- observeOpen subtrace logTrace
+    bracketObserveIO' subtrace sev logTrace act = do
+        mCountersid <- observeOpen subtrace sev logTrace
 
         -- run action; if an exception is caught, then it will be logged and rethrown.
         t <- (STM.atomically act) `catch` (\(e :: SomeException) -> (logError logTrace (pack (show e)) >> throwM e))
@@ -56,7 +57,7 @@ bracketObserveIO logTrace0 name action = do
                 -- however the result of the action is returned
                 logNotice logTrace ("ObserveOpen: " <> pack (show openException))
             Right countersid -> do
-                    res <- observeClose subtrace logTrace countersid []
+                    res <- observeClose subtrace sev logTrace countersid []
                     case res of
                         Left ex -> logNotice logTrace ("ObserveClose: " <> pack (show ex))
                         _ -> pure ()
@@ -68,18 +69,18 @@ bracketObserveIO logTrace0 name action = do
 The |STM| action might output messages, which after "success" will be forwarded to the logging trace.
 Otherwise, this function behaves the same as \nameref{code:bracketObserveIO}.
 \begin{code}
-bracketObserveLogIO :: Trace IO -> Text -> STM.STM (t,[LogObject]) -> IO t
-bracketObserveLogIO logTrace0 name action = do
+bracketObserveLogIO :: Trace IO -> Severity -> Text -> STM.STM (t,[LogObject]) -> IO t
+bracketObserveLogIO logTrace0 severity name action = do
     logTrace <- subTrace name logTrace0
     let subtrace = typeofTrace logTrace
-    bracketObserveLogIO' subtrace logTrace action
+    bracketObserveLogIO' subtrace severity logTrace action
   where
-    bracketObserveLogIO' :: SubTrace -> Trace IO -> STM.STM (t,[LogObject]) -> IO t
-    bracketObserveLogIO' NoTrace _ act = do
+    bracketObserveLogIO' :: SubTrace -> Severity -> Trace IO -> STM.STM (t,[LogObject]) -> IO t
+    bracketObserveLogIO' NoTrace _ _ act = do
         (t, _) <- STM.atomically $ stmWithLog act
         pure t
-    bracketObserveLogIO' subtrace logTrace act = do
-        mCountersid <- observeOpen subtrace logTrace
+    bracketObserveLogIO' subtrace sev logTrace act = do
+        mCountersid <- observeOpen subtrace sev logTrace
 
         -- run action, return result and log items; if an exception is
         -- caught, then it will be logged and rethrown.
@@ -92,7 +93,7 @@ bracketObserveLogIO logTrace0 name action = do
                 -- however the result of the action is returned
                 logNotice logTrace ("ObserveOpen: " <> pack (show openException))
             Right countersid -> do
-                    res <- observeClose subtrace logTrace countersid as
+                    res <- observeClose subtrace sev logTrace countersid as
                     case res of
                         Left ex -> logNotice logTrace ("ObserveClose: " <> pack (show ex))
                         _ -> pure ()

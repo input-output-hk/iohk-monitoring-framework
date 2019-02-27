@@ -226,14 +226,12 @@ traceConditionally
     => Trace m
     -> LogObject
     -> m ()
-traceConditionally logTrace@(ctx, _) msg@(LogObject _ (LogMessage item)) = do
-    globminsev <- liftIO $ Config.minSeverity (configuration ctx)
+traceConditionally logTrace@(ctx, _) msg@(LogObject meta _) = do
+    globminsev  <- liftIO $ Config.minSeverity (configuration ctx)
     globnamesev <- liftIO $ Config.inspectSeverity (configuration ctx) (loggerName ctx)
     let minsev = max (minSeverity ctx) $ max globminsev $ fromMaybe Debug globnamesev
-        flag = (liSeverity item) >= minsev
+        flag = (severity meta) >= minsev
     when flag $ traceNamedObject logTrace msg
-traceConditionally logTrace logObject =
-    traceNamedObject logTrace logObject
 
 \end{code}
 
@@ -251,9 +249,8 @@ traceNamedItem
     -> m ()
 traceNamedItem trace p s m =
     traceConditionally trace =<<
-        LogObject <$> liftIO mkLOMeta
+        LogObject <$> liftIO (mkLOMeta s)
                   <*> pure (LogMessage LogItem { liSelection = p
-                                               , liSeverity  = s
                                                , liPayload   = m
                                                })
 
@@ -373,7 +370,7 @@ subTrace name tr@(ctx, _) = do
                                 \(LogNamed _ lo@(LogObject _ lc)) -> do
                                     case lc of
                                         ObserveOpen _ -> return ()
-                                        _             -> traceNamedObject tr lo )
+                                        _             -> traceConditionally tr lo )
         ObservableTrace _ -> do
                                 tr' <- appendName name tr
                                 return $ updateTracetype subtrace tr'
