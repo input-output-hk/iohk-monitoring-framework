@@ -1,6 +1,6 @@
 { system, compiler, flags, pkgs, hsPkgs, pkgconfPkgs, ... }:
   {
-    flags = {};
+    flags = { disable-aggregation = false; };
     package = {
       specVersion = "1.10";
       identifier = { name = "iohk-monitoring"; version = "0.1.2.0"; };

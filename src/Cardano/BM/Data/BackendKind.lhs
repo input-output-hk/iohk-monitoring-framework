@@ -23,11 +23,13 @@ import           GHC.Generics (Generic)
 \index{BackendKind!AggregationBK}\index{BackendKind!EKGViewBK}\index{BackendKind!KatipBK}\index{BackendKind!MonitoringBK}\index{BackendKind!SwitchboardBK}
 This identifies the backends that can be attached to the |Switchboard|.
 \begin{code}
-data BackendKind = AggregationBK
-                 | EKGViewBK
-                 | KatipBK
-                 | MonitoringBK
-                 | SwitchboardBK
-                 deriving (Generic, Eq, Ord, Show, ToJSON, FromJSON, Read)
+
+data BackendKind =
+      AggregationBK
+    | EKGViewBK
+    | KatipBK
+    | MonitoringBK
+    | SwitchboardBK
+    deriving (Generic, Eq, Ord, Show, ToJSON, FromJSON, Read)
 
 \end{code}

@@ -4,6 +4,7 @@
 
 %if style == newcode
 \begin{code}
+{-# LANGUAGE CPP                 #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -32,10 +33,15 @@ import           Cardano.BM.Configuration.Model (getBackends,
                      getSetupBackends)
 import           Cardano.BM.Data.Backend
 import           Cardano.BM.Data.LogItem
-import           Cardano.BM.Data.Trace (TraceNamed, TraceContext (..))
+import           Cardano.BM.Data.Trace (TraceNamed)
 import           Cardano.BM.Data.Severity
+
+#ifdef ENABLE_AGGREGATION
 import           Cardano.BM.Data.SubTrace
+import           Cardano.BM.Data.Trace (TraceContext (..))
 import qualified Cardano.BM.Output.Aggregation
+#endif
+
 import qualified Cardano.BM.Output.EKGView
 import qualified Cardano.BM.Output.Log
 import qualified Cardano.BM.Output.Monitoring
@@ -132,9 +138,11 @@ instance IsBackend Switchboard where
                         case lnItem nli of
                             LogObject _ KillPill ->
                                 forM_ backends ( \(_, be) -> bUnrealize be )
+#ifdef ENABLE_AGGREGATION
                             LogObject _ (AggregatedMessage _) -> do
                                 sendMessage nli (filter (/= AggregationBK))
                                 qProc
+#endif
                             LogObject _ (MonitoringEffect inner) -> do
                                 sendMessage (nli {lnItem = inner}) (filter (/= MonitoringBK))
                                 qProc
@@ -197,6 +205,7 @@ setupBackend' EKGViewBK c _ = do
       { bEffectuate = Cardano.BM.Output.EKGView.effectuate be
       , bUnrealize = Cardano.BM.Output.EKGView.unrealize be
       }
+#ifdef ENABLE_AGGREGATION
 setupBackend' AggregationBK c sb = do
     let trace = mainTrace sb
         ctx   = TraceContext { loggerName = ""
@@ -211,6 +220,11 @@ setupBackend' AggregationBK c sb = do
       { bEffectuate = Cardano.BM.Output.Aggregation.effectuate be
       , bUnrealize = Cardano.BM.Output.Aggregation.unrealize be
       }
+#else
+-- We need it anyway, to avoid "Non-exhaustive patterns" warning.
+setupBackend' AggregationBK _ _ =
+    error "Impossible happened: aggregation is disabled by Cabal-flag, we mustn't match this backend!"
+#endif
 setupBackend' KatipBK c _ = do
     be :: Cardano.BM.Output.Log.Log <- Cardano.BM.Output.Log.realize c
     return MkBackend
