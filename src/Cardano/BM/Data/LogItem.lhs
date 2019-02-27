@@ -77,19 +77,21 @@ under SimM of ouroboros-network because ThreadId from Control.Concurrent lacks a
 instance.
 \begin{code}
 data LOMeta = LOMeta {
-                tstamp :: {-# UNPACK #-} !UTCTime
-              , tid    :: {-# UNPACK #-} !Text
+                tstamp   :: {-# UNPACK #-} !UTCTime
+              , tid      :: {-# UNPACK #-} !Text
+              , severity :: !Severity
               }
               deriving (Show)
 
 instance ToJSON LOMeta where
-    toJSON (LOMeta _tstamp _tid) =
-        object ["tstamp" .= _tstamp, "tid" .= show _tid]
+    toJSON (LOMeta _tstamp _tid _sev) =
+        object ["tstamp" .= _tstamp, "tid" .= show _tid , "severity" .= show _sev]
 
-mkLOMeta :: IO LOMeta
-mkLOMeta =
+mkLOMeta :: Severity -> IO LOMeta
+mkLOMeta sev =
     LOMeta <$> getCurrentTime
            <*> (pack . show <$> myThreadId)
+           <*> pure sev
 
 \end{code}
 
@@ -115,13 +117,11 @@ data LOContent = LogMessage LogItem
 
 \subsubsection{LogItem}\label{code:LogItem}\index{LogItem}
 \label{code:liSelection}\index{LogItem!liSelection}
-\label{code:liSeverity}\index{LogItem!liSeverity}
 \label{code:liPayload}\index{LogItem!liPayload}
 \todo[inline]{TODO |liPayload :: ToObject|}
 \begin{code}
 data LogItem = LogItem
     { liSelection :: LogSelection
-    , liSeverity  :: Severity
     , liPayload   :: Text   -- TODO should become ToObject
     } deriving (Show, Generic, ToJSON)
 

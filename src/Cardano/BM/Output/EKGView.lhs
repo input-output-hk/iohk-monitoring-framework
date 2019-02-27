@@ -211,7 +211,7 @@ spawnDispatcher evqueue trace =
         case maybeItem of
             Just (LogNamed logname logvalue) -> do
                 trace' <- Trace.appendName logname trace
-                Trace.traceNamedObject trace' logvalue
+                Trace.traceConditionally trace' logvalue
                 qProc
             Nothing -> return ()  -- stop here
 
