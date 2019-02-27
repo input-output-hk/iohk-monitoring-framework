@@ -43,19 +43,21 @@ library
                        Cardano.BM.Observer.Monadic
                        Cardano.BM.Observer.STM
 
-                       Cardano.BM.Output.Aggregation
                        Cardano.BM.Output.EKGView
                        Cardano.BM.Output.Log
                        Cardano.BM.Output.Monitoring
                        Cardano.BM.Output.Switchboard
-
                        Cardano.BM.Rotator
                        Cardano.BM.Setup
                        Cardano.BM.Trace
+
+  if !flag(disable-aggregation)
+    exposed-modules:   Cardano.BM.Output.Aggregation
+
   if os(Linux)
-     exposed-modules:  Cardano.BM.Counters.Linux
+    exposed-modules:   Cardano.BM.Counters.Linux
   else
-     exposed-modules:  Cardano.BM.Counters.Dummy
+    exposed-modules:   Cardano.BM.Counters.Dummy
 
   other-modules:
   default-language:    Haskell2010
@@ -94,6 +96,9 @@ library
   else
      build-depends:    unix
 
+  if !flag(disable-aggregation)
+    cpp-options:       -DENABLE_AGGREGATION
+
   ghc-options:         -Wall -O2
                        -fno-ignore-asserts
 
@@ -102,13 +107,16 @@ test-suite tests
   hs-source-dirs:      test
   main-is:             Test.lhs
   other-modules:       Cardano.BM.Test.Trace
-                       Cardano.BM.Test.Aggregated
                        Cardano.BM.Test.STM
                        Cardano.BM.Test.Configuration
                        Cardano.BM.Test.Rotator
                        Cardano.BM.Test.Monitoring
                        Cardano.BM.Test.Routing
+
+  if !flag(disable-aggregation)
+    other-modules:     Cardano.BM.Test.Aggregated
                        Cardano.BM.Arbitrary.Aggregated
+
   default-language:    Haskell2010
   default-extensions:  OverloadedStrings
   build-depends:       base,
@@ -141,6 +149,8 @@ test-suite tests
                        void,
                        yaml, libyaml > 0.1.0
   ghc-options:         -Wall
+  if !flag(disable-aggregation)
+    cpp-options:       -DENABLE_AGGREGATION
 
 executable example-simple
   hs-source-dirs:      examples/simple
@@ -178,3 +188,13 @@ executable example-complex
 
   if os(linux)
      build-depends:    download
+
+  if !flag(disable-aggregation)
+    cpp-options:       -DENABLE_AGGREGATION
+
+-- Conditional compilation
+
+flag disable-aggregation
+  description:         Turn off complete aggregation subsystem.
+  default:             False
+  manual:              False

@@ -46,7 +46,12 @@ config :: IO CM.Configuration
 config = do
     c <- CM.empty
     CM.setMinSeverity c Debug
-    CM.setSetupBackends c [KatipBK, AggregationBK, EKGViewBK]
+    CM.setSetupBackends c [ KatipBK
+#ifdef ENABLE_AGGREGATION
+                          , AggregationBK
+#endif
+                          , EKGViewBK
+                          ]
     CM.setDefaultBackends c [KatipBK]
     CM.setSetupScribes c [ ScribeDefinition {
                               scName = "stdout"
@@ -118,14 +123,18 @@ config = do
         ("complex.observeSTM." <> (pack $ show x))
         (Just $ ObservableTrace [GhcRtsStats,MemoryStats])
 
+#ifdef ENABLE_AGGREGATION
     CM.setBackends c "complex.message" (Just [AggregationBK, KatipBK])
     CM.setBackends c "complex.random" (Just [AggregationBK, KatipBK])
     CM.setBackends c "complex.random.ewma" (Just [AggregationBK])
     CM.setBackends c "complex.observeIO" (Just [AggregationBK])
+#endif
     forM_ [(1::Int)..10] $ \x -> do
+#ifdef ENABLE_AGGREGATION
       CM.setBackends c
         ("complex.observeSTM." <> (pack $ show x))
         (Just [AggregationBK])
+#endif
       CM.setBackends c
         ("#aggregation.complex.observeSTM." <> (pack $ show x))
         (Just [KatipBK])
