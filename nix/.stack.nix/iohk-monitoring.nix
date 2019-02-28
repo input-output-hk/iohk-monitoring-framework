@@ -21,6 +21,7 @@
           (hsPkgs.aeson)
           (hsPkgs.array)
           (hsPkgs.async)
+          (hsPkgs.async-timer)
           (hsPkgs.attoparsec)
           (hsPkgs.auto-update)
           (hsPkgs.bytestring)
