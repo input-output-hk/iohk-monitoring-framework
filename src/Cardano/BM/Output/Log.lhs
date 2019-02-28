@@ -28,9 +28,10 @@ import           Control.AutoUpdate (UpdateSettings (..), defaultUpdateSettings,
 import           Control.Concurrent.MVar (MVar, modifyMVar_, readMVar,
                      newMVar, withMVar)
 import           Control.Exception.Safe (catchIO)
-import           Control.Monad (forM_, void)
+import           Control.Monad (forM, forM_, void, when)
 import           Control.Lens ((^.))
 import           Data.Aeson.Text (encodeToLazyText)
+import qualified Data.HashMap.Strict as HM
 import qualified Data.Map as Map
 import           Data.List (find)
 import           Data.Maybe (isNothing)
@@ -59,6 +60,8 @@ import qualified Cardano.BM.Configuration as Config
 import           Cardano.BM.Configuration.Model (getScribes, getSetupScribes)
 import           Cardano.BM.Data.Aggregated
 import           Cardano.BM.Data.Backend
+import           Cardano.BM.Data.MessageCounter (MessageCounter (..), resetCounters,
+                     updateMessageCounters)
 import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.Output
 import           Cardano.BM.Data.Rotation (RotationParameters (..))
@@ -77,6 +80,7 @@ newtype Log = Log
 
 data LogInternal = LogInternal
     { kLogEnv       :: K.LogEnv
+    , msgCounters   :: MessageCounter
     , configuration :: Config.Configuration }
 
 \end{code}
@@ -85,7 +89,8 @@ data LogInternal = LogInternal
 \begin{code}
 instance IsEffectuator Log where
     effectuate katip item = do
-        c <- configuration <$> readMVar (getK katip)
+        let logMVar = getK katip
+        c <- configuration <$> readMVar logMVar
         setupScribes <- getSetupScribes c
         selscribes <- getScribes c (lnName item)
         let selscribesFiltered =
@@ -94,6 +99,11 @@ instance IsEffectuator Log where
                         -> removePublicScribes setupScribes selscribes
                     _   -> selscribes
         forM_ selscribesFiltered $ \sc -> passN sc katip item
+        -- increase the counter for the specific severity and message type
+        modifyMVar_ logMVar $ \li -> return $
+            li{ msgCounters = updateMessageCounters (msgCounters li) (lnItem item) }
+        -- reset message counters afer 60 sec = 1 min
+        resetMessageCounters logMVar 60 Warning selscribesFiltered
       where
         removePublicScribes allScribes = filter $ \sc ->
             let (_, nameD) = T.breakOn "::" sc
@@ -103,6 +113,28 @@ instance IsEffectuator Log where
             case find (\x -> scName x == name) allScribes of
                 Nothing     -> False
                 Just scribe -> scPrivacy scribe == ScPrivate
+        resetMessageCounters logMVar interval sev scribes = do
+            counters <- msgCounters <$> readMVar logMVar
+            let start = mcStart counters
+                now = case lnItem item of
+                        LogObject meta _ -> tstamp meta
+                diffTime = round $ diffUTCTime now start
+            when (diffTime > interval) $ do
+                countersObjects <- forM (HM.toList $ mcCountersMap counters) $ \(key, count) ->
+                        LogObject
+                            <$> (mkLOMeta sev)
+                            <*> pure (LogValue (pack key) (PureI $ toInteger count))
+                intervalObject <-
+                    LogObject
+                        <$> (mkLOMeta sev)
+                        <*> pure (LogValue "time_interval_(s)" (PureI diffTime))
+                let namedCounters = map (\lo -> LogNamed "#messagecounters.katip" lo)
+                                        (countersObjects ++ [intervalObject])
+                forM_ scribes $ \sc ->
+                    forM_ namedCounters $ \namedCounter ->
+                        passN sc katip namedCounter
+                modifyMVar_ logMVar $ \li -> return $
+                    li{ msgCounters = resetCounters now }
 
     handleOverflow _ = putStrLn "Notice: Katip's queue full, dropping log items!"
 
@@ -154,7 +186,9 @@ instance IsBackend Log where
         scribes <- getSetupScribes config
         le <- register scribes le1
 
-        kref <- newMVar $ LogInternal le config
+        messageCounters <- resetCounters <$> getCurrentTime
+
+        kref <- newMVar $ LogInternal le messageCounters config
 
         return $ Log kref
 
