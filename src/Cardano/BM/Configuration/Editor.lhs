@@ -33,6 +33,19 @@ import           Cardano.BM.Data.SubTrace
 \end{code}
 %endif
 
+This simple configuration editor is accessible through a browser on
+\url{http://127.0.0.1:13789}, or whatever port has been set in the
+configuration.
+
+A number of maps that relate logging context name to behaviour can be
+changed.
+And, most importantly, the global minimum severity that defines the filtering
+of log messages.
+
+\subsubsection{links}
+The GUI is built on top of \emph{Threepenny-GUI} (\url{http://hackage.haskell.org/package/threepenny-gui}).
+The appearance is due to \emph{w3-css} (\url{https://www.w3schools.com/w3css}).
+
 \begin{code}
 startup :: Configuration -> IO ()
 startup config = do
@@ -61,20 +74,21 @@ prepare config window = void $ do
     void $ return window # set title "IOHK logging and monitoring"
 
     -- editing or adding map entry
-    inputKey <- UI.input #. "inputkey"
-    inputValue <- UI.input #. "inputvalue"
+    inputKey <- UI.input #. "w3-input w3-border w3-round-large"
+    inputValue <- UI.input #. "w3-input w3-border w3-round-large"
     inputMap <- UI.p #. "inputmap"
     void $ element inputKey # set UI.size "30"
     void $ element inputValue # set UI.size "60"
-    outputMsg <- UI.input #. "outputmsg"
+    outputMsg <- UI.input #. "w3-input w3-border w3-round-large"
     void $ element outputMsg # set UI.size "60"
+                             # set UI.enabled False
 
     let mkPairItem :: Show t => Cmd -> LoggerName -> t -> UI Element
         mkPairItem cmd n v =
             let entries = [ UI.td #+ [string (unpack n)]
                           , UI.td #+ [string (show v)]
                           , UI.td #+ [do
-                              b <- UI.button #. "itmbutton" #+ [string "edit"]
+                              b <- UI.button #. "w3-small w3-btn w3-ripple w3-teal" #+ [UI.bold #+ [string "edit"]]
                               on UI.click b $ const $ do
                                   void $ element inputKey # set UI.value (unpack n)
                                   void $ element inputValue # set UI.value (show v)
@@ -102,7 +116,7 @@ prepare config window = void $ do
 
     let mkCommandButtons =
             let btns = map (\n -> do
-                            b <- UI.button #. "cmdbutton" #+ [string (show n)]
+                            b <- UI.button #. "w3-small w3-btn w3-ripple w3-grey" #+ [UI.bold #+ [string (show n)]]
                             on UI.click b $ const $ (switchTo n)
                             return b)
                             [Backends, Scribes, Severities, SubTrace, Aggregation]
@@ -120,7 +134,7 @@ prepare config window = void $ do
                  map mkSevOption (enumFrom Debug)   -- for all severities
 
     on UI.selectionChange minsev $ setMinSev minsev
-    let mkMinSevEntry = row [string "set min. severity: ", element minsev]
+    let mkMinSevEntry = row [string "set minimum severity to:", UI.span # set html "&nbsp;&nbsp;", element minsev]
 
     let setError m = void $ element outputMsg # set UI.value ("ERROR: " ++ m)
     let setMessage m = void $ element outputMsg # set UI.value m
@@ -165,31 +179,32 @@ prepare config window = void $ do
                     setMessage $ "setting " ++ k ++ " => " ++ v ++ " in " ++ m
                     updateItem c (pack k) v
                     switchTo c
-    let mkRowEdit = row [string "edit/add entry: ", element inputKey, string " => " , element inputValue]
-        mkRowBtns = row [do { b <- UI.button #. "itmbutton" #+ [string "delete"]
+    let mkRowEdit = row [element inputKey, UI.span #. "w3-tag w3-round w3-blue midalign" # set UI.text " => " , element inputValue]
+        mkRowBtns = row [do { b <- UI.button #. "w3-small w3-btn w3-ripple w3-teal" #+ [string "delete"]
                             ; on UI.click b $ const $ (delItem)
                             ; return b}
-                        ,do { b <- UI.button #. "itmbutton" #+ [string "store"]
+                        ,do { b <- UI.button #. "w3-small w3-btn w3-ripple w3-teal" #+ [string "store"]
                             ; on UI.click b $ const $ (setItem)
                             ; return b}
                         ]
 
-    -- GUI layout
-    let glue = string " "
-    let topGrid = [grid
-                    [ [mkCommandButtons]
-                    , [row [string " "], glue]
-                    , [mkMinSevEntry]
-                    , [row [string " "], glue]
-                    , [mkRowEdit]
-                    , [mkRowBtns]
-                    , [element outputMsg]
+    -- layout
+    let topGrid = UI.div #. "w3-panel" #+ [
+                      UI.div #. "w3-panel w3-border w3-border-blue" #+ [
+                          UI.div #. "w3-panel" #+ [mkMinSevEntry]
+                        ]
+                    , UI.div #. "w3-panel w3-border w3-border-blue" #+ [
+                          UI.div #. "w3-panel" #+ [UI.p # set UI.text "set or update a behaviour for a named logging context:"]
+                        , UI.div #. "w3-panel" #+ [mkCommandButtons]
+                        , UI.div #. "w3-panel" #+ [mkRowEdit]
+                        , UI.div #. "w3-panel" #+ [mkRowBtns]
+                        , UI.div #. "w3-panel" #+ [element outputMsg]
+                        ]
                     ]
-                  ]
 
     tgt <- getElementById window "gridtarget"
     case tgt of
         Nothing -> pure ()
-        Just t  -> void $ element t #+ topGrid
+        Just t  -> void $ element t #+ [topGrid]
 
 \end{code}

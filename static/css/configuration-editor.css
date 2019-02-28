@@ -5,3 +5,11 @@ body {
 	background-color: #222222;
 }
 
+.midalign {
+	vertical-align: middle;
+	text-align: center;
+}
+
+#gridtarget.table-row {
+	padding: 2px;
+}
