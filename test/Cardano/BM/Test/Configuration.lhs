@@ -249,7 +249,7 @@ unitConfigurationParsedRepresentation = do
             , "    - monitor: ((time > (23 s)) Or (time < (17 s)))"
             , "    - actions:"
             , "      - AlterMinSeverity \"chain.creation\" Debug"
-            , "    ! '#aggregation.critproc.observable':"
+            , "    '#aggregation.critproc.observable':"
             , "    - monitor: (mean >= (42))"
             , "    - actions:"
             , "      - CreateMessage \"exceeded\" \"the observable has been too long too high!\""
