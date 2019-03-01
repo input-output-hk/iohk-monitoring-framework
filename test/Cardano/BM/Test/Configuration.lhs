@@ -12,6 +12,7 @@ module Cardano.BM.Test.Configuration (
 
 import           Control.Concurrent.MVar (readMVar)
 import           Data.Aeson.Types (Value (..))
+import           Data.ByteString (intercalate)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Vector as V
 import           Data.Yaml
@@ -176,101 +177,109 @@ unitConfigurationStaticRepresentation =
                             , ("test2", (HM.singleton "value" "object2")) ]
             }
     in
-    encode r @?= "\
-                 \rotation:\n\
-                 \  rpLogLimitBytes: 5000000\n\
-                 \  rpKeepFilesNum: 10\n\
-                 \  rpMaxAgeHours: 24\n\
-                 \defaultBackends:\n\
-                 \- KatipBK\n\
-                 \setupBackends:\n\
-                 \- EKGViewBK\n\
-                 \- KatipBK\n\
-                 \hasGUI: 12789\n\
-                 \defaultScribes:\n\
-                 \- - StdoutSK\n\
-                 \  - stdout\n\
-                 \options:\n\
-                 \  test2:\n\
-                 \    value: object2\n\
-                 \  test1:\n\
-                 \    value: object1\n\
-                 \setupScribes:\n\
-                 \- scName: stdout\n\
-                 \  scRotation: null\n\
-                 \  scKind: StdoutSK\n\
-                 \  scPrivacy: ScPublic\n\
-                 \hasEKG: 18321\n\
-                 \minSeverity: Info\n"
+    encode r @?=
+        (intercalate "\n"
+            [ "rotation:"
+            , "  rpLogLimitBytes: 5000000"
+            , "  rpKeepFilesNum: 10"
+            , "  rpMaxAgeHours: 24"
+            , "defaultBackends:"
+            , "- KatipBK"
+            , "setupBackends:"
+            , "- EKGViewBK"
+            , "- KatipBK"
+            , "hasGUI: 12789"
+            , "defaultScribes:"
+            , "- - StdoutSK"
+            , "  - stdout"
+            , "options:"
+            , "  test2:"
+            , "    value: object2"
+            , "  test1:"
+            , "    value: object1"
+            , "setupScribes:"
+            , "- scName: stdout"
+            , "  scRotation: null"
+            , "  scKind: StdoutSK"
+            , "  scPrivacy: ScPublic"
+            , "hasEKG: 18321"
+            , "minSeverity: Info"
+            , "" -- to force a line feed at the end of the file
+            ]
+        )
 
 unitConfigurationParsedRepresentation :: Assertion
 unitConfigurationParsedRepresentation = do
     repr <- parseRepresentation "test/config.yaml"
-    encode repr @?= "\
-                    \rotation:\n\
-                    \  rpLogLimitBytes: 5000000\n\
-                    \  rpKeepFilesNum: 10\n\
-                    \  rpMaxAgeHours: 24\n\
-                    \defaultBackends:\n\
-                    \- KatipBK\n\
-                    \setupBackends:\n\
-                    \- AggregationBK\n\
-                    \- EKGViewBK\n\
-                    \- KatipBK\n\
-                    \hasGUI: null\n\
-                    \defaultScribes:\n\
-                    \- - StdoutSK\n\
-                    \  - stdout\n\
-                    \options:\n\
-                    \  mapSubtrace:\n\
-                    \    iohk.benchmarking:\n\
-                    \      tag: ObservableTrace\n\
-                    \      contents:\n\
-                    \      - GhcRtsStats\n\
-                    \      - MonotonicClock\n\
-                    \    iohk.deadend: NoTrace\n\
-                    \  mapSeverity:\n\
-                    \    iohk.startup: Debug\n\
-                    \    iohk.background.process: Error\n\
-                    \    iohk.testing.uncritical: Warning\n\
-                    \  mapAggregatedkinds:\n\
-                    \    iohk.interesting.value: EwmaAK {alpha = 0.75}\n\
-                    \    iohk.background.process: StatsAK\n\
-                    \  cfokey:\n\
-                    \    value: Release-1.0.0\n\
-                    \  mapMonitors:\n\
-                    \    chain.creation.block:\n\
-                    \    - monitor: ((time > (23 s)) Or (time < (17 s)))\n\
-                    \    - actions:\n\
-                    \      - AlterMinSeverity \"chain.creation\" Debug\n\
-                    \    '#aggregation.critproc.observable':\n\
-                    \    - monitor: (mean >= (42))\n\
-                    \    - actions:\n\
-                    \      - CreateMessage \"exceeded\" \"the observable has been too long too high!\"\n\
-                    \      - AlterGlobalMinSeverity Info\n\
-                    \  mapScribes:\n\
-                    \    iohk.interesting.value:\n\
-                    \    - StdoutSK::stdout\n\
-                    \    - FileTextSK::testlog\n\
-                    \    iohk.background.process: FileTextSK::testlog\n\
-                    \  mapBackends:\n\
-                    \    iohk.interesting.value:\n\
-                    \    - EKGViewBK\n\
-                    \    - AggregationBK\n\
-                    \setupScribes:\n\
-                    \- scName: testlog\n\
-                    \  scRotation:\n\
-                    \    rpLogLimitBytes: 25000000\n\
-                    \    rpKeepFilesNum: 3\n\
-                    \    rpMaxAgeHours: 24\n\
-                    \  scKind: FileTextSK\n\
-                    \  scPrivacy: ScPrivate\n\
-                    \- scName: stdout\n\
-                    \  scRotation: null\n\
-                    \  scKind: StdoutSK\n\
-                    \  scPrivacy: ScPublic\n\
-                    \hasEKG: 12789\n\
-                    \minSeverity: Info\n"
+    encode repr @?=
+        (intercalate "\n"
+            [ "rotation:"
+            , "  rpLogLimitBytes: 5000000"
+            , "  rpKeepFilesNum: 10"
+            , "  rpMaxAgeHours: 24"
+            , "defaultBackends:"
+            , "- KatipBK"
+            , "setupBackends:"
+            , "- AggregationBK"
+            , "- EKGViewBK"
+            , "- KatipBK"
+            , "hasGUI: null"
+            , "defaultScribes:"
+            , "- - StdoutSK"
+            , "  - stdout"
+            , "options:"
+            , "  mapSubtrace:"
+            , "    iohk.benchmarking:"
+            , "      tag: ObservableTrace"
+            , "      contents:"
+            , "      - GhcRtsStats"
+            , "      - MonotonicClock"
+            , "    iohk.deadend: NoTrace"
+            , "  mapSeverity:"
+            , "    iohk.startup: Debug"
+            , "    iohk.background.process: Error"
+            , "    iohk.testing.uncritical: Warning"
+            , "  mapAggregatedkinds:"
+            , "    iohk.interesting.value: EwmaAK {alpha = 0.75}"
+            , "    iohk.background.process: StatsAK"
+            , "  cfokey:"
+            , "    value: Release-1.0.0"
+            , "  mapMonitors:"
+            , "    chain.creation.block:"
+            , "    - monitor: ((time > (23 s)) Or (time < (17 s)))"
+            , "    - actions:"
+            , "      - AlterMinSeverity \"chain.creation\" Debug"
+            , "    '#aggregation.critproc.observable':"
+            , "    - monitor: (mean >= (42))"
+            , "    - actions:"
+            , "      - CreateMessage \"exceeded\" \"the observable has been too long too high!\""
+            , "      - AlterGlobalMinSeverity Info"
+            , "  mapScribes:"
+            , "    iohk.interesting.value:"
+            , "    - StdoutSK::stdout"
+            , "    - FileTextSK::testlog"
+            , "    iohk.background.process: FileTextSK::testlog"
+            , "  mapBackends:"
+            , "    iohk.interesting.value:"
+            , "    - EKGViewBK"
+            , "    - AggregationBK"
+            , "setupScribes:"
+            , "- scName: testlog"
+            , "  scRotation:"
+            , "    rpLogLimitBytes: 25000000"
+            , "    rpKeepFilesNum: 3"
+            , "    rpMaxAgeHours: 24"
+            , "  scKind: FileTextSK"
+            , "  scPrivacy: ScPrivate"
+            , "- scName: stdout"
+            , "  scRotation: null"
+            , "  scKind: StdoutSK"
+            , "  scPrivacy: ScPublic"
+            , "hasEKG: 12789"
+            , "minSeverity: Info"
+            , "" -- to force a line feed at the end of the file
+            ]
+        )
 
 unitConfigurationParsed :: Assertion
 unitConfigurationParsed = do
@@ -317,11 +326,21 @@ unitConfigurationParsed = do
                                          ,("iohk.background.process",String "FileTextSK::testlog")])
             , ("mapBackends", HM.fromList [("iohk.interesting.value",
                                                 Array $ V.fromList [String "EKGViewBK"
-                                                                   ,String "AggregationBK"])])
+                                                                   ,String "AggregationBK"
+                                                                   ])])
             ]
-        , cgMapBackend        = HM.fromList [ ("iohk.interesting.value", [EKGViewBK,AggregationBK]) ]
+        , cgMapBackend        = HM.fromList [ ("iohk.interesting.value"
+                                              , [ EKGViewBK
+                                                , AggregationBK
+                                                ]
+                                              )
+                                            ]
         , cgDefBackendKs      = [KatipBK]
-        , cgSetupBackends     = [AggregationBK, EKGViewBK, KatipBK]
+        , cgSetupBackends     = [
+                                  AggregationBK
+                                ,
+                                  EKGViewBK
+                                , KatipBK]
         , cgMapScribe         = HM.fromList [ ("iohk.interesting.value",
                                                     ["StdoutSK::stdout","FileTextSK::testlog"])
                                             , ("iohk.background.process", ["FileTextSK::testlog"])
