@@ -204,7 +204,7 @@ unitConfigurationStaticRepresentation =
             , "  scPrivacy: ScPublic"
             , "hasEKG: 18321"
             , "minSeverity: Info"
-            , "" -- In this case '\n' will be added in the end of file as well.
+            , "" -- to force a line feed at the end of the file
             ]
         )
 
@@ -277,7 +277,7 @@ unitConfigurationParsedRepresentation = do
             , "  scPrivacy: ScPublic"
             , "hasEKG: 12789"
             , "minSeverity: Info"
-            , "" -- In this case '\n' will be added in the end of file as well.
+            , "" -- to force a line feed at the end of the file
             ]
         )
 
