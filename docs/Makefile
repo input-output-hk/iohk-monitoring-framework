@@ -45,9 +45,9 @@ TESTS = ../test/Test.lhs \
 
 EXAMPLES = ../examples/complex/Main.lhs ../examples/simple/Main.lhs
 
-TeXs = aggregation.tex monitoring.tex mu-benchmarks.tex output-selection.tex requirements.tex traces.tex
+TeXs = aggregation.tex configuration.tex monitoring.tex mu-benchmarks.tex output-selection.tex requirements.tex traces.tex
 
-ImagePdf = OverviewModules.pdf SetupProcedure.pdf ConfigurationModel.pdf
+ImagePdf = OverviewModules.pdf SetupProcedure.pdf ConfigurationModel.pdf ConfigEditor.pdf
 
 .PHONY: $(DOC).pdf all clean
 
@@ -67,6 +67,9 @@ SetupProcedure.pdf: SetupProcedure.png
 	convert $< $@
 
 ConfigurationModel.pdf: ConfigurationModel.png
+	convert $< $@
+
+ConfigEditor.pdf: ConfigEditor.png
 	convert $< $@
 
 clean:

@@ -113,6 +113,8 @@ thus specializes its interface.}\label{fig:overview}
 
 %include ../docs/mu-benchmarks.tex
 
+%include ../docs/configuration.tex
+
 %include ../docs/aggregation.tex
 
 %include ../docs/output-selection.tex
