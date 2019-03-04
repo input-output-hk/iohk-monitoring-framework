@@ -16,6 +16,7 @@ module Cardano.BM.Trace
     , traceNamedInTVarIO
     -- * context naming
     , appendName
+    , modifyName
     -- * utils
     , natTrace
     , subTrace
@@ -105,6 +106,25 @@ appendWithDot :: LoggerName -> LoggerName -> LoggerName
 appendWithDot "" newName = T.take 80 newName
 appendWithDot xs ""      = xs
 appendWithDot xs newName = T.take 80 $ xs <> "." <> newName
+
+\end{code}
+
+\subsubsection{Change named context}\label{code:modifyName}\index{modifyName}
+The context name is created and checked that its size is below a limit
+(currently 80 chars).
+The minimum severity that a log message must be labelled with is looked up in
+the configuration and recalculated.
+\begin{code}
+modifyName :: MonadIO m => LoggerName -> Trace m -> m (Trace m)
+modifyName name (ctx, trace) = do
+    let prevMinSeverity = minSeverity ctx
+    globMinSeverity <- liftIO $ Config.minSeverity (configuration ctx)
+    namedSeverity <- liftIO $ Config.inspectSeverity (configuration ctx) name
+    case namedSeverity of
+        Nothing  -> return ( ctx { loggerName = name }, trace )
+        Just sev -> return ( ctx { loggerName = name
+                                 , minSeverity = max (max sev prevMinSeverity) globMinSeverity }
+                           , trace )
 
 \end{code}
 

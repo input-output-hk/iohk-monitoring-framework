@@ -13,27 +13,32 @@ module Cardano.BM.Output.Monitoring
     (
       Monitor
     , effectuate
-    , realize
+    , realizefrom
     , unrealize
     ) where
 
 import qualified Control.Concurrent.Async as Async
-import           Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar,
-                     readMVar)
+import           Control.Concurrent.MVar (MVar, newEmptyMVar, newMVar, putMVar,
+                     modifyMVar_, readMVar)
 import           Control.Concurrent.STM (atomically)
 import qualified Control.Concurrent.STM.TBQueue as TBQ
 import qualified Data.HashMap.Strict as HM
 import           Data.Text (pack)
 import qualified Data.Text.IO as TIO
 import           Data.Time.Calendar (toModifiedJulianDay)
-import           Data.Time.Clock (UTCTime (..))
+import           Data.Time.Clock (UTCTime (..), getCurrentTime)
 import           GHC.Clock (getMonotonicTimeNSec)
 
 import           Cardano.BM.Configuration.Model (Configuration, getMonitors)
 import           Cardano.BM.Data.Aggregated
 import           Cardano.BM.Data.Backend
 import           Cardano.BM.Data.LogItem
+import           Cardano.BM.Data.MessageCounter (resetCounters, sendAndResetAfter,
+                     updateMessageCounters)
 import           Cardano.BM.Data.MonitoringEval
+import           Cardano.BM.Data.Severity (Severity (..))
+import           Cardano.BM.Data.Trace (TraceContext (configuration))
+import qualified Cardano.BM.Trace as Trace
 
 \end{code}
 %endif
@@ -84,11 +89,14 @@ instance IsEffectuator Monitor where
 instance IsBackend Monitor where
     typeof _ = MonitoringBK
 
-    realize config = do
+    realize _ = error "Monitoring cannot be instantiated by 'realize'"
+
+    realizefrom sbtrace@(ctx, _) _ = do
+        let config = configuration ctx
         monref <- newEmptyMVar
         let monitor = Monitor monref
         queue <- atomically $ TBQ.newTBQueue 512
-        dispatcher <- spawnDispatcher queue config
+        dispatcher <- spawnDispatcher queue config sbtrace
         -- link the given Async to the current thread, such that if the Async
         -- raises an exception, that exception will be re-thrown in the current
         -- thread, wrapped in ExceptionInLinkedThread.
@@ -107,16 +115,29 @@ instance IsBackend Monitor where
 \begin{code}
 spawnDispatcher :: TBQ.TBQueue (Maybe NamedLogItem)
                 -> Configuration
+                -> Trace.Trace IO
                 -> IO (Async.Async ())
-spawnDispatcher mqueue config =
-    Async.async (initMap >>= qProc)
+spawnDispatcher mqueue config sbtrace = do
+    now <- getCurrentTime
+    let messageCounters = resetCounters now
+    countersMVar <- newMVar messageCounters
+    _timer <- Async.async $ sendAndResetAfter
+                                sbtrace
+                                "#messagecounters.monitoring"
+                                countersMVar
+                                60000   -- 60000 ms = 1 min
+                                Warning -- Debug
+
+    Async.async (initMap >>= qProc countersMVar)
   where
-    qProc state = do
+    qProc counters state = do
         maybeItem <- atomically $ TBQ.readTBQueue mqueue
         case maybeItem of
-            Just (LogNamed logname logvalue) -> do
+            Just (LogNamed logname logvalue@(LogObject _ _)) -> do
                 state' <- evalMonitoringAction state logname logvalue
-                qProc state'
+                -- increase the counter for the type of message
+                modifyMVar_ counters $ \cnt -> return $ updateMessageCounters cnt logvalue
+                qProc counters state'
             Nothing -> return ()  -- stop here
     initMap = do
         ls <- getMonitors config

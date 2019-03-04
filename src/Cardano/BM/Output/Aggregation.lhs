@@ -16,18 +16,17 @@ module Cardano.BM.Output.Aggregation
     ) where
 
 import qualified Control.Concurrent.Async as Async
-import           Control.Concurrent.MVar (MVar, newEmptyMVar,
-                     putMVar, readMVar, tryTakeMVar, withMVar)
+import           Control.Concurrent.MVar (MVar, newEmptyMVar, newMVar,
+                     modifyMVar_, putMVar, readMVar, tryTakeMVar, withMVar)
 import           Control.Concurrent.STM (atomically)
 import qualified Control.Concurrent.STM.TBQueue as TBQ
 import           Control.Exception.Safe (throwM)
 import           Control.Monad (unless, void)
 import           Control.Monad.IO.Class (liftIO)
 import qualified Data.HashMap.Strict as HM
-import qualified Data.Text as T
-import           Data.Text (Text)
+import           Data.Text (Text, pack)
 import           Data.Time.Calendar (toModifiedJulianDay)
-import           Data.Time.Clock (UTCTime (..))
+import           Data.Time.Clock (UTCTime (..), getCurrentTime)
 import           Data.Word (Word64)
 import           GHC.Clock (getMonotonicTimeNSec)
 
@@ -40,6 +39,9 @@ import           Cardano.BM.Data.Backend
 import           Cardano.BM.Data.Counter (Counter (..), CounterState (..),
                      nameCounter)
 import           Cardano.BM.Data.LogItem
+import           Cardano.BM.Data.MessageCounter (resetCounters, sendAndResetAfter,
+                     updateMessageCounters)
+import           Cardano.BM.Data.Severity (Severity (..))
 import           Cardano.BM.Data.Trace
 import qualified Cardano.BM.Trace as Trace
 
@@ -141,16 +143,29 @@ spawnDispatcher :: Configuration
                 -> TBQ.TBQueue (Maybe NamedLogItem)
                 -> Trace.Trace IO
                 -> IO (Async.Async ())
-spawnDispatcher conf aggMap aggregationQueue trace = Async.async $ qProc aggMap
+spawnDispatcher conf aggMap aggregationQueue trace = do
+    now <- getCurrentTime
+    let messageCounters = resetCounters now
+    countersMVar <- newMVar messageCounters
+    _timer <- Async.async $ sendAndResetAfter
+                                trace
+                                "#messagecounters.aggregation"
+                                countersMVar
+                                60000   -- 60000 ms = 1 min
+                                Warning -- Debug
+
+    Async.async $ qProc countersMVar aggMap
   where
-    qProc aggregatedMap = do
+    qProc counters aggregatedMap = do
         maybeItem <- atomically $ TBQ.readTBQueue aggregationQueue
         case maybeItem of
             Just (LogNamed logname lo@(LogObject lm _)) -> do
                 (updatedMap, aggregations) <- update lo logname aggregatedMap
                 unless (null aggregations) $
                     sendAggregated (LogObject lm (AggregatedMessage aggregations)) logname
-                qProc updatedMap
+                -- increase the counter for the specific severity and message type
+                modifyMVar_ counters $ \cnt -> return $ updateMessageCounters cnt lo
+                qProc counters updatedMap
             Nothing -> return ()
 
     createNupdate name value lme agmap = do
@@ -190,7 +205,7 @@ spawnDispatcher conf aggMap aggregationQueue trace = Async.async $ qProc aggMap
         updateCounters (csCounters counterState) lme (logname, "close") agmap []
 
     update (LogObject lme (LogMessage _)) logname agmap = do
-        let iname  = T.pack $ show (severity lme)
+        let iname  = pack $ show (severity lme)
         let fullname = logname <> "." <> iname
         aggregated <- createNupdate fullname (PureI 0) lme agmap
         now <- getMonotonicTimeNSec

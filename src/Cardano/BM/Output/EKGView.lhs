@@ -11,22 +11,25 @@ module Cardano.BM.Output.EKGView
     (
       EKGView
     , effectuate
-    , realize
+    , realizefrom
     , unrealize
     ) where
 
 import           Control.Concurrent (killThread)
 import qualified Control.Concurrent.Async as Async
-import           Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar,
-                     readMVar, withMVar, modifyMVar_)
+import           Control.Concurrent.MVar (MVar, newEmptyMVar, newMVar,
+                     putMVar, readMVar, withMVar, modifyMVar_)
 import           Control.Concurrent.STM (atomically)
 import qualified Control.Concurrent.STM.TBQueue as TBQ
 import           Control.Monad.IO.Class (liftIO)
 import           Data.Functor.Contravariant (Op (..))
 import qualified Data.HashMap.Strict as HM
 import           Data.Text (Text, pack, stripPrefix)
+import           Data.Time (getCurrentTime)
 import           Data.Version (showVersion)
 
+import           Cardano.BM.Data.MessageCounter (resetCounters, sendAndResetAfter,
+                     updateMessageCounters)
 import qualified System.Metrics.Label as Label
 import           System.Remote.Monitoring (Server, forkServer,
                      getLabel, serverThreadId)
@@ -120,7 +123,6 @@ ekgTrace ekg c = do
 
 \end{code}
 
-
 \subsubsection{EKG view is an effectuator}\index{EKGView!instance of IsEffectuator}
 Function |effectuate| is called to pass in a |NamedLogItem| for display in EKG.
 If the log item is an |AggregatedStats| message, then all its constituents are
@@ -171,16 +173,19 @@ instance IsEffectuator EKGView where
 instance IsBackend EKGView where
     typeof _ = EKGViewBK
 
-    realize config = do
+    realize _ = error "EKGView cannot be instantiated by 'realize'"
+
+    realizefrom sbtrace@(ctx, _) _ = do
+        let config = configuration ctx
         evref <- newEmptyMVar
         let ekgview = EKGView evref
         evport <- getEKGport config
         ehdl <- forkServer "127.0.0.1" evport
         ekghdl <- getLabel "iohk-monitoring version" ehdl
-        Label.set ekghdl $ pack(showVersion version)
+        Label.set ekghdl $ pack (showVersion version)
         ekgtrace <- ekgTrace ekgview config
         queue <- atomically $ TBQ.newTBQueue 512
-        dispatcher <- spawnDispatcher queue ekgtrace
+        dispatcher <- spawnDispatcher queue sbtrace ekgtrace
         -- link the given Async to the current thread, such that if the Async
         -- raises an exception, that exception will be re-thrown in the current
         -- thread, wrapped in ExceptionInLinkedThread.
@@ -202,17 +207,30 @@ instance IsBackend EKGView where
 \begin{code}
 spawnDispatcher :: TBQ.TBQueue (Maybe NamedLogItem)
                 -> Trace.Trace IO
+                -> Trace.Trace IO
                 -> IO (Async.Async ())
-spawnDispatcher evqueue trace =
-    Async.async $ qProc
+spawnDispatcher evqueue sbtrace trace = do
+    now <- getCurrentTime
+    let messageCounters = resetCounters now
+    countersMVar <- newMVar messageCounters
+    _timer <- Async.async $ sendAndResetAfter
+                                sbtrace
+                                "#messagecounters.ekgview"
+                                countersMVar
+                                60000   -- 60000 ms = 1 min
+                                Warning -- Debug
+
+    Async.async $ qProc countersMVar
   where
-    qProc = do
+    qProc counters = do
         maybeItem <- atomically $ TBQ.readTBQueue evqueue
         case maybeItem of
-            Just (LogNamed logname logvalue) -> do
+            Just (LogNamed logname logvalue@(LogObject _ _)) -> do
                 trace' <- Trace.appendName logname trace
                 Trace.traceConditionally trace' logvalue
-                qProc
+                -- increase the counter for the type of message
+                modifyMVar_ counters $ \cnt -> return $ updateMessageCounters cnt logvalue
+                qProc counters
             Nothing -> return ()  -- stop here
 
 \end{code}

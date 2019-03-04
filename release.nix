@@ -50,6 +50,6 @@ commonLib.nix-tools.release-nix {
 
     # Disabled due to: https://github.com/psibi/download/issues/17:
     #jobs.nix-tools.exes.x86_64-pc-mingw32-iohk-monitoring.x86_64-linux
-    
+
   ];
 }

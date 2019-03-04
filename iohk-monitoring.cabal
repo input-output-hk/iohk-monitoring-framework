@@ -33,6 +33,7 @@ library
                        Cardano.BM.Data.Configuration
                        Cardano.BM.Data.Counter
                        Cardano.BM.Data.LogItem
+                       Cardano.BM.Data.MessageCounter
                        Cardano.BM.Data.MonitoringEval
                        Cardano.BM.Data.Observable
                        Cardano.BM.Data.Output
@@ -70,6 +71,7 @@ library
                        aeson,
                        array,
                        async,
+                       async-timer,
                        attoparsec,
                        auto-update,
                        bytestring,

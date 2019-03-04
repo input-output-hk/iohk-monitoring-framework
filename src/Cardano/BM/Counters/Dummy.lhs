@@ -26,12 +26,12 @@ import           Cardano.BM.Data.SubTrace
 \label{code:Dummy.readCounters}\index{Counters!Dummy!readCounters}
 \begin{code}
 readCounters :: SubTrace -> IO [Counter]
-readCounters NoTrace             = return []
-readCounters Neutral             = return []
-readCounters (TeeTrace _)        = return []
-readCounters (FilterTrace _)     = return []
-readCounters UntimedTrace        = return []
-readCounters DropOpening         = return []
+readCounters NoTrace               = return []
+readCounters Neutral               = return []
+readCounters (TeeTrace _)          = return []
+readCounters (FilterTrace _)       = return []
+readCounters UntimedTrace          = return []
+readCounters DropOpening           = return []
 readCounters (ObservableTrace tts) = foldrM (\(sel, fun) a ->
     if any (== sel) tts
     then (fun >>= \xs -> return $ a ++ xs)

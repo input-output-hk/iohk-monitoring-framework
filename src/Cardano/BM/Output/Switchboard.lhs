@@ -19,12 +19,13 @@ module Cardano.BM.Output.Switchboard
     ) where
 
 import qualified Control.Concurrent.Async as Async
-import           Control.Concurrent.MVar (MVar, newEmptyMVar,
-                    putMVar, readMVar, tryTakeMVar, withMVar)
+import           Control.Concurrent.MVar (MVar, newEmptyMVar, newMVar,
+                     putMVar, readMVar, tryTakeMVar, withMVar, modifyMVar_)
 import           Control.Concurrent.STM (atomically)
 import qualified Control.Concurrent.STM.TBQueue as TBQ
 import           Control.Exception.Safe (throwM)
 import           Control.Monad (forM_, when, void)
+import           Data.Time.Clock (getCurrentTime)
 import           Data.Functor.Contravariant (Op (..))
 
 import qualified Cardano.BM.BaseTrace as BaseTrace
@@ -33,12 +34,13 @@ import           Cardano.BM.Configuration.Model (getBackends,
                      getSetupBackends)
 import           Cardano.BM.Data.Backend
 import           Cardano.BM.Data.LogItem
-import           Cardano.BM.Data.Trace (TraceNamed)
+import           Cardano.BM.Data.MessageCounter (resetCounters, sendAndResetAfter,
+                     updateMessageCounters)
+import           Cardano.BM.Data.Trace (TraceNamed, TraceContext (..))
 import           Cardano.BM.Data.Severity
 
 #ifdef ENABLE_AGGREGATION
 import           Cardano.BM.Data.SubTrace
-import           Cardano.BM.Data.Trace (TraceContext (..))
 import qualified Cardano.BM.Output.Aggregation
 #endif
 
@@ -129,29 +131,55 @@ instance IsBackend Switchboard where
                 -> [(BackendKind, Backend)]
                 -> TBQ.TBQueue NamedLogItem
                 -> IO (Async.Async ())
-            spawnDispatcher config backends queue =
+            spawnDispatcher config backends queue = do
+                now <- getCurrentTime
+                let messageCounters = resetCounters now
+                countersMVar <- newMVar messageCounters
+                let traceInQueue q =
+                        BaseTrace.BaseTrace $ Op $ \lognamed -> do
+                            nocapacity <- atomically $ TBQ.isFullTBQueue q
+                            if nocapacity
+                            then putStrLn "Error: Switchboard's queue full, dropping log items!"
+                            else atomically $ TBQ.writeTBQueue q lognamed
+                    ctx = TraceContext { loggerName = ""
+                                       , configuration = cfg
+                                       , minSeverity = Debug
+                                       , tracetype = Neutral
+                                       , shutdown = pure ()
+                                       }
+                _timer <- Async.async $ sendAndResetAfter
+                                            (ctx, traceInQueue queue)
+                                            "#messagecounters.switchboard"
+                                            countersMVar
+                                            60000   -- 60000 ms = 1 min
+                                            Warning -- Debug
+
                 let sendMessage nli befilter = do
                         selectedBackends <- getBackends config (lnName nli)
                         let selBEs = befilter selectedBackends
                         forM_ backends $ \(bek, be) ->
                             when (bek `elem` selBEs) (bEffectuate be $ nli)
 
-                    qProc = do
+                    qProc counters = do
                         nli <- atomically $ TBQ.readTBQueue queue
+                        -- do not count again messages that contain the results of message counters
+                        when (lnName nli /= "#messagecounters.switchboard") $
+                            -- increase the counter for the specific severity
+                            modifyMVar_ counters $ \cnt -> return $ updateMessageCounters cnt $ lnItem nli
                         case lnItem nli of
                             LogObject _ KillPill ->
                                 forM_ backends ( \(_, be) -> bUnrealize be )
 #ifdef ENABLE_AGGREGATION
                             LogObject _ (AggregatedMessage _) -> do
                                 sendMessage nli (filter (/= AggregationBK))
-                                qProc
+                                qProc counters
 #endif
                             LogObject _ (MonitoringEffect inner) -> do
                                 sendMessage (nli {lnItem = inner}) (filter (/= MonitoringBK))
-                                qProc
-                            _ -> sendMessage nli id >> qProc
-                in
-                Async.async qProc
+                                qProc counters
+                            _ -> sendMessage nli id >> qProc counters
+
+                Async.async $ qProc countersMVar
         in do
         q <- atomically $ TBQ.newTBQueue 2048
         sbref <- newEmptyMVar
@@ -196,15 +224,31 @@ setupBackends (bk : bes) c sb acc = do
     setupBackends bes c sb ((bk,be') : acc)
 setupBackend' :: BackendKind -> Configuration -> Switchboard -> IO Backend
 setupBackend' SwitchboardBK _ _ = error "cannot instantiate a further Switchboard"
-setupBackend' MonitoringBK c _ = do
-    be :: Cardano.BM.Output.Monitoring.Monitor <- Cardano.BM.Output.Monitoring.realize c
+setupBackend' MonitoringBK c sb = do
+    let trace = mainTrace sb
+        ctx   = TraceContext { loggerName = ""
+                             , configuration = c
+                             , minSeverity = Debug
+                             , tracetype = Neutral
+                             , shutdown = pure ()
+                             }
+
+    be :: Cardano.BM.Output.Monitoring.Monitor <- Cardano.BM.Output.Monitoring.realizefrom (ctx, trace) sb
     return MkBackend
       { bEffectuate = Cardano.BM.Output.Monitoring.effectuate be
       , bUnrealize = Cardano.BM.Output.Monitoring.unrealize be
       }
 #ifdef ENABLE_EKG
-setupBackend' EKGViewBK c _ = do
-    be :: Cardano.BM.Output.EKGView.EKGView <- Cardano.BM.Output.EKGView.realize c
+setupBackend' EKGViewBK c sb = do
+    let trace = mainTrace sb
+        ctx   = TraceContext { loggerName = ""
+                             , configuration = c
+                             , minSeverity = Debug
+                             , tracetype = Neutral
+                             , shutdown = pure ()
+                             }
+
+    be :: Cardano.BM.Output.EKGView.EKGView <- Cardano.BM.Output.EKGView.realizefrom (ctx, trace) sb
     return MkBackend
       { bEffectuate = Cardano.BM.Output.EKGView.effectuate be
       , bUnrealize = Cardano.BM.Output.EKGView.unrealize be
