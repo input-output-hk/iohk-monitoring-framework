@@ -6,6 +6,7 @@ stdenv.mkDerivation {
                         zlib libiconv
                         ghc
                         cabal2nix
+                        stack
                       ];
   buildInputs = [
                 ];
