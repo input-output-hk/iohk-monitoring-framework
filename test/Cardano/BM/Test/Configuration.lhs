@@ -4,6 +4,7 @@
 
 %if style == newcode
 \begin{code}
+{-# LANGUAGE CPP               #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Cardano.BM.Test.Configuration (
@@ -83,6 +84,9 @@ The configuration file only indicates that EKG is listening on port nnnnn. Infer
 \begin{code}
 unitConfigurationCheckEKGpositive :: Assertion
 unitConfigurationCheckEKGpositive = do
+#ifndef ENABLE_EKG
+    return ()
+#else
     let c = [ "rotation:"
             , "  rpLogLimitBytes: 5000000"
             , "  rpKeepFilesNum: 10"
@@ -110,6 +114,7 @@ unitConfigurationCheckEKGpositive = do
 
     assertBool "expecting EKGViewBK to be setup" $
         EKGViewBK `elem` (setupBackends repr)
+#endif
 
 \end{code}
 
@@ -117,6 +122,9 @@ If there is no port defined for EKG, then do not start it even if present in the
 \begin{code}
 unitConfigurationCheckEKGnegative :: Assertion
 unitConfigurationCheckEKGnegative = do
+#ifndef ENABLE_EKG
+    return ()
+#else
     let c = [ "rotation:"
             , "  rpLogLimitBytes: 5000000"
             , "  rpKeepFilesNum: 10"
@@ -148,6 +156,7 @@ unitConfigurationCheckEKGnegative = do
         not $ EKGViewBK `elem` (setupBackends repr)
     assertBool "EKGViewBK shall not receive messages" $
         not $ EKGViewBK `elem` (defaultBackends repr)
+#endif
 
 \end{code}
 

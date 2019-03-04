@@ -6,6 +6,7 @@ Data structure to help parsing configuration files.
 
 %if style == newcode
 \begin{code}
+{-# LANGUAGE CPP                 #-}
 {-# LANGUAGE DeriveAnyClass      #-}
 {-# LANGUAGE DeriveGeneric       #-}
 {-# LANGUAGE OverloadedStrings   #-}
@@ -78,6 +79,7 @@ implicit_fill_representation =
         r {setupScribes = mkUniq $ setupScribes r}
     union_setup_and_usage_backends r =
         r {setupBackends = setupBackends r <> defaultBackends r}
+#ifdef ENABLE_EKG
     remove_ekgview_if_not_defined r =
         case hasEKG r of
         Nothing -> r { defaultBackends = filter (\bk -> bk /= EKGViewBK) (defaultBackends r)
@@ -88,6 +90,10 @@ implicit_fill_representation =
         case hasEKG r of
         Nothing -> r
         Just _  -> r {setupBackends = setupBackends r <> [EKGViewBK]}
+#else
+    remove_ekgview_if_not_defined = id
+    add_ekgview_if_port_defined = id
+#endif
     add_katip_if_any_scribes r =
         if (any not [null $ setupScribes r, null $ defaultScribes r])
         then r {setupBackends = setupBackends r <> [KatipBK]}

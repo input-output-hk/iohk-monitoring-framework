@@ -42,9 +42,12 @@ import           Cardano.BM.Data.Trace (TraceContext (..))
 import qualified Cardano.BM.Output.Aggregation
 #endif
 
-import qualified Cardano.BM.Output.EKGView
 import qualified Cardano.BM.Output.Log
 import qualified Cardano.BM.Output.Monitoring
+
+#ifdef ENABLE_EKG
+import qualified Cardano.BM.Output.EKGView
+#endif
 
 \end{code}
 %endif
@@ -199,12 +202,18 @@ setupBackend' MonitoringBK c _ = do
       { bEffectuate = Cardano.BM.Output.Monitoring.effectuate be
       , bUnrealize = Cardano.BM.Output.Monitoring.unrealize be
       }
+#ifdef ENABLE_EKG
 setupBackend' EKGViewBK c _ = do
     be :: Cardano.BM.Output.EKGView.EKGView <- Cardano.BM.Output.EKGView.realize c
     return MkBackend
       { bEffectuate = Cardano.BM.Output.EKGView.effectuate be
       , bUnrealize = Cardano.BM.Output.EKGView.unrealize be
       }
+#else
+-- We need it anyway, to avoid "Non-exhaustive patterns" warning.
+setupBackend' EKGViewBK _ _ =
+    error "Impossible happened: EKG is disabled by Cabal-flag, we mustn't match this backend!"
+#endif
 #ifdef ENABLE_AGGREGATION
 setupBackend' AggregationBK c sb = do
     let trace = mainTrace sb

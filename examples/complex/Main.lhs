@@ -60,7 +60,9 @@ config = do
 #ifdef ENABLE_AGGREGATION
                           , AggregationBK
 #endif
+#ifdef ENABLE_EKG
                           , EKGViewBK
+#endif
                           ]
     CM.setDefaultBackends c [KatipBK]
     CM.setSetupScribes c [ ScribeDefinition {
@@ -152,11 +154,13 @@ config = do
     CM.setAggregatedKind c "complex.random.rr" (Just StatsAK)
     CM.setAggregatedKind c "complex.random.ewma.rr" (Just (EwmaAK 0.42))
 
+#ifdef ENABLE_EKG
     CM.setBackends c "#aggregation.complex.message" (Just [EKGViewBK])
     CM.setBackends c "#aggregation.complex.observeIO" (Just [EKGViewBK])
     CM.setBackends c "#aggregation.complex.random" (Just [EKGViewBK])
     CM.setBackends c "#aggregation.complex.random.ewma" (Just [EKGViewBK])
     CM.setEKGport c 12789
+#endif
     CM.setGUIport c 13789
 
     return c
