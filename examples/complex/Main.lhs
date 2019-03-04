@@ -7,6 +7,13 @@
 #define LINUX
 #endif
 
+{- define the parallel procedures that create messages -}
+#define RUN_ProcMessageOutput
+#define RUN_ProcObserveIO
+#define RUN_ProcObseverSTM
+#define RUN_ProcObseveDownload
+#define RUN_ProcRandom
+
 module Main
   ( main )
   where
@@ -22,6 +29,7 @@ import           Network.Download (openURI)
 #endif
 import           System.Random
 
+import qualified Cardano.BM.Configuration.Editor as CME
 import qualified Cardano.BM.Configuration.Model as CM
 import           Cardano.BM.Data.Aggregated (Measurable (..))
 import           Cardano.BM.Data.AggregatedKind
@@ -41,6 +49,8 @@ import           Cardano.BM.Trace
 
 \subsubsection{Define configuration}
 Selected values can be viewed in EKG on \url{http://localhost:12789}.
+\\
+The configuration editor listens on \url{http://localhost:13789}.
 \begin{code}
 config :: IO CM.Configuration
 config = do
@@ -147,6 +157,7 @@ config = do
     CM.setBackends c "#aggregation.complex.random" (Just [EKGViewBK])
     CM.setBackends c "#aggregation.complex.random.ewma" (Just [EKGViewBK])
     CM.setEKGport c 12789
+    CM.setGUIport c 13789
 
     return c
 
@@ -258,43 +269,60 @@ main = do
     -- create configuration
     c <- config
 
+    -- start configuration editor
+    CME.startup c
+
     -- create initial top-level Trace
     tr <- setupTrace (Right c) "complex"
 
     logNotice tr "starting program; hit CTRL-C to terminate"
     logInfo tr "watch its progress on http://localhost:12789"
 
+#ifdef RUN_ProcRandom
     {- start thread sending unbounded sequence of random numbers
        to a trace which aggregates them into a statistics (sent to EKG) -}
     procRandom <- randomThr tr
-
+#endif
+#ifdef RUN_ProcObserveIO
     -- start thread endlessly reversing lists of random length
     procObsvIO <- observeIO tr
-
+#endif
+#ifdef RUN_ProcObseverSTM 
     -- start threads endlessly observing STM actions operating on the same TVar
     procObsvSTMs <- observeSTM tr
-
+#endif
 #ifdef LINUX
+#ifdef RUN_ProcObseveDownload 
     -- start thread endlessly which downloads sth in order to check the I/O usage
     procObsvDownload <- observeDownload tr
 #endif
+#endif
 
+#ifdef RUN_ProcMessageOutput
     -- start a thread to output a text messages every n seconds
     procMsg <- msgThr tr
-
     -- wait for message thread to finish, ignoring any exception
     _ <- Async.waitCatch procMsg
+#endif
+
 #ifdef LINUX
+#ifdef RUN_ProcObseveDownload 
     -- wait for download thread to finish, ignoring any exception
     _ <- Async.waitCatch procObsvDownload
 #endif
+#endif
+#ifdef RUN_ProcObseverSTM 
     -- wait for observer thread to finish, ignoring any exception
     _ <- forM procObsvSTMs Async.waitCatch
+#endif
+#ifdef RUN_ProcObserveIO
     -- wait for observer thread to finish, ignoring any exception
     _ <- Async.waitCatch procObsvIO
+#endif
+#ifdef RUN_ProcRandom
     -- wait for random thread to finish, ignoring any exception
     _ <- Async.waitCatch procRandom
-
+#endif
     return ()
 
 \end{code}

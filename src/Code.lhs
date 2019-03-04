@@ -113,6 +113,8 @@ thus specializes its interface.}\label{fig:overview}
 
 %include ../docs/mu-benchmarks.tex
 
+%include ../docs/configuration.tex
+
 %include ../docs/aggregation.tex
 
 %include ../docs/output-selection.tex
@@ -169,6 +171,7 @@ where
 %include Cardano/BM/Configuration.lhs
 %include Cardano/BM/Configuration/Model.lhs
 %include Cardano/BM/Configuration/Static.lhs
+%include Cardano/BM/Configuration/Editor.lhs
 
 %include Cardano/BM/Output/Switchboard.lhs
 %include Cardano/BM/Output/Log.lhs

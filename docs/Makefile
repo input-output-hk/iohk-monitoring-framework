@@ -5,6 +5,7 @@ SOURCES = ../src/Code.lhs \
 					../src/Cardano/BM/Configuration.lhs \
 					../src/Cardano/BM/Configuration/Model.lhs \
 					../src/Cardano/BM/Configuration/Static.lhs \
+					../src/Cardano/BM/Configuration/Editor.lhs \
 					../src/Cardano/BM/Counters.lhs \
 					../src/Cardano/BM/Counters/Common.lhs \
 					../src/Cardano/BM/Counters/Dummy.lhs \
@@ -42,15 +43,17 @@ TESTS = ../test/Test.lhs \
 				../test/Cardano/BM/Test/Trace.lhs \
 				../test/Cardano/BM/Arbitrary/Aggregated.lhs \
 
-TeXs = aggregation.tex monitoring.tex mu-benchmarks.tex output-selection.tex requirements.tex traces.tex
+EXAMPLES = ../examples/complex/Main.lhs ../examples/simple/Main.lhs
 
-ImagePdf = OverviewModules.pdf SetupProcedure.pdf ConfigurationModel.pdf
+TeXs = aggregation.tex configuration.tex monitoring.tex mu-benchmarks.tex output-selection.tex requirements.tex traces.tex
+
+ImagePdf = OverviewModules.pdf SetupProcedure.pdf ConfigurationModel.pdf ConfigEditor.pdf
 
 .PHONY: $(DOC).pdf all clean
 
 all: $(DOC).pdf
 
-$(DOC).tex: $(SOURCES) $(TESTS) $(TeXs) test-coverage.tex ../src/references.fmt
+$(DOC).tex: $(SOURCES) $(TESTS) $(EXAMPLES) $(TeXs) test-coverage.tex ../src/references.fmt
 	cd ../src; lhs2TeX -v -o ../docs/$(DOC).tex Code.lhs; cd ../docs
 
 $(DOC).pdf: $(DOC).tex $(ImagePdf)
@@ -64,6 +67,9 @@ SetupProcedure.pdf: SetupProcedure.png
 	convert $< $@
 
 ConfigurationModel.pdf: ConfigurationModel.png
+	convert $< $@
+
+ConfigEditor.pdf: ConfigEditor.png
 	convert $< $@
 
 clean:
