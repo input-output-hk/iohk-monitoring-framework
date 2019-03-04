@@ -23,8 +23,8 @@ View our first presentation (2018-12-04) on this subject in [html](https://input
 ## examples
 https://github.com/input-output-hk/iohk-monitoring-framework/edit/develop/README.md
 Some examples are available in the directory `examples`:
-* `simple`  -  run with `cabal new-exec example-simple`
-* `complex`  -  run with `cabal new-exec example-complex`
+* `simple`  -  run with `cabal new-run example-simple`
+* `complex`  -  run with `cabal new-run example-complex`
 
 These showcase the usage of this framework in an application. The *complex* example includes `EKGView` (http://localhost:12789) and the configuration editor (http://localhost:13789).
 
