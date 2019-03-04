@@ -44,7 +44,6 @@ library
                        Cardano.BM.Observer.Monadic
                        Cardano.BM.Observer.STM
 
-                       Cardano.BM.Output.EKGView
                        Cardano.BM.Output.Log
                        Cardano.BM.Output.Monitoring
                        Cardano.BM.Output.Switchboard
@@ -54,6 +53,9 @@ library
 
   if !flag(disable-aggregation)
     exposed-modules:   Cardano.BM.Output.Aggregation
+
+  if !flag(disable-ekg)
+    exposed-modules:   Cardano.BM.Output.EKGView
 
   if os(Linux)
     exposed-modules:   Cardano.BM.Counters.Linux
@@ -101,6 +103,9 @@ library
 
   if !flag(disable-aggregation)
     cpp-options:       -DENABLE_AGGREGATION
+
+  if !flag(disable-ekg)
+    cpp-options:       -DENABLE_EKG
 
   ghc-options:         -Wall -O2
                        -fno-ignore-asserts
@@ -152,8 +157,12 @@ test-suite tests
                        void,
                        yaml, libyaml < 0.1.1
   ghc-options:         -Wall
+
   if !flag(disable-aggregation)
     cpp-options:       -DENABLE_AGGREGATION
+
+  if !flag(disable-ekg)
+    cpp-options:       -DENABLE_EKG
 
 executable example-simple
   hs-source-dirs:      examples/simple
@@ -195,9 +204,17 @@ executable example-complex
   if !flag(disable-aggregation)
     cpp-options:       -DENABLE_AGGREGATION
 
+  if !flag(disable-ekg)
+    cpp-options:       -DENABLE_EKG
+
 -- Conditional compilation
 
 flag disable-aggregation
   description:         Turn off complete aggregation subsystem.
+  default:             False
+  manual:              False
+
+flag disable-ekg
+  description:         Turn off EKG.
   default:             False
   manual:              False
