@@ -29,7 +29,9 @@ import           Network.Download (openURI)
 #endif
 import           System.Random
 
+#ifdef ENABLE_GUI
 import qualified Cardano.BM.Configuration.Editor as CME
+#endif
 import qualified Cardano.BM.Configuration.Model as CM
 import           Cardano.BM.Data.Aggregated (Measurable (..))
 import           Cardano.BM.Data.AggregatedKind
@@ -273,8 +275,10 @@ main = do
     -- create configuration
     c <- config
 
+#ifdef ENABLE_GUI
     -- start configuration editor
     CME.startup c
+#endif
 
     -- create initial top-level Trace
     tr <- setupTrace (Right c) "complex"
