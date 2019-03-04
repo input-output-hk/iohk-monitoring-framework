@@ -93,7 +93,7 @@ library
                        transformers,
                        unordered-containers,
                        vector,
-                       yaml, libyaml > 0.1.0
+                       yaml, libyaml < 0.1.1
   if os(windows)
      build-depends:    Win32
   else
@@ -150,7 +150,7 @@ test-suite tests
                        unordered-containers,
                        vector,
                        void,
-                       yaml, libyaml > 0.1.0
+                       yaml, libyaml < 0.1.1
   ghc-options:         -Wall
   if !flag(disable-aggregation)
     cpp-options:       -DENABLE_AGGREGATION
