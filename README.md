@@ -21,13 +21,17 @@ View our first presentation (2018-12-04) on this subject in [html](https://input
 `cabal new-test`
 
 ## examples
-
+https://github.com/input-output-hk/iohk-monitoring-framework/edit/develop/README.md
 Some examples are available in the directory `examples`:
 * `simple`  -  run with `cabal new-exec example-simple`
 * `complex`  -  run with `cabal new-exec example-complex`
 
-These showcase the usage of this framework in an application.
+These showcase the usage of this framework in an application. The *complex* example includes `EKGView` (http://localhost:12789) and the configuration editor (http://localhost:13789).
+
+![Edit runtime configuration](docs/ConfigEditor.png)
+
 
 ## development
 
-`ghcid -c "cabal new-repl"` watches for file changes and recompiles them immediately
+* `cabal new-build` and `cabal new-test`
+* `ghcid -c "cabal new-repl"` watches for file changes and recompiles them immediately
