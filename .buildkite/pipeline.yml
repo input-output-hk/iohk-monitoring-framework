@@ -10,7 +10,7 @@ steps:
     command: "nix-build release.nix"
     agents:
       system: x86_64-linux
-    artifact_paths: "**/*-tests.log"
+    artifact_paths: "dist/test/iohk-monitoring-*-tests.log"
     timeout: 15
     
   - label: 'check-hydra'
