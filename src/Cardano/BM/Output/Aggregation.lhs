@@ -111,7 +111,7 @@ instance IsBackend Aggregation where
         trace <- Trace.subTrace "#aggregation" trace0
         aggref <- newEmptyMVar
         aggregationQueue <- atomically $ TBQ.newTBQueue 2048
-        dispatcher <- spawnDispatcher (configuration ctx) HM.empty aggregationQueue trace
+        dispatcher <- spawnDispatcher (configuration ctx) HM.empty aggregationQueue trace trace0
         -- link the given Async to the current thread, such that if the Async
         -- raises an exception, that exception will be re-thrown in the current
         -- thread, wrapped in ExceptionInLinkedThread.
@@ -142,13 +142,14 @@ spawnDispatcher :: Configuration
                 -> AggregationMap
                 -> TBQ.TBQueue (Maybe NamedLogItem)
                 -> Trace.Trace IO
+                -> Trace.Trace IO
                 -> IO (Async.Async ())
-spawnDispatcher conf aggMap aggregationQueue trace = do
+spawnDispatcher conf aggMap aggregationQueue trace trace0 = do
     now <- getCurrentTime
     let messageCounters = resetCounters now
     countersMVar <- newMVar messageCounters
     _timer <- Async.async $ sendAndResetAfter
-                                trace
+                                trace0
                                 "#messagecounters.aggregation"
                                 countersMVar
                                 60000   -- 60000 ms = 1 min

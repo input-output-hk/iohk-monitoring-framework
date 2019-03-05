@@ -77,8 +77,7 @@ the messages that are being displayed by EKG.
 ekgTrace :: EKGView -> Configuration -> IO (Trace IO)
 ekgTrace ekg c = do
     let trace = ekgTrace' ekg
-        ctx   = TraceContext { loggerName = ""
-                             , configuration = c
+        ctx   = TraceContext { configuration = c
                              , tracetype = Neutral
                              }
     Trace.subTrace "#ekgview" (ctx,trace)

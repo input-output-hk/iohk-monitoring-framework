@@ -27,7 +27,6 @@ import           Data.Text (Text)
 import           System.IO (FilePath)
 
 import qualified Cardano.BM.Configuration as Config
-import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.SubTrace
 import           Cardano.BM.Data.Trace
 import qualified Cardano.BM.Output.Switchboard as Switchboard
@@ -51,9 +50,9 @@ setupTrace (Right c) name = fst <$> setupTrace_ c name
 setupTrace_ :: MonadIO m => Config.Configuration -> Text -> m (Trace m, Switchboard.Switchboard)
 setupTrace_ c name = do
     sb <- liftIO $ Switchboard.realize c
-    ctx <- liftIO $ newContext "" c
+    ctx <- liftIO $ newContext c
 
-    tr <- subTrace name $ natTrace liftIO (ctx, Switchboard.mainTrace sb)
+    tr <- subTrace name $ natTrace liftIO (ctx, Switchboard.mainTraceConditionally ctx sb)
     return (tr,sb)
 
 \end{code}
@@ -81,13 +80,11 @@ withTrace cfg name action =
 
 \subsubsection{newContext}\label{code:newContext}\index{newContext}
 \begin{code}
-newContext :: LoggerName
-           -> Config.Configuration
+newContext :: Config.Configuration
            -> IO TraceContext
-newContext name cfg = do
+newContext cfg =
     return $ TraceContext {
-        loggerName = name
-      , configuration = cfg
+        configuration = cfg
       , tracetype = Neutral
       }
 
