@@ -40,7 +40,9 @@ import qualified Cardano.BM.Test.Trace (tests)
 import qualified Cardano.BM.Test.Configuration (tests)
 import qualified Cardano.BM.Test.Rotator (tests)
 import qualified Cardano.BM.Test.Routing (tests)
+#ifdef ENABLE_MONITORING
 import qualified Cardano.BM.Test.Monitoring (tests)
+#endif
 
 main :: IO ()
 main = defaultMain tests
@@ -58,7 +60,9 @@ tests =
   , Cardano.BM.Test.Configuration.tests
   , Cardano.BM.Test.Rotator.tests
   , Cardano.BM.Test.Routing.tests
+#ifdef ENABLE_MONITORING
   , Cardano.BM.Test.Monitoring.tests
+#endif
   ]
 \end{code}
 
