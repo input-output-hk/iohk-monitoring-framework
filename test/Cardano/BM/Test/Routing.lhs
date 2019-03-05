@@ -18,7 +18,7 @@ import           Cardano.BM.Data.BackendKind
 import           Cardano.BM.Data.LogItem (LoggerName)
 import           Cardano.BM.Data.Output
 import           Cardano.BM.Data.Severity
-import           Cardano.BM.Data.Trace
+-- import           Cardano.BM.Data.Trace
 -- import qualified Cardano.BM.Output.Switchboard as Switchboard
 import           Cardano.BM.Setup
 import           Cardano.BM.Trace
@@ -121,23 +121,20 @@ unit_generic_scribe_backend defaultBackends setBackends defaultScribes setScribe
     forM_ setScribes $ \(name, maybeScribes) ->
         CM.setScribes c name maybeScribes
 
-    tr@(ctx, _) <- setupTrace (Right c) "test"
+    withTrace c "test" $ \tr -> do
 
-    tr1 <- appendName "one" tr
-    tr2 <- appendName "two" tr
+        tr1 <- appendName "one" tr
+        tr2 <- appendName "two" tr
 
-    tr1a <-appendName "alpha" tr1
-    tr2a <-appendName "alpha" tr2
+        tr1a <-appendName "alpha" tr1
+        tr2a <-appendName "alpha" tr2
 
-    logNotice tr "starting program"
+        logNotice tr "starting program"
 
-    logNotice tr1  "Hello!"
-    logNotice tr2  "Hello!"
-    logNotice tr1a "Hello!"
-    logNotice tr2a "Hello!"
-
-    -- Switchboard.unrealize $ switchboard ctx
-    shutdown ctx
+        logNotice tr1  "Hello!"
+        logNotice tr2  "Hello!"
+        logNotice tr1a "Hello!"
+        logNotice tr2a "Hello!"
 
     contents <- readFile "out-test.txt"
     let numMsgs = length $ lines contents

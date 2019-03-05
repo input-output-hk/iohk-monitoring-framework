@@ -18,7 +18,6 @@ import qualified Control.Monad.STM as STM
 
 import           Control.Concurrent (threadDelay)
 import qualified Control.Concurrent.Async as Async
-import           Control.Concurrent.MVar (newMVar)
 import           Control.Monad (forM, forM_)
 import           Control.Monad.IO.Class (liftIO)
 import           Data.Either (isLeft, isRight)
@@ -29,7 +28,6 @@ import           Data.Unique (newUnique)
 import           System.Directory (getTemporaryDirectory, removeFile)
 import           System.Mem (performMajorGC)
 import           System.FilePath ((</>))
--- import           System.IO (openFile, IOMode(WriteMode))
 
 import           Cardano.BM.Configuration (inspectSeverity,
                      minSeverity, setMinSeverity, setSeverity)
@@ -56,7 +54,6 @@ import           Cardano.BM.Trace (Trace, appendName, evalFilters, logDebug,
                      logInfo, logInfoS, logNotice, logWarning, logError,
                      logCritical, logAlert, logEmergency, subTrace,
                      traceInTVarIO, traceNamedInTVarIO)
-import           Cardano.BM.Output.Switchboard (Switchboard(..))
 
 import           Test.Tasty (TestTree, testGroup)
 import           Test.Tasty.HUnit (Assertion, assertBool, testCase,
@@ -129,8 +126,7 @@ data TraceConfiguration = TraceConfiguration
 setupTrace :: TraceConfiguration -> IO (Trace IO)
 setupTrace (TraceConfiguration outk name subTr sev) = do
     c <- liftIO $ Cardano.BM.Configuration.Model.empty
-    mockSwitchboard <- newMVar $ error "Switchboard uninitialized."
-    ctx <- liftIO $ newContext name c sev $ Switchboard mockSwitchboard
+    ctx <- liftIO $ newContext name c sev
     let logTrace0 = case outk of
             TVarList      tvar -> BaseTrace.natTrace liftIO $ traceInTVarIO tvar
             TVarListNamed tvar -> BaseTrace.natTrace liftIO $ traceNamedInTVarIO tvar
@@ -173,23 +169,23 @@ simpleDemo = do
 exampleWithNamedContexts :: IO String
 exampleWithNamedContexts = do
     cfg <- defaultConfigTesting
-    logTrace <- Setup.setupTrace (Right cfg) "test"
-    putStrLn "\n"
-    logInfo logTrace "entering"
-    logTrace0 <- appendName "simple-work-0" logTrace
-    work0 <- complexWork0 logTrace0 "0"
-    logTrace1 <- appendName "complex-work-1" logTrace
-    work1 <- complexWork1 logTrace1 "42"
+    Setup.withTrace cfg "test" $ \logTrace -> do
+        putStrLn "\n"
+        logInfo logTrace "entering"
+        logTrace0 <- appendName "simple-work-0" logTrace
+        work0 <- complexWork0 logTrace0 "0"
+        logTrace1 <- appendName "complex-work-1" logTrace
+        work1 <- complexWork1 logTrace1 "42"
 
-    Async.wait work0
-    Async.wait work1
-    -- the named context will include "complex" in the logged message
-    logInfo logTrace "done."
-    threadDelay 100000
-    -- force garbage collection to allow exceptions to be thrown
-    performMajorGC
-    threadDelay 100000
-    Setup.shutdownTrace logTrace
+        Async.wait work0
+        Async.wait work1
+        -- the named context will include "complex" in the logged message
+        logInfo logTrace "done."
+        threadDelay 100000
+        -- force garbage collection to allow exceptions to be thrown
+        performMajorGC
+        threadDelay 100000
+
     return ""
   where
     complexWork0 tr msg = Async.async $ logInfo tr ("let's see (0): " `append` msg)
@@ -661,14 +657,11 @@ unitLoggingPrivate = do
                             }
                          ]
 
-    trace <- Setup.setupTrace (Right conf) "test"
-
-    -- should log in both files
-    logInfo  trace message
-    -- should only log in private file
-    logInfoS trace message
-
-    Setup.shutdownTrace trace
+    Setup.withTrace conf "test" $ \trace -> do
+        -- should log in both files
+        logInfo  trace message
+        -- should only log in private file
+        logInfoS trace message
 
     countPublic  <- length . lines <$> readFile publicFile
     countPrivate <- length . lines <$> readFile privateFile
