@@ -34,14 +34,13 @@ import           Data.Time (UTCTime, addUTCTime, diffUTCTime, getCurrentTime,
                      parseTimeM)
 import           Data.Time.Format (defaultTimeLocale, formatTime)
 import           System.Directory (listDirectory, removeFile)
-import           System.FilePath ((</>), takeDirectory)
+import           System.FilePath ((</>), takeDirectory, takeFileName)
 import           System.IO (BufferMode (LineBuffering), Handle,
                      IOMode (AppendMode, WriteMode), hFileSize, hSetBuffering,
                      openFile, stdout)
 
 #ifdef POSIX
 import           System.Directory (createFileLink)
-import           System.FilePath (takeFileName)
 #endif
 
 import           Cardano.BM.Data.Rotation (RotationParameters (..))
@@ -84,7 +83,7 @@ evalRotator rotation filename = do
     -- restrict symbolic links only for unix-like OS
     let symLinkPath = filename
     let logfilePath = takeFileName fpath
-    -- delete a symlink if already exists and create a new
+    -- delete a symlink if it already exists and create a new
     -- one that points to the correct file.
     (removeFile symLinkPath)
         `catchIO` (prtoutException ("cannot remove symlink: " ++ symLinkPath))
