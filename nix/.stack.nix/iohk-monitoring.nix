@@ -20,7 +20,7 @@
       };
     components = {
       "library" = {
-        depends = [
+        depends = (([
           (hsPkgs.base)
           (hsPkgs.aeson)
           (hsPkgs.array)
@@ -33,8 +33,6 @@
           (hsPkgs.containers)
           (hsPkgs.contravariant)
           (hsPkgs.directory)
-          (hsPkgs.ekg)
-          (hsPkgs.ekg-core)
           (hsPkgs.filepath)
           (hsPkgs.katip)
           (hsPkgs.lens)
@@ -47,13 +45,15 @@
           (hsPkgs.text)
           (hsPkgs.time)
           (hsPkgs.time-units)
-          (hsPkgs.threepenny-gui)
           (hsPkgs.transformers)
           (hsPkgs.unordered-containers)
           (hsPkgs.vector)
           (hsPkgs.yaml)
           (hsPkgs.libyaml)
-          ] ++ (if system.isWindows
+          ] ++ (pkgs.lib).optionals (!flags.disable-ekg) [
+          (hsPkgs.ekg)
+          (hsPkgs.ekg-core)
+          ]) ++ (pkgs.lib).optional (!flags.disable-gui) (hsPkgs.threepenny-gui)) ++ (if system.isWindows
           then [ (hsPkgs.Win32) ]
           else [ (hsPkgs.unix) ]);
         };
