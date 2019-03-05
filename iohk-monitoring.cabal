@@ -21,7 +21,6 @@ library
                        Cardano.BM.Configuration
                        Cardano.BM.Configuration.Model
                        Cardano.BM.Configuration.Static
-                       Cardano.BM.Configuration.Editor
 
                        Cardano.BM.Counters
                        Cardano.BM.Counters.Common
@@ -58,6 +57,9 @@ library
   if !flag(disable-ekg)
     exposed-modules:   Cardano.BM.Output.EKGView
 
+  if !flag(disable-gui)
+    exposed-modules:   Cardano.BM.Configuration.Editor
+  
   if os(Linux)
     exposed-modules:   Cardano.BM.Counters.Linux
   else
@@ -108,6 +110,9 @@ library
 
   if !flag(disable-ekg)
     cpp-options:       -DENABLE_EKG
+
+  if !flag(disable-gui)
+    cpp-options:       -DENABLE_GUI
 
   ghc-options:         -Wall -O2
                        -fno-ignore-asserts
@@ -166,6 +171,9 @@ test-suite tests
   if !flag(disable-ekg)
     cpp-options:       -DENABLE_EKG
 
+  if !flag(disable-gui)
+    cpp-options:       -DENABLE_GUI
+
 executable example-simple
   hs-source-dirs:      examples/simple
   main-is:             Main.lhs
@@ -209,6 +217,9 @@ executable example-complex
   if !flag(disable-ekg)
     cpp-options:       -DENABLE_EKG
 
+  if !flag(disable-gui)
+    cpp-options:       -DENABLE_GUI
+
 -- Conditional compilation
 
 flag disable-aggregation
@@ -218,5 +229,10 @@ flag disable-aggregation
 
 flag disable-ekg
   description:         Turn off EKG.
+  default:             False
+  manual:              False
+
+flag disable-gui
+  description:         Turn off configuration editor GUI.
   default:             False
   manual:              False
