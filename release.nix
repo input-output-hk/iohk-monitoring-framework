@@ -1,7 +1,12 @@
 let
   commonLib = import ./nix/iohk-common.nix;
+  disabled = [["nix-tools" "tests" "iohk-monitoring" "tests" "x86_64-darwin"]];
 in
-commonLib.nix-tools.release-nix {
+{ ... }@args:
+commonLib.pkgs.lib.mapAttrsRecursiveCond
+(as: !(as ? "type" && as.type == "derivation"))
+(path: v: if (builtins.elem path disabled) then null else v)
+(commonLib.nix-tools.release-nix {
   package-set-path = ./.;
 
   # packages from our stack.yaml or plan file (via nix/pkgs.nix) we
@@ -52,4 +57,4 @@ commonLib.nix-tools.release-nix {
     #jobs.nix-tools.exes.x86_64-pc-mingw32-iohk-monitoring.x86_64-linux
 
   ];
-}
+} args)
