@@ -38,17 +38,19 @@ import           Cardano.BM.Data.MessageCounter (resetCounters, sendAndResetAfte
                      updateMessageCounters)
 import           Cardano.BM.Data.Trace (TraceNamed, TraceContext (..))
 import           Cardano.BM.Data.Severity
+import qualified Cardano.BM.Output.Log
 
 #ifdef ENABLE_AGGREGATION
 import           Cardano.BM.Data.SubTrace
 import qualified Cardano.BM.Output.Aggregation
 #endif
 
-import qualified Cardano.BM.Output.Log
-import qualified Cardano.BM.Output.Monitoring
-
 #ifdef ENABLE_EKG
 import qualified Cardano.BM.Output.EKGView
+#endif
+
+#ifdef ENABLE_MONITORING
+import qualified Cardano.BM.Output.Monitoring
 #endif
 
 \end{code}
@@ -174,9 +176,11 @@ instance IsBackend Switchboard where
                                 sendMessage nli (filter (/= AggregationBK))
                                 qProc counters
 #endif
+#ifdef ENABLE_MONITORING
                             LogObject _ (MonitoringEffect inner) -> do
                                 sendMessage (nli {lnItem = inner}) (filter (/= MonitoringBK))
                                 qProc counters
+#endif
                             _ -> sendMessage nli id >> qProc counters
 
                 Async.async $ qProc countersMVar
@@ -224,6 +228,7 @@ setupBackends (bk : bes) c sb acc = do
     setupBackends bes c sb ((bk,be') : acc)
 setupBackend' :: BackendKind -> Configuration -> Switchboard -> IO Backend
 setupBackend' SwitchboardBK _ _ = error "cannot instantiate a further Switchboard"
+#ifdef ENABLE_MONITORING
 setupBackend' MonitoringBK c sb = do
     let trace = mainTrace sb
         ctx   = TraceContext { loggerName = ""
@@ -238,6 +243,11 @@ setupBackend' MonitoringBK c sb = do
       { bEffectuate = Cardano.BM.Output.Monitoring.effectuate be
       , bUnrealize = Cardano.BM.Output.Monitoring.unrealize be
       }
+#else
+-- We need it anyway, to avoid "Non-exhaustive patterns" warning.
+setupBackend' MonitoringBK _ _ =
+    error "Impossible happened: monitoring is disabled by Cabal-flag, we mustn't match this backend!"
+#endif
 #ifdef ENABLE_EKG
 setupBackend' EKGViewBK c sb = do
     let trace = mainTrace sb

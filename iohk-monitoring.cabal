@@ -45,7 +45,6 @@ library
                        Cardano.BM.Observer.STM
 
                        Cardano.BM.Output.Log
-                       Cardano.BM.Output.Monitoring
                        Cardano.BM.Output.Switchboard
                        Cardano.BM.Rotator
                        Cardano.BM.Setup
@@ -59,6 +58,9 @@ library
 
   if !flag(disable-gui)
     exposed-modules:   Cardano.BM.Configuration.Editor
+ 
+  if !flag(disable-monitoring)
+    exposed-modules:   Cardano.BM.Output.Monitoring
   
   if os(Linux)
     exposed-modules:   Cardano.BM.Counters.Linux
@@ -116,6 +118,9 @@ library
   if !flag(disable-gui)
     cpp-options:       -DENABLE_GUI
 
+  if !flag(disable-monitoring)
+    cpp-options:       -DENABLE_MONITORING
+
   ghc-options:         -Wall -O2
                        -fno-ignore-asserts
 
@@ -127,12 +132,14 @@ test-suite tests
                        Cardano.BM.Test.STM
                        Cardano.BM.Test.Configuration
                        Cardano.BM.Test.Rotator
-                       Cardano.BM.Test.Monitoring
                        Cardano.BM.Test.Routing
-
+  
   if !flag(disable-aggregation)
     other-modules:     Cardano.BM.Test.Aggregated
                        Cardano.BM.Arbitrary.Aggregated
+
+  if !flag(disable-monitoring)
+    other-modules:     Cardano.BM.Test.Monitoring
 
   default-language:    Haskell2010
   default-extensions:  OverloadedStrings
@@ -175,6 +182,9 @@ test-suite tests
 
   if !flag(disable-gui)
     cpp-options:       -DENABLE_GUI
+
+  if !flag(disable-monitoring)
+    cpp-options:       -DENABLE_MONITORING
 
 executable example-simple
   hs-source-dirs:      examples/simple
@@ -222,6 +232,9 @@ executable example-complex
   if !flag(disable-gui)
     cpp-options:       -DENABLE_GUI
 
+  if !flag(disable-monitoring)
+    cpp-options:       -DENABLE_MONITORING
+
 -- Conditional compilation
 
 flag disable-aggregation
@@ -236,5 +249,10 @@ flag disable-ekg
 
 flag disable-gui
   description:         Turn off configuration editor GUI.
+  default:             False
+  manual:              False
+
+flag disable-monitoring
+  description:         Turn off monitoring subsystem.
   default:             False
   manual:              False
