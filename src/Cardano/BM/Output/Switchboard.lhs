@@ -147,7 +147,6 @@ instance IsBackend Switchboard where
                                        , configuration = cfg
                                        , minSeverity = Debug
                                        , tracetype = Neutral
-                                       , shutdown = pure ()
                                        }
                 _timer <- Async.async $ sendAndResetAfter
                                             (ctx, traceInQueue queue)
@@ -235,7 +234,6 @@ setupBackend' MonitoringBK c sb = do
                              , configuration = c
                              , minSeverity = Debug
                              , tracetype = Neutral
-                             , shutdown = pure ()
                              }
 
     be :: Cardano.BM.Output.Monitoring.Monitor <- Cardano.BM.Output.Monitoring.realizefrom (ctx, trace) sb
@@ -255,7 +253,6 @@ setupBackend' EKGViewBK c sb = do
                              , configuration = c
                              , minSeverity = Debug
                              , tracetype = Neutral
-                             , shutdown = pure ()
                              }
 
     be :: Cardano.BM.Output.EKGView.EKGView <- Cardano.BM.Output.EKGView.realizefrom (ctx, trace) sb
@@ -275,7 +272,6 @@ setupBackend' AggregationBK c sb = do
                              , configuration = c
                              , minSeverity = Debug
                              , tracetype = Neutral
-                             , shutdown = pure ()
                              }
 
     be :: Cardano.BM.Output.Aggregation.Aggregation <- Cardano.BM.Output.Aggregation.realizefrom (ctx,trace) sb

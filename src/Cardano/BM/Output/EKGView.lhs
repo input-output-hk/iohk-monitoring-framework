@@ -81,7 +81,6 @@ ekgTrace ekg c = do
                              , configuration = c
                              , minSeverity = Debug
                              , tracetype = Neutral
-                             , shutdown = pure ()
                              }
     Trace.subTrace "#ekgview" (ctx,trace)
   where
