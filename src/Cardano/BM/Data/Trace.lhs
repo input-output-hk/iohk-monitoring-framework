@@ -40,7 +40,6 @@ type TraceNamed m = BaseTrace m (NamedLogItem)
 \label{code:configuration}\index{TraceContext!configuration}
 \label{code:tracetype}\index{TraceContext!tracetype}
 \label{code:minSeverity}\index{TraceContext!minSeverity}
-\label{code:shutdown}\index{TraceContext!shutdown}
 We keep the context's name and a reference to the |Configuration|
 in the |TraceContext|.
 \begin{code}
@@ -50,7 +49,6 @@ data TraceContext = TraceContext
     , configuration :: Configuration
     , tracetype     :: SubTrace
     , minSeverity   :: Severity
-    , shutdown      :: IO ()
     }
 
 \end{code}
