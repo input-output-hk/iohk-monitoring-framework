@@ -120,13 +120,12 @@ data TraceConfiguration = TraceConfiguration
     { tcOutputKind   :: OutputKind
     , tcName         :: LoggerName
     , tcSubTrace     :: SubTrace
-    , tcSeverity     :: Severity
     }
 
 setupTrace :: TraceConfiguration -> IO (Trace IO)
-setupTrace (TraceConfiguration outk name subTr sev) = do
+setupTrace (TraceConfiguration outk name subTr) = do
     c <- liftIO $ Cardano.BM.Configuration.Model.empty
-    ctx <- liftIO $ newContext name c sev
+    ctx <- liftIO $ newContext name c
     let logTrace0 = case outk of
             TVarList      tvar -> BaseTrace.natTrace liftIO $ traceInTVarIO tvar
             TVarListNamed tvar -> BaseTrace.natTrace liftIO $ traceNamedInTVarIO tvar
@@ -222,21 +221,18 @@ timingObservableVsUntimed = do
                                     (TVarList msgs1)
                                     "observables"
                                     (ObservableTrace observablesSet)
-                                    Debug
 
     msgs2  <- STM.newTVarIO []
     traceUntimed <- setupTrace $ TraceConfiguration
                                     (TVarList msgs2)
                                     "no timing"
                                     UntimedTrace
-                                    Debug
 
     msgs3  <- STM.newTVarIO []
     traceNoTrace <- setupTrace $ TraceConfiguration
                                     (TVarList msgs3)
                                     "no trace"
                                     NoTrace
-                                    Debug
 
     t_observable <- runTimedAction traceObservable 100
     t_untimed    <- runTimedAction traceUntimed 100
@@ -265,7 +261,7 @@ from messaging to the root.
 unitHierarchy :: Assertion
 unitHierarchy = do
     msgs <- STM.newTVarIO []
-    trace0 <- setupTrace $ TraceConfiguration (TVarList msgs) "test" Neutral Debug
+    trace0 <- setupTrace $ TraceConfiguration (TVarList msgs) "test" Neutral
     logInfo trace0 "This should have been displayed!"
 
     -- subtrace of trace which traces nothing
@@ -295,7 +291,7 @@ with a lower severity. This minimum severity of the current trace can be changed
 unitTraceMinSeverity :: Assertion
 unitTraceMinSeverity = do
     msgs <- STM.newTVarIO []
-    trace@(ctx,_) <- setupTrace $ TraceConfiguration (TVarList msgs) "test min severity" Neutral Debug
+    trace@(ctx,_) <- setupTrace $ TraceConfiguration (TVarList msgs) "test min severity" Neutral
     logInfo trace "Message #1"
 
     -- raise the minimum severity to Warning
@@ -336,7 +332,7 @@ context.
 unitTraceDuplicate :: Assertion
 unitTraceDuplicate = do
     msgs <- STM.newTVarIO []
-    trace0@(ctx,_) <- setupTrace $ TraceConfiguration (TVarList msgs) "test duplicate" Neutral Debug
+    trace0@(ctx,_) <- setupTrace $ TraceConfiguration (TVarList msgs) "test duplicate" Neutral
     logInfo trace0 "Message #1"
 
     -- create a subtrace which duplicates all messages
@@ -363,7 +359,7 @@ filter out messages that are labelled with a lower severity.
 unitNamedMinSeverity :: Assertion
 unitNamedMinSeverity = do
     msgs <- STM.newTVarIO []
-    trace0 <- setupTrace $ TraceConfiguration (TVarList msgs) "test named severity" Neutral Debug
+    trace0 <- setupTrace $ TraceConfiguration (TVarList msgs) "test named severity" Neutral
     trace@(ctx, _) <- appendName "sev-change" trace0
     logInfo trace "Message #1"
 
@@ -403,7 +399,7 @@ unitHierarchy' subtraces f = do
     let (t1 : t2 : t3 : _) = cycle subtraces
     msgs <- STM.newTVarIO []
     -- create trace of type 1
-    trace1 <- setupTrace $ TraceConfiguration (TVarList msgs) "test" t1 Debug
+    trace1 <- setupTrace $ TraceConfiguration (TVarList msgs) "test" t1
     logInfo trace1 "Message from level 1."
 
     -- subtrace of type 2
@@ -430,7 +426,7 @@ unitHierarchy' subtraces f = do
 unitTraceInFork :: Assertion
 unitTraceInFork = do
     msgs <- STM.newTVarIO []
-    trace <- setupTrace $ TraceConfiguration (TVarListNamed msgs) "test" Neutral Debug
+    trace <- setupTrace $ TraceConfiguration (TVarListNamed msgs) "test" Neutral
     trace0 <- appendName "work0" trace
     trace1 <- appendName "work1" trace
     work0 <- work trace0
@@ -463,7 +459,7 @@ unitTraceInFork = do
 stressTraceInFork :: Assertion
 stressTraceInFork = do
     msgs <- STM.newTVarIO []
-    trace <- setupTrace $ TraceConfiguration (TVarListNamed msgs) "test" Neutral Debug
+    trace <- setupTrace $ TraceConfiguration (TVarListNamed msgs) "test" Neutral
     let names = map (\a -> ("work-" <> pack (show a))) [1..(10::Int)]
     ts <- forM names $ \name -> do
         trace' <- appendName name trace
@@ -491,7 +487,7 @@ stressTraceInFork = do
 unitNoOpeningTrace :: Assertion
 unitNoOpeningTrace = do
     msgs <- STM.newTVarIO []
-    logTrace <- setupTrace $ TraceConfiguration (TVarList msgs) "test" DropOpening Debug
+    logTrace <- setupTrace $ TraceConfiguration (TVarList msgs) "test" DropOpening
     _ <- STMObserver.bracketObserveIO logTrace Debug "setTVar" setVar_
     res <- STM.readTVarIO msgs
     assertBool
