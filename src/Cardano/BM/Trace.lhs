@@ -90,17 +90,7 @@ The minimum severity that a log message must be labelled with is looked up in
 the configuration and recalculated.
 \begin{code}
 appendName :: MonadIO m => LoggerName -> Trace m -> m (Trace m)
-appendName name (ctx, trace) = do
-    let prevLoggerName  = loggerName ctx
-        prevMinSeverity = minSeverity ctx
-        newLoggerName   = appendWithDot prevLoggerName name
-    globMinSeverity <- liftIO $ Config.minSeverity (configuration ctx)
-    namedSeverity <- liftIO $ Config.inspectSeverity (configuration ctx) newLoggerName
-    case namedSeverity of
-        Nothing  -> return ( ctx { loggerName = newLoggerName }, trace )
-        Just sev -> return ( ctx { loggerName = newLoggerName
-                                , minSeverity = max (max sev prevMinSeverity) globMinSeverity }
-                           , trace )
+appendName name (ctx, trace) = return ( ctx { loggerName = appendWithDot (loggerName ctx) name }, trace )
 
 appendWithDot :: LoggerName -> LoggerName -> LoggerName
 appendWithDot "" newName = T.take 80 newName
@@ -116,15 +106,7 @@ The minimum severity that a log message must be labelled with is looked up in
 the configuration and recalculated.
 \begin{code}
 modifyName :: MonadIO m => LoggerName -> Trace m -> m (Trace m)
-modifyName name (ctx, trace) = do
-    let prevMinSeverity = minSeverity ctx
-    globMinSeverity <- liftIO $ Config.minSeverity (configuration ctx)
-    namedSeverity <- liftIO $ Config.inspectSeverity (configuration ctx) name
-    case namedSeverity of
-        Nothing  -> return ( ctx { loggerName = name }, trace )
-        Just sev -> return ( ctx { loggerName = name
-                                 , minSeverity = max (max sev prevMinSeverity) globMinSeverity }
-                           , trace )
+modifyName name (ctx, trace) = return ( ctx { loggerName = name }, trace )
 
 \end{code}
 
@@ -249,7 +231,7 @@ traceConditionally
 traceConditionally logTrace@(ctx, _) msg@(LogObject meta _) = do
     globminsev  <- liftIO $ Config.minSeverity (configuration ctx)
     globnamesev <- liftIO $ Config.inspectSeverity (configuration ctx) (loggerName ctx)
-    let minsev = max (minSeverity ctx) $ max globminsev $ fromMaybe Debug globnamesev
+    let minsev = max globminsev $ fromMaybe Debug globnamesev
         flag = (severity meta) >= minsev
     when flag $ traceNamedObject logTrace msg
 
