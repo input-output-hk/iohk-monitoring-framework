@@ -81,8 +81,6 @@ library
                        containers,
                        contravariant,
                        directory,
-                       ekg,
-                       ekg-core,
                        filepath,
                        katip < 0.8,
                        lens,
@@ -95,11 +93,15 @@ library
                        text,
                        time,
                        time-units,
-                       threepenny-gui,
                        transformers,
                        unordered-containers,
                        vector,
                        yaml, libyaml < 0.1.1
+  if !flag(disable-ekg)
+     build-depends:    ekg,
+                       ekg-core
+  if !flag(disable-gui)
+     build-depends:    threepenny-gui
   if os(windows)
      build-depends:    Win32
   else

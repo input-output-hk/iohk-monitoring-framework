@@ -7,6 +7,7 @@ stdenv.mkDerivation {
                         ghc
                         cabal2nix
                         stack
+                        numactl
                       ];
   buildInputs = [
                 ];
