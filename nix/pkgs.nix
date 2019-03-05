@@ -12,10 +12,13 @@ let
   # packages which will require TH and thus
   # will need -fexternal-interpreter treatment
   # when cross compiling.
+  # list is derived from
+  # `stack dot --external | grep "template-haskell"`
   th-packages = [
           "aeson"
           "bifunctors"
           "exceptions"
+          "file-embed"
           "free"
           "invariant"
           "iohk-monitoring"
@@ -26,6 +29,7 @@ let
           "semigroupoids"
           "tagged"
           "th-abstraction"
+          "threepenny-gui"
           "yaml"
         ];
 
