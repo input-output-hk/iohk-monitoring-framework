@@ -4,6 +4,7 @@
       disable-aggregation = false;
       disable-ekg = false;
       disable-gui = false;
+      disable-monitoring = false;
       };
     package = {
       specVersion = "1.10";
