@@ -113,7 +113,7 @@ sendAndResetAfter
     -> IO ()
 sendAndResetAfter trace name counters interval sev = do
     let timerConf = setInterval interval defaultConf
-    trace' <- Trace.modifyName name trace
+    trace' <- Trace.appendName name trace
     withAsyncTimer timerConf $ \ timer -> do
         forever $ do
             wait timer

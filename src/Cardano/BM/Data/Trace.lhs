@@ -35,7 +35,6 @@ type TraceNamed m = BaseTrace m (NamedLogItem)
 \end{code}
 
 \subsubsection{TraceContext}\label{code:TraceContext}\index{TraceContext}
-\label{code:loggerName}\index{TraceContext!loggerName}
 \label{code:configuration}\index{TraceContext!configuration}
 \label{code:tracetype}\index{TraceContext!tracetype}
 We keep the context's name and a reference to the |Configuration|
@@ -43,8 +42,7 @@ in the |TraceContext|.
 \begin{code}
 
 data TraceContext = TraceContext
-    { loggerName    :: LoggerName
-    , configuration :: Configuration
+    { configuration :: Configuration
     , tracetype     :: SubTrace
     }
 
