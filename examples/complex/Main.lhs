@@ -20,12 +20,15 @@ module Main
 
 import           Control.Concurrent (threadDelay)
 import qualified Control.Concurrent.Async as Async
-import           Control.Monad (forM, forM_)
-import           GHC.Conc.Sync (STM, TVar, atomically, newTVar, readTVar, writeTVar)
+import           Control.Monad (forM_)
+#ifdef ENABLE_OBSERVABLES
+import           Control.Monad (forM)
+import qualified Data.ByteString.Char8 as BS8
+import           GHC.Conc.Sync (atomically, STM, TVar, newTVar, readTVar, writeTVar)
+import           Network.Download (openURI)
+#endif
 import           Data.Text (pack)
 #ifdef LINUX
-import qualified Data.ByteString.Char8 as BS8
-import           Network.Download (openURI)
 #endif
 import           System.Random
 
@@ -42,8 +45,10 @@ import           Cardano.BM.Data.Output
 import           Cardano.BM.Data.Rotation
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.SubTrace
+#ifdef ENABLE_OBSERVABLES
 import           Cardano.BM.Observer.Monadic (bracketObserveIO)
 import qualified Cardano.BM.Observer.STM as STM
+#endif
 import           Cardano.BM.Setup
 import           Cardano.BM.Trace
 
@@ -189,6 +194,7 @@ randomThr trace = do
 
 \subsubsection{Thread that observes an |IO| action}
 \begin{code}
+#ifdef ENABLE_OBSERVABLES
 observeIO :: Trace IO -> IO (Async.Async ())
 observeIO trace = do
   logInfo trace "starting observer"
@@ -202,11 +208,12 @@ observeIO trace = do
             ls <- return $ reverse $ init $ reverse $ 42 : [1 .. num]
             pure $ const ls ()
         loop tr
-
+#endif
 \end{code}
 
 \subsubsection{Threads that observe |STM| actions on the same TVar}
 \begin{code}
+#ifdef ENABLE_OBSERVABLES
 observeSTM :: Trace IO -> IO [Async.Async ()]
 observeSTM trace = do
   logInfo trace "starting STM observer"
@@ -225,6 +232,7 @@ stmAction tvarlist = do
   list <- readTVar tvarlist
   writeTVar tvarlist $ reverse $ init $ reverse $ list
   pure ()
+#endif
 
 \end{code}
 
@@ -232,6 +240,7 @@ stmAction tvarlist = do
 order to observe the I/O statistics}
 \begin{code}
 #ifdef LINUX
+#ifdef ENABLE_OBSERVABLES
 observeDownload :: Trace IO -> IO (Async.Async ())
 observeDownload trace = do
   proc <- Async.async (loop trace)
@@ -248,6 +257,7 @@ observeDownload trace = do
             threadDelay 50000  -- .05 second
             pure ()
         loop tr
+#endif
 #endif
 \end{code}
 
@@ -284,7 +294,10 @@ main = do
     tr <- setupTrace (Right c) "complex"
 
     logNotice tr "starting program; hit CTRL-C to terminate"
+-- user can watch the progress only if EKG is enabled.
+#ifdef ENABLE_EKG
     logInfo tr "watch its progress on http://localhost:12789"
+#endif
 
 #ifdef RUN_ProcRandom
     {- start thread sending unbounded sequence of random numbers
@@ -293,16 +306,22 @@ main = do
 #endif
 #ifdef RUN_ProcObserveIO
     -- start thread endlessly reversing lists of random length
+#ifdef ENABLE_OBSERVABLES
     procObsvIO <- observeIO tr
+#endif
 #endif
 #ifdef RUN_ProcObseverSTM 
     -- start threads endlessly observing STM actions operating on the same TVar
+#ifdef ENABLE_OBSERVABLES
     procObsvSTMs <- observeSTM tr
+#endif
 #endif
 #ifdef LINUX
 #ifdef RUN_ProcObseveDownload 
     -- start thread endlessly which downloads sth in order to check the I/O usage
+#ifdef ENABLE_OBSERVABLES
     procObsvDownload <- observeDownload tr
+#endif
 #endif
 #endif
 
@@ -316,16 +335,22 @@ main = do
 #ifdef LINUX
 #ifdef RUN_ProcObseveDownload 
     -- wait for download thread to finish, ignoring any exception
+#ifdef ENABLE_OBSERVABLES
     _ <- Async.waitCatch procObsvDownload
+#endif
 #endif
 #endif
 #ifdef RUN_ProcObseverSTM 
     -- wait for observer thread to finish, ignoring any exception
+#ifdef ENABLE_OBSERVABLES
     _ <- forM procObsvSTMs Async.waitCatch
+#endif
 #endif
 #ifdef RUN_ProcObserveIO
     -- wait for observer thread to finish, ignoring any exception
+#ifdef ENABLE_OBSERVABLES
     _ <- Async.waitCatch procObsvIO
+#endif
 #endif
 #ifdef RUN_ProcRandom
     -- wait for random thread to finish, ignoring any exception

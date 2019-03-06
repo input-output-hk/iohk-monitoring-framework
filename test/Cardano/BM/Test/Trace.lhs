@@ -4,6 +4,7 @@
 
 %if style == newcode
 \begin{code}
+{-# LANGUAGE CPP        #-}
 {-# LANGUAGE LambdaCase #-}
 
 module Cardano.BM.Test.Trace (
@@ -14,7 +15,6 @@ module Cardano.BM.Test.Trace (
 import           Prelude hiding (lookup)
 
 import qualified Control.Concurrent.STM.TVar as STM
-import qualified Control.Monad.STM as STM
 
 import           Control.Concurrent (threadDelay)
 import qualified Control.Concurrent.Async as Async
@@ -24,7 +24,10 @@ import           Data.Either (isLeft, isRight)
 import           Data.Map (fromListWith, lookup)
 import           Data.Text (Text, append, pack)
 import qualified Data.Text as T
+#ifdef ENABLE_OBSERVABLES
+import qualified Control.Monad.STM as STM
 import           Data.Unique (newUnique)
+#endif
 import           System.Directory (getTemporaryDirectory, removeFile)
 import           System.Mem (performMajorGC)
 import           System.FilePath ((</>))
@@ -35,19 +38,21 @@ import           Cardano.BM.Configuration.Model (empty, setDefaultBackends,
                      setDefaultScribes, setSubTrace, setSetupBackends,
                      setSetupScribes)
 import           Cardano.BM.Configuration.Static (defaultConfigTesting)
-import           Cardano.BM.Counters (diffTimeObserved, getMonoClock)
 import qualified Cardano.BM.BaseTrace as BaseTrace
-import           Cardano.BM.Data.Aggregated
 import           Cardano.BM.Data.BackendKind (BackendKind (..))
-import           Cardano.BM.Data.Counter
 import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.Observable
 import           Cardano.BM.Data.Output
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.SubTrace
 import           Cardano.BM.Data.Trace
+#ifdef ENABLE_OBSERVABLES
+import           Cardano.BM.Counters (diffTimeObserved, getMonoClock)
+import           Cardano.BM.Data.Aggregated
+import           Cardano.BM.Data.Counter
 import qualified Cardano.BM.Observer.Monadic as MonadicObserver
 import qualified Cardano.BM.Observer.STM as STMObserver
+#endif
 import           Cardano.BM.Setup (newContext)
 import qualified Cardano.BM.Setup as Setup
 import           Cardano.BM.Trace (Trace, appendName, evalFilters, logDebug,
@@ -67,7 +72,9 @@ tests :: TestTree
 tests = testGroup "Testing Trace" [
         unit_tests
       , testCase "forked traces stress testing" stressTraceInFork
+#ifdef ENABLE_OBSERVABLES
       , testCase "stress testing: ObservableTrace vs. NoTrace" timingObservableVsUntimed
+#endif
       , testCaseInfo "demonstrating logging" simpleDemo
       , testCaseInfo "demonstrating nested named context logging" exampleWithNamedContexts
       ]
@@ -194,13 +201,16 @@ exampleWithNamedContexts = do
         let observablesSet = [MonotonicClock]
         setSubTrace (configuration ctx) "test.complex-work-1.inner-work-1.STM-action" $
             Just $ ObservableTrace observablesSet
+#ifdef ENABLE_OBSERVABLES
         _ <- STMObserver.bracketObserveIO trInner Debug "STM-action" setVar_
+#endif
         logInfo trInner "let's see: done."
 
 \end{code}
 
 \subsubsection{Show effect of turning off observables}\label{timingObservableVsUntimed}
 \begin{code}
+#ifdef ENABLE_OBSERVABLES
 runTimedAction :: Trace IO -> Int -> IO Measurable
 runTimedAction logTrace reps = do
     runid <- newUnique
@@ -249,7 +259,7 @@ timingObservableVsUntimed = do
         True
   where
     observablesSet = [MonotonicClock, GhcRtsStats, MemoryStats, IOStats, ProcessStats]
-
+#endif
 \end{code}
 
 \subsubsection{Control tracing in a hierarchy of |Trace|s}\label{code:unitHierarchy}
@@ -409,7 +419,9 @@ unitHierarchy' subtraces f = do
 
     -- subsubtrace of type 3
     setTransformer_ trace2 "innermost" (Just t3)
+#ifdef ENABLE_OBSERVABLES
     _ <- STMObserver.bracketObserveIO trace2 Debug "innermost" setVar_
+#endif
     logInfo trace2 "Message from level 3."
     -- acquire the traced objects
     res <- STM.readTVarIO msgs
@@ -487,8 +499,10 @@ stressTraceInFork = do
 unitNoOpeningTrace :: Assertion
 unitNoOpeningTrace = do
     msgs <- STM.newTVarIO []
+#ifdef ENABLE_OBSERVABLES
     logTrace <- setupTrace $ TraceConfiguration (TVarList msgs) "test" DropOpening
     _ <- STMObserver.bracketObserveIO logTrace Debug "setTVar" setVar_
+#endif
     res <- STM.readTVarIO msgs
     assertBool
         ("Found non-expected ObserveOpen message: " ++ show res)
@@ -515,13 +529,14 @@ unitAppendName = do
 \end{code}
 
 \begin{code}
+#ifdef ENABLE_OBSERVABLES
 setVar_ :: STM.STM Integer
 setVar_ = do
     t <- STM.newTVar 0
     STM.writeTVar t 42
     res <- STM.readTVar t
     return res
-
+#endif
 \end{code}
 
 \subsubsection{Testing log context name filters}\label{code:unitNameFiltering}
