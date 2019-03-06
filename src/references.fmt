@@ -158,7 +158,6 @@
 %format loggerName = "\hyperref[code:loggerName]{loggerName}"
 %format configuration = "\hyperref[code:configuration]{configuration}"
 %format tracetype = "\hyperref[code:tracetype]{tracetype}"
-%format minSeverity = "\hyperref[code:minSeverity]{minSeverity}"
 %format Cardano.BM.Configuration = "\hyperref[code:Cardano.BM.Configuration]{Cardano.BM.Configuration}"
 %format getOptionOrDefault = "\hyperref[code:getOptionOrDefault]{getOptionOrDefault}"
 %format Cardano.BM.Configuration.Model = "\hyperref[code:Cardano.BM.Configuration.Model]{Cardano.BM.Configuration.Model}"
@@ -203,7 +202,7 @@
 %format unitLoggingPrivate = "\hyperref[code:unitLoggingPrivate]{unitLoggingPrivate}"
 %format Cardano.BM.Test.Configuration = "\hyperref[code:Cardano.BM.Test.Configuration]{Cardano.BM.Test.Configuration}"
 %format Cardano.BM.Test.Rotator = "\hyperref[code:Cardano.BM.Test.Rotator]{Cardano.BM.Test.Rotator}"
-%format propNameGiving = "\hyperref[code:propNameGiving]{propNameGiving}"
+%format propNaming = "\hyperref[code:propNaming]{propNaming}"
 %format propCleanup = "\hyperref[code:propCleanup]{propCleanup}"
 
 %endif

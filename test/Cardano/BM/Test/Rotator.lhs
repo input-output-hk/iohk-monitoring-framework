@@ -4,7 +4,12 @@
 
 %if style == newcode
 \begin{code}
+{-# LANGUAGE CPP        #-}
 {-# LANGUAGE LambdaCase #-}
+
+#if !defined(mingw32_HOST_OS)
+#define POSIX
+#endif
 
 module Cardano.BM.Test.Rotator (
     tests
@@ -12,27 +17,34 @@ module Cardano.BM.Test.Rotator (
 
 import           Prelude hiding (lookup)
 
-import           Control.Monad (forM_, replicateM, when)
+#ifdef POSIX
+import           Control.Monad (forM_, replicateM)
 import           Data.List (groupBy, intercalate, sort)
 import qualified Data.List.NonEmpty as NE
 import           Data.List.Split (splitOn)
 import           Data.Time (getCurrentTime)
 import           Data.Time.Format (defaultTimeLocale, formatTime)
 import           System.Directory (createDirectoryIfMissing, getTemporaryDirectory,
-                     removeFile, removePathForcibly)
+                     removeDirectoryRecursive)
 import           System.IO (IOMode (WriteMode), openFile)
 import           System.FilePath ((</>), takeDirectory)
+#endif
 
+#ifdef POSIX
 import           Cardano.BM.Rotator (nameLogFile, cleanupRotator, listLogFiles, tsformat)
 import           Cardano.BM.Data.Rotation (RotationParameters (..))
+#else
+import           Cardano.BM.Rotator (nameLogFile)
+#endif
 
 import           Test.Tasty (TestTree, testGroup)
 import           Test.Tasty.QuickCheck (Property, testProperty)
-import qualified Test.QuickCheck as QC
 import           Test.QuickCheck ((===))
-import           Test.QuickCheck.Arbitrary (Arbitrary)
-import           Test.QuickCheck.Modifiers (Positive (..))
 import           Test.QuickCheck.Property (ioProperty)
+#ifdef POSIX
+import qualified Test.QuickCheck as QC
+import           Test.QuickCheck.Arbitrary (Arbitrary)
+#endif
 
 \end{code}
 %endif
@@ -45,9 +57,12 @@ tests = testGroup "testing Trace" [
 
 property_tests :: TestTree
 property_tests = testGroup "Property tests" [
-        testProperty "rotator: name giving" propNameGiving
+        testProperty "rotator: file naming" propNaming
+#ifdef POSIX
       , testProperty "rotator: cleanup" $ propCleanup $ rot n
+#endif
       ]
+#ifdef POSIX
   where
     n = 5
     rot num = RotationParameters
@@ -55,13 +70,13 @@ property_tests = testGroup "Property tests" [
               , rpMaxAgeHours   = 24
               , rpKeepFilesNum  = num
               }
-
+#endif
 \end{code}
 
-\subsubsection{Check that full file name has only added 15 digits to the base name of the file.}\label{code:propNameGiving}
+\subsubsection{Check that the generated file name has only 15 digits added to the base name.}\label{code:propNaming}
 \begin{code}
-propNameGiving :: FilePath -> Property
-propNameGiving name = ioProperty $ do
+propNaming :: FilePath -> Property
+propNaming name = ioProperty $ do
     filename <- nameLogFile name
     return $ length filename === length name + 15
 
@@ -72,7 +87,7 @@ This test creates a random number of files with the same name but with different
 afterwards it calls the |cleanupRotator| function which removes old log files keeping only
 |rpKeepFilesNum| files and deleting the others.
 \begin{code}
-
+#ifdef POSIX
 data LocalFilePath = Dir FilePath
     deriving (Show)
 
@@ -113,9 +128,14 @@ instance Arbitrary SmallAndLargeInt where
 
     shrink _ = []
 
-propCleanup :: RotationParameters -> LocalFilePath -> Positive Int -> SmallAndLargeInt -> Property
-propCleanup rotationParams (Dir filename) (Positive nFiles) (SL maxDev) = ioProperty $ do
-    tmpDir <- getTemporaryDirectory
+data NumFiles = NF Int deriving (Show)
+instance Arbitrary NumFiles where
+    arbitrary = QC.oneof [ return (NF 0), return (NF 1), return (NF 5), return (NF 7)]
+
+propCleanup :: RotationParameters -> LocalFilePath -> NumFiles -> SmallAndLargeInt -> Property
+propCleanup rotationParams (Dir filename) (NF nFiles) (SL maxDev) = QC.withMaxSuccess 20 $ ioProperty $ do
+    tmpDir0 <- getTemporaryDirectory
+    let tmpDir = tmpDir0 </> "rotatorTest.base"
     let path = tmpDir </> filename
     -- generate nFiles different dates
     now <- getCurrentTime
@@ -137,11 +157,9 @@ propCleanup rotationParams (Dir filename) (Positive nFiles) (SL maxDev) = ioProp
     let kept = case filesRemained of
             Nothing -> []
             Just l  -> NE.toList l
-    -- delete the files left
-    forM_ kept removeFile
-    -- delete folders created
-    when (dropWhile (/= '/') filename /= "") $
-        removePathForcibly $ "/tmp" </> takeWhile (/= '/') filename
-    return $ kept === toBeKept
 
+    removeDirectoryRecursive tmpDir
+
+    return $ kept === toBeKept
+#endif
 \end{code}

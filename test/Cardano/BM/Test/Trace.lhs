@@ -157,14 +157,14 @@ simpleDemo = do
     logTrace <- Setup.setupTrace (Right cfg) "test"
     putStrLn "\n"
 
-    logDebug     logTrace "This is how a Debug message likes."
-    logInfo      logTrace "This is how an Info message likes."
-    logNotice    logTrace "This is how a Notice message likes."
-    logWarning   logTrace "This is how a Warning message likes."
-    logError     logTrace "This is how an Error message likes."
-    logCritical  logTrace "This is how a Critical message likes."
-    logAlert     logTrace "This is how an Alert message likes."
-    logEmergency logTrace "This is how an Emergency message likes."
+    logDebug     logTrace "This is how a Debug message looks like."
+    logInfo      logTrace "This is how an Info message looks like."
+    logNotice    logTrace "This is how a Notice message looks like."
+    logWarning   logTrace "This is how a Warning message looks like."
+    logError     logTrace "This is how an Error message looks like."
+    logCritical  logTrace "This is how a Critical message looks like."
+    logAlert     logTrace "This is how an Alert message looks like."
+    logEmergency logTrace "This is how an Emergency message looks like."
 
     return ""
 
