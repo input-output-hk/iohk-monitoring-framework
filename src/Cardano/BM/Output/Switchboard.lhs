@@ -145,7 +145,6 @@ instance IsBackend Switchboard where
                             else atomically $ TBQ.writeTBQueue q lognamed
                     ctx = TraceContext { loggerName = ""
                                        , configuration = cfg
-                                       , minSeverity = Debug
                                        , tracetype = Neutral
                                        }
                 _timer <- Async.async $ sendAndResetAfter
@@ -232,7 +231,6 @@ setupBackend' MonitoringBK c sb = do
     let trace = mainTrace sb
         ctx   = TraceContext { loggerName = ""
                              , configuration = c
-                             , minSeverity = Debug
                              , tracetype = Neutral
                              }
 
@@ -251,7 +249,6 @@ setupBackend' EKGViewBK c sb = do
     let trace = mainTrace sb
         ctx   = TraceContext { loggerName = ""
                              , configuration = c
-                             , minSeverity = Debug
                              , tracetype = Neutral
                              }
 
@@ -270,7 +267,6 @@ setupBackend' AggregationBK c sb = do
     let trace = mainTrace sb
         ctx   = TraceContext { loggerName = ""
                              , configuration = c
-                             , minSeverity = Debug
                              , tracetype = Neutral
                              }
 

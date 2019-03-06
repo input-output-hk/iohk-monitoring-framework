@@ -1,3 +1,4 @@
+logs/
 dist
 dist-*
 cabal-dev

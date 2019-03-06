@@ -12,6 +12,26 @@ build-type:          Simple
 extra-source-files:  README.md
 cabal-version:       >=1.10
 
+flag disable-aggregation
+  description:         Turn off complete aggregation subsystem.
+  default:             False
+  manual:              True
+
+flag disable-ekg
+  description:         Turn off EKG.
+  default:             False
+  manual:              True
+
+flag disable-gui
+  description:         Turn off configuration editor GUI.
+  default:             False
+  manual:              True
+
+flag disable-monitoring
+  description:         Turn off monitoring subsystem.
+  default:             False
+  manual:              True
+
 library
   hs-source-dirs:      src
   exposed-modules:     Paths_iohk_monitoring
@@ -235,24 +255,3 @@ executable example-complex
   if !flag(disable-monitoring)
     cpp-options:       -DENABLE_MONITORING
 
--- Conditional compilation
-
-flag disable-aggregation
-  description:         Turn off complete aggregation subsystem.
-  default:             False
-  manual:              False
-
-flag disable-ekg
-  description:         Turn off EKG.
-  default:             False
-  manual:              False
-
-flag disable-gui
-  description:         Turn off configuration editor GUI.
-  default:             False
-  manual:              False
-
-flag disable-monitoring
-  description:         Turn off monitoring subsystem.
-  default:             False
-  manual:              False

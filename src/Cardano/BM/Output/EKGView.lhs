@@ -79,7 +79,6 @@ ekgTrace ekg c = do
     let trace = ekgTrace' ekg
         ctx   = TraceContext { loggerName = ""
                              , configuration = c
-                             , minSeverity = Debug
                              , tracetype = Neutral
                              }
     Trace.subTrace "#ekgview" (ctx,trace)
