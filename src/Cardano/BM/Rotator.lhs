@@ -4,7 +4,7 @@
 
 Implementation of rotation of logging files.
 
-Monitor log files for max age and max size.
+Monitor log files for max age and max size. This test only works on POSIX platforms.
 
 \begin{code}
 

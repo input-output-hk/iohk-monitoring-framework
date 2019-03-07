@@ -17,6 +17,8 @@ import           Data.ByteString (intercalate)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Vector as V
 import           Data.Yaml
+import           System.FilePath ((</>))
+import           System.Directory (getTemporaryDirectory)
 
 import           Cardano.BM.Data.Configuration
 import           Cardano.BM.Configuration.Model (Configuration (..),
@@ -87,6 +89,7 @@ unitConfigurationCheckEKGpositive = do
 #ifndef ENABLE_EKG
     return ()
 #else
+    tmp <- getTemporaryDirectory
     let c = [ "rotation:"
             , "  rpLogLimitBytes: 5000000"
             , "  rpKeepFilesNum: 10"
@@ -108,7 +111,7 @@ unitConfigurationCheckEKGpositive = do
             , "  test:"
             , "    value: nothing"
             ]
-        fp = "/tmp/test_ekgv_config.yaml"
+        fp = tmp </> "test_ekgv_config.yaml"
     writeFile fp $ unlines c
     repr <- parseRepresentation fp
 
@@ -125,6 +128,7 @@ unitConfigurationCheckEKGnegative = do
 #ifndef ENABLE_EKG
     return ()
 #else
+    tmp <- getTemporaryDirectory
     let c = [ "rotation:"
             , "  rpLogLimitBytes: 5000000"
             , "  rpKeepFilesNum: 10"
@@ -148,7 +152,7 @@ unitConfigurationCheckEKGnegative = do
             , "  test:"
             , "    value: nothing"
             ]
-        fp = "/tmp/test_ekgv_config.yaml"
+        fp = tmp </> "test_ekgv_config.yaml"
     writeFile fp $ unlines c
     repr <- parseRepresentation fp
 
