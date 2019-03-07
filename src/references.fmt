@@ -155,7 +155,6 @@
 %format Trace = "\hyperref[code:Trace]{Trace}"
 %format TraceNamed = "\hyperref[code:TraceNamed]{TraceNamed}"
 %format TraceContext = "\hyperref[code:TraceContext]{TraceContext}"
-%format loggerName = "\hyperref[code:loggerName]{loggerName}"
 %format configuration = "\hyperref[code:configuration]{configuration}"
 %format tracetype = "\hyperref[code:tracetype]{tracetype}"
 %format Cardano.BM.Configuration = "\hyperref[code:Cardano.BM.Configuration]{Cardano.BM.Configuration}"

@@ -1,4 +1,4 @@
-\documentclass[11pt,twoside]{report}
+\documentclass[11pt,a4paper,twoside]{report}
 
 \pagestyle{headings}
 

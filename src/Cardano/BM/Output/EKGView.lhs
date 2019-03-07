@@ -224,7 +224,7 @@ spawnDispatcher evqueue sbtrace trace = do
         case maybeItem of
             Just (LogNamed logname logvalue@(LogObject _ _)) -> do
                 trace' <- Trace.appendName logname trace
-                Trace.traceConditionally trace' logvalue
+                Trace.traceNamedObject trace' logvalue
                 -- increase the counter for the type of message
                 modifyMVar_ counters $ \cnt -> return $ updateMessageCounters cnt logvalue
                 qProc counters
