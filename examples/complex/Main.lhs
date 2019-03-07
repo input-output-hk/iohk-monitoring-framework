@@ -40,12 +40,12 @@ import           Cardano.BM.Data.Aggregated (Measurable (..))
 import           Cardano.BM.Data.AggregatedKind
 import           Cardano.BM.Data.BackendKind
 import           Cardano.BM.Data.LogItem
-import           Cardano.BM.Data.Observable
 import           Cardano.BM.Data.Output
 import           Cardano.BM.Data.Rotation
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.SubTrace
 #ifdef ENABLE_OBSERVABLES
+import           Cardano.BM.Data.Observable
 import           Cardano.BM.Observer.Monadic (bracketObserveIO)
 import qualified Cardano.BM.Observer.STM as STM
 #endif
@@ -118,7 +118,9 @@ config = do
         CM.setScribes c ("#aggregation.complex.observeSTM." <> (pack $ show x)) $ Just [ "FileJsonSK::logs/out.even.json" ]
 
 #ifdef LINUX
+#ifdef ENABLE_OBSERVABLES
     CM.setSubTrace c "complex.observeDownload" (Just $ ObservableTrace [IOStats,NetStats])
+#endif
     CM.setBackends c "complex.observeDownload" (Just [KatipBK])
     CM.setScribes c "complex.observeDownload" (Just ["StdoutSK::stdout", "FileJsonSK::logs/downloading.json"])
 #endif
@@ -135,12 +137,14 @@ config = do
                             (Drop (StartsWith "#ekgview.#aggregation.complex.message"),
                              Unhide [(Contains ".timed.m")])
                           ])
+#ifdef ENABLE_OBSERVABLES
     CM.setSubTrace c "complex.observeIO" (Just $ ObservableTrace [GhcRtsStats,MemoryStats])
     forM_ [(1::Int)..10] $ \x ->
       CM.setSubTrace
         c
         ("complex.observeSTM." <> (pack $ show x))
         (Just $ ObservableTrace [GhcRtsStats,MemoryStats])
+#endif
 
 #ifdef ENABLE_AGGREGATION
     CM.setBackends c "complex.message" (Just [AggregationBK, KatipBK])
