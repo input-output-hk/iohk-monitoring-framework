@@ -14,6 +14,8 @@ module Cardano.BM.Trace
     , traceInTVar
     , traceInTVarIO
     , traceNamedInTVarIO
+    , traceInTVarIOConditionally
+    , traceNamedInTVarIOConditionally
     -- * context naming
     , appendName
     , modifyName
@@ -38,7 +40,6 @@ module Cardano.BM.Trace
 
 import           Control.Concurrent.MVar (MVar, newMVar, withMVar)
 import qualified Control.Concurrent.STM.TVar as STM
-import           Control.Monad (when)
 import           Control.Monad.IO.Class (MonadIO, liftIO)
 import qualified Control.Monad.STM as STM
 import           Data.Aeson.Text (encodeToLazyText)
@@ -90,12 +91,14 @@ The minimum severity that a log message must be labelled with is looked up in
 the configuration and recalculated.
 \begin{code}
 appendName :: MonadIO m => LoggerName -> Trace m -> m (Trace m)
-appendName name (ctx, trace) = return ( ctx { loggerName = appendWithDot (loggerName ctx) name }, trace )
+appendName name =
+    modifyName (\prevLoggerName -> appendWithDot name prevLoggerName)
+
 
 appendWithDot :: LoggerName -> LoggerName -> LoggerName
-appendWithDot "" newName = T.take 80 newName
+appendWithDot "" newName = newName
 appendWithDot xs ""      = xs
-appendWithDot xs newName = T.take 80 $ xs <> "." <> newName
+appendWithDot xs newName = xs <> "." <> newName
 
 \end{code}
 
@@ -105,15 +108,26 @@ The context name is created and checked that its size is below a limit
 The minimum severity that a log message must be labelled with is looked up in
 the configuration and recalculated.
 \begin{code}
-modifyName :: MonadIO m => LoggerName -> Trace m -> m (Trace m)
-modifyName name (ctx, trace) = return ( ctx { loggerName = name }, trace )
+modifyName :: MonadIO m => (LoggerName -> LoggerName) -> Trace m -> m (Trace m)
+modifyName f (ctx, basetrace0) =
+    let basetrace = modifyNameBase f basetrace0
+    in
+    return (ctx, basetrace)
+
+modifyNameBase
+    :: (LoggerName -> LoggerName)
+    -> TraceNamed m
+    -> TraceNamed m
+modifyNameBase k = contramap f
+  where
+    f (LogNamed name item) = LogNamed (k name) item
 
 \end{code}
 
 \subsubsection{Contramap a trace and produce the naming context}
 \begin{code}
-named :: BaseTrace.BaseTrace m (LogNamed i) -> LoggerName -> BaseTrace.BaseTrace m i
-named trace name = contramap (LogNamed name) trace
+named :: BaseTrace.BaseTrace m (LogNamed i) -> BaseTrace.BaseTrace m i
+named = contramap (LogNamed mempty)
 
 \end{code}
 
@@ -125,22 +139,24 @@ traceNamedObject
     => Trace m
     -> LogObject
     -> m ()
-traceNamedObject trace@(ctx, logTrace) lo@(LogObject _ lc) = do
-    let lname = loggerName ctx
+traceNamedObject trace@(_, logTrace) lo@(LogObject _ lc) = do
     doOutput <- case (typeofTrace trace) of
         FilterTrace filters ->
              case lc of
-                LogValue loname _ ->
-                    return $ evalFilters filters (lname <> "." <> loname)
+                LogValue _loname _ ->
+                    return $ evalFilters filters "TODO"
+                    -- (lname <> "." <> loname)
                 _ ->
-                    return $ evalFilters filters lname
+                    return $ evalFilters filters "TODO"
+                    -- lname
         TeeTrace secName -> do
              -- create a newly named copy of the |LogObject|
-             BaseTrace.traceWith (named logTrace (lname <> "." <> secName)) lo
+             (_, logTrace') <- appendName secName trace
+             BaseTrace.traceWith (named logTrace') lo
              return True
         _ -> return True
     if doOutput
-    then BaseTrace.traceWith (named logTrace lname) lo
+    then BaseTrace.traceWith (named logTrace) lo
     else return ()
 
 \end{code}
@@ -214,6 +230,29 @@ traceNamedInTVarIO :: STM.TVar [LogNamed LogObject] -> TraceNamed IO
 traceNamedInTVarIO tvar = BaseTrace.BaseTrace $ Op $ \ln ->
                          STM.atomically $ STM.modifyTVar tvar ((:) ln)
 
+traceInTVarIOConditionally :: STM.TVar [LogObject] -> TraceContext -> TraceNamed IO
+traceInTVarIOConditionally tvar ctx =
+    BaseTrace.BaseTrace $ Op $ \item@(LogNamed loggername (LogObject meta _)) -> do
+        globminsev  <- Config.minSeverity (configuration ctx)
+        globnamesev <- Config.inspectSeverity (configuration ctx) loggername
+        let minsev = max globminsev $ fromMaybe Debug globnamesev
+            flag = (severity meta) >= minsev
+        if flag
+        then STM.atomically $ STM.modifyTVar tvar ((:) (lnItem item))
+        else return ()
+
+traceNamedInTVarIOConditionally :: STM.TVar [LogNamed LogObject] -> TraceContext -> TraceNamed IO
+traceNamedInTVarIOConditionally tvar ctx =
+    BaseTrace.BaseTrace $ Op $ \item@(LogNamed loggername (LogObject meta _)) -> do
+        globminsev  <- Config.minSeverity (configuration ctx)
+        globnamesev <- Config.inspectSeverity (configuration ctx) loggername
+        let minsev = max globminsev $ fromMaybe Debug globnamesev
+            flag = (severity meta) >= minsev
+        if flag
+        then STM.atomically $ STM.modifyTVar tvar ((:) item)
+        else return ()
+
+
 \end{code}
 
 \subsubsection{Check a log item's severity against the |Trace|'s minimum severity}\label{code:traceConditionally}\index{traceConditionally}
@@ -228,12 +267,8 @@ traceConditionally
     => Trace m
     -> LogObject
     -> m ()
-traceConditionally logTrace@(ctx, _) msg@(LogObject meta _) = do
-    globminsev  <- liftIO $ Config.minSeverity (configuration ctx)
-    globnamesev <- liftIO $ Config.inspectSeverity (configuration ctx) (loggerName ctx)
-    let minsev = max globminsev $ fromMaybe Debug globnamesev
-        flag = (severity meta) >= minsev
-    when flag $ traceNamedObject logTrace msg
+traceConditionally logTrace msg =
+    traceNamedObject logTrace msg
 
 \end{code}
 
@@ -351,8 +386,7 @@ remains untouched.
 \begin{code}
 subTrace :: MonadIO m => T.Text -> Trace m -> m (Trace m)
 subTrace name tr@(ctx, _) = do
-    let newName = appendWithDot (loggerName ctx) name
-    subtrace0 <- liftIO $ Config.findSubTrace (configuration ctx) newName
+    subtrace0 <- liftIO $ Config.findSubTrace (configuration ctx) name
     let subtrace = case subtrace0 of Nothing -> Neutral; Just str -> str
     case subtrace of
         Neutral           -> do

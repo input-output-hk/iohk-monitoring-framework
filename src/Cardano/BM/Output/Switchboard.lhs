@@ -13,6 +13,7 @@ module Cardano.BM.Output.Switchboard
     (
       Switchboard (..)
     , mainTrace
+    , mainTraceConditionally
     , effectuate
     , realize
     , unrealize
@@ -25,11 +26,14 @@ import           Control.Concurrent.STM (atomically)
 import qualified Control.Concurrent.STM.TBQueue as TBQ
 import           Control.Exception.Safe (throwM)
 import           Control.Monad (forM_, when, void)
+import           Control.Monad.IO.Class (liftIO)
+import           Data.Maybe (fromMaybe)
 import           Data.Time.Clock (getCurrentTime)
 import           Data.Functor.Contravariant (Op (..))
 
 import qualified Cardano.BM.BaseTrace as BaseTrace
 import           Cardano.BM.Configuration (Configuration)
+import qualified Cardano.BM.Configuration as Config
 import           Cardano.BM.Configuration.Model (getBackends,
                      getSetupBackends)
 import           Cardano.BM.Data.Backend
@@ -82,6 +86,16 @@ dispatching the messages to outputs
 mainTrace :: Switchboard -> TraceNamed IO
 mainTrace sb = BaseTrace.BaseTrace $ Op $ \lognamed -> do
     effectuate sb lognamed
+
+mainTraceConditionally :: TraceContext -> Switchboard -> TraceNamed IO
+mainTraceConditionally ctx sb = BaseTrace.BaseTrace $ Op $ \item@(LogNamed loggername (LogObject meta _)) -> do
+    globminsev  <- liftIO $ Config.minSeverity (configuration ctx)
+    globnamesev <- liftIO $ Config.inspectSeverity (configuration ctx) loggername
+    let minsev = max globminsev $ fromMaybe Debug globnamesev
+        flag = (severity meta) >= minsev
+    if flag
+    then effectuate sb item
+    else return ()
 
 \end{code}
 
@@ -143,8 +157,7 @@ instance IsBackend Switchboard where
                             if nocapacity
                             then putStrLn "Error: Switchboard's queue full, dropping log items!"
                             else atomically $ TBQ.writeTBQueue q lognamed
-                    ctx = TraceContext { loggerName = ""
-                                       , configuration = cfg
+                    ctx = TraceContext { configuration = cfg
                                        , tracetype = Neutral
                                        }
                 _timer <- Async.async $ sendAndResetAfter
@@ -228,11 +241,10 @@ setupBackend' :: BackendKind -> Configuration -> Switchboard -> IO Backend
 setupBackend' SwitchboardBK _ _ = error "cannot instantiate a further Switchboard"
 #ifdef ENABLE_MONITORING
 setupBackend' MonitoringBK c sb = do
-    let trace = mainTrace sb
-        ctx   = TraceContext { loggerName = ""
-                             , configuration = c
+    let ctx   = TraceContext { configuration = c
                              , tracetype = Neutral
                              }
+        trace = mainTraceConditionally ctx sb
 
     be :: Cardano.BM.Output.Monitoring.Monitor <- Cardano.BM.Output.Monitoring.realizefrom (ctx, trace) sb
     return MkBackend
@@ -246,11 +258,10 @@ setupBackend' MonitoringBK _ _ =
 #endif
 #ifdef ENABLE_EKG
 setupBackend' EKGViewBK c sb = do
-    let trace = mainTrace sb
-        ctx   = TraceContext { loggerName = ""
-                             , configuration = c
+    let ctx   = TraceContext { configuration = c
                              , tracetype = Neutral
                              }
+        trace = mainTraceConditionally ctx sb
 
     be :: Cardano.BM.Output.EKGView.EKGView <- Cardano.BM.Output.EKGView.realizefrom (ctx, trace) sb
     return MkBackend
@@ -264,11 +275,10 @@ setupBackend' EKGViewBK _ _ =
 #endif
 #ifdef ENABLE_AGGREGATION
 setupBackend' AggregationBK c sb = do
-    let trace = mainTrace sb
-        ctx   = TraceContext { loggerName = ""
-                             , configuration = c
+    let ctx   = TraceContext { configuration = c
                              , tracetype = Neutral
                              }
+        trace = mainTraceConditionally ctx sb
 
     be :: Cardano.BM.Output.Aggregation.Aggregation <- Cardano.BM.Output.Aggregation.realizefrom (ctx,trace) sb
     return MkBackend
