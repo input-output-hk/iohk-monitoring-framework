@@ -4,6 +4,7 @@
 
 %if style == newcode
 \begin{code}
+{-# LANGUAGE CPP               #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 
@@ -12,6 +13,7 @@ module Cardano.BM.Counters.Linux
       readCounters
     ) where
 
+#ifdef ENABLE_OBSERVABLES
 import           Data.Foldable (foldrM)
 import           Data.Text (Text, pack)
 import           System.FilePath.Posix ((</>))
@@ -19,12 +21,15 @@ import           System.IO (FilePath)
 import           System.Posix.Process (getProcessID)
 import           System.Posix.Types (ProcessID)
 import           Text.Read (readMaybe)
+#endif
 
+#ifdef ENABLE_OBSERVABLES
 import           Cardano.BM.Counters.Common (getMonoClock, readRTSStats)
-import           Cardano.BM.Data.Counter
 import           Cardano.BM.Data.Observable
-import           Cardano.BM.Data.SubTrace
 import           Cardano.BM.Data.Aggregated (Measurable(..))
+#endif
+import           Cardano.BM.Data.Counter
+import           Cardano.BM.Data.SubTrace
 
 \end{code}
 %endif
@@ -41,6 +46,7 @@ readCounters (TeeTrace _)        = return []
 readCounters (FilterTrace _)     = return []
 readCounters UntimedTrace        = return []
 readCounters DropOpening         = return []
+#ifdef ENABLE_OBSERVABLES
 readCounters (ObservableTrace tts) = do
     pid <- getProcessID
     foldrM (\(sel, fun) a ->
@@ -55,10 +61,13 @@ readCounters (ObservableTrace tts) = do
                     , (IOStats, readProcIO pid)
                     , (GhcRtsStats, readRTSStats)
                     ]
+#else
+readCounters (ObservableTrace _)   = return []
+#endif
 \end{code}
 
 \begin{code}
-
+#ifdef ENABLE_OBSERVABLES
 pathProc :: FilePath
 pathProc = "/proc/"
 pathProcStat :: ProcessID -> FilePath
@@ -69,16 +78,18 @@ pathProcIO :: ProcessID -> FilePath
 pathProcIO pid = pathProc </> (show pid) </> "io"
 pathProcNet :: ProcessID -> FilePath
 pathProcNet pid = pathProc </> (show pid) </> "net" </> "netstat"
+#endif
 \end{code}
 
 \subsubsection{Reading from a file in /proc/\textless pid \textgreater}
 
 \begin{code}
-
+#ifdef ENABLE_OBSERVABLES
 readProcList :: FilePath -> IO [Integer]
 readProcList fp = do
     cs <- readFile fp
     return $ map (\s -> maybe 0 id $ (readMaybe s :: Maybe Integer)) (words cs)
+#endif
 \end{code}
 
 \subsubsection{readProcStatM - /proc/\textless pid \textgreater/statm}
@@ -101,7 +112,7 @@ readProcList fp = do
 \end{scriptsize}
 
 \begin{code}
-
+#ifdef ENABLE_OBSERVABLES
 readProcStatM :: ProcessID -> IO [Counter]
 readProcStatM pid = do
     ps0 <- readProcList (pathProcStatM pid)
@@ -111,6 +122,7 @@ readProcStatM pid = do
   where
     colnames :: [Text]
     colnames = ["size","resident","shared","text","unused","data","unused"]
+#endif
 \end{code}
 
 \subsubsection{readProcStats - //proc//\textless pid \textgreater//stat}
@@ -349,6 +361,7 @@ readProcStatM pid = do
 \end{scriptsize}
 
 \begin{code}
+#ifdef ENABLE_OBSERVABLES
 readProcStats :: ProcessID -> IO [Counter]
 readProcStats pid = do
     ps0 <- readProcList (pathProcStat pid)
@@ -364,6 +377,7 @@ readProcStats pid = do
                , "policy","blkio","guesttime","cguesttime","startdata","enddata","startbrk","argstart","argend","envstart"
                , "envend","exitcode"
                ]
+#endif
 \end{code}
 
 \subsubsection{readProcIO - //proc//\textless pid \textgreater//io}
@@ -426,6 +440,7 @@ readProcStats pid = do
 \end{scriptsize}
 
 \begin{code}
+#ifdef ENABLE_OBSERVABLES
 readProcIO :: ProcessID -> IO [Counter]
 readProcIO pid = do
 
@@ -436,7 +451,7 @@ readProcIO pid = do
     colnames :: [Text]
     colnames = [ "rchar","wchar","syscr","syscw","rbytes","wbytes","cxwbytes" ]
     units    = [  Bytes . fromInteger , Bytes . fromInteger , PureI  , PureI  , Bytes . fromInteger  , Bytes . fromInteger  , Bytes . fromInteger     ]
-
+#endif
 \end{code}
 
 \subsubsection{Network TCP/IP counters}
@@ -455,6 +470,7 @@ IpExt: 0 0 20053 8977 2437 23 3163525943 196480057 2426648 1491754 394285 5523 0
 \end{scriptsize}
 
 \begin{code}
+#ifdef ENABLE_OBSERVABLES
 readProcNet :: ProcessID -> IO [Counter]
 readProcNet pid = do
     ls0 <- lines <$> readFile (pathProcNet pid)
@@ -481,5 +497,5 @@ readProcNet pid = do
            pref = head col0
        in
        readinfo r <> zip (map (\n -> pref ++ n) cols) vals
-
+#endif
 \end{code}
