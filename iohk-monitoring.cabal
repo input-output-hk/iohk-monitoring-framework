@@ -32,6 +32,11 @@ flag disable-monitoring
   default:             False
   manual:              True
 
+flag disable-observables
+  description:         Turn off observables, observers.
+  default:             False
+  manual:              True
+
 library
   hs-source-dirs:      src
   exposed-modules:     Paths_iohk_monitoring
@@ -61,9 +66,6 @@ library
                        Cardano.BM.Data.SubTrace
                        Cardano.BM.Data.Trace
 
-                       Cardano.BM.Observer.Monadic
-                       Cardano.BM.Observer.STM
-
                        Cardano.BM.Output.Log
                        Cardano.BM.Output.Switchboard
                        Cardano.BM.Rotator
@@ -78,6 +80,10 @@ library
 
   if !flag(disable-gui)
     exposed-modules:   Cardano.BM.Configuration.Editor
+ 
+  if !flag(disable-observables)
+    exposed-modules:   Cardano.BM.Observer.Monadic
+                       Cardano.BM.Observer.STM
  
   if !flag(disable-monitoring)
     exposed-modules:   Cardano.BM.Output.Monitoring
@@ -140,6 +146,9 @@ library
 
   if !flag(disable-monitoring)
     cpp-options:       -DENABLE_MONITORING
+
+  if !flag(disable-observables)
+    cpp-options:       -DENABLE_OBSERVABLES
 
   ghc-options:         -Wall -O2
                        -fno-ignore-asserts
@@ -206,6 +215,9 @@ test-suite tests
   if !flag(disable-monitoring)
     cpp-options:       -DENABLE_MONITORING
 
+  if !flag(disable-observables)
+    cpp-options:       -DENABLE_OBSERVABLES
+
 executable example-simple
   hs-source-dirs:      examples/simple
   main-is:             Main.lhs
@@ -255,3 +267,5 @@ executable example-complex
   if !flag(disable-monitoring)
     cpp-options:       -DENABLE_MONITORING
 
+  if !flag(disable-observables)
+    cpp-options:       -DENABLE_OBSERVABLES
