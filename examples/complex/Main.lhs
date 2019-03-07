@@ -23,13 +23,13 @@ import qualified Control.Concurrent.Async as Async
 import           Control.Monad (forM_)
 #ifdef ENABLE_OBSERVABLES
 import           Control.Monad (forM)
-import qualified Data.ByteString.Char8 as BS8
 import           GHC.Conc.Sync (atomically, STM, TVar, newTVar, readTVar, writeTVar)
+#ifdef LINUX
+import qualified Data.ByteString.Char8 as BS8
 import           Network.Download (openURI)
 #endif
-import           Data.Text (pack)
-#ifdef LINUX
 #endif
+import           Data.Text (pack)
 import           System.Random
 
 #ifdef ENABLE_GUI
