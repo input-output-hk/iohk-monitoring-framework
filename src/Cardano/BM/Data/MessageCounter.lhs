@@ -89,11 +89,11 @@ sendAndReset trace counters sev = do
         diffTime = round $ diffUTCTime now start
 
     forM_ (HM.toList $ mcCountersMap counters) $ \(key, count) ->
-        Trace.traceConditionally trace =<<
+        Trace.traceNamedObject trace =<<
             LogObject
                 <$> (mkLOMeta sev)
                 <*> pure (LogValue (pack key) (PureI $ toInteger count))
-    Trace.traceConditionally trace =<<
+    Trace.traceNamedObject trace =<<
         LogObject
             <$> (mkLOMeta sev)
             <*> pure (LogValue "time_interval_(s)" (PureI diffTime))

@@ -27,7 +27,7 @@ import           Cardano.BM.Data.LogItem (LogObject (..), LOContent (..), mkLOMe
 import           Cardano.BM.Data.Severity (Severity)
 import           Cardano.BM.Data.SubTrace (SubTrace (NoTrace))
 import           Cardano.BM.Counters (readCounters)
-import           Cardano.BM.Trace (Trace, logError, logNotice, subTrace, traceConditionally,
+import           Cardano.BM.Trace (Trace, logError, logNotice, subTrace, traceNamedObject,
                      typeofTrace)
 \end{code}
 %endif
@@ -188,7 +188,7 @@ observeOpen subtrace severity logTrace = (do
     then return ()
     else do
         -- send opening message to Trace
-        traceConditionally logTrace =<<
+        traceNamedObject logTrace =<<
             LogObject <$> (mkLOMeta severity) <*> pure (ObserveOpen state)
     return (Right state)) `catch` (return . Left)
 
@@ -214,13 +214,13 @@ observeClose subtrace sev logTrace initState logObjects = (do
     else do
         mle <- mkLOMeta sev
         -- send closing message to Trace
-        traceConditionally logTrace $
+        traceNamedObject logTrace $
             LogObject mle (ObserveClose (CounterState identifier counters))
         -- send diff message to Trace
-        traceConditionally logTrace $
+        traceNamedObject logTrace $
             LogObject mle (ObserveDiff (CounterState identifier (diffCounters initialCounters counters)))
     -- trace the messages gathered from inside the action
-    forM_ logObjects $ traceConditionally logTrace
+    forM_ logObjects $ traceNamedObject logTrace
     return (Right ())) `catch` (return . Left)
 
 \end{code}
