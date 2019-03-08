@@ -25,7 +25,6 @@ module Cardano.BM.Trace
     , typeofTrace
     , evalFilters
     -- * log functions
-    , traceConditionally
     , traceNamedObject
     , traceNamedItem
     , logAlert,     logAlertS
@@ -236,8 +235,7 @@ traceInTVarIOConditionally tvar ctx =
         globminsev  <- Config.minSeverity (configuration ctx)
         globnamesev <- Config.inspectSeverity (configuration ctx) loggername
         let minsev = max globminsev $ fromMaybe Debug globnamesev
-            flag = (severity meta) >= minsev
-        if flag
+        if (severity meta) >= minsev
         then STM.atomically $ STM.modifyTVar tvar ((:) (lnItem item))
         else return ()
 
@@ -247,28 +245,9 @@ traceNamedInTVarIOConditionally tvar ctx =
         globminsev  <- Config.minSeverity (configuration ctx)
         globnamesev <- Config.inspectSeverity (configuration ctx) loggername
         let minsev = max globminsev $ fromMaybe Debug globnamesev
-            flag = (severity meta) >= minsev
-        if flag
+        if (severity meta) >= minsev
         then STM.atomically $ STM.modifyTVar tvar ((:) item)
         else return ()
-
-
-\end{code}
-
-\subsubsection{Check a log item's severity against the |Trace|'s minimum severity}\label{code:traceConditionally}\index{traceConditionally}
-\todo[inline]{do we need three different |minSeverity| defined?}
-
-We do a lookup of the global |minSeverity| in the configuration. And, a lookup of the |minSeverity| for the current named context. These values might have changed in the meanwhile.
-\newline
-A third filter is the |minSeverity| defined in the current context.
-\begin{code}
-traceConditionally
-    :: MonadIO m
-    => Trace m
-    -> LogObject
-    -> m ()
-traceConditionally logTrace msg =
-    traceNamedObject logTrace msg
 
 \end{code}
 
@@ -285,7 +264,7 @@ traceNamedItem
     -> T.Text
     -> m ()
 traceNamedItem trace p s m =
-    traceConditionally trace =<<
+    traceNamedObject trace =<<
         LogObject <$> liftIO (mkLOMeta s)
                   <*> pure (LogMessage LogItem { liSelection = p
                                                , liPayload   = m
@@ -335,48 +314,6 @@ logEmergencyS logTrace = traceNamedItem logTrace Private Emergency
 
 \end{code}
 
-%if style == newcode
-\begin{spec}
-example :: IO ()
-example = do
-    let logTrace0 = stdoutTrace
-    ctx <- newMVar $ TraceController $ mempty
-    logTrace <- appendName "my_example" (ctx, logTrace0)
-    insertInOracle logTrace "expect_answer" Neutral
-    result <- bracketObserveIO logTrace "expect_answer" setVar\_
-    logInfo logTrace $ pack $ show result
-
-example\_TVar :: IO ()
-example\_TVar = do
-    tvar <- STM.newTVarIO []
-    let logTrace0 = traceInTVarIO tvar
-    ctx <- newMVar $ TraceController $ mempty
-    logTrace <- appendName "my_example" $ (ctx, logTrace0)
-    result <- bracketObserveIO logTrace "expect_answer" setVar_
-    logInfo logTrace $ pack $ show result
-    items <- STM.readTVarIO tvar
-    TIO.putStrLn $ pack $ show $ dropPrims $ items
-  where
-    dropPrims :: [LogObject] -> [LogObject]
-    dropPrims = filter (\case {LogMessage _ -> False; LogValue _ -> False; _ -> True})
-
-setVar_ :: STM.STM Integer
-setVar_ = do
-    t <- STM.newTVar 0
-    STM.writeTVar t 42
-    res <- STM.readTVar t
-    return res
-
-exampleConfiguration :: IO Integer
-exampleConfiguration = withTrace (TraceConfiguration StdOut "my_example" (ObservableTrace observablesSet) Debug) $
-    \tr -> bracketObserveIO tr "my_example" setVar\_
-  where
-    observablesSet :: Set ObservableInstance
-    observablesSet = fromList [MonotonicClock, MemoryStats]
-
-\end{spec}
-%endif
-
 \subsubsection{subTrace}\label{code:subTrace}\index{subTrace}
 Transforms the input |Trace| according to the
 |Configuration| using the logger name of the
@@ -386,29 +323,30 @@ remains untouched.
 \begin{code}
 subTrace :: MonadIO m => T.Text -> Trace m -> m (Trace m)
 subTrace name tr@(ctx, _) = do
-    subtrace0 <- liftIO $ Config.findSubTrace (configuration ctx) name
+    let cfg = configuration ctx
+    subtrace0 <- liftIO $ Config.findSubTrace cfg name
     let subtrace = case subtrace0 of Nothing -> Neutral; Just str -> str
     case subtrace of
         Neutral           -> do
-                                tr' <- appendName name tr
-                                return $ updateTracetype subtrace tr'
+                                (ctx',tr') <- appendName name tr
+                                return $ updateTracetype subtrace (ctx', tr')
         UntimedTrace      -> do
-                                tr' <- appendName name tr
-                                return $ updateTracetype subtrace tr'
+                                (ctx',tr') <- appendName name tr
+                                return $ updateTracetype subtrace (ctx', tr')
         TeeTrace _        -> do
-                                tr' <- appendName name tr
-                                return $ updateTracetype subtrace tr'
+                                (ctx',tr') <- appendName name tr
+                                return $ updateTracetype subtrace (ctx', tr')
         FilterTrace _     -> do
                                 tr' <- appendName name tr
                                 return $ updateTracetype subtrace tr'
-        NoTrace           -> return $ updateTracetype subtrace (ctx, BaseTrace.BaseTrace $ Op $ \_ -> pure ())
+        NoTrace           -> return $ updateTracetype subtrace (ctx, BaseTrace.noTrace)
         DropOpening       -> return $ updateTracetype subtrace (ctx, BaseTrace.BaseTrace $ Op $
                                 \(LogNamed _ lo@(LogObject _ lc)) -> do
                                     case lc of
                                         ObserveOpen _ -> return ()
-                                        _             -> traceConditionally tr lo )
+                                        _             -> traceNamedObject tr lo )
         ObservableTrace _ -> do
-                                tr' <- appendName name tr
-                                return $ updateTracetype subtrace tr'
+                                (ctx',tr') <- appendName name tr
+                                return $ updateTracetype subtrace (ctx', tr')
 
 \end{code}

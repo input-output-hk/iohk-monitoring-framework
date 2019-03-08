@@ -191,7 +191,7 @@ randomThr trace = do
         threadDelay 500000  -- 0.5 second
         num <- randomRIO (42-42, 42+42) :: IO Double
         lo <- LogObject <$> (mkLOMeta Debug) <*> pure (LogValue "rr" (PureD num))
-        traceConditionally tr lo
+        traceNamedObject tr lo
         loop tr
 
 \end{code}

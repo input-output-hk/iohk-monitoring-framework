@@ -22,7 +22,7 @@ module Cardano.BM.Output.Switchboard
 import qualified Control.Concurrent.Async as Async
 import           Control.Concurrent.MVar (MVar, newEmptyMVar, newMVar,
                      putMVar, readMVar, tryTakeMVar, withMVar, modifyMVar_)
-import           Control.Concurrent.STM (atomically)
+import           Control.Concurrent.STM (atomically, retry)
 import qualified Control.Concurrent.STM.TBQueue as TBQ
 import           Control.Exception.Safe (throwM)
 import           Control.Monad (forM_, when, void)
@@ -84,24 +84,23 @@ dispatching the messages to outputs
 
 \begin{code}
 mainTrace :: Switchboard -> TraceNamed IO
-mainTrace sb = BaseTrace.BaseTrace $ Op $ \lognamed -> do
-    effectuate sb lognamed
+mainTrace sb = BaseTrace.BaseTrace $ Op $ effectuate sb
 
 mainTraceConditionally :: TraceContext -> Switchboard -> TraceNamed IO
 mainTraceConditionally ctx sb = BaseTrace.BaseTrace $ Op $ \item@(LogNamed loggername (LogObject meta _)) -> do
     globminsev  <- liftIO $ Config.minSeverity (configuration ctx)
     globnamesev <- liftIO $ Config.inspectSeverity (configuration ctx) loggername
     let minsev = max globminsev $ fromMaybe Debug globnamesev
-        flag = (severity meta) >= minsev
-    if flag
+    if (severity meta) >= minsev
     then effectuate sb item
     else return ()
 
 \end{code}
 
 \subsubsection{Process incoming messages}\index{Switchboard!instance of IsEffectuator}
-Incoming messages are put into the queue, and
-then processed by the dispatcher.
+Incoming messages are put into the queue, and then processed by the dispatcher.
+The switchboard will never block when processing incoming messages
+("eager receiver").
 \newline
 The queue is initialized and the message dispatcher launched.
 
@@ -118,6 +117,7 @@ instance IsEffectuator Switchboard where
         sb <- readMVar (getSB switchboard)
         writequeue (sbQueue sb) item
 
+    -- TODO where to put this error message
     handleOverflow _ = putStrLn "Error: Switchboard's queue full, dropping log items!"
 
 \end{code}
@@ -174,25 +174,48 @@ instance IsBackend Switchboard where
                             when (bek `elem` selBEs) (bEffectuate be $ nli)
 
                     qProc counters = do
-                        nli <- atomically $ TBQ.readTBQueue queue
-                        -- do not count again messages that contain the results of message counters
-                        when (lnName nli /= "#messagecounters.switchboard") $
-                            -- increase the counter for the specific severity
-                            modifyMVar_ counters $ \cnt -> return $ updateMessageCounters cnt $ lnItem nli
-                        case lnItem nli of
-                            LogObject _ KillPill ->
-                                forM_ backends ( \(_, be) -> bUnrealize be )
+                        -- read complete queue at once and process items
+                        nlis <- atomically $ do
+                                      r <- TBQ.flushTBQueue queue
+                                      when (null r) retry
+                                      return r
+                        
+                        let processItem nli = do
+                                let (LogObject lometa loitem) = lnItem nli
+                                    loname = lnName nli
+                                    losev = severity lometa
+
+                                -- evaluate minimum severity criteria
+                                locsev <- fromMaybe Debug <$> Config.inspectSeverity cfg loname
+                                globsev <- Config.minSeverity config
+                                let sevGE = losev >= globsev && losev >= locsev
+
+                                -- do not count again messages that contain the results of message counters
+                                when (loname /= "#messagecounters.switchboard") $
+                                    -- increase the counter for the specific severity
+                                    modifyMVar_ counters $ \cnt -> return $ updateMessageCounters cnt $ lnItem nli
+
+                                    
+                                case loitem of
+                                    KillPill -> do
+                                        forM_ backends ( \(_, be) -> bUnrealize be )
+                                        return False
 #ifdef ENABLE_AGGREGATION
-                            LogObject _ (AggregatedMessage _) -> do
-                                sendMessage nli (filter (/= AggregationBK))
-                                qProc counters
+                                    (AggregatedMessage _) -> do
+                                        when sevGE $ sendMessage nli (filter (/= AggregationBK))
+                                        return True
 #endif
 #ifdef ENABLE_MONITORING
-                            LogObject _ (MonitoringEffect inner) -> do
-                                sendMessage (nli {lnItem = inner}) (filter (/= MonitoringBK))
-                                qProc counters
+                                    (MonitoringEffect inner) -> do
+                                        sendMessage (nli {lnItem = inner}) (filter (/= MonitoringBK))
+                                        return True
 #endif
-                            _ -> sendMessage nli id >> qProc counters
+                                    _ -> do
+                                        when sevGE $ sendMessage nli id
+                                        return True
+                        
+                        res <- mapM processItem nlis
+                        when (and res) $ qProc counters
 
                 Async.async $ qProc countersMVar
         in do
