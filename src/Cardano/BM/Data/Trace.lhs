@@ -16,7 +16,6 @@ module Cardano.BM.Data.Trace
 import           Cardano.BM.BaseTrace
 import           Cardano.BM.Configuration (Configuration)
 import           Cardano.BM.Data.LogItem
-import           Cardano.BM.Data.SubTrace
 \end{code}
 %endif
 
@@ -36,14 +35,12 @@ type TraceNamed m = BaseTrace m (NamedLogItem)
 
 \subsubsection{TraceContext}\label{code:TraceContext}\index{TraceContext}
 \label{code:configuration}\index{TraceContext!configuration}
-\label{code:tracetype}\index{TraceContext!tracetype}
 We keep the context's name and a reference to the |Configuration|
 in the |TraceContext|.
 \begin{code}
 
 data TraceContext = TraceContext
     { configuration :: Configuration
-    , tracetype     :: SubTrace
     }
 
 \end{code}

@@ -65,7 +65,7 @@ in |Cardano.BM|. Central is the |Switchboard| (see Cardano.BM.Output.Switchboard
 that will redirect incoming log messages to selected backends according the
 |Configuration| (see Cardano.BM.Configuration.Model). The log items are created
 in the application's context and passed via a hierarchy of |Trace|s (see
-Cardano.BM.Trace). Such a hierarchy can be built with the function |subTrace|.
+Cardano.BM.Trace). Such a hierarchy can be built with the function |setSubTrace|.
 The newly added child |Trace| will add its name to the logging context and
 behave as configured. Among the different kinds of |Trace|s implemented are
 |NoTrace| which suppresses all log items, |FilterTrace| which filters the
@@ -81,7 +81,7 @@ Output selection determines which log items of a named context are routed to
 which backend. In the case of the |Log| output, this includes a configured
 output sink (e.g. which file). Items that are aggregated lead to the creation
 of an output of their current statistics. To prevent a potential infinite loop
-these aggregation statistics cannot be routed again back into the |Aggregation|. 
+these aggregation statistics cannot be routed again back into the |Aggregation|.
 
 With |Monitoring| we aim to shortcut the logging-analysis cycle and immediately
 evaluate monitors on logged values when they become available. In case a monitor

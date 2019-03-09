@@ -107,11 +107,10 @@ instance IsBackend Aggregation where
 
     realize _ = error "Aggregation cannot be instantiated by 'realize'"
 
-    realizefrom trace0@(ctx,_) _ = do
-        trace <- Trace.subTrace "#aggregation" trace0
+    realizefrom trace@(ctx,_) _ = do
         aggref <- newEmptyMVar
         aggregationQueue <- atomically $ TBQ.newTBQueue 2048
-        dispatcher <- spawnDispatcher (configuration ctx) HM.empty aggregationQueue trace trace0
+        dispatcher <- spawnDispatcher (configuration ctx) HM.empty aggregationQueue trace
         -- link the given Async to the current thread, such that if the Async
         -- raises an exception, that exception will be re-thrown in the current
         -- thread, wrapped in ExceptionInLinkedThread.
@@ -142,10 +141,10 @@ spawnDispatcher :: Configuration
                 -> AggregationMap
                 -> TBQ.TBQueue (Maybe NamedLogItem)
                 -> Trace.Trace IO
-                -> Trace.Trace IO
                 -> IO (Async.Async ())
-spawnDispatcher conf aggMap aggregationQueue trace trace0 = do
+spawnDispatcher conf aggMap aggregationQueue trace0 = do
     now <- getCurrentTime
+    trace <- Trace.appendName "#aggregation" trace0
     let messageCounters = resetCounters now
     countersMVar <- newMVar messageCounters
     _timer <- Async.async $ sendAndResetAfter
@@ -155,18 +154,18 @@ spawnDispatcher conf aggMap aggregationQueue trace trace0 = do
                                 60000   -- 60000 ms = 1 min
                                 Warning -- Debug
 
-    Async.async $ qProc countersMVar aggMap
+    Async.async $ qProc trace countersMVar aggMap
   where
-    qProc counters aggregatedMap = do
+    qProc trace counters aggregatedMap = do
         maybeItem <- atomically $ TBQ.readTBQueue aggregationQueue
         case maybeItem of
             Just (LogNamed logname lo@(LogObject lm _)) -> do
                 (updatedMap, aggregations) <- update lo logname aggregatedMap
                 unless (null aggregations) $
-                    sendAggregated (LogObject lm (AggregatedMessage aggregations)) logname
+                    sendAggregated trace (LogObject lm (AggregatedMessage aggregations)) logname
                 -- increase the counter for the specific severity and message type
                 modifyMVar_ counters $ \cnt -> return $ updateMessageCounters cnt lo
-                qProc counters updatedMap
+                qProc trace counters updatedMap
             Nothing -> return ()
 
     createNupdate name value lme agmap = do
@@ -246,13 +245,13 @@ spawnDispatcher conf aggMap aggregationQueue trace trace0 = do
 
         updateCounters cs lme (logname, msgname) updatedMap (namedAggregated : aggs)
 
-    sendAggregated :: LogObject -> Text -> IO ()
-    sendAggregated aggregatedMsg@(LogObject _ (AggregatedMessage _)) logname = do
+    sendAggregated :: Trace.Trace IO -> LogObject -> Text -> IO ()
+    sendAggregated trace aggregatedMsg@(LogObject _ (AggregatedMessage _)) logname = do
         -- enter the aggregated message into the |Trace|
         trace' <- Trace.appendName logname trace
         liftIO $ Trace.traceNamedObject trace' aggregatedMsg
     -- ingnore every other message
-    sendAggregated _ _ = return ()
+    sendAggregated _ _ _ = return ()
 
 \end{code}
 
