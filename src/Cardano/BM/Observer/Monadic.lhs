@@ -19,16 +19,18 @@ module Cardano.BM.Observer.Monadic
 import           Control.Exception.Safe (MonadCatch, SomeException, catch, throwM)
 import           Control.Monad (forM_)
 import           Control.Monad.IO.Class (MonadIO, liftIO)
+import           Data.Maybe (fromMaybe)
 import           Data.Text
 import           Data.Unique (newUnique)
 
 import           Cardano.BM.Data.Counter (CounterState (..), diffCounters)
 import           Cardano.BM.Data.LogItem (LogObject (..), LOContent (..), mkLOMeta)
 import           Cardano.BM.Data.Severity (Severity)
-import           Cardano.BM.Data.SubTrace (SubTrace (NoTrace))
+import qualified Cardano.BM.Configuration as Config
 import           Cardano.BM.Counters (readCounters)
-import           Cardano.BM.Trace (Trace, logError, logNotice, subTrace, traceNamedObject,
-                     typeofTrace)
+import           Cardano.BM.Data.SubTrace (SubTrace (Neutral, NoTrace))
+import           Cardano.BM.Data.Trace (TraceContext (..))
+import           Cardano.BM.Trace (Trace, logError, logNotice, traceNamedObject)
 \end{code}
 %endif
 
@@ -115,9 +117,9 @@ in a configuration file (YAML) means
 
 \begin{code}
 bracketObserveIO :: Trace IO -> Severity -> Text -> IO t -> IO t
-bracketObserveIO logTrace0 severity name action = do
-    logTrace <- subTrace name logTrace0
-    bracketObserveIO' (typeofTrace logTrace) severity logTrace action
+bracketObserveIO trace@(ctx, _) severity name action = do
+    subTrace <- fromMaybe Neutral <$> Config.findSubTrace (configuration ctx) name
+    bracketObserveIO' subTrace severity trace action
   where
     bracketObserveIO' :: SubTrace -> Severity -> Trace IO -> IO t -> IO t
     bracketObserveIO' NoTrace _ _ act = act
@@ -147,9 +149,9 @@ name of the passed in |Trace|. An empty |Text| leaves
 the logger name untouched.
 \begin{code}
 bracketObserveM :: (MonadCatch m, MonadIO m) => Trace IO -> Severity -> Text -> m t -> m t
-bracketObserveM logTrace0 severity name action = do
-    logTrace <- liftIO $ subTrace name logTrace0
-    bracketObserveM' (typeofTrace logTrace) severity logTrace action
+bracketObserveM trace@(ctx, _) severity name action = do
+    subTrace <- liftIO $ fromMaybe Neutral <$> Config.findSubTrace (configuration ctx) name
+    bracketObserveM' subTrace severity trace action
   where
     bracketObserveM' :: (MonadCatch m, MonadIO m) => SubTrace -> Severity -> Trace IO -> m t -> m t
     bracketObserveM' NoTrace _ _ act = act
@@ -171,7 +173,6 @@ bracketObserveM logTrace0 severity name action = do
                         Left ex -> liftIO (logNotice logTrace ("ObserveClose: " <> pack (show ex)))
                         _ -> pure ()
         pure t
-
 
 \end{code}
 

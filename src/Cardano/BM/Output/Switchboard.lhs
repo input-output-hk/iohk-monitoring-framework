@@ -42,10 +42,11 @@ import           Cardano.BM.Data.MessageCounter (resetCounters, sendAndResetAfte
                      updateMessageCounters)
 import           Cardano.BM.Data.Trace (TraceNamed, TraceContext (..))
 import           Cardano.BM.Data.Severity
+import           Cardano.BM.Data.SubTrace (SubTrace (..))
 import qualified Cardano.BM.Output.Log
+import           Cardano.BM.Trace (evalFilters)
 
 #ifdef ENABLE_AGGREGATION
-import           Cardano.BM.Data.SubTrace
 import qualified Cardano.BM.Output.Aggregation
 #endif
 
@@ -158,7 +159,6 @@ instance IsBackend Switchboard where
                             then putStrLn "Error: Switchboard's queue full, dropping log items!"
                             else atomically $ TBQ.writeTBQueue q lognamed
                     ctx = TraceContext { configuration = cfg
-                                       , tracetype = Neutral
                                        }
                 _timer <- Async.async $ sendAndResetAfter
                                             (ctx, traceInQueue queue)
@@ -179,7 +179,7 @@ instance IsBackend Switchboard where
                                       r <- TBQ.flushTBQueue queue
                                       when (null r) retry
                                       return r
-                        
+
                         let processItem nli = do
                                 let (LogObject lometa loitem) = lnItem nli
                                     loname = lnName nli
@@ -193,27 +193,49 @@ instance IsBackend Switchboard where
                                 -- do not count again messages that contain the results of message counters
                                 when (loname /= "#messagecounters.switchboard") $
                                     -- increase the counter for the specific severity
-                                    modifyMVar_ counters $ \cnt -> return $ updateMessageCounters cnt $ lnItem nli
+                                    modifyMVar_ counters $
+                                        \cnt -> return $ updateMessageCounters cnt $ lnItem nli
 
-                                    
+                                subtrace <- fromMaybe Neutral <$> Config.findSubTrace (configuration ctx) loname
+                                case subtrace of
+                                    TeeTrace secName ->
+                                        atomically $ TBQ.writeTBQueue queue $ nli{ lnName = secName }
+                                    _ -> return ()
+
+                                let doOutput = case subtrace of
+                                        FilterTrace filters ->
+                                            case loitem of
+                                                LogValue name _ ->
+                                                    evalFilters filters (loname <> "." <> name)
+                                                _ ->
+                                                    evalFilters filters loname
+                                        DropOpening -> case loitem of
+                                                        ObserveOpen _ -> False
+                                                        _             -> True
+                                        NoTrace     -> False
+                                        _           -> True
+
                                 case loitem of
                                     KillPill -> do
                                         forM_ backends ( \(_, be) -> bUnrealize be )
                                         return False
 #ifdef ENABLE_AGGREGATION
                                     (AggregatedMessage _) -> do
-                                        when sevGE $ sendMessage nli (filter (/= AggregationBK))
+                                        when (sevGE && doOutput) $
+                                            sendMessage nli (filter (/= AggregationBK))
                                         return True
 #endif
 #ifdef ENABLE_MONITORING
                                     (MonitoringEffect inner) -> do
-                                        sendMessage (nli {lnItem = inner}) (filter (/= MonitoringBK))
+                                        when (sevGE && doOutput) $
+                                            sendMessage (nli {lnItem = inner}) (filter (/= MonitoringBK))
                                         return True
 #endif
                                     _ -> do
-                                        when sevGE $ sendMessage nli id
+                                        when (sevGE && doOutput) $
+                                            sendMessage nli id
                                         return True
-                        
+
                         res <- mapM processItem nlis
                         when (and res) $ qProc counters
 
@@ -265,7 +287,6 @@ setupBackend' SwitchboardBK _ _ = error "cannot instantiate a further Switchboar
 #ifdef ENABLE_MONITORING
 setupBackend' MonitoringBK c sb = do
     let ctx   = TraceContext { configuration = c
-                             , tracetype = Neutral
                              }
         trace = mainTraceConditionally ctx sb
 
@@ -282,7 +303,6 @@ setupBackend' MonitoringBK _ _ =
 #ifdef ENABLE_EKG
 setupBackend' EKGViewBK c sb = do
     let ctx   = TraceContext { configuration = c
-                             , tracetype = Neutral
                              }
         trace = mainTraceConditionally ctx sb
 
@@ -299,7 +319,6 @@ setupBackend' EKGViewBK _ _ =
 #ifdef ENABLE_AGGREGATION
 setupBackend' AggregationBK c sb = do
     let ctx   = TraceContext { configuration = c
-                             , tracetype = Neutral
                              }
         trace = mainTraceConditionally ctx sb
 

@@ -42,7 +42,6 @@ import           Cardano.BM.Data.Aggregated
 import           Cardano.BM.Data.Backend
 import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.Severity
-import           Cardano.BM.Data.SubTrace
 import           Cardano.BM.Data.Trace
 import qualified Cardano.BM.Trace as Trace
 
@@ -78,9 +77,8 @@ ekgTrace :: EKGView -> Configuration -> IO (Trace IO)
 ekgTrace ekg c = do
     let trace = ekgTrace' ekg
         ctx   = TraceContext { configuration = c
-                             , tracetype = Neutral
                              }
-    Trace.subTrace "#ekgview" (ctx,trace)
+    Trace.appendName "#ekgview" (ctx, trace)
   where
     ekgTrace' :: EKGView -> TraceNamed IO
     ekgTrace' ekgview = BaseTrace.BaseTrace $ Op $ \(LogNamed lognamed lo) -> do

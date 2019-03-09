@@ -15,13 +15,16 @@ module Cardano.BM.Observer.STM
 import           Control.Exception.Safe (SomeException, catch, throwM)
 import qualified Control.Monad.STM as STM
 
+import           Data.Maybe (fromMaybe)
 import           Data.Text
 
+import qualified Cardano.BM.Configuration as Config
 import           Cardano.BM.Data.LogItem (LogObject)
 import           Cardano.BM.Data.SubTrace
-import           Cardano.BM.Observer.Monadic (observeClose, observeOpen)
 import           Cardano.BM.Data.Severity (Severity)
-import           Cardano.BM.Trace (Trace, logError, logNotice, subTrace, typeofTrace)
+import           Cardano.BM.Data.Trace (TraceContext (..))
+import           Cardano.BM.Observer.Monadic (observeClose, observeOpen)
+import           Cardano.BM.Trace (Trace, logError, logNotice)
 
 \end{code}
 %endif
@@ -37,10 +40,9 @@ With given name, create a |SubTrace| according to |Configuration|
 and run the passed |STM| action on it.
 \begin{code}
 bracketObserveIO :: Trace IO -> Severity -> Text -> STM.STM t -> IO t
-bracketObserveIO logTrace0 severity name action = do
-    logTrace <- subTrace name logTrace0
-    let subtrace = typeofTrace logTrace
-    bracketObserveIO' subtrace severity logTrace action
+bracketObserveIO trace@(ctx, _) severity name action = do
+    subTrace <- fromMaybe Neutral <$> Config.findSubTrace (configuration ctx) name
+    bracketObserveIO' subTrace severity trace action
   where
     bracketObserveIO' :: SubTrace -> Severity -> Trace IO -> STM.STM t -> IO t
     bracketObserveIO' NoTrace _ _ act =
@@ -70,10 +72,9 @@ The |STM| action might output messages, which after "success" will be forwarded 
 Otherwise, this function behaves the same as \nameref{code:bracketObserveIO}.
 \begin{code}
 bracketObserveLogIO :: Trace IO -> Severity -> Text -> STM.STM (t,[LogObject]) -> IO t
-bracketObserveLogIO logTrace0 severity name action = do
-    logTrace <- subTrace name logTrace0
-    let subtrace = typeofTrace logTrace
-    bracketObserveLogIO' subtrace severity logTrace action
+bracketObserveLogIO trace@(ctx, _) severity name action = do
+    subTrace <- fromMaybe Neutral <$> Config.findSubTrace (configuration ctx) name
+    bracketObserveLogIO' subTrace severity trace action
   where
     bracketObserveLogIO' :: SubTrace -> Severity -> Trace IO -> STM.STM (t,[LogObject]) -> IO t
     bracketObserveLogIO' NoTrace _ _ act = do

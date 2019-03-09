@@ -183,7 +183,7 @@ config = do
 randomThr :: Trace IO -> IO (Async.Async ())
 randomThr trace = do
   logInfo trace "starting random generator"
-  trace' <- subTrace "random" trace
+  trace' <- appendName "random" trace
   proc <- Async.async (loop trace')
   return proc
   where
@@ -270,7 +270,7 @@ observeDownload trace = do
 msgThr :: Trace IO -> IO (Async.Async ())
 msgThr trace = do
   logInfo trace "start messaging .."
-  trace' <- subTrace "message" trace
+  trace' <- appendName "message" trace
   Async.async (loop trace')
   where
     loop tr = do
@@ -314,14 +314,14 @@ main = do
     procObsvIO <- observeIO tr
 #endif
 #endif
-#ifdef RUN_ProcObseverSTM 
+#ifdef RUN_ProcObseverSTM
     -- start threads endlessly observing STM actions operating on the same TVar
 #ifdef ENABLE_OBSERVABLES
     procObsvSTMs <- observeSTM tr
 #endif
 #endif
 #ifdef LINUX
-#ifdef RUN_ProcObseveDownload 
+#ifdef RUN_ProcObseveDownload
     -- start thread endlessly which downloads sth in order to check the I/O usage
 #ifdef ENABLE_OBSERVABLES
     procObsvDownload <- observeDownload tr
@@ -337,14 +337,14 @@ main = do
 #endif
 
 #ifdef LINUX
-#ifdef RUN_ProcObseveDownload 
+#ifdef RUN_ProcObseveDownload
     -- wait for download thread to finish, ignoring any exception
 #ifdef ENABLE_OBSERVABLES
     _ <- Async.waitCatch procObsvDownload
 #endif
 #endif
 #endif
-#ifdef RUN_ProcObseverSTM 
+#ifdef RUN_ProcObseverSTM
     -- wait for observer thread to finish, ignoring any exception
 #ifdef ENABLE_OBSERVABLES
     _ <- forM procObsvSTMs Async.waitCatch
