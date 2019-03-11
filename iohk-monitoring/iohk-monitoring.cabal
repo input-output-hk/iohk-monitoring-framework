@@ -65,6 +65,7 @@ library
                        Cardano.BM.Data.Trace
 
                        Cardano.BM.Output.Log
+                       Cardano.BM.Output.LogBuffering
                        Cardano.BM.Output.Switchboard
                        Cardano.BM.Rotator
                        Cardano.BM.Setup
