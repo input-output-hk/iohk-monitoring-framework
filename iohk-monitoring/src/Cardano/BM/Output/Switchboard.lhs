@@ -49,6 +49,7 @@ import           Cardano.BM.Data.SubTrace (SubTrace (..))
 import qualified Cardano.BM.Output.Log
 import           Cardano.BM.Trace (evalFilters)
 import           Cardano.BM.Tracer.Class (Tracer)
+import qualified Cardano.BM.Output.LogBuffering
 
 #ifdef ENABLE_AGGREGATION
 import qualified Cardano.BM.Output.Aggregation
@@ -326,5 +327,13 @@ setupBackend' KatipBK c _ = do
       { bEffectuate = Cardano.BM.Output.Log.effectuate be
       , bUnrealize = Cardano.BM.Output.Log.unrealize be
       }
-
+setupBackend' LogBufferingBK c sb = do
+    let ctx   = TraceContext { configuration = c
+                             }
+        trace = mainTraceConditionally ctx sb
+    be :: Cardano.BM.Output.LogBuffering.LogBuffer <- Cardano.BM.Output.LogBuffering.realizefrom (ctx, trace) sb
+    return MkBackend
+      { bEffectuate = Cardano.BM.Output.LogBuffering.effectuate be
+      , bUnrealize = Cardano.BM.Output.LogBuffering.unrealize be
+      }
 \end{code}
