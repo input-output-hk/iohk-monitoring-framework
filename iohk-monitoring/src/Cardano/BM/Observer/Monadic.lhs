@@ -216,10 +216,10 @@ observeClose subtrace sev logTrace initState logObjects = (do
         mle <- mkLOMeta sev Confidential
         -- send closing message to Trace
         traceNamedObject logTrace $
-            (mle, (ObserveClose (CounterState identifier counters)))
+            (mle, ObserveClose (CounterState identifier counters))
         -- send diff message to Trace
         traceNamedObject logTrace $
-            (mle, (ObserveDiff (CounterState identifier (diffCounters initialCounters counters))))
+            (mle, ObserveDiff (CounterState identifier (diffCounters initialCounters counters)))
     -- trace the messages gathered from inside the action
     forM_ logObjects $ traceNamedObject logTrace
     return (Right ())) `catch` (return . Left)

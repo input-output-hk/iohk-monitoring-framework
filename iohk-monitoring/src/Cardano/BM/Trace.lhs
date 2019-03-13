@@ -241,7 +241,7 @@ traceNamedItem
 traceNamedItem trace p s m =
     traceNamedObject trace =<<
         (,) <$> liftIO (mkLOMeta s p)
-                  <*> pure (LogMessage m)
+            <*> pure (LogMessage m)
 
 \end{code}
 
