@@ -90,8 +90,8 @@ sendAndReset trace counters sev = do
 
     lometa <- mkLOMeta sev Confidential
     forM_ (HM.toList $ mcCountersMap counters) $ \(key, count) ->
-        Trace.traceNamedObject trace $ (lometa, LogValue (pack key) (PureI $ toInteger count))
-    Trace.traceNamedObject trace $ (lometa, LogValue "time_interval_(s)" (PureI diffTime))
+        Trace.traceNamedObject trace (lometa, LogValue (pack key) (PureI $ toInteger count))
+    Trace.traceNamedObject trace (lometa, LogValue "time_interval_(s)" (PureI diffTime))
     return $ resetCounters now
 
 \end{code}

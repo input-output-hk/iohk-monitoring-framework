@@ -22,11 +22,12 @@ module Cardano.BM.Data.Tracer
      , example3
      , example4
      , example5
+     , example6
     ) where
 
 import           Control.Monad (void)
 import           Data.Functor.Contravariant (Op (..))
-import           Data.Text (Text, pack, unpack)
+import           Data.Text (Text, unpack)
 
 import           Cardano.BM.Data.LogItem (LogNamed (..), LoggerName,
                      NamedLogItem, LogObject (..), LOContent (..),
@@ -65,9 +66,15 @@ appendNamed :: LoggerName -> Tracer m (LogNamed a) -> Tracer m (LogNamed a)
 appendNamed name = contramap $ (\(LogNamed oldName item) ->
     LogNamed (name <> "." <> oldName) item)
 
+\end{code}
+
+Add a new name to the logging context
+\begin{code}
 appendNamed' :: LoggerName -> Tracer m (LogObject a) -> Tracer m (LogObject a)
 appendNamed' name = contramap $ (\(LogObject oldName meta item) ->
-    LogObject (name <> "." <> oldName) meta item)
+    if oldName == ""
+    then LogObject name meta item
+    else LogObject (name <> "." <> oldName) meta item)
 
 \end{code}
 
@@ -127,11 +134,11 @@ callFun3 logTrace = do
 A |Tracer| transformer creating a |LogObject| from |PrivacyAndSeverityAnnotated|.
 \begin{code}
 logObjectFromAnnotated :: Show a
-    => Tracer IO (LogObject Text)
+    => Tracer IO (LogObject a)
     -> Tracer IO (PrivacyAndSeverityAnnotated a)
 logObjectFromAnnotated (Tracer (Op tr)) = Tracer $ Op $ \(PSA sev priv a) -> do
     lometa <- mkLOMeta sev priv
-    tr $ LogObject "" lometa (LogMessage $ pack $ show a)
+    tr $ LogObject "" lometa (LogMessage a)
 
 \end{code}
 
@@ -147,16 +154,16 @@ example3 = do
 \end{code}
 
 \begin{code}
-filterAppendNameTracing' :: Monad m
+filterAppendNameTracing :: Monad m
     => m (LogNamed a -> Bool)
     -> LoggerName
     -> Tracer m (LogNamed a)
     -> Tracer m (LogNamed a)
-filterAppendNameTracing' test name = (appendNamed name) . (condTracingM test)
+filterAppendNameTracing test name = (appendNamed name) . (condTracingM test)
 
 example4 :: IO ()
 example4 = do
-    let appendF = filterAppendNameTracing' oracle
+    let appendF = filterAppendNameTracing oracle
         logTrace = appendF "example4" (renderNamedItemTracing stdoutTracer)
 
     tracingWith (named logTrace) ("Hello" :: String)
@@ -188,5 +195,29 @@ example5 = do
   where
     oracle :: Monad m => m (PrivacyAndSeverityAnnotated a -> Bool)
     oracle = return $ \(PSA sev _priv _) -> (sev > Debug)
+
+-- test for combined name and severity
+example6 :: IO ()
+example6 = do
+    let logTrace0 =  -- the basis, will output using the local renderer to stdout
+            appendNamed' "test6" $ renderNamedItemTracing' stdoutTracer
+        logTrace1 =  -- the trace from |Privacy...Annotated| to |LogObject|
+            condTracingM oracleSev $ logObjectFromAnnotated $ logTrace0
+        logTrace2 =
+            appendNamed' "row" $ condTracingM oracleName $ logTrace0
+        logTrace3 =  -- oracle should eliminate messages from this trace
+            appendNamed' "raw" $ condTracingM oracleName $ logTrace0
+
+    tracingWith logTrace1 $ PSA Debug Confidential ("Hello" :: String)
+    tracingWith logTrace1 $ PSA Warning Public "World"
+    lometa <- mkLOMeta Info Public
+    tracingWith logTrace2 $ LogObject "" lometa (LogMessage ", RoW!")
+    tracingWith logTrace3 $ LogObject "" lometa (LogMessage ", RoW!")
+
+  where
+    oracleSev :: Monad m => m (PrivacyAndSeverityAnnotated a -> Bool)
+    oracleSev = return $ \(PSA sev _priv _) -> (sev > Debug)
+    oracleName :: Monad m => m (LogObject a -> Bool)
+    oracleName = return $ \(LogObject name _ _) -> (name == "row")  -- we only see the names from us to the leaves
 
 \end{code}

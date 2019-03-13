@@ -252,8 +252,7 @@ spawnDispatcher conf aggMap aggregationQueue trace0 = do
     sendAggregated trace (LogObject logname meta v@(AggregatedMessage _)) = do
         -- enter the aggregated message into the |Trace|
         trace' <- Trace.appendName logname trace
-        let aggregatedMsg = (meta, v)
-        liftIO $ Trace.traceNamedObject trace' aggregatedMsg
+        liftIO $ Trace.traceNamedObject trace' (meta, v)
     -- ingnore every other message
     sendAggregated _ _ = return ()
 
