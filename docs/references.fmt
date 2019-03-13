@@ -118,7 +118,6 @@
 %format Cardano.BM.Data.Output = "\hyperref[code:Cardano.BM.Data.Output]{Cardano.BM.Data.Output}"
 %format OutputKind = "\hyperref[code:OutputKind]{OutputKind}"
 %format TVarList = "\hyperref[code:TVarList]{TVarList}"
-%format TVarListNamed = "\hyperref[code:TVarListNamed]{TVarListNamed}"
 %format ScribeKind = "\hyperref[code:ScribeKind]{ScribeKind}"
 %format ScribeId = "\hyperref[code:ScribeId]{ScribeId}"
 %format ScribePrivacy = "\hyperref[code:ScribePrivacy]{ScribePrivacy}"

@@ -47,7 +47,7 @@ data MessageCounter = MessageCounter
 Update counter for specific severity and type of message.
 \begin{code}
 updateMessageCounters :: (Show a) => MessageCounter -> LogObject a -> MessageCounter
-updateMessageCounters mc (LogObject meta content) =
+updateMessageCounters mc (LogObject _ meta content) =
     let sev = show $ severity meta
         messageType = head $ words $ show content
         increasedCounter key cmap =
@@ -90,8 +90,8 @@ sendAndReset trace counters sev = do
 
     lometa <- mkLOMeta sev Confidential
     forM_ (HM.toList $ mcCountersMap counters) $ \(key, count) ->
-        Trace.traceNamedObject trace $ LogObject lometa $ LogValue (pack key) (PureI $ toInteger count)
-    Trace.traceNamedObject trace $ LogObject lometa $ LogValue "time_interval_(s)" (PureI diffTime)
+        Trace.traceNamedObject trace $ (lometa, LogValue (pack key) (PureI $ toInteger count))
+    Trace.traceNamedObject trace $ (lometa, LogValue "time_interval_(s)" (PureI diffTime))
     return $ resetCounters now
 
 \end{code}

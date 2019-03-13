@@ -42,7 +42,7 @@ type LoggerName = Text
 
 \subsubsection{NamedLogItem}\label{code:NamedLogItem}\index{NamedLogItem}
 \begin{code}
-type NamedLogItem a = LogNamed (LogObject a)
+type NamedLogItem a = LogObject a
 
 \end{code}
 
@@ -66,7 +66,11 @@ deriving instance (ToJSON item, Generic item) => ToJSON (LogNamed item)
 \label{code:LOContent}\index{LOContent}
 
 \begin{code}
-data LogObject a = LogObject LOMeta (LOContent a)
+data LogObject a = LogObject
+                    { loName    :: LoggerName
+                    , loMeta    :: !LOMeta
+                    , loContent :: (LOContent a)
+                    }
                    deriving (Generic, Show, ToJSON)
 
 \end{code}
@@ -86,7 +90,11 @@ data LOMeta = LOMeta {
 
 instance ToJSON LOMeta where
     toJSON (LOMeta _tstamp _tid _sev _priv) =
-        object ["tstamp" .= _tstamp, "tid" .= show _tid , "severity" .= show _sev, "privacy" .= show _priv]
+        object [ "tstamp"   .= _tstamp
+               , "tid"      .= show _tid
+               , "severity" .= show _sev
+               , "privacy"  .= show _priv
+               ]
 
 mkLOMeta :: Severity -> PrivacyAnnotation -> IO LOMeta
 mkLOMeta sev priv =

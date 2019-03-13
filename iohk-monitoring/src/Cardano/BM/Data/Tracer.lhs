@@ -4,8 +4,7 @@
 
 %if style == newcode
 \begin{code}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE InstanceSigs      #-}
+{-# LANGUAGE InstanceSigs #-}
 
 module Cardano.BM.Data.Tracer
     ( Tracer (..)
@@ -19,9 +18,10 @@ module Cardano.BM.Data.Tracer
     , condTracing
     , condTracingM
     -- * examples
-    , example2
-    , example3
-    , example4
+     , example2
+     , example3
+     , example4
+     , example5
     ) where
 
 import           Control.Monad (void)
@@ -40,13 +40,17 @@ import           Cardano.BM.Tracer.Transformers
 \end{code}
 %endif
 
-This module extends the basic |Tracer| with one that keeps a list of 
+This module extends the basic |Tracer| with one that keeps a list of
 
 \begin{code}
 
-renderNamedItemTracing :: Show a => Tracer m String -> Tracer m (NamedLogItem a)
+renderNamedItemTracing :: Show a => Tracer m String -> Tracer m (LogNamed a)
 renderNamedItemTracing = contramap $ \item ->
     unpack (lnName item) ++ ": " ++ show (lnItem item)
+
+renderNamedItemTracing' :: Show a => Tracer m String -> Tracer m (NamedLogItem a)
+renderNamedItemTracing' = contramap $ \item ->
+    unpack (loName item) ++ ": " ++ show (loContent item) ++ ", (meta): " ++ show (loMeta item)
 
 \end{code}
 
@@ -61,6 +65,10 @@ appendNamed :: LoggerName -> Tracer m (LogNamed a) -> Tracer m (LogNamed a)
 appendNamed name = contramap $ (\(LogNamed oldName item) ->
     LogNamed (name <> "." <> oldName) item)
 
+appendNamed' :: LoggerName -> Tracer m (LogObject a) -> Tracer m (LogObject a)
+appendNamed' name = contramap $ (\(LogObject oldName meta item) ->
+    LogObject (name <> "." <> oldName) meta item)
+
 \end{code}
 
 The function |toLogObject| can be specialized for various environments
@@ -70,10 +78,11 @@ class Monad m => ToLogObject m where
 
 instance ToLogObject IO where
     toLogObject :: Tracer IO (LogObject a) -> Tracer IO a
-    toLogObject (Tracer (Op tr)) = Tracer $ Op $ \a -> do
-        lo <- LogObject <$> (mkLOMeta Debug Public)
+    toLogObject tr = Tracer $ Op $ \a -> do
+        lo <- LogObject <$> pure ""
+                        <*> (mkLOMeta Debug Public)
                         <*> pure (LogMessage a)
-        tr lo
+        tracingWith tr lo
 
 \end{code}
 
@@ -81,8 +90,9 @@ instance ToLogObject IO where
 To be placed in ouroboros-network.
 
 instance (MonadFork m, MonadTimer m) => ToLogObject m where
-    toLogObject (Tracer tr) = Tracer $ \a -> do
-        lo <- LogObject <$> (LOMeta <$> getMonotonicTime  -- must be evaluated at the calling site
+    toLogObject (Tracer (Op tr) = Tracer $ Op $ \a -> do
+        lo <- LogObject <$> pure ""
+                        <*> (LOMeta <$> getMonotonicTime  -- must be evaluated at the calling site
                                     <*> (pack . show <$> myThreadId)
                                     <*> pure Debug
                                     <*> pure Public)
@@ -93,23 +103,23 @@ instance (MonadFork m, MonadTimer m) => ToLogObject m where
 
 \begin{code}
 tracingNamed :: Show a => Tracer IO (NamedLogItem a) -> Tracer IO a
-tracingNamed = toLogObject . named
+tracingNamed = toLogObject
 
 example2 :: IO ()
 example2 = do
-    let logTrace = appendNamed "example2" (renderNamedItemTracing stdoutTracer)
+    let logTrace = appendNamed' "example2" (renderNamedItemTracing' stdoutTracer)
 
     void $ callFun2 logTrace
 
-callFun2 :: Tracer IO (LogNamed (LogObject Text)) -> IO Int
+callFun2 :: Tracer IO (LogObject Text) -> IO Int
 callFun2 logTrace = do
-    let logTrace' = appendNamed "fun2" logTrace
+    let logTrace' = appendNamed' "fun2" logTrace
     tracingWith (tracingNamed logTrace') "in function 2"
     callFun3 logTrace'
 
-callFun3 :: Tracer IO (LogNamed (LogObject Text)) -> IO Int
+callFun3 :: Tracer IO (LogObject Text) -> IO Int
 callFun3 logTrace = do
-    tracingWith (tracingNamed (appendNamed "fun3" logTrace)) "in function 3"
+    tracingWith (tracingNamed (appendNamed' "fun3" logTrace)) "in function 3"
     return 42
 
 \end{code}
@@ -121,7 +131,7 @@ logObjectFromAnnotated :: Show a
     -> Tracer IO (PrivacyAndSeverityAnnotated a)
 logObjectFromAnnotated (Tracer (Op tr)) = Tracer $ Op $ \(PSA sev priv a) -> do
     lometa <- mkLOMeta sev priv
-    tr $ LogObject lometa (LogMessage $ pack $ show a)
+    tr $ LogObject "" lometa (LogMessage $ pack $ show a)
 
 \end{code}
 
@@ -129,7 +139,7 @@ logObjectFromAnnotated (Tracer (Op tr)) = Tracer $ Op $ \(PSA sev priv a) -> do
 example3 :: IO ()
 example3 = do
     let logTrace =
-            logObjectFromAnnotated $ named $ appendNamed "example3" $ renderNamedItemTracing stdoutTracer
+            logObjectFromAnnotated $ appendNamed' "example3" $ renderNamedItemTracing' stdoutTracer
 
     tracingWith logTrace $ PSA Info Confidential ("Hello" :: String)
     tracingWith logTrace $ PSA Warning Public "World"
@@ -149,15 +159,34 @@ example4 = do
     let appendF = filterAppendNameTracing' oracle
         logTrace = appendF "example4" (renderNamedItemTracing stdoutTracer)
 
-    tracingWith (tracingNamed logTrace) ("Hello" :: String)
+    tracingWith (named logTrace) ("Hello" :: String)
 
     let logTrace' = appendF "inner" logTrace
-    tracingWith (tracingNamed logTrace') "World"
+    tracingWith (named logTrace') "World"
 
     let logTrace'' = appendF "innest" logTrace'
-    tracingWith (tracingNamed logTrace'') "!!"
+    tracingWith (named logTrace'') "!!"
   where
     oracle :: Monad m => m (LogNamed a -> Bool)
     oracle = return $ ((/=) "example4.inner.") . lnName
+
+\end{code}
+
+\begin{code}
+
+-- severity anotated
+example5 :: IO ()
+example5 = do
+    let logTrace =
+            condTracingM oracle $
+                logObjectFromAnnotated $
+                    appendNamed' "test5" $ renderNamedItemTracing' stdoutTracer
+
+    tracingWith logTrace $ PSA Debug Confidential ("Hello"::String)
+    tracingWith logTrace $ PSA Warning Public "World"
+
+  where
+    oracle :: Monad m => m (PrivacyAndSeverityAnnotated a -> Bool)
+    oracle = return $ \(PSA sev _priv _) -> (sev > Debug)
 
 \end{code}
