@@ -13,9 +13,7 @@ module Cardano.BM.Trace
     , BaseTrace.noTrace
     , traceInTVar
     , traceInTVarIO
-    , traceNamedInTVarIO
     , traceInTVarIOConditionally
-    , traceNamedInTVarIOConditionally
     -- * context naming
     , appendName
     , modifyName
@@ -103,14 +101,14 @@ modifyNameBase
     -> TraceNamed m a
 modifyNameBase k = contramap f
   where
-    f (LogNamed name item) = LogNamed (k name) item
+    f (LogObject name meta item) = LogObject (k name) meta item
 
 \end{code}
 
 \subsubsection{Contramap a trace and produce the naming context}
 \begin{code}
-named :: BaseTrace.BaseTrace m (LogNamed i) -> BaseTrace.BaseTrace m i
-named = contramap (LogNamed mempty)
+named :: BaseTrace.BaseTrace m (LogObject a) -> BaseTrace.BaseTrace m (LOMeta, LOContent a)
+named = contramap $ uncurry (LogObject mempty)
 
 \end{code}
 
@@ -120,7 +118,7 @@ named = contramap (LogNamed mempty)
 traceNamedObject
     :: MonadIO m
     => Trace m a
-    -> LogObject a
+    -> (LOMeta, LOContent a)
     -> m ()
 traceNamedObject (_, logTrace) lo =
     BaseTrace.traceWith (named logTrace) lo
@@ -169,7 +167,7 @@ locallock = unsafePerformIO $ newMVar ()
 
 \begin{code}
 stdoutTrace :: TraceNamed IO T.Text
-stdoutTrace = BaseTrace.BaseTrace $ Op $ \(LogNamed logname (LogObject _ lc)) ->
+stdoutTrace = BaseTrace.BaseTrace $ Op $ \(LogObject logname _ lc) ->
     withMVar locallock $ \_ ->
         case lc of
             (LogMessage logItem) ->
@@ -182,7 +180,7 @@ stdoutTrace = BaseTrace.BaseTrace $ Op $ \(LogNamed logname (LogObject _ lc)) ->
 \end{code}
 
 
-\subsubsection{Concrete Trace into a |TVar|}\label{code:traceInTVar}\label{code:traceInTVarIO}\index{traceInTVar}\index{traceInTVarIO}\label{code:traceNamedInTVarIO}\index{traceNamedInTVarIO}
+\subsubsection{Concrete Trace into a |TVar|}\label{code:traceInTVar}\label{code:traceInTVarIO}\index{traceInTVar}\index{traceInTVarIO}
 
 \begin{code}
 traceInTVar :: STM.TVar [a] -> BaseTrace.BaseTrace STM.STM a
@@ -190,34 +188,11 @@ traceInTVar tvar = BaseTrace.BaseTrace $ Op $ \a -> STM.modifyTVar tvar ((:) a)
 
 traceInTVarIO :: STM.TVar [LogObject a] -> TraceNamed IO a
 traceInTVarIO tvar = BaseTrace.BaseTrace $ Op $ \ln ->
-                         STM.atomically $ STM.modifyTVar tvar ((:) (lnItem ln))
-
-traceNamedInTVarIO :: STM.TVar [LogNamed (LogObject a)] -> TraceNamed IO a
-traceNamedInTVarIO tvar = BaseTrace.BaseTrace $ Op $ \ln ->
                          STM.atomically $ STM.modifyTVar tvar ((:) ln)
 
 traceInTVarIOConditionally :: STM.TVar [LogObject a] -> TraceContext -> TraceNamed IO a
 traceInTVarIOConditionally tvar ctx =
-    BaseTrace.BaseTrace $ Op $ \item@(LogNamed loggername (LogObject meta _)) -> do
-        let conf = configuration ctx
-        globminsev  <- Config.minSeverity conf
-        globnamesev <- Config.inspectSeverity conf loggername
-        let minsev = max globminsev $ fromMaybe Debug globnamesev
-
-        subTrace <- fromMaybe Neutral <$> Config.findSubTrace conf loggername
-        let doOutput = subtraceOutput subTrace item
-
-        when ((severity meta) >= minsev && doOutput) $
-            STM.atomically $ STM.modifyTVar tvar ((:) (lnItem item))
-
-        case subTrace of
-            TeeTrace _ ->
-                STM.atomically $ STM.modifyTVar tvar ((:) (lnItem item))
-            _ -> return ()
-
-traceNamedInTVarIOConditionally :: STM.TVar [LogNamed (LogObject a)] -> TraceContext -> TraceNamed IO a
-traceNamedInTVarIOConditionally tvar ctx =
-    BaseTrace.BaseTrace $ Op $ \item@(LogNamed loggername (LogObject meta _)) -> do
+    BaseTrace.BaseTrace $ Op $ \item@(LogObject loggername meta _) -> do
         let conf = configuration ctx
         globminsev  <- Config.minSeverity conf
         globnamesev <- Config.inspectSeverity conf loggername
@@ -231,11 +206,11 @@ traceNamedInTVarIOConditionally tvar ctx =
 
         case subTrace of
             TeeTrace secName ->
-                STM.atomically $ STM.modifyTVar tvar ((:) item{ lnName = secName })
+                STM.atomically $ STM.modifyTVar tvar ((:) item{ loName = secName })
             _ -> return ()
 
 subtraceOutput :: SubTrace -> NamedLogItem a -> Bool
-subtraceOutput subTrace (LogNamed loname (LogObject _ loitem)) =
+subtraceOutput subTrace (LogObject loname _ loitem) =
     case subTrace of
         FilterTrace filters ->
             case loitem of
@@ -265,7 +240,7 @@ traceNamedItem
     -> m ()
 traceNamedItem trace p s m =
     traceNamedObject trace =<<
-        LogObject <$> liftIO (mkLOMeta s p)
+        (,) <$> liftIO (mkLOMeta s p)
                   <*> pure (LogMessage m)
 
 \end{code}

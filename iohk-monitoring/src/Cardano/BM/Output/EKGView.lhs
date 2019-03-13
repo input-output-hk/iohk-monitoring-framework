@@ -84,7 +84,7 @@ ekgTrace ekg c = do
     Trace.appendName "#ekgview" (ctx, trace)
   where
     ekgTrace' :: Show a => EKGView a -> TraceNamed IO a
-    ekgTrace' ekgview = BaseTrace.BaseTrace $ Op $ \(LogNamed lognamed lo) -> do
+    ekgTrace' ekgview = BaseTrace.BaseTrace $ Op $ \lo@(LogObject loname _ _) -> do
         let setlabel :: Text -> Text -> EKGViewInternal a -> IO (Maybe (EKGViewInternal a))
             setlabel name label ekg_i@(EKGViewInternal _ labels server) =
                 case HM.lookup name labels of
@@ -96,25 +96,25 @@ ekgTrace ekg c = do
                         Label.set ekghdl label
                         return Nothing
 
-            update :: Show a => LogObject a -> LoggerName -> EKGViewInternal a -> IO (Maybe (EKGViewInternal a))
-            update (LogObject _ (LogMessage logitem)) logname ekg_i =
+            update :: Show a => LogObject a -> EKGViewInternal a -> IO (Maybe (EKGViewInternal a))
+            update (LogObject logname _ (LogMessage logitem)) ekg_i =
                 setlabel logname (pack $ show logitem) ekg_i
-            update (LogObject _ (LogValue iname value)) logname ekg_i =
+            update (LogObject logname _ (LogValue iname value)) ekg_i =
                 let logname' = logname <> "." <> iname
                 in
                 setlabel logname' (pack $ show value) ekg_i
 
-            update _ _ _ = return Nothing
+            update _ _ = return Nothing
 
         modifyMVar_ (getEV ekgview) $ \ekgup -> do
             let -- strip off some prefixes not necessary for display
-                lognam1 = case stripPrefix "#ekgview.#aggregation." lognamed of
-                        Nothing -> lognamed
+                lognam1 = case stripPrefix "#ekgview.#aggregation." loname of
+                        Nothing -> loname
                         Just ln' -> ln'
                 logname = case stripPrefix "#ekgview." lognam1 of
                         Nothing -> lognam1
                         Just ln' -> ln'
-            upd <- update lo logname ekgup
+            upd <- update lo{ loName = logname } ekgup
             case upd of
                 Nothing     -> return ekgup
                 Just ekgup' -> return ekgup'
@@ -134,30 +134,29 @@ instance IsEffectuator EKGView a where
                         if nocapacity
                         then handleOverflow ekgview
                         else atomically $ TBQ.writeTBQueue (evQueue ekg) (Just a)
-        case (lnItem item) of
-            (LogObject lometa (AggregatedMessage ags)) -> liftIO $ do
-                let logname = lnName item
-                    traceAgg :: [(Text,Aggregated)] -> IO ()
+        case item of
+            (LogObject logname lometa (AggregatedMessage ags)) -> liftIO $ do
+                let traceAgg :: [(Text,Aggregated)] -> IO ()
                     traceAgg [] = return ()
                     traceAgg ((n,AggregatedEWMA ewma):r) = do
-                        enqueue $ LogNamed (logname <> "." <> n) $ LogObject lometa (LogValue "avg" $ avg ewma)
+                        enqueue $ LogObject (logname <> "." <> n) lometa (LogValue "avg" $ avg ewma)
                         traceAgg r
                     traceAgg ((n,AggregatedStats stats):r) = do
                         let statsname = logname <> "." <> n
                             qbasestats s' nm = do
-                                enqueue $ LogNamed nm $ LogObject lometa (LogValue "mean" (PureD $ meanOfStats s'))
-                                enqueue $ LogNamed nm $ LogObject lometa (LogValue "min" $ fmin s')
-                                enqueue $ LogNamed nm $ LogObject lometa (LogValue "max" $ fmax s')
-                                enqueue $ LogNamed nm $ LogObject lometa (LogValue "count" $ PureI $ fromIntegral $ fcount s')
-                                enqueue $ LogNamed nm $ LogObject lometa (LogValue "stdev" (PureD $ stdevOfStats s'))
-                        enqueue $ LogNamed statsname $ LogObject lometa (LogValue "last" $ flast stats)
+                                enqueue $ LogObject nm lometa (LogValue "mean" (PureD $ meanOfStats s'))
+                                enqueue $ LogObject nm lometa (LogValue "min" $ fmin s')
+                                enqueue $ LogObject nm lometa (LogValue "max" $ fmax s')
+                                enqueue $ LogObject nm lometa (LogValue "count" $ PureI $ fromIntegral $ fcount s')
+                                enqueue $ LogObject nm lometa (LogValue "stdev" (PureD $ stdevOfStats s'))
+                        enqueue $ LogObject statsname lometa (LogValue "last" $ flast stats)
                         qbasestats (fbasic stats) $ statsname <> ".basic"
                         qbasestats (fdelta stats) $ statsname <> ".delta"
                         qbasestats (ftimed stats) $ statsname <> ".timed"
                         traceAgg r
                 traceAgg ags
-            (LogObject _ (LogMessage _)) -> enqueue item
-            (LogObject _ (LogValue _ _)) -> enqueue item
+            (LogObject _ _ (LogMessage _)) -> enqueue item
+            (LogObject _ _ (LogValue _ _)) -> enqueue item
             _                            -> return ()
 
     handleOverflow _ = TIO.hPutStrLn stderr "Notice: EKGViews's queue full, dropping log items!"
@@ -224,11 +223,12 @@ spawnDispatcher evqueue sbtrace trace = do
     qProc counters = do
         maybeItem <- atomically $ TBQ.readTBQueue evqueue
         case maybeItem of
-            Just (LogNamed logname logvalue@(LogObject _ _)) -> do
+            Just obj@(LogObject logname meta content) -> do
                 trace' <- Trace.appendName logname trace
+                let logvalue = (meta, content)
                 Trace.traceNamedObject trace' logvalue
                 -- increase the counter for the type of message
-                modifyMVar_ counters $ \cnt -> return $ updateMessageCounters cnt logvalue
+                modifyMVar_ counters $ \cnt -> return $ updateMessageCounters cnt obj
                 qProc counters
             Nothing -> return ()  -- stop here
 

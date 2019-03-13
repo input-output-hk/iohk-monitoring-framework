@@ -92,7 +92,7 @@ mainTrace :: Switchboard a -> TraceNamed IO a
 mainTrace sb = BaseTrace.BaseTrace $ Op $ effectuate sb
 
 mainTraceConditionally :: TraceContext -> Switchboard a -> TraceNamed IO a
-mainTraceConditionally ctx sb = BaseTrace.BaseTrace $ Op $ \item@(LogNamed loggername (LogObject meta _)) -> do
+mainTraceConditionally ctx sb = BaseTrace.BaseTrace $ Op $ \item@(LogObject loggername meta _) -> do
     globminsev  <- liftIO $ Config.minSeverity (configuration ctx)
     globnamesev <- liftIO $ Config.inspectSeverity (configuration ctx) loggername
     let minsev = max globminsev $ fromMaybe Debug globnamesev
@@ -173,10 +173,10 @@ instance (Show a, ToJSON a) => IsBackend Switchboard a where
                                             Warning -- Debug
 
                 let sendMessage nli befilter = do
-                        selectedBackends <- getBackends config (lnName nli)
+                        selectedBackends <- getBackends config (loName nli)
                         let selBEs = befilter selectedBackends
                         forM_ backends $ \(bek, be) ->
-                            when (bek `elem` selBEs) (bEffectuate be $ nli)
+                            when (bek `elem` selBEs) (bEffectuate be nli)
 
                     qProc counters = do
                         -- read complete queue at once and process items
@@ -185,10 +185,8 @@ instance (Show a, ToJSON a) => IsBackend Switchboard a where
                                       when (null r) retry
                                       return r
 
-                        let processItem nli = do
-                                let (LogObject lometa loitem) = lnItem nli
-                                    loname = lnName nli
-                                    losev = severity lometa
+                        let processItem nli@(LogObject loname lometa loitem) = do
+                                let losev = severity lometa
 
                                 -- evaluate minimum severity criteria
                                 locsev <- fromMaybe Debug <$> Config.inspectSeverity cfg loname
@@ -199,12 +197,12 @@ instance (Show a, ToJSON a) => IsBackend Switchboard a where
                                 when (loname /= "#messagecounters.switchboard") $
                                     -- increase the counter for the specific severity
                                     modifyMVar_ counters $
-                                        \cnt -> return $ updateMessageCounters cnt $ lnItem nli
+                                        \cnt -> return $ updateMessageCounters cnt nli
 
                                 subtrace <- fromMaybe Neutral <$> Config.findSubTrace (configuration ctx) loname
                                 case subtrace of
                                     TeeTrace secName ->
-                                        atomically $ TBQ.writeTBQueue queue $ nli{ lnName = secName }
+                                        atomically $ TBQ.writeTBQueue queue $ nli{ loName = secName }
                                     _ -> return ()
 
                                 let doOutput = case subtrace of
@@ -233,7 +231,7 @@ instance (Show a, ToJSON a) => IsBackend Switchboard a where
 #ifdef ENABLE_MONITORING
                                     (MonitoringEffect inner) -> do
                                         when (sevGE && doOutput) $
-                                            sendMessage (nli {lnItem = inner}) (filter (/= MonitoringBK))
+                                            sendMessage (inner {loName = loname}) (filter (/= MonitoringBK))
                                         return True
 #endif
                                     _ -> do
@@ -267,8 +265,10 @@ instance (Show a, ToJSON a) => IsBackend Switchboard a where
 
         (dispatcher, queue) <- withMVar (getSB switchboard) (\sb -> return (sbDispatch sb, sbQueue sb))
         -- send terminating item to the queue
-        lo <- LogObject <$> (mkLOMeta Warning Confidential) <*> pure KillPill
-        atomically $ TBQ.writeTBQueue queue $ LogNamed "kill.switchboard" lo
+        lo <- LogObject <$> pure "kill.switchboard"
+                        <*> (mkLOMeta Warning Confidential)
+                        <*> pure KillPill
+        atomically $ TBQ.writeTBQueue queue lo
         -- wait for the dispatcher to exit
         res <- Async.waitCatch dispatcher
         either throwM return res

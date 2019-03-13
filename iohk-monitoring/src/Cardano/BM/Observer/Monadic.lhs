@@ -26,7 +26,7 @@ import           Data.Unique (newUnique)
 import           System.IO (stderr)
 
 import           Cardano.BM.Data.Counter (CounterState (..), diffCounters)
-import           Cardano.BM.Data.LogItem (LogObject (..), LOContent (..),
+import           Cardano.BM.Data.LogItem (LOContent (..), LOMeta,
                      PrivacyAnnotation(Confidential), mkLOMeta)
 import           Cardano.BM.Data.Severity (Severity)
 import qualified Cardano.BM.Configuration as Config
@@ -190,7 +190,7 @@ observeOpen subtrace severity logTrace = (do
     else do
         -- send opening message to Trace
         traceNamedObject logTrace =<<
-            LogObject <$> (mkLOMeta severity Confidential) <*> pure (ObserveOpen state)
+            (,) <$> (mkLOMeta severity Confidential) <*> pure (ObserveOpen state)
     return (Right state)) `catch` (return . Left)
 
 \end{code}
@@ -202,7 +202,7 @@ observeClose
     -> Severity
     -> Trace IO a
     -> CounterState
-    -> [LogObject a]
+    -> [(LOMeta, LOContent a)]
     -> IO (Either SomeException ())
 observeClose subtrace sev logTrace initState logObjects = (do
     let identifier = csIdentifier initState
@@ -216,10 +216,10 @@ observeClose subtrace sev logTrace initState logObjects = (do
         mle <- mkLOMeta sev Confidential
         -- send closing message to Trace
         traceNamedObject logTrace $
-            LogObject mle (ObserveClose (CounterState identifier counters))
+            (mle, (ObserveClose (CounterState identifier counters)))
         -- send diff message to Trace
         traceNamedObject logTrace $
-            LogObject mle (ObserveDiff (CounterState identifier (diffCounters initialCounters counters)))
+            (mle, (ObserveDiff (CounterState identifier (diffCounters initialCounters counters))))
     -- trace the messages gathered from inside the action
     forM_ logObjects $ traceNamedObject logTrace
     return (Right ())) `catch` (return . Left)
