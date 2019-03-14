@@ -6,8 +6,10 @@
 
 %if style == newcode
 \begin{code}
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedStrings     #-}
 
 module Cardano.BM.Output.Monitoring
     (
@@ -28,6 +30,7 @@ import qualified Data.Text.IO as TIO
 import           Data.Time.Calendar (toModifiedJulianDay)
 import           Data.Time.Clock (UTCTime (..), getCurrentTime)
 import           GHC.Clock (getMonotonicTimeNSec)
+import           System.IO (stderr)
 
 import           Cardano.BM.Configuration.Model (Configuration, getMonitors)
 import           Cardano.BM.Data.Aggregated
@@ -45,12 +48,12 @@ import qualified Cardano.BM.Trace as Trace
 
 \subsubsection{Structure of Monitoring}\label{code:Monitor}\index{Monitor}
 \begin{code}
-type MonitorMVar = MVar MonitorInternal
-newtype Monitor = Monitor
-    { getMon :: MonitorMVar }
+type MonitorMVar a = MVar (MonitorInternal a)
+newtype Monitor a = Monitor
+    { getMon :: MonitorMVar a }
 
-data MonitorInternal = MonitorInternal
-    { monQueue   :: TBQ.TBQueue (Maybe NamedLogItem)
+data MonitorInternal a = MonitorInternal
+    { monQueue   :: TBQ.TBQueue (Maybe (NamedLogItem a))
     }
 
 \end{code}
@@ -70,7 +73,7 @@ type MonitorMap = HM.HashMap LoggerName MonitorState
 \subsubsection{Monitor view is an effectuator}\index{Monitor!instance of IsEffectuator}
 Function |effectuate| is called to pass in a |NamedLogItem| for monitoring.
 \begin{code}
-instance IsEffectuator Monitor where
+instance IsEffectuator Monitor a where
     effectuate monitor item = do
         mon <- readMVar (getMon monitor)
         nocapacity <- atomically $ TBQ.isFullTBQueue (monQueue mon)
@@ -78,7 +81,7 @@ instance IsEffectuator Monitor where
         then handleOverflow monitor
         else atomically $ TBQ.writeTBQueue (monQueue mon) $ Just item
 
-    handleOverflow _ = putStrLn "Notice: Monitor's queue full, dropping log items!"
+    handleOverflow _ = TIO.hPutStrLn stderr "Notice: Monitor's queue full, dropping log items!\n"
 
 \end{code}
 
@@ -86,7 +89,7 @@ instance IsEffectuator Monitor where
 
 |Monitor| is an |IsBackend|
 \begin{code}
-instance IsBackend Monitor where
+instance Show a => IsBackend Monitor a where
     typeof _ = MonitoringBK
 
     realize _ = error "Monitoring cannot be instantiated by 'realize'"
@@ -113,9 +116,10 @@ instance IsBackend Monitor where
 
 \subsubsection{Asynchrouniously reading log items from the queue and their processing}
 \begin{code}
-spawnDispatcher :: TBQ.TBQueue (Maybe NamedLogItem)
+spawnDispatcher :: (Show a)
+                => TBQ.TBQueue (Maybe (NamedLogItem a))
                 -> Configuration
-                -> Trace.Trace IO
+                -> Trace.Trace IO a
                 -> IO (Async.Async ())
 spawnDispatcher mqueue config sbtrace = do
     now <- getCurrentTime
@@ -148,7 +152,7 @@ spawnDispatcher mqueue config sbtrace = do
 Inspect the log message and match it against configured thresholds. If positive,
 then run the action on the current state and return the updated state.
 \begin{code}
-evalMonitoringAction :: MonitorMap -> LoggerName -> LogObject -> IO MonitorMap
+evalMonitoringAction :: MonitorMap -> LoggerName -> LogObject a -> IO MonitorMap
 evalMonitoringAction mmap logname logvalue =
     case HM.lookup logname mmap of
         Nothing -> return mmap

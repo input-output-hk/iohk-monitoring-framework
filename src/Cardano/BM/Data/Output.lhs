@@ -36,9 +36,9 @@ import           GHC.Generics (Generic)
 \label{code:TVarList}\index{OutputKind!TVarList}
 \label{code:TVarListNamed}\index{OutputKind!TVarListNamed}
 \begin{code}
-data OutputKind = TVarList (STM.TVar [LogObject])
-                | TVarListNamed (STM.TVar [LogNamed LogObject])
-                deriving (Eq)
+data OutputKind a = TVarList (STM.TVar [LogObject a])
+                  | TVarListNamed (STM.TVar [LogNamed (LogObject a)])
+                    deriving (Eq)
 
 \end{code}
 

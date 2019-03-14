@@ -17,6 +17,8 @@ import qualified Control.Monad.STM as STM
 
 import           Data.Maybe (fromMaybe)
 import           Data.Text
+import qualified Data.Text.IO as TIO
+import           System.IO (stderr)
 
 import qualified Cardano.BM.Configuration as Config
 import           Cardano.BM.Data.LogItem (LogObject)
@@ -24,13 +26,13 @@ import           Cardano.BM.Data.SubTrace
 import           Cardano.BM.Data.Severity (Severity)
 import           Cardano.BM.Data.Trace (TraceContext (..))
 import           Cardano.BM.Observer.Monadic (observeClose, observeOpen)
-import           Cardano.BM.Trace (Trace, logError, logNotice)
+import           Cardano.BM.Trace (Trace)
 
 \end{code}
 %endif
 
 \begin{code}
-stmWithLog :: STM.STM (t, [LogObject]) -> STM.STM (t, [LogObject])
+stmWithLog :: STM.STM (t, [LogObject a]) -> STM.STM (t, [LogObject a])
 stmWithLog action = action
 
 \end{code}
@@ -39,29 +41,29 @@ stmWithLog action = action
 With given name, create a |SubTrace| according to |Configuration|
 and run the passed |STM| action on it.
 \begin{code}
-bracketObserveIO :: Trace IO -> Severity -> Text -> STM.STM t -> IO t
+bracketObserveIO :: Trace IO a -> Severity -> Text -> STM.STM t -> IO t
 bracketObserveIO trace@(ctx, _) severity name action = do
     subTrace <- fromMaybe Neutral <$> Config.findSubTrace (configuration ctx) name
     bracketObserveIO' subTrace severity trace action
   where
-    bracketObserveIO' :: SubTrace -> Severity -> Trace IO -> STM.STM t -> IO t
+    bracketObserveIO' :: SubTrace -> Severity -> Trace IO a -> STM.STM t -> IO t
     bracketObserveIO' NoTrace _ _ act =
         STM.atomically act
     bracketObserveIO' subtrace sev logTrace act = do
         mCountersid <- observeOpen subtrace sev logTrace
 
         -- run action; if an exception is caught, then it will be logged and rethrown.
-        t <- (STM.atomically act) `catch` (\(e :: SomeException) -> (logError logTrace (pack (show e)) >> throwM e))
+        t <- (STM.atomically act) `catch` (\(e :: SomeException) -> (TIO.hPutStrLn stderr (pack (show e)) >> throwM e))
 
         case mCountersid of
             Left openException ->
                 -- since observeOpen faced an exception there is no reason to call observeClose
                 -- however the result of the action is returned
-                logNotice logTrace ("ObserveOpen: " <> pack (show openException))
+                TIO.hPutStrLn stderr ("ObserveOpen: " <> pack (show openException))
             Right countersid -> do
                     res <- observeClose subtrace sev logTrace countersid []
                     case res of
-                        Left ex -> logNotice logTrace ("ObserveClose: " <> pack (show ex))
+                        Left ex -> TIO.hPutStrLn stderr ("ObserveClose: " <> pack (show ex))
                         _ -> pure ()
         pure t
 
@@ -71,12 +73,12 @@ bracketObserveIO trace@(ctx, _) severity name action = do
 The |STM| action might output messages, which after "success" will be forwarded to the logging trace.
 Otherwise, this function behaves the same as \nameref{code:bracketObserveIO}.
 \begin{code}
-bracketObserveLogIO :: Trace IO -> Severity -> Text -> STM.STM (t,[LogObject]) -> IO t
+bracketObserveLogIO :: Trace IO a -> Severity -> Text -> STM.STM (t,[LogObject a]) -> IO t
 bracketObserveLogIO trace@(ctx, _) severity name action = do
     subTrace <- fromMaybe Neutral <$> Config.findSubTrace (configuration ctx) name
     bracketObserveLogIO' subTrace severity trace action
   where
-    bracketObserveLogIO' :: SubTrace -> Severity -> Trace IO -> STM.STM (t,[LogObject]) -> IO t
+    bracketObserveLogIO' :: SubTrace -> Severity -> Trace IO a -> STM.STM (t,[LogObject a]) -> IO t
     bracketObserveLogIO' NoTrace _ _ act = do
         (t, _) <- STM.atomically $ stmWithLog act
         pure t
@@ -86,17 +88,17 @@ bracketObserveLogIO trace@(ctx, _) severity name action = do
         -- run action, return result and log items; if an exception is
         -- caught, then it will be logged and rethrown.
         (t, as) <- (STM.atomically $ stmWithLog act) `catch`
-                    (\(e :: SomeException) -> (logError logTrace (pack (show e)) >> throwM e))
+                    (\(e :: SomeException) -> (TIO.hPutStrLn stderr (pack (show e)) >> throwM e))
 
         case mCountersid of
             Left openException ->
                 -- since observeOpen faced an exception there is no reason to call observeClose
                 -- however the result of the action is returned
-                logNotice logTrace ("ObserveOpen: " <> pack (show openException))
+                TIO.hPutStrLn stderr ("ObserveOpen: " <> pack (show openException))
             Right countersid -> do
                     res <- observeClose subtrace sev logTrace countersid as
                     case res of
-                        Left ex -> logNotice logTrace ("ObserveClose: " <> pack (show ex))
+                        Left ex -> TIO.hPutStrLn stderr ("ObserveClose: " <> pack (show ex))
                         _ -> pure ()
         pure t
 
