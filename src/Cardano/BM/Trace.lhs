@@ -4,7 +4,7 @@
 
 %if style == newcode
 \begin{code}
-{-# LANGUAGE RankNTypes        #-}
+{-# LANGUAGE RankNTypes #-}
 
 module Cardano.BM.Trace
     (
@@ -256,7 +256,7 @@ The function |traceNamedItem| creates a |LogObject| and threads this through
 the action defined in the |Trace|.
 
 \begin{code}
-traceNamedItem 
+traceNamedItem
     :: MonadIO m
     => Trace m a
     -> PrivacyAnnotation

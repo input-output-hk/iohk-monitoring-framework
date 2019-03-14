@@ -132,9 +132,9 @@ Data structure for annotating the severity and privacy of an object.
 \begin{code}
 data PrivacyAndSeverityAnnotated a
             = PSA
-                { pasPayload  :: !a
-                , pasSeverity :: !Severity
-                , pasPrivacy  :: !PrivacyAnnotation
+                { psaSeverity :: !Severity
+                , psaPrivacy  :: !PrivacyAnnotation
+                , psaPayload  :: a
                 }
               deriving (Show)
 
