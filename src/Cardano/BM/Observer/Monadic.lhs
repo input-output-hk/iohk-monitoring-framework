@@ -27,7 +27,7 @@ import           System.IO (stderr)
 
 import           Cardano.BM.Data.Counter (CounterState (..), diffCounters)
 import           Cardano.BM.Data.LogItem (LogObject (..), LOContent (..),
-                     PrivacyAnnotation(Private), mkLOMeta)
+                     PrivacyAnnotation(Confidential), mkLOMeta)
 import           Cardano.BM.Data.Severity (Severity)
 import qualified Cardano.BM.Configuration as Config
 import           Cardano.BM.Counters (readCounters)
@@ -192,7 +192,7 @@ observeOpen subtrace severity logTrace = (do
     else do
         -- send opening message to Trace
         traceNamedObject logTrace =<<
-            LogObject <$> (mkLOMeta severity Private) <*> pure (ObserveOpen state)
+            LogObject <$> (mkLOMeta severity Confidential) <*> pure (ObserveOpen state)
     return (Right state)) `catch` (return . Left)
 
 \end{code}
@@ -215,7 +215,7 @@ observeClose subtrace sev logTrace initState logObjects = (do
     if counters == []
     then return ()
     else do
-        mle <- mkLOMeta sev Private
+        mle <- mkLOMeta sev Confidential
         -- send closing message to Trace
         traceNamedObject logTrace $
             LogObject mle (ObserveClose (CounterState identifier counters))

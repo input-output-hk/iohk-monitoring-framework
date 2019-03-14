@@ -116,13 +116,27 @@ class Monad m => ToLogObject m where
 instance ToLogObject IO where
     toLogObject :: Tracer IO (LogObject a) -> Tracer IO a
     toLogObject (Tracer (Op tr)) = Tracer $ Op $ \a -> do
-        lo <- LogObject <$> (mkLOMeta Debug Both)
+        lo <- LogObject <$> (mkLOMeta Debug Public)
                         <*> pure (LogMessage a)
         tr lo
 
--- instance ToLogObject SimF a where
---   toLogObject (Tracer tr) = Tracer $ \a -> do { ... }
+\end{code}
 
+\begin{spec}
+To be placed in ouroboros-network.
+
+instance (MonadFork m, MonadTimer m) => ToLogObject m where
+    toLogObject (Tracer tr) = Tracer $ \a -> do
+        lo <- LogObject <$> (LOMeta <$> getMonotonicTime  -- must be evaluated at the calling site
+                                    <*> (pack . show <$> myThreadId)
+                                    <*> pure Debug
+                                    <*> pure Public)
+                        <*> pure (LogMessage a)
+        tr lo
+
+\end{spec}
+
+\begin{code}
 tracingNamed :: Show a => Tracer IO (NamedLogItem a) -> Tracer IO a
 tracingNamed = toLogObject . named
 
@@ -156,8 +170,8 @@ test3 = do
     let logTrace =
             severityAnnotatedM $ named $ appendNamed "test3" $ renderNamedItemTracing stdoutTracer
 
-    tracingWith logTrace $ PSA Info Private ("Hello" :: String)
-    tracingWith logTrace $ PSA Warning Both "World"
+    tracingWith logTrace $ PSA Info Confidential ("Hello" :: String)
+    tracingWith logTrace $ PSA Warning Public "World"
 
 \end{code}
 

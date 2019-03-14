@@ -25,7 +25,7 @@ import           Data.Word (Word64)
 
 import           Cardano.BM.Data.Aggregated (Measurable (PureI))
 import           Cardano.BM.Data.LogItem (LoggerName, LOContent(LogValue),
-                    LOMeta(..), LogObject(..), PrivacyAnnotation(Private), mkLOMeta)
+                    LOMeta(..), LogObject(..), PrivacyAnnotation(Confidential), mkLOMeta)
 import           Cardano.BM.Data.Severity (Severity (..))
 import           Cardano.BM.Data.Trace
 import qualified Cardano.BM.Trace as Trace
@@ -91,11 +91,11 @@ sendAndReset trace counters sev = do
     forM_ (HM.toList $ mcCountersMap counters) $ \(key, count) ->
         Trace.traceNamedObject trace =<<
             LogObject
-                <$> (mkLOMeta sev Private)
+                <$> (mkLOMeta sev Confidential)
                 <*> pure (LogValue (pack key) (PureI $ toInteger count))
     Trace.traceNamedObject trace =<<
         LogObject
-            <$> (mkLOMeta sev Private)
+            <$> (mkLOMeta sev Confidential)
             <*> pure (LogValue "time_interval_(s)" (PureI diffTime))
     return $ resetCounters now
 

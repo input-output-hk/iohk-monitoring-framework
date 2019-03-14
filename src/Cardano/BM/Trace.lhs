@@ -290,24 +290,24 @@ traceNamedItem trace p s m =
 \begin{code}
 logDebug, logInfo, logNotice, logWarning, logError, logCritical, logAlert, logEmergency
     :: MonadIO m => Trace m a -> a -> m ()
-logDebug     logTrace = traceNamedItem logTrace Both Debug
-logInfo      logTrace = traceNamedItem logTrace Both Info
-logNotice    logTrace = traceNamedItem logTrace Both Notice
-logWarning   logTrace = traceNamedItem logTrace Both Warning
-logError     logTrace = traceNamedItem logTrace Both Error
-logCritical  logTrace = traceNamedItem logTrace Both Critical
-logAlert     logTrace = traceNamedItem logTrace Both Alert
-logEmergency logTrace = traceNamedItem logTrace Both Emergency
+logDebug     logTrace = traceNamedItem logTrace Public Debug
+logInfo      logTrace = traceNamedItem logTrace Public Info
+logNotice    logTrace = traceNamedItem logTrace Public Notice
+logWarning   logTrace = traceNamedItem logTrace Public Warning
+logError     logTrace = traceNamedItem logTrace Public Error
+logCritical  logTrace = traceNamedItem logTrace Public Critical
+logAlert     logTrace = traceNamedItem logTrace Public Alert
+logEmergency logTrace = traceNamedItem logTrace Public Emergency
 
 logDebugS, logInfoS, logNoticeS, logWarningS, logErrorS, logCriticalS, logAlertS, logEmergencyS
     :: MonadIO m => Trace m a -> a -> m ()
-logDebugS     logTrace = traceNamedItem logTrace Private Debug
-logInfoS      logTrace = traceNamedItem logTrace Private Info
-logNoticeS    logTrace = traceNamedItem logTrace Private Notice
-logWarningS   logTrace = traceNamedItem logTrace Private Warning
-logErrorS     logTrace = traceNamedItem logTrace Private Error
-logCriticalS  logTrace = traceNamedItem logTrace Private Critical
-logAlertS     logTrace = traceNamedItem logTrace Private Alert
-logEmergencyS logTrace = traceNamedItem logTrace Private Emergency
+logDebugS     logTrace = traceNamedItem logTrace Confidential Debug
+logInfoS      logTrace = traceNamedItem logTrace Confidential Info
+logNoticeS    logTrace = traceNamedItem logTrace Confidential Notice
+logWarningS   logTrace = traceNamedItem logTrace Confidential Warning
+logErrorS     logTrace = traceNamedItem logTrace Confidential Error
+logCriticalS  logTrace = traceNamedItem logTrace Confidential Critical
+logAlertS     logTrace = traceNamedItem logTrace Confidential Alert
+logEmergencyS logTrace = traceNamedItem logTrace Confidential Emergency
 
 \end{code}

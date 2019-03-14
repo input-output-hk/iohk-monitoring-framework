@@ -97,7 +97,7 @@ instance (ToJSON a, Show a) => IsEffectuator Log a where
         selscribes <- getScribes c (lnName item)
         let selscribesFiltered =
                 case lnItem item of
-                    LogObject (LOMeta _ _ _ Private) (LogMessage _)
+                    LogObject (LOMeta _ _ _ Confidential) (LogMessage _)
                         -> removePublicScribes setupScribes selscribes
                     _   -> selscribes
         forM_ selscribesFiltered $ \sc -> passN sc katip item
@@ -124,11 +124,11 @@ instance (ToJSON a, Show a) => IsEffectuator Log a where
             when (diffTime > interval) $ do
                 countersObjects <- forM (HM.toList $ mcCountersMap counters) $ \(key, count) ->
                         LogObject
-                            <$> (mkLOMeta sev Private)
+                            <$> (mkLOMeta sev Confidential)
                             <*> pure (LogValue (pack key) (PureI $ toInteger count))
                 intervalObject <-
                     LogObject
-                        <$> (mkLOMeta sev Private)
+                        <$> (mkLOMeta sev Confidential)
                         <*> pure (LogValue "time_interval_(s)" (PureI diffTime))
                 let namedCounters = map (\lo -> LogNamed "#messagecounters.katip" lo)
                                         (countersObjects ++ [intervalObject])
@@ -208,7 +208,7 @@ example = do
     passN (pack (show StdoutSK)) k $ LogNamed
                                             { lnName = "test"
                                             , lnItem = LogMessage $ LogItem
-                                                { liSelection = Both
+                                                { liSelection = Public
                                                 , liSeverity  = Info
                                                 , liPayload   = "Hello!"
                                                 }
