@@ -6,9 +6,10 @@ module Cardano.BM.Tracer.Class
     ( Tracer (..)
     , Contravariant(..)
     , nullTracer
+    , tracingWith
     ) where
 
-import Data.Functor.Contravariant (Contravariant(..))
+import           Data.Functor.Contravariant (Contravariant (..), Op (..))
 
 \end{code}
 
@@ -18,7 +19,7 @@ annotate) such observations with additional information from their
 execution context.
 
 \begin{code}
-newtype Tracer m s = Tracer { tracing :: s ->  m () }
+newtype Tracer m s = Tracer { tracing :: Op (m ()) s }
 \end{code}
 
 A `Tracer` is an instance of `Contravariant`, which permits new
@@ -27,7 +28,7 @@ of `contramap`.
 
 \begin{code}
 instance Contravariant (Tracer m) where
-    contramap f (Tracer t) = Tracer (t . f)
+    contramap f = Tracer . contramap f . tracing
 
 \end{code}
 
@@ -41,7 +42,16 @@ The simplest tracer - one that does not generate output
 
 \begin{code}
 nullTracer :: (Applicative m) => Tracer m a
-nullTracer = Tracer $ \_ -> pure ()
+nullTracer = Tracer $ Op $ \_ -> pure ()
 
 \end{code}
 
+
+Accepts a |Tracer| and some payload |s|. First it gets the contravariant
+from the |Tracer| as type "|Op (m ()) s|" and, after "|getOp :: b -> a|" which
+translates to "|s -> m ()|".
+\begin{code}
+tracingWith :: Tracer m s -> s -> m ()
+tracingWith = getOp . tracing
+
+\end{code}
