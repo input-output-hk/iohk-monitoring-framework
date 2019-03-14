@@ -3,6 +3,7 @@
 
 %if style == newcode
 \begin{code}
+{-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Cardano.BM.Configuration.Editor
@@ -13,8 +14,9 @@ module Cardano.BM.Configuration.Editor
 import           Prelude hiding (lookup)
 import qualified Control.Concurrent.Async as Async
 import           Control.Concurrent.MVar (readMVar)
-import           Control.Monad  (void)
+import           Control.Monad  (void, when, forM_)
 import qualified Data.HashMap.Strict as HM
+import           Data.List (delete)
 import           Data.Text (pack, unpack)
 import           Safe (readMay)
 
@@ -50,110 +52,57 @@ The appearance is due to \emph{w3-css} (\url{https://www.w3schools.com/w3css}).
 startup :: Configuration -> IO ()
 startup config = do
     port <- getGUIport config
-    if port > 0
-    then do
+    when (port > 0) $ do
         thd <- Async.async $
-                 startGUI defaultConfig { jsPort       = Just port
-                                        , jsAddr       = Just "127.0.0.1"
-                                        , jsStatic     = Just "static"
-                                        , jsCustomHTML = Just "configuration-editor.html"
-                                        } $ prepare config
+             startGUI defaultConfig { jsPort       = Just port
+                                    , jsAddr       = Just "127.0.0.1"
+                                    , jsStatic     = Just "static"
+                                    , jsCustomHTML = Just "configuration-editor.html"
+                                    } $ prepare config
         Async.link thd
-        pure ()
-    else pure ()
 
 \end{code}
 
 \begin{code}
 
 data Cmd = Backends | Scribes | Severities | SubTrace | Aggregation
-           deriving (Show, Read)
+           deriving (Enum, Eq, Show, Read)
 
 prepare :: Configuration -> Window -> UI ()
 prepare config window = void $ do
-    void $ return window # set title "IOHK logging and monitoring"
+    let commands = [Backends .. Aggregation]
 
-    -- editing or adding map entry
-    inputKey <- UI.input #. "w3-input w3-border w3-round-large"
-    inputValue <- UI.input #. "w3-input w3-border w3-round-large"
-    inputMap <- UI.p #. "inputmap"
-    void $ element inputKey # set UI.size "30"
-    void $ element inputValue # set UI.size "60"
-    outputMsg <- UI.input #. "w3-input w3-border w3-round-large"
-    void $ element outputMsg # set UI.size "60"
-                             # set UI.enabled False
+    inputKey   <- UI.input #. "w3-input w3-border" # set UI.size "34"
+    inputValue <- UI.input #. "w3-input w3-border" # set UI.size "60"
+    outputMsg  <- UI.input #. "w3-input w3-border"
 
-    let mkPairItem :: Show t => Cmd -> LoggerName -> t -> UI Element
-        mkPairItem cmd n v =
-            let entries = [ UI.td #+ [string (unpack n)]
-                          , UI.td #+ [string (show v)]
-                          , UI.td #+ [do
-                              b <- UI.button #. "w3-small w3-btn w3-ripple w3-teal" #+ [UI.bold #+ [string "edit"]]
-                              on UI.click b $ const $ do
-                                  void $ element inputKey # set UI.value (unpack n)
-                                  void $ element inputValue # set UI.value (show v)
-                                  void $ element inputMap # set UI.value (show cmd)
-                              return b]
-                          ]
-            in UI.tr #. "itemrow" #+ entries
-    let apply2output f = do
-            tgt <- getElementById window "output"
-            case tgt of
-                Nothing -> pure ()
-                Just t  -> f t
-    let listPairs cmd sel = do
-            apply2output $ \t -> void $ element t # set children []
-            cg <- liftIO $ readMVar (CM.getCG config)
-            mapM_ (\(n,v) -> apply2output $ \t -> void $ element t #+ [mkPairItem cmd n v]
-                ) $ HM.toList (sel cg)
+    currentCmd <- UI.p #. "current-cmd"
 
-    -- commands
-    let switchTo c@Backends    = listPairs c CM.cgMapBackend
-        switchTo c@Severities  = listPairs c CM.cgMapSeverity
-        switchTo c@Scribes     = listPairs c CM.cgMapScribe
-        switchTo c@SubTrace    = listPairs c CM.cgMapSubtrace
-        switchTo c@Aggregation = listPairs c CM.cgMapAggregatedKind
+    let performActionOnId anId action =
+            getElementById window anId >>= \case
+                Nothing        -> return ()
+                Just anElement -> action anElement
 
-    let mkCommandButtons =
-            let btns = map (\n -> do
-                            b <- UI.button #. "w3-small w3-btn w3-ripple w3-grey" #+ [UI.bold #+ [string (show n)]]
-                            on UI.click b $ const $ (switchTo n)
-                            return b)
-                            [Backends, Scribes, Severities, SubTrace, Aggregation]
-            in row btns
+    let turn       anElement toState   = void $ element anElement # set UI.enabled toState
+    let setValueOf anElement aValue    = void $ element anElement # set UI.value   aValue
+    let setClasses classes   anElement = void $ element anElement # set UI.class_  classes
 
-    -- control global minimum severity
-    confMinSev <- liftIO $ minSeverity config
-    let setMinSev _el Nothing    = pure ()
-        setMinSev _el (Just sev) = liftIO $ do
-            setMinSeverity config (toEnum sev :: Severity)
-        mkSevOption sev = UI.option # set UI.text (show sev)
-                                    # set UI.value (show sev)
-                                    # if (confMinSev == sev) then set UI.selected True else id
-    minsev <- UI.select #. "minsevfield" #+
-                 map mkSevOption (enumFrom Debug)   -- for all severities
+    let setError   m = setValueOf outputMsg ("ERROR: " ++ m)
+    let setMessage m = setValueOf outputMsg m
 
-    on UI.selectionChange minsev $ setMinSev minsev
-    let mkMinSevEntry = row [string "set minimum severity to:", UI.span # set html "&nbsp;&nbsp;", element minsev]
+    let enable  anElement = turn anElement True
+    let disable anElement = turn anElement False
+    let clean   anElement = setValueOf anElement ""
+    let cleanAndDisable anElement = clean anElement >> disable anElement
 
-    let setError m = void $ element outputMsg # set UI.value ("ERROR: " ++ m)
-    let setMessage m = void $ element outputMsg # set UI.value m
+    let rememberCurrent cmd = setValueOf currentCmd $ show cmd
 
-    -- construct row with input fields
-    let removeItem Backends    k = CM.setBackends config k Nothing
-        removeItem Severities  k = CM.setSeverity config k Nothing
-        removeItem Scribes     k = CM.setScribes config k Nothing
-        removeItem SubTrace    k = CM.setSubTrace config k Nothing
+    let removeItem Backends    k = CM.setBackends       config k Nothing
+        removeItem Severities  k = CM.setSeverity       config k Nothing
+        removeItem Scribes     k = CM.setScribes        config k Nothing
+        removeItem SubTrace    k = CM.setSubTrace       config k Nothing
         removeItem Aggregation k = CM.setAggregatedKind config k Nothing
-    let delItem = do
-            k <- inputKey # get UI.value
-            m <- inputMap # get UI.value
-            case (readMay m :: Maybe Cmd) of
-                Nothing -> setError "parse error on cmd"
-                Just c  -> do
-                    setMessage $ "deleting " ++ k ++ " from " ++ m
-                    liftIO $ removeItem c (pack k)
-                    switchTo c
+
     let updateItem Backends    k v = case (readMay v :: Maybe [BackendKind]) of
                                          Nothing -> setError "parse error on backend list"
                                          Just v' -> liftIO $ CM.setBackends config k $ Just v'
@@ -169,42 +118,181 @@ prepare config window = void $ do
         updateItem Aggregation k v = case (readMay v :: Maybe AggregatedKind) of
                                          Nothing -> setError "parse error on aggregated kind"
                                          Just v' -> liftIO $ CM.setAggregatedKind config k $ Just v'
-    let setItem = do
-            k <- inputKey # get UI.value
-            v <- inputValue # get UI.value
-            m <- inputMap # get UI.value
-            case (readMay m :: Maybe Cmd) of
-                Nothing -> setError "parse error on cmd"
-                Just c  -> do
-                    setMessage $ "setting " ++ k ++ " => " ++ v ++ " in " ++ m
-                    updateItem c (pack k) v
-                    switchTo c
-    let mkRowEdit = row [element inputKey, UI.span #. "w3-tag w3-round w3-blue midalign" # set UI.text " => " , element inputValue]
-        mkRowBtns = row [do { b <- UI.button #. "w3-small w3-btn w3-ripple w3-teal" #+ [string "delete"]
-                            ; on UI.click b $ const $ (delItem)
-                            ; return b}
-                        ,do { b <- UI.button #. "w3-small w3-btn w3-ripple w3-teal" #+ [string "store"]
-                            ; on UI.click b $ const $ (setItem)
-                            ; return b}
-                        ]
 
-    -- layout
-    let topGrid = UI.div #. "w3-panel" #+ [
-                      UI.div #. "w3-panel w3-border w3-border-blue" #+ [
-                          UI.div #. "w3-panel" #+ [mkMinSevEntry]
-                        ]
-                    , UI.div #. "w3-panel w3-border w3-border-blue" #+ [
-                          UI.div #. "w3-panel" #+ [UI.p # set UI.text "set or update a behaviour for a named logging context:"]
-                        , UI.div #. "w3-panel" #+ [mkCommandButtons]
-                        , UI.div #. "w3-panel" #+ [mkRowEdit]
-                        , UI.div #. "w3-panel" #+ [mkRowBtns]
-                        , UI.div #. "w3-panel" #+ [element outputMsg]
+    disable inputKey
+    disable inputValue
+    disable outputMsg
+
+    let saveItemButtonId       = "save-item-button"
+    let cancelSaveItemButtonId = "cancel-save-item-button"
+    let addItemButtonId        = "add-item-button"
+    let outputTableId          = "output-table"
+
+    let saveItemButton         = performActionOnId saveItemButtonId
+    let cancelSaveItemButton   = performActionOnId cancelSaveItemButtonId
+
+    let mkTableRow :: Show t => Cmd -> LoggerName -> t -> UI Element
+        mkTableRow cmd n v = UI.tr #. "itemrow" #+
+            [ UI.td #+ [ string (unpack n) ]
+            , UI.td #+ [ string (show v) ]
+            , UI.td #+
+                  [ do
+                      b <- UI.button #. "w3-small w3-btn w3-ripple w3-orange edit-item-button"
+                                     #+ [ UI.bold #+ [ string "Edit" ] ]
+                      on UI.click b $ const $ do
+                          saveItemButton enable
+                          cancelSaveItemButton enable
+                          clean outputMsg
+                          enable inputKey
+                          enable inputValue
+                          setValueOf inputKey (unpack n)
+                          setValueOf inputValue (show v)
+                          rememberCurrent cmd
+                      return b
+                  , UI.span # set html "&nbsp;&nbsp;&nbsp;"
+                  , do
+                      b <- UI.button #. "w3-small w3-btn w3-ripple w3-red"
+                                     #+ [ UI.bold #+ [ string "Delete" ] ]
+                      on UI.click b $ const $ do
+                          liftIO $ removeItem cmd n
+                          cleanAndDisable inputKey
+                          cleanAndDisable inputValue
+                          -- Initiate a click to current menu to update the items list after deleting.
+                          performActionOnId (show cmd) $ runFunction . ffi "$(%1).click()"
+                      return b
+                  ]
+            ]
+
+    let showCurrentTab cmd = do
+            let baseClasses = "w3-bar-item w3-button"
+                classesForCurrentTab = baseClasses <> " " <> "w3-light-grey"
+            performActionOnId (show cmd) $ setClasses classesForCurrentTab
+            let otherTabs = delete cmd commands
+            forM_ otherTabs $ \tabName ->
+                performActionOnId (show tabName) $ setClasses baseClasses
+
+    let showCorrespondingItems cmd sel = do
+            showCurrentTab cmd
+            rememberCurrent cmd
+            saveItemButton disable
+            cancelSaveItemButton disable
+            performActionOnId addItemButtonId enable
+            performActionOnId outputTableId $ \t -> void $ element t # set children []
+            cg <- liftIO $ readMVar (CM.getCG config)
+            performActionOnId outputTableId $
+                \t -> void $ element t #+
+                    [ UI.tr #+
+                        [ UI.th #+ [ string "LoggerName" ]
+                        , UI.th #+ [ string $ show cmd <> " value" ]
+                        , UI.th #+ [ string "" ]
                         ]
                     ]
+            forM_ (HM.toList $ sel cg) $
+                \(n,v) -> performActionOnId outputTableId $
+                    \t -> void $ element t #+ [ mkTableRow cmd n v ]
 
-    tgt <- getElementById window "gridtarget"
-    case tgt of
+    let switchToTab c@Backends    = showCorrespondingItems c CM.cgMapBackend
+        switchToTab c@Severities  = showCorrespondingItems c CM.cgMapSeverity
+        switchToTab c@Scribes     = showCorrespondingItems c CM.cgMapScribe
+        switchToTab c@SubTrace    = showCorrespondingItems c CM.cgMapSubtrace
+        switchToTab c@Aggregation = showCorrespondingItems c CM.cgMapAggregatedKind
+
+    let mkEditInputs =
+            row [ element inputKey
+                , UI.span #. "key-value-separator" #+ [string ":"]
+                , element inputValue
+                , UI.span #. "key-value-separator" #+ [string ""]
+                , do
+                    b <- UI.button #. "w3-btn w3-ripple w3-green save-item-button"
+                                   #  set (UI.attr "id") addItemButtonId
+                                   #  set UI.enabled False
+                                   #+ [UI.bold #+ [string "New"]]
+                    on UI.click b $ const $ do
+                        enable inputKey
+                        enable inputValue
+                        saveItemButton enable
+                        cancelSaveItemButton enable
+                    return b
+                , UI.span #. "key-value-separator" #+ [string ""]
+                , do
+                    b <- UI.button #. "w3-btn w3-ripple w3-lime save-item-button"
+                                   #  set (UI.attr "id") saveItemButtonId
+                                   #  set UI.enabled False
+                                   #+ [UI.bold #+ [string "Save"]]
+                    on UI.click b $ const $ do
+                        k <- inputKey   # get UI.value
+                        v <- inputValue # get UI.value
+                        m <- currentCmd # get UI.value
+                        case (readMay m :: Maybe Cmd) of
+                            Nothing -> setError "parse error on cmd"
+                            Just c  -> do
+                                cleanAndDisable inputKey
+                                cleanAndDisable inputValue
+                                saveItemButton disable
+                                cancelSaveItemButton disable
+                                setMessage $ "Setting '" ++ k ++ "' to '" ++ v ++ "' in " ++ m
+                                updateItem c (pack k) v
+                                switchToTab c
+                    return b
+                , UI.span #. "key-value-separator" #+ [string ""]
+                , do
+                    b <- UI.button #. "w3-btn w3-ripple w3-white"
+                                   #  set (UI.attr "id") cancelSaveItemButtonId
+                                   #  set UI.enabled False
+                                   #+ [UI.bold #+ [string "Cancel"]]
+                    on UI.click b $ const $ do
+                        cleanAndDisable inputKey
+                        cleanAndDisable inputValue
+                        saveItemButton disable
+                        cancelSaveItemButton disable
+                    return b
+                ]
+
+    let minimumSeveritySelection = do
+            confMinSev <- liftIO $ minSeverity config
+            let setMinSev _el Nothing    = pure ()
+                setMinSev _el (Just sev) = liftIO $
+                    setMinSeverity config (toEnum sev :: Severity)
+
+                mkSevOption sev = UI.option # set UI.text (show sev)
+                                            # set UI.value (show sev)
+                                            # if (confMinSev == sev) then set UI.selected True else id
+
+            minsev <- UI.select #. "minsevfield" #+
+                         map mkSevOption (enumFrom Debug)
+
+            on UI.selectionChange minsev $ setMinSev minsev
+
+            row [ string "Set minimum severity to:"
+                , UI.span # set html "&nbsp;"
+                , UI.span #. "severity-dropdown big" #+ [ element minsev ]
+                ]
+
+    let commandTabs =
+            row $ flip map commands $ \cmd -> do
+                   b <- UI.button #. "w3-bar-item w3-button w3-grey"
+                                  #  set (UI.attr "id") (show cmd)
+                                  #+ [ UI.bold #+ [ string (show cmd) ] ]
+                   on UI.click b $ const $ do
+                       cleanAndDisable inputKey
+                       cleanAndDisable inputValue
+                       clean outputMsg
+                       switchToTab cmd
+                   return b
+
+    getElementById window "main-section" >>= \case
         Nothing -> pure ()
-        Just t  -> void $ element t #+ [topGrid]
+        Just mainSection -> void $ element mainSection #+
+            [ UI.div #. "w3-panel" #+
+                [ UI.div #. "w3-border w3-border-dark-grey" #+
+                    [ UI.div #. "w3-panel" #+ [ minimumSeveritySelection ] ]
+                , UI.div #. "w3-panel" #+ []
+                , UI.div #. "w3-border w3-border-dark-grey" #+
+                    [ UI.div #. "w3-bar w3-grey" #+ [ commandTabs ]
+                    , UI.div #. "w3-panel"       #+ [ mkEditInputs ]
+                    , UI.div #. "w3-panel"       #+ [ element outputMsg ]
+                    ]
+                ]
+            ]
 
 \end{code}
