@@ -4,8 +4,9 @@
 
 %if style == newcode
 \begin{code}
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 
 module Cardano.BM.Output.EKGView
     (
@@ -25,11 +26,13 @@ import           Control.Monad.IO.Class (liftIO)
 import           Data.Functor.Contravariant (Op (..))
 import qualified Data.HashMap.Strict as HM
 import           Data.Text (Text, pack, stripPrefix)
+import qualified Data.Text.IO as TIO
 import           Data.Time (getCurrentTime)
 import           Data.Version (showVersion)
 
 import           Cardano.BM.Data.MessageCounter (resetCounters, sendAndResetAfter,
                      updateMessageCounters)
+import           System.IO (stderr)
 import qualified System.Metrics.Label as Label
 import           System.Remote.Monitoring (Server, forkServer,
                      getLabel, serverThreadId)
@@ -50,12 +53,12 @@ import qualified Cardano.BM.Trace as Trace
 
 \subsubsection{Structure of EKGView}\label{code:EKGView}\index{EKGView}
 \begin{code}
-type EKGViewMVar = MVar EKGViewInternal
-newtype EKGView = EKGView
-    { getEV :: EKGViewMVar }
+type EKGViewMVar a = MVar (EKGViewInternal a)
+newtype EKGView a = EKGView
+    { getEV :: EKGViewMVar a }
 
-data EKGViewInternal = EKGViewInternal
-    { evQueue   :: TBQ.TBQueue (Maybe NamedLogItem)
+data EKGViewInternal a = EKGViewInternal
+    { evQueue   :: TBQ.TBQueue (Maybe (NamedLogItem a))
     , evLabels  :: EKGViewMap
     , evServer  :: Server
     }
@@ -73,16 +76,16 @@ type EKGViewMap = HM.HashMap Text Label.Label
 This is an internal |Trace|, named "\#ekgview", which can be used to control
 the messages that are being displayed by EKG.
 \begin{code}
-ekgTrace :: EKGView -> Configuration -> IO (Trace IO)
+ekgTrace :: Show a => EKGView a -> Configuration -> IO (Trace IO a)
 ekgTrace ekg c = do
     let trace = ekgTrace' ekg
         ctx   = TraceContext { configuration = c
                              }
     Trace.appendName "#ekgview" (ctx, trace)
   where
-    ekgTrace' :: EKGView -> TraceNamed IO
+    ekgTrace' :: Show a => EKGView a -> TraceNamed IO a
     ekgTrace' ekgview = BaseTrace.BaseTrace $ Op $ \(LogNamed lognamed lo) -> do
-        let setlabel :: Text -> Text -> EKGViewInternal -> IO (Maybe EKGViewInternal)
+        let setlabel :: Text -> Text -> EKGViewInternal a -> IO (Maybe (EKGViewInternal a))
             setlabel name label ekg_i@(EKGViewInternal _ labels server) =
                 case HM.lookup name labels of
                     Nothing -> do
@@ -93,9 +96,9 @@ ekgTrace ekg c = do
                         Label.set ekghdl label
                         return Nothing
 
-            update :: LogObject -> LoggerName -> EKGViewInternal -> IO (Maybe EKGViewInternal)
+            update :: Show a => LogObject a -> LoggerName -> EKGViewInternal a -> IO (Maybe (EKGViewInternal a))
             update (LogObject _ (LogMessage logitem)) logname ekg_i =
-                setlabel logname (liPayload logitem) ekg_i
+                setlabel logname (pack $ show logitem) ekg_i
             update (LogObject _ (LogValue iname value)) logname ekg_i =
                 let logname' = logname <> "." <> iname
                 in
@@ -123,7 +126,7 @@ Function |effectuate| is called to pass in a |NamedLogItem| for display in EKG.
 If the log item is an |AggregatedStats| message, then all its constituents are
 put into the queue. In case the queue is full, all new items are dropped.
 \begin{code}
-instance IsEffectuator EKGView where
+instance IsEffectuator EKGView a where
     effectuate ekgview item = do
         ekg <- readMVar (getEV ekgview)
         let enqueue a = do
@@ -157,7 +160,7 @@ instance IsEffectuator EKGView where
             (LogObject _ (LogValue _ _)) -> enqueue item
             _                            -> return ()
 
-    handleOverflow _ = putStrLn "Notice: EKGViews's queue full, dropping log items!"
+    handleOverflow _ = TIO.hPutStrLn stderr "Notice: EKGViews's queue full, dropping log items!"
 
 \end{code}
 
@@ -165,7 +168,7 @@ instance IsEffectuator EKGView where
 
 |EKGView| is an |IsBackend|
 \begin{code}
-instance IsBackend EKGView where
+instance Show a => IsBackend EKGView a where
     typeof _ = EKGViewBK
 
     realize _ = error "EKGView cannot be instantiated by 'realize'"
@@ -200,9 +203,10 @@ instance IsBackend EKGView where
 
 \subsubsection{Asynchronously reading log items from the queue and their processing}
 \begin{code}
-spawnDispatcher :: TBQ.TBQueue (Maybe NamedLogItem)
-                -> Trace.Trace IO
-                -> Trace.Trace IO
+spawnDispatcher :: (Show a)
+                => TBQ.TBQueue (Maybe (NamedLogItem a))
+                -> Trace.Trace IO a
+                -> Trace.Trace IO a
                 -> IO (Async.Async ())
 spawnDispatcher evqueue sbtrace trace = do
     now <- getCurrentTime

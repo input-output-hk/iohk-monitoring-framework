@@ -10,13 +10,13 @@
 
 module Cardano.BM.Data.LogItem
   ( NamedLogItem
-  , LogItem (..)
   , LogNamed (..)
   , LogObject (..)
   , LOMeta (..), mkLOMeta
   , LOContent (..)
   , LoggerName
-  , LogSelection (..)
+  , PrivacyAnnotation (..)
+  , PrivacyAndSeverityAnnotated (..)
   )
   where
 
@@ -42,7 +42,7 @@ type LoggerName = Text
 
 \subsubsection{NamedLogItem}\label{code:NamedLogItem}\index{NamedLogItem}
 \begin{code}
-type NamedLogItem = LogNamed LogObject
+type NamedLogItem a = LogNamed (LogObject a)
 
 \end{code}
 
@@ -66,8 +66,8 @@ deriving instance (ToJSON item, Generic item) => ToJSON (LogNamed item)
 \label{code:LOContent}\index{LOContent}
 
 \begin{code}
-data LogObject = LogObject LOMeta LOContent
-                 deriving (Generic, Show, ToJSON)
+data LogObject a = LogObject LOMeta (LOContent a)
+                   deriving (Generic, Show, ToJSON)
 
 \end{code}
 
@@ -80,18 +80,20 @@ data LOMeta = LOMeta {
                 tstamp   :: {-# UNPACK #-} !UTCTime
               , tid      :: {-# UNPACK #-} !Text
               , severity :: !Severity
+              , privacy  :: !PrivacyAnnotation
               }
               deriving (Show)
 
 instance ToJSON LOMeta where
-    toJSON (LOMeta _tstamp _tid _sev) =
-        object ["tstamp" .= _tstamp, "tid" .= show _tid , "severity" .= show _sev]
+    toJSON (LOMeta _tstamp _tid _sev _priv) =
+        object ["tstamp" .= _tstamp, "tid" .= show _tid , "severity" .= show _sev, "privacy" .= show _priv]
 
-mkLOMeta :: Severity -> IO LOMeta
-mkLOMeta sev =
+mkLOMeta :: Severity -> PrivacyAnnotation -> IO LOMeta
+mkLOMeta sev priv =
     LOMeta <$> getCurrentTime
            <*> (pack . show <$> myThreadId)
            <*> pure sev
+           <*> pure priv
 
 \end{code}
 
@@ -103,37 +105,37 @@ mkLOMeta sev =
 \label{code:AggregatedMessage}\index{AggregatedMessage}
 Payload of a |LogObject|:
 \begin{code}
-data LOContent = LogMessage LogItem
-               | LogValue Text Measurable
-               | ObserveOpen CounterState
-               | ObserveDiff CounterState
-               | ObserveClose CounterState
-               | AggregatedMessage [(Text, Aggregated)]
-               | MonitoringEffect LogObject
-               | KillPill
-                 deriving (Generic, Show, ToJSON)
+data LOContent a = LogMessage a
+                 | LogValue Text Measurable
+                 | ObserveOpen CounterState
+                 | ObserveDiff CounterState
+                 | ObserveClose CounterState
+                 | AggregatedMessage [(Text, Aggregated)]
+                 | MonitoringEffect (LogObject a)
+                 | KillPill
+                   deriving (Generic, Show, ToJSON)
 
 \end{code}
 
-\subsubsection{LogItem}\label{code:LogItem}\index{LogItem}
-\label{code:liSelection}\index{LogItem!liSelection}
-\label{code:liPayload}\index{LogItem!liPayload}
-\todo[inline]{TODO |liPayload :: ToObject|}
+\label{code:PrivacyAnnotation}\index{PrivacyAnnotation}
+\label{code:Private}\index{PrivacyAnnotation!Private}
+\label{code:Both}\index{PrivacyAnnotation!Both}
 \begin{code}
-data LogItem = LogItem
-    { liSelection :: LogSelection
-    , liPayload   :: Text   -- TODO should become ToObject
-    } deriving (Show, Generic, ToJSON)
-
-\end{code}
-
-\label{code:LogSelection}\index{LogSelection}
-\label{code:Private}\index{LogSelection!Private}
-\label{code:Both}\index{LogSelection!Both}
-\begin{code}
-data LogSelection =
-      Private      -- only to private logs.
-    | Both         -- to public and private logs.
+data PrivacyAnnotation =
+      Private      -- private information - handle with care
+    | Both         -- indifferent - can be public.
     deriving (Show, Generic, ToJSON, FromJSON)
+
+\end{code}
+
+Data structure for annotating the severity and privacy of an object.
+\begin{code}
+data PrivacyAndSeverityAnnotated a
+            = PSA
+                { pasPayload  :: !a
+                , pasSeverity :: !Severity
+                , pasPrivacy  :: !PrivacyAnnotation
+                }
+              deriving (Show)
 
 \end{code}

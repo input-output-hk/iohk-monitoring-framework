@@ -1,5 +1,5 @@
 \begin{code}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Main
   ( main )
@@ -9,14 +9,14 @@ import           Control.Concurrent (threadDelay)
 
 import           Cardano.BM.Configuration.Static (defaultConfigStdout)
 import           Cardano.BM.Setup (setupTrace)
-import           Cardano.BM.Trace (logDebug, logError, logInfo, logNotice,
-                     logWarning)
+import           Cardano.BM.Trace (Trace, logDebug, logError, logInfo,
+                     logNotice, logWarning)
 
 
 main :: IO ()
 main = do
     c <- defaultConfigStdout
-    tr <- setupTrace (Right c) "simple"
+    tr :: Trace IO String <- setupTrace (Right c) "simple"
 
     logDebug   tr "this is a debug message"
     logInfo    tr "this is an information."

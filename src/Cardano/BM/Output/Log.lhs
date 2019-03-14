@@ -4,14 +4,15 @@
 
 %if style == newcode
 \begin{code}
-{-# LANGUAGE DeriveAnyClass     #-}
-{-# LANGUAGE DeriveGeneric      #-}
-{-# LANGUAGE LambdaCase         #-}
-{-# LANGUAGE OverloadedStrings  #-}
-{-# LANGUAGE RankNTypes         #-}
-{-# LANGUAGE RecordWildCards    #-}
-{-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE FlexibleInstances  #-}
+{-# LANGUAGE DeriveAnyClass        #-}
+{-# LANGUAGE DeriveGeneric         #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE RankNTypes            #-}
+{-# LANGUAGE RecordWildCards       #-}
+{-# LANGUAGE StandaloneDeriving    #-}
 
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
@@ -30,6 +31,7 @@ import           Control.Concurrent.MVar (MVar, modifyMVar_, readMVar,
 import           Control.Exception.Safe (catchIO)
 import           Control.Monad (forM, forM_, void, when)
 import           Control.Lens ((^.))
+import           Data.Aeson (ToJSON)
 import           Data.Aeson.Text (encodeToLazyText)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Map as Map
@@ -75,7 +77,7 @@ import           Cardano.BM.Rotator (cleanupRotator, evalRotator,
 \subsubsection{Internal representation}\label{code:Log}\index{Log}
 \begin{code}
 type LogMVar = MVar LogInternal
-newtype Log = Log
+newtype Log a = Log
     { getK :: LogMVar }
 
 data LogInternal = LogInternal
@@ -87,7 +89,7 @@ data LogInternal = LogInternal
 
 \subsubsection{Log implements |effectuate|}\index{Log!instance of IsEffectuator}
 \begin{code}
-instance IsEffectuator Log where
+instance (ToJSON a, Show a) => IsEffectuator Log a where
     effectuate katip item = do
         let logMVar = getK katip
         c <- configuration <$> readMVar logMVar
@@ -95,7 +97,7 @@ instance IsEffectuator Log where
         selscribes <- getScribes c (lnName item)
         let selscribesFiltered =
                 case lnItem item of
-                    LogObject _ (LogMessage (LogItem Private _))
+                    LogObject (LOMeta _ _ _ Private) (LogMessage _)
                         -> removePublicScribes setupScribes selscribes
                     _   -> selscribes
         forM_ selscribesFiltered $ \sc -> passN sc katip item
@@ -122,11 +124,11 @@ instance IsEffectuator Log where
             when (diffTime > interval) $ do
                 countersObjects <- forM (HM.toList $ mcCountersMap counters) $ \(key, count) ->
                         LogObject
-                            <$> (mkLOMeta sev)
+                            <$> (mkLOMeta sev Private)
                             <*> pure (LogValue (pack key) (PureI $ toInteger count))
                 intervalObject <-
                     LogObject
-                        <$> (mkLOMeta sev)
+                        <$> (mkLOMeta sev Private)
                         <*> pure (LogValue "time_interval_(s)" (PureI diffTime))
                 let namedCounters = map (\lo -> LogNamed "#messagecounters.katip" lo)
                                         (countersObjects ++ [intervalObject])
@@ -136,13 +138,13 @@ instance IsEffectuator Log where
                 modifyMVar_ logMVar $ \li -> return $
                     li{ msgCounters = resetCounters now }
 
-    handleOverflow _ = putStrLn "Notice: Katip's queue full, dropping log items!"
+    handleOverflow _ = TIO.hPutStrLn stderr "Notice: Katip's queue full, dropping log items!"
 
 \end{code}
 
 \subsubsection{Log implements backend functions}\index{Log!instance of IsBackend}
 \begin{code}
-instance IsBackend Log where
+instance (ToJSON a, Show a) => IsBackend Log a where
     typeof _ = KatipBK
 
     realize config = do
@@ -220,15 +222,15 @@ example = do
 
 Needed instances for |katip|:
 \begin{code}
-deriving instance K.ToObject LogObject
-deriving instance K.ToObject LogItem
-deriving instance K.ToObject (Maybe LOContent)
+deriving instance ToJSON a => K.ToObject (LogObject a)
+deriving instance K.ToObject Text
+deriving instance ToJSON a => K.ToObject (Maybe (LOContent a))
 
-instance KC.LogItem LogObject where
+instance ToJSON a => KC.LogItem (LogObject a) where
     payloadKeys _ _ = KC.AllKeys
-instance KC.LogItem LogItem where
+instance KC.LogItem Text where
     payloadKeys _ _ = KC.AllKeys
-instance KC.LogItem (Maybe LOContent) where
+instance ToJSON a => KC.LogItem (Maybe (LOContent a)) where
     payloadKeys _ _ = KC.AllKeys
 
 \end{code}
@@ -239,7 +241,7 @@ that match on their name.
 Compare start of name of scribe to |(show backend <> "::")|.
 This function is non-blocking.
 \begin{code}
-passN :: ScribeId -> Log -> NamedLogItem -> IO ()
+passN :: (ToJSON a, Show a) => ScribeId -> Log a -> NamedLogItem a -> IO ()
 passN backend katip namedLogItem = do
     env <- kLogEnv <$> readMVar (getK katip)
     forM_ (Map.toList $ K._logEnvScribes env) $
@@ -250,7 +252,7 @@ passN backend katip namedLogItem = do
                     let (LogObject lometa loitem) = lnItem namedLogItem
                     let (sev, msg, payload) = case loitem of
                                 (LogMessage logItem) ->
-                                     (severity lometa, liPayload logItem, Nothing)
+                                     (severity lometa, pack $ show logItem, Nothing)
                                 (ObserveDiff _) ->
                                      let text = TL.toStrict (encodeToLazyText loitem)
                                      in
@@ -362,7 +364,7 @@ mkJsonFileScribe rotParams fdesc colorize = do
                 K.LogStr ""  -> K.itemJson verbosity item
                 K.LogStr msg -> K.itemJson verbosity $
                                     item { KC._itemMessage = K.logStr (""::Text)
-                                         , KC._itemPayload = LogItem Both $ TL.toStrict $ toLazyText msg
+                                         , KC._itemPayload = TL.toStrict $ toLazyText msg
                                          -- do we need the severity from meta?
                                          }
             tmsg = encodeToLazyText jmsg

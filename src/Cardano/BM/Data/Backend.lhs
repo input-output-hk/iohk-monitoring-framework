@@ -4,9 +4,10 @@
 
 %if style == newcode
 \begin{code}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE RankNTypes        #-}
-{-# LANGUAGE DefaultSignatures #-}
+{-# LANGUAGE DefaultSignatures     #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE RankNTypes            #-}
 
 module Cardano.BM.Data.Backend
   ( Backend (..)
@@ -27,25 +28,25 @@ import           Cardano.BM.Configuration.Model (Configuration)
 \subsubsection{Accepts a \nameref{code:NamedLogItem}}\label{code:IsEffectuator}\index{IsEffectuator}
 Instances of this type class accept a |NamedLogItem| and deal with it.
 \begin{code}
-class IsEffectuator t where
-    effectuate     :: t -> NamedLogItem -> IO ()
-    effectuatefrom :: forall s . (IsEffectuator s) => t -> NamedLogItem -> s -> IO ()
-    default effectuatefrom :: forall s . (IsEffectuator s) => t -> NamedLogItem -> s -> IO ()
+class IsEffectuator t a where
+    effectuate     :: t a -> NamedLogItem a -> IO ()
+    effectuatefrom :: forall s . (IsEffectuator s a) => t a -> NamedLogItem a -> s a -> IO ()
+    default effectuatefrom :: forall s . (IsEffectuator s a) => t a -> NamedLogItem a -> s a -> IO ()
     effectuatefrom t nli _ = effectuate t nli
-    handleOverflow :: t -> IO ()
+    handleOverflow :: t a -> IO ()
 
 \end{code}
 
 \subsubsection{Declaration of a |Backend|}\label{code:IsBackend}\index{IsBackend}
 A backend is life-cycle managed, thus can be |realize|d and |unrealize|d.
 \begin{code}
-class (IsEffectuator t) => IsBackend t where
-    typeof      :: t -> BackendKind
-    realize     :: Configuration -> IO t
-    realizefrom :: forall s . (IsEffectuator s) => Trace IO -> s -> IO t
-    default realizefrom :: forall s . (IsEffectuator s) => Trace IO -> s -> IO t
+class IsEffectuator t a => IsBackend t a where
+    typeof      :: t a -> BackendKind
+    realize     :: Configuration -> IO (t a)
+    realizefrom :: forall s . (IsEffectuator s a) => Trace IO a -> s a -> IO (t a)
+    default realizefrom :: forall s . (IsEffectuator s a) => Trace IO a -> s a -> IO (t a)
     realizefrom (ctx,_) _ = realize (configuration ctx)
-    unrealize   :: t -> IO ()
+    unrealize   :: t a -> IO ()
 
 \end{code}
 
@@ -54,8 +55,8 @@ This data structure for a backend defines its behaviour
 as an |IsEffectuator| when processing an incoming message,
 and as an |IsBackend| for unrealizing the backend.
 \begin{code}
-data Backend = MkBackend
-    { bEffectuate :: NamedLogItem -> IO ()
+data Backend a = MkBackend
+    { bEffectuate :: NamedLogItem a -> IO ()
     , bUnrealize  :: IO ()
     }
 

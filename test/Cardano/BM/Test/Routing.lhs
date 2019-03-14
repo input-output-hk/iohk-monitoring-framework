@@ -4,7 +4,7 @@
 
 %if style == newcode
 \begin{code}
-{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Cardano.BM.Test.Routing (
     tests
@@ -121,7 +121,7 @@ unit_generic_scribe_backend defaultBackends setBackends defaultScribes setScribe
     forM_ setScribes $ \(name, maybeScribes) ->
         CM.setScribes c name maybeScribes
 
-    withTrace c "test" $ \tr -> do
+    withTrace c "test" $ \(tr :: Trace IO String) -> do
 
         tr1 <- appendName "one" tr
         tr2 <- appendName "two" tr
