@@ -689,7 +689,7 @@ unitLoggingPrivate = do
     forM_ [privateFile, publicFile] removeFile
 
     assertBool
-        ("Private file should contain 2 lines and it contains " ++ show countPrivate ++ ".\n" ++
+        ("Confidential file should contain 2 lines and it contains " ++ show countPrivate ++ ".\n" ++
          "Public file should contain 1 line and it contains "   ++ show countPublic  ++ ".\n"
         )
         (countPublic == 1 && countPrivate == 2)

@@ -118,12 +118,12 @@ data LOContent a = LogMessage a
 \end{code}
 
 \label{code:PrivacyAnnotation}\index{PrivacyAnnotation}
-\label{code:Private}\index{PrivacyAnnotation!Private}
-\label{code:Both}\index{PrivacyAnnotation!Both}
+\label{code:Confidential}\index{PrivacyAnnotation!Confidential}
+\label{code:Public}\index{PrivacyAnnotation!Public}
 \begin{code}
 data PrivacyAnnotation =
-      Private      -- private information - handle with care
-    | Both         -- indifferent - can be public.
+      Confidential -- confidential information - handle with care
+    | Public       -- indifferent - can be public.
     deriving (Show, Generic, ToJSON, FromJSON)
 
 \end{code}

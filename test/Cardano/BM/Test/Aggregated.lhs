@@ -69,7 +69,7 @@ prop_Aggregation_minimal :: Bool
 prop_Aggregation_minimal = True
 
 lometa :: LOMeta
-lometa = unsafePerformIO $ mkLOMeta Debug Both
+lometa = unsafePerformIO $ mkLOMeta Debug Public
 
 prop_Aggregation_comm :: Integer -> Integer -> Aggregated -> Property
 prop_Aggregation_comm v1 v2 ag =
@@ -120,24 +120,24 @@ unitAggregationStepwise = do
     stats0 <- pure $ singletonStats (Bytes 3000)
     -- putStrLn (show stats0)
     threadDelay 50000   -- 0.05 s
-    t1 <- mkLOMeta Debug Both
+    t1 <- mkLOMeta Debug Public
     stats1 <- pure $ updateAggregation (Bytes 5000) stats0 t1 Nothing
     -- putStrLn (show stats1)
     -- showTimedMean stats1
     threadDelay 50000   -- 0.05 s
-    t2 <- mkLOMeta Debug Both
+    t2 <- mkLOMeta Debug Public
     stats2 <- pure $ updateAggregation (Bytes 1000) stats1 t2 Nothing
     -- putStrLn (show stats2)
     -- showTimedMean stats2
     checkTimedMean stats2
     threadDelay 50000   -- 0.05 s
-    t3 <- mkLOMeta Debug Both
+    t3 <- mkLOMeta Debug Public
     stats3 <- pure $ updateAggregation (Bytes 3000) stats2 t3 Nothing
     -- putStrLn (show stats3)
     -- showTimedMean stats3
     checkTimedMean stats3
     threadDelay 50000   -- 0.05 s
-    t4 <- mkLOMeta Debug Both
+    t4 <- mkLOMeta Debug Public
     stats4 <- pure $ updateAggregation (Bytes 1000) stats3 t4 Nothing
     -- putStrLn (show stats4)
     -- showTimedMean stats4
