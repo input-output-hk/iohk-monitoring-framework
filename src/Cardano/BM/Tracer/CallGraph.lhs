@@ -20,6 +20,7 @@ module Cardano.BM.Tracer.CallGraph
 
 import           Cardano.BM.Data.LogItem (LoggerName)
 import           Cardano.BM.Tracer.Class
+import           Data.Functor.Contravariant (Op (..))
 
 \end{code}
 %endif
@@ -44,7 +45,7 @@ filterAppendNameTracing :: ([LoggerName] -> Bool) -> LoggerName -> Tracer m (Nam
 filterAppendNameTracing test name = (appendNamedTracing name) . (filterNamedTracing' test)
 
 filterNamedTracing :: (Monad m) => m ([LoggerName] -> Bool) -> Tracer m (NamedItem a) -> Tracer m (NamedItem a)
-filterNamedTracing tester (Tracer tr) = Tracer $ \case
+filterNamedTracing tester (Tracer (Op tr)) = Tracer $ Op $ \case
   Nothing
     -> pure ()
   Just (a,b) -- 'a' is the rest of the names from this point to the leaf

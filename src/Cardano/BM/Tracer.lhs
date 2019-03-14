@@ -31,6 +31,7 @@ module Cardano.BM.Tracer
     ) where
 
 import           Control.Monad (void)
+import           Data.Functor.Contravariant (Op (..))
 import           Data.Text (Text, pack, unpack)
 
 import           Cardano.BM.Data.LogItem (LogNamed (..), LoggerName,
@@ -52,7 +53,7 @@ import Cardano.BM.Tracer
 
 :set -Wno-type-defaults
 
-let f = \tr -> do tracing tr "hello"
+let f = \tr -> do tracingWith tr "hello"
 f (showTracing stdoutTracer)
 f (condTracing False $ showTracing stdoutTracer)
 f (condTracing True $ showTracing stdoutTracer)
@@ -64,7 +65,7 @@ f (condTracingM (pure True) $ showTracing stdoutTracer)
 
 test1 :: IO ()
 test1 = do
-    let logTrace a = tracing (showTracing (contramap ("Debug: " ++) stdoutTracer)) a
+    let logTrace a = tracingWith (showTracing (contramap ("Debug: " ++) stdoutTracer)) a
     void $ callFun1 logTrace
 
 callFun1 :: (String -> IO ()) -> IO Int
@@ -82,7 +83,7 @@ import Cardano.BM.Tracer
 :set +m
 :set -Wno-type-defaults
 
-let f = \tr -> do tracing tr 42
+let f = \tr -> do tracingWith tr 42
 let tr = namedTrace (appendNamedTracing "last"
                       (appendNamedTracing "mid"
                         (appendNamedTracing "first"
@@ -114,7 +115,7 @@ class Monad m => ToLogObject m where
 
 instance ToLogObject IO where
     toLogObject :: Tracer IO (LogObject a) -> Tracer IO a
-    toLogObject (Tracer tr) = Tracer $ \a -> do
+    toLogObject (Tracer (Op tr)) = Tracer $ Op $ \a -> do
         lo <- LogObject <$> (mkLOMeta Debug Both)
                         <*> pure (LogMessage a)
         tr lo
@@ -134,18 +135,18 @@ test2 = do
 callFun2 :: Tracer IO (LogNamed (LogObject Text)) -> IO Int
 callFun2 logTrace = do
     let logTrace' = appendNamed "fun2" logTrace
-    tracing (tracingNamed logTrace') "in function 2"
+    tracingWith (tracingNamed logTrace') "in function 2"
     callFun3 logTrace'
 
 callFun3 :: Tracer IO (LogNamed (LogObject Text)) -> IO Int
 callFun3 logTrace = do
-    tracing (tracingNamed (appendNamed "fun3" logTrace)) "in function 3"
+    tracingWith (tracingNamed (appendNamed "fun3" logTrace)) "in function 3"
     return 42
 
 severityAnnotatedM :: Show a
     => Tracer IO (LogObject Text)
     -> Tracer IO (PrivacyAndSeverityAnnotated a)
-severityAnnotatedM (Tracer tr) = Tracer $ \(PSA sev priv a) -> do
+severityAnnotatedM (Tracer (Op tr)) = Tracer $ Op $ \(PSA sev priv a) -> do
     lo <- LogObject <$> (mkLOMeta sev priv)
                     <*> pure (LogMessage $ pack $ show a)
     tr lo
@@ -155,8 +156,8 @@ test3 = do
     let logTrace =
             severityAnnotatedM $ named $ appendNamed "test3" $ renderNamedItemTracing stdoutTracer
 
-    tracing logTrace $ PSA Info Private "Hello"
-    tracing logTrace $ PSA Warning Both "World"
+    tracingWith logTrace $ PSA Info Private ("Hello" :: String)
+    tracingWith logTrace $ PSA Warning Both "World"
 
 \end{code}
 
@@ -173,13 +174,13 @@ test4 = do
     let appendF = filterAppendNameTracing' oracle
         logTrace = appendF "test4" (renderNamedItemTracing stdoutTracer)
 
-    tracing (tracingNamed logTrace) "Hello"
+    tracingWith (tracingNamed logTrace) ("Hello" :: String)
 
     let logTrace' = appendF "inner" logTrace
-    tracing (tracingNamed logTrace') "World"
+    tracingWith (tracingNamed logTrace') "World"
 
     let logTrace'' = appendF "innest" logTrace'
-    tracing (tracingNamed logTrace'') "!!"
+    tracingWith (tracingNamed logTrace'') "!!"
   where
     oracle :: Monad m => m (LogNamed a -> Bool)
     oracle = return $ ((/=) "test4.inner.") . lnName
