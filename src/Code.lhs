@@ -149,7 +149,7 @@ where
 
 %include Cardano/BM/Tracer.lhs
 %include Cardano/BM/Tracer/Class.lhs
-%include Cardano/BM/Tracer/Simple.lhs
+%include Cardano/BM/Tracer/Output.lhs
 %include Cardano/BM/Tracer/Transformers.lhs
 
 %include Cardano/BM/Setup.lhs

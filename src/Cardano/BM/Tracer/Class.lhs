@@ -15,9 +15,9 @@ import           Data.Functor.Contravariant (Contravariant (..), Op (..))
 \end{code}
 %endif
 
-\label{code:Tracer}\index{Tracer}
-The notion of a `Tracer` is an action that can be used to observe
-information of interest during evaluation. `Tracer`s can capture (and
+\subsubsection{Contravariant Tracer}\label{code:Tracer}\index{Tracer}
+The notion of a |Tracer| is an action that can be used to observe
+information of interest during evaluation. |Tracer|s can capture (and
 annotate) such observations with additional information from their
 execution context.
 
@@ -25,10 +25,10 @@ execution context.
 newtype Tracer m s = Tracer { tracing :: Op (m ()) s }
 \end{code}
 
-\subsubsection{contramap}\index{BaseTrace!instance of Contravariant}
-A `Tracer` is an instance of `Contravariant`, which permits new
-`Tracer`s to be constructed that feed into the existing Tracer by use
-of `contramap`.
+\index{Tracer!instance of Contravariant}
+A |Tracer| is an instance of |Contravariant|, which permits new
+|Tracer|s to be constructed that feed into the existing Tracer by use
+of |contramap|.
 
 \begin{code}
 instance Contravariant (Tracer m) where
@@ -36,14 +36,14 @@ instance Contravariant (Tracer m) where
 
 \end{code}
 
-Although a `Tracer` is invoked in a monadic context (which may be
-`Identity`), the construction of a new Tracer is a pure function.
+Although a |Tracer| is invoked in a monadic context (which may be
+|Identity|), the construction of a new |Tracer| is a pure function.
 
-This brings with it the constraint that the derived Tracer's form a
-hierachy which has it root at the top level tracer.
+This brings with it the constraint that the derived |Tracer|s form a
+hierachy which has its root at the top level tracer.
 
-\subsubsection{nullTracer}\label{code:nullTracer}\index{nullTracer}
-The simplest tracer - one that does not generate output.
+\subsubsection{|nullTracer|}\label{code:nullTracer}\index{nullTracer}
+The simplest tracer - one that suppresses all output.
 
 \begin{code}
 nullTracer :: (Applicative m) => Tracer m a
@@ -57,7 +57,7 @@ from the |Tracer| as type "|Op (m ()) s|" and, after "|getOp :: b -> a|" which
 translates to "|s -> m ()|".
 
 \begin{code}
-tracingWith :: Tracer m s -> s -> m ()
+tracingWith :: Tracer m a -> a -> m ()
 tracingWith = getOp . tracing
 
 \end{code}

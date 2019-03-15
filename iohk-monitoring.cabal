@@ -74,7 +74,7 @@ library
 
                        Cardano.BM.Tracer
                        Cardano.BM.Tracer.Class
-                       Cardano.BM.Tracer.Simple
+                       Cardano.BM.Tracer.Output
                        Cardano.BM.Tracer.Transformers
 
   if !flag(disable-aggregation)

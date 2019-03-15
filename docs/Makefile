@@ -34,6 +34,10 @@ SOURCES = ../src/Code.lhs \
 					../src/Cardano/BM/Rotator.lhs \
 					../src/Cardano/BM/Setup.lhs \
 					../src/Cardano/BM/Trace.lhs \
+					../src/Cardano/BM/Tracer.lhs \
+ 					../src/Cardano/BM/Tracer/Class.lhs \
+ 					../src/Cardano/BM/Tracer/Output.lhs \
+ 					../src/Cardano/BM/Tracer/Transformers.lhs \
 
 TESTS = ../test/Test.lhs \
 				../test/Cardano/BM/Test/Aggregated.lhs \
