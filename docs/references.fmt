@@ -153,7 +153,6 @@
 %format NameSelector = "\hyperref[code:NameSelector]{NameSelector}"
 %format Cardano.BM.Data.Trace = "\hyperref[code:Cardano.BM.Data.Trace]{Cardano.BM.Data.Trace}"
 %format Trace = "\hyperref[code:Trace]{Trace}"
-%format TraceNamed = "\hyperref[code:TraceNamed]{TraceNamed}"
 %format TraceContext = "\hyperref[code:TraceContext]{TraceContext}"
 %format configuration = "\hyperref[code:configuration]{configuration}"
 %format Cardano.BM.Configuration = "\hyperref[code:Cardano.BM.Configuration]{Cardano.BM.Configuration}"
