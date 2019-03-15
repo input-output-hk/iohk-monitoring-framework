@@ -237,12 +237,12 @@ instance ToJSON a => KC.LogItem (Maybe (LOContent a)) where
 \end{code}
 
 \subsubsection{Log.passN}\label{code:passN}
-The following function copies the |NamedLogItem| to the queues of all scribes
+The following function copies the |LogObject| to the queues of all scribes
 that match on their name.
 Compare start of name of scribe to |(show backend <> "::")|.
 This function is non-blocking.
 \begin{code}
-passN :: (ToJSON a, Show a) => ScribeId -> Log a -> NamedLogItem a -> IO ()
+passN :: (ToJSON a, Show a) => ScribeId -> Log a -> LogObject a -> IO ()
 passN backend katip (LogObject loname lometa loitem) = do
     env <- kLogEnv <$> readMVar (getK katip)
     forM_ (Map.toList $ K._logEnvScribes env) $

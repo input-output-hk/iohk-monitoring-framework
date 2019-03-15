@@ -9,8 +9,7 @@
 {-# LANGUAGE StandaloneDeriving #-}
 
 module Cardano.BM.Data.LogItem
-  ( NamedLogItem
-  , LogNamed (..)
+  ( LogNamed (..)
   , LogObject (..)
   , LOMeta (..), mkLOMeta
   , LOContent (..)
@@ -37,12 +36,6 @@ import           Cardano.BM.Data.Severity
 A |LoggerName| has currently type |Text|.
 \begin{code}
 type LoggerName = Text
-
-\end{code}
-
-\subsubsection{NamedLogItem}\label{code:NamedLogItem}\index{NamedLogItem}
-\begin{code}
-type NamedLogItem a = LogObject a
 
 \end{code}
 

@@ -58,7 +58,7 @@ newtype EKGView a = EKGView
     { getEV :: EKGViewMVar a }
 
 data EKGViewInternal a = EKGViewInternal
-    { evQueue   :: TBQ.TBQueue (Maybe (NamedLogItem a))
+    { evQueue   :: TBQ.TBQueue (Maybe (LogObject a))
     , evLabels  :: EKGViewMap
     , evServer  :: Server
     }
@@ -122,7 +122,7 @@ ekgTrace ekg c = do
 \end{code}
 
 \subsubsection{EKG view is an effectuator}\index{EKGView!instance of IsEffectuator}
-Function |effectuate| is called to pass in a |NamedLogItem| for display in EKG.
+Function |effectuate| is called to pass in a |LogObject| for display in EKG.
 If the log item is an |AggregatedStats| message, then all its constituents are
 put into the queue. In case the queue is full, all new items are dropped.
 \begin{code}
@@ -203,7 +203,7 @@ instance Show a => IsBackend EKGView a where
 \subsubsection{Asynchronously reading log items from the queue and their processing}
 \begin{code}
 spawnDispatcher :: (Show a)
-                => TBQ.TBQueue (Maybe (NamedLogItem a))
+                => TBQ.TBQueue (Maybe (LogObject a))
                 -> Trace.Trace IO a
                 -> Trace.Trace IO a
                 -> IO (Async.Async ())

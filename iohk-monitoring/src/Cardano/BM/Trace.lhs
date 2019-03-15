@@ -210,7 +210,7 @@ traceInTVarIOConditionally tvar ctx =
                 STM.atomically $ STM.modifyTVar tvar ((:) item{ loName = secName })
             _ -> return ()
 
-subtraceOutput :: SubTrace -> NamedLogItem a -> Bool
+subtraceOutput :: SubTrace -> LogObject a -> Bool
 subtraceOutput subTrace (LogObject loname _ loitem) =
     case subTrace of
         FilterTrace filters ->
