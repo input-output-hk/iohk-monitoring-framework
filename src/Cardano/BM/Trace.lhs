@@ -4,7 +4,7 @@
 
 %if style == newcode
 \begin{code}
-{-# LANGUAGE RankNTypes        #-}
+{-# LANGUAGE RankNTypes #-}
 
 module Cardano.BM.Trace
     (
@@ -62,7 +62,7 @@ import           Cardano.BM.Data.SubTrace
 \subsubsection{Utilities}
 Natural transformation from monad |m| to monad |n|.
 \begin{code}
-natTrace :: (forall x . m x -> n x) -> Trace m -> Trace n
+natTrace :: (forall x . m x -> n x) -> Trace m a -> Trace n a
 natTrace nat (ctx, trace) = (ctx, BaseTrace.natTrace nat trace)
 
 \end{code}
@@ -73,7 +73,7 @@ The context name is created and checked that its size is below a limit
 The minimum severity that a log message must be labelled with is looked up in
 the configuration and recalculated.
 \begin{code}
-appendName :: MonadIO m => LoggerName -> Trace m -> m (Trace m)
+appendName :: MonadIO m => LoggerName -> Trace m a -> m (Trace m a)
 appendName name =
     modifyName (\prevLoggerName -> appendWithDot name prevLoggerName)
 
@@ -91,7 +91,7 @@ The context name is created and checked that its size is below a limit
 The minimum severity that a log message must be labelled with is looked up in
 the configuration and recalculated.
 \begin{code}
-modifyName :: MonadIO m => (LoggerName -> LoggerName) -> Trace m -> m (Trace m)
+modifyName :: MonadIO m => (LoggerName -> LoggerName) -> Trace m a -> m (Trace m a)
 modifyName f (ctx, basetrace0) =
     let basetrace = modifyNameBase f basetrace0
     in
@@ -99,8 +99,8 @@ modifyName f (ctx, basetrace0) =
 
 modifyNameBase
     :: (LoggerName -> LoggerName)
-    -> TraceNamed m
-    -> TraceNamed m
+    -> TraceNamed m a
+    -> TraceNamed m a
 modifyNameBase k = contramap f
   where
     f (LogNamed name item) = LogNamed (k name) item
@@ -119,8 +119,8 @@ named = contramap (LogNamed mempty)
 \begin{code}
 traceNamedObject
     :: MonadIO m
-    => Trace m
-    -> LogObject
+    => Trace m a
+    -> LogObject a
     -> m ()
 traceNamedObject (_, logTrace) lo =
     BaseTrace.traceWith (named logTrace) lo
@@ -168,12 +168,12 @@ locallock = unsafePerformIO $ newMVar ()
 \end{code}
 
 \begin{code}
-stdoutTrace :: TraceNamed IO
+stdoutTrace :: TraceNamed IO T.Text
 stdoutTrace = BaseTrace.BaseTrace $ Op $ \(LogNamed logname (LogObject _ lc)) ->
     withMVar locallock $ \_ ->
         case lc of
             (LogMessage logItem) ->
-                    output logname $ liPayload logItem
+                    output logname $ logItem
             obj ->
                     output logname $ toStrict (encodeToLazyText obj)
   where
@@ -188,15 +188,15 @@ stdoutTrace = BaseTrace.BaseTrace $ Op $ \(LogNamed logname (LogObject _ lc)) ->
 traceInTVar :: STM.TVar [a] -> BaseTrace.BaseTrace STM.STM a
 traceInTVar tvar = BaseTrace.BaseTrace $ Op $ \a -> STM.modifyTVar tvar ((:) a)
 
-traceInTVarIO :: STM.TVar [LogObject] -> TraceNamed IO
+traceInTVarIO :: STM.TVar [LogObject a] -> TraceNamed IO a
 traceInTVarIO tvar = BaseTrace.BaseTrace $ Op $ \ln ->
                          STM.atomically $ STM.modifyTVar tvar ((:) (lnItem ln))
 
-traceNamedInTVarIO :: STM.TVar [LogNamed LogObject] -> TraceNamed IO
+traceNamedInTVarIO :: STM.TVar [LogNamed (LogObject a)] -> TraceNamed IO a
 traceNamedInTVarIO tvar = BaseTrace.BaseTrace $ Op $ \ln ->
                          STM.atomically $ STM.modifyTVar tvar ((:) ln)
 
-traceInTVarIOConditionally :: STM.TVar [LogObject] -> TraceContext -> TraceNamed IO
+traceInTVarIOConditionally :: STM.TVar [LogObject a] -> TraceContext -> TraceNamed IO a
 traceInTVarIOConditionally tvar ctx =
     BaseTrace.BaseTrace $ Op $ \item@(LogNamed loggername (LogObject meta _)) -> do
         let conf = configuration ctx
@@ -215,7 +215,7 @@ traceInTVarIOConditionally tvar ctx =
                 STM.atomically $ STM.modifyTVar tvar ((:) (lnItem item))
             _ -> return ()
 
-traceNamedInTVarIOConditionally :: STM.TVar [LogNamed LogObject] -> TraceContext -> TraceNamed IO
+traceNamedInTVarIOConditionally :: STM.TVar [LogNamed (LogObject a)] -> TraceContext -> TraceNamed IO a
 traceNamedInTVarIOConditionally tvar ctx =
     BaseTrace.BaseTrace $ Op $ \item@(LogNamed loggername (LogObject meta _)) -> do
         let conf = configuration ctx
@@ -234,7 +234,7 @@ traceNamedInTVarIOConditionally tvar ctx =
                 STM.atomically $ STM.modifyTVar tvar ((:) item{ lnName = secName })
             _ -> return ()
 
-subtraceOutput :: SubTrace -> NamedLogItem -> Bool
+subtraceOutput :: SubTrace -> NamedLogItem a -> Bool
 subtraceOutput subTrace (LogNamed loname (LogObject _ loitem)) =
     case subTrace of
         FilterTrace filters ->
@@ -258,17 +258,15 @@ the action defined in the |Trace|.
 \begin{code}
 traceNamedItem
     :: MonadIO m
-    => Trace m
-    -> LogSelection
+    => Trace m a
+    -> PrivacyAnnotation
     -> Severity
-    -> T.Text
+    -> a
     -> m ()
 traceNamedItem trace p s m =
     traceNamedObject trace =<<
-        LogObject <$> liftIO (mkLOMeta s)
-                  <*> pure (LogMessage LogItem { liSelection = p
-                                               , liPayload   = m
-                                               })
+        LogObject <$> liftIO (mkLOMeta s p)
+                  <*> pure (LogMessage m)
 
 \end{code}
 
@@ -291,25 +289,25 @@ traceNamedItem trace p s m =
 \label{code:logEmergencyS}\index{logEmergencyS}
 \begin{code}
 logDebug, logInfo, logNotice, logWarning, logError, logCritical, logAlert, logEmergency
-    :: MonadIO m => Trace m -> T.Text -> m ()
-logDebug     logTrace = traceNamedItem logTrace Both Debug
-logInfo      logTrace = traceNamedItem logTrace Both Info
-logNotice    logTrace = traceNamedItem logTrace Both Notice
-logWarning   logTrace = traceNamedItem logTrace Both Warning
-logError     logTrace = traceNamedItem logTrace Both Error
-logCritical  logTrace = traceNamedItem logTrace Both Critical
-logAlert     logTrace = traceNamedItem logTrace Both Alert
-logEmergency logTrace = traceNamedItem logTrace Both Emergency
+    :: MonadIO m => Trace m a -> a -> m ()
+logDebug     logTrace = traceNamedItem logTrace Public Debug
+logInfo      logTrace = traceNamedItem logTrace Public Info
+logNotice    logTrace = traceNamedItem logTrace Public Notice
+logWarning   logTrace = traceNamedItem logTrace Public Warning
+logError     logTrace = traceNamedItem logTrace Public Error
+logCritical  logTrace = traceNamedItem logTrace Public Critical
+logAlert     logTrace = traceNamedItem logTrace Public Alert
+logEmergency logTrace = traceNamedItem logTrace Public Emergency
 
 logDebugS, logInfoS, logNoticeS, logWarningS, logErrorS, logCriticalS, logAlertS, logEmergencyS
-    :: MonadIO m => Trace m -> T.Text -> m ()
-logDebugS     logTrace = traceNamedItem logTrace Private Debug
-logInfoS      logTrace = traceNamedItem logTrace Private Info
-logNoticeS    logTrace = traceNamedItem logTrace Private Notice
-logWarningS   logTrace = traceNamedItem logTrace Private Warning
-logErrorS     logTrace = traceNamedItem logTrace Private Error
-logCriticalS  logTrace = traceNamedItem logTrace Private Critical
-logAlertS     logTrace = traceNamedItem logTrace Private Alert
-logEmergencyS logTrace = traceNamedItem logTrace Private Emergency
+    :: MonadIO m => Trace m a -> a -> m ()
+logDebugS     logTrace = traceNamedItem logTrace Confidential Debug
+logInfoS      logTrace = traceNamedItem logTrace Confidential Info
+logNoticeS    logTrace = traceNamedItem logTrace Confidential Notice
+logWarningS   logTrace = traceNamedItem logTrace Confidential Warning
+logErrorS     logTrace = traceNamedItem logTrace Confidential Error
+logCriticalS  logTrace = traceNamedItem logTrace Confidential Critical
+logAlertS     logTrace = traceNamedItem logTrace Confidential Alert
+logEmergencyS logTrace = traceNamedItem logTrace Confidential Emergency
 
 \end{code}

@@ -5,7 +5,8 @@
 %if style == newcode
 \begin{code}
 {-# LANGUAGE CPP                 #-}
-{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
@@ -27,9 +28,12 @@ import qualified Control.Concurrent.STM.TBQueue as TBQ
 import           Control.Exception.Safe (throwM)
 import           Control.Monad (forM_, when, void)
 import           Control.Monad.IO.Class (liftIO)
+import           Data.Aeson (ToJSON)
 import           Data.Maybe (fromMaybe)
+import qualified Data.Text.IO as TIO
 import           Data.Time.Clock (getCurrentTime)
 import           Data.Functor.Contravariant (Op (..))
+import           System.IO (stderr)
 
 import qualified Cardano.BM.BaseTrace as BaseTrace
 import           Cardano.BM.Configuration (Configuration)
@@ -67,12 +71,12 @@ We are using an |MVar| because we spawn a set of backends that may try to send m
 the switchboard before it is completely setup.
 
 \begin{code}
-type SwitchboardMVar = MVar SwitchboardInternal
-newtype Switchboard = Switchboard
-    { getSB :: SwitchboardMVar }
+type SwitchboardMVar a = MVar (SwitchboardInternal a)
+newtype Switchboard a = Switchboard
+    { getSB :: SwitchboardMVar a }
 
-data SwitchboardInternal = SwitchboardInternal
-    { sbQueue    :: TBQ.TBQueue NamedLogItem
+data SwitchboardInternal a = SwitchboardInternal
+    { sbQueue    :: TBQ.TBQueue (NamedLogItem a)
     , sbDispatch :: Async.Async ()
     }
 
@@ -84,10 +88,10 @@ Every |Trace| ends in the \nameref{code:Switchboard} which then takes care of
 dispatching the messages to outputs
 
 \begin{code}
-mainTrace :: Switchboard -> TraceNamed IO
+mainTrace :: Switchboard a -> TraceNamed IO a
 mainTrace sb = BaseTrace.BaseTrace $ Op $ effectuate sb
 
-mainTraceConditionally :: TraceContext -> Switchboard -> TraceNamed IO
+mainTraceConditionally :: TraceContext -> Switchboard a -> TraceNamed IO a
 mainTraceConditionally ctx sb = BaseTrace.BaseTrace $ Op $ \item@(LogNamed loggername (LogObject meta _)) -> do
     globminsev  <- liftIO $ Config.minSeverity (configuration ctx)
     globnamesev <- liftIO $ Config.inspectSeverity (configuration ctx) loggername
@@ -106,9 +110,9 @@ The switchboard will never block when processing incoming messages
 The queue is initialized and the message dispatcher launched.
 
 \begin{code}
-instance IsEffectuator Switchboard where
+instance IsEffectuator Switchboard a where
     effectuate switchboard item = do
-        let writequeue :: TBQ.TBQueue NamedLogItem -> NamedLogItem -> IO ()
+        let writequeue :: TBQ.TBQueue (NamedLogItem a) -> NamedLogItem a -> IO ()
             writequeue q i = do
                     nocapacity <- atomically $ TBQ.isFullTBQueue q
                     if nocapacity
@@ -119,7 +123,7 @@ instance IsEffectuator Switchboard where
         writequeue (sbQueue sb) item
 
     -- TODO where to put this error message
-    handleOverflow _ = putStrLn "Error: Switchboard's queue full, dropping log items!"
+    handleOverflow _ = TIO.hPutStrLn stderr "Error: Switchboard's queue full, dropping log items!"
 
 \end{code}
 
@@ -128,7 +132,7 @@ instead of 'writequeue ...':
         evalMonitoringAction config item >>=
             mapM_ (writequeue (sbQueue sb))
 
-evalMonitoringAction :: Configuration -> NamedLogItem -> m [NamedLogItem]
+evalMonitoringAction :: Configuration -> NamedLogItem a -> m [NamedLogItem a]
 evalMonitoringAction c item = return [item]
     -- let action = LogNamed { lnName=(lnName item) <> ".action", lnItem=LogMessage ... }
     -- return (action : item)
@@ -139,14 +143,15 @@ evalMonitoringAction c item = return [item]
 
 |Switchboard| is an \nameref{code:IsBackend}
 \begin{code}
-instance IsBackend Switchboard where
+instance (Show a, ToJSON a) => IsBackend Switchboard a where
     typeof _ = SwitchboardBK
 
     realize cfg =
         let spawnDispatcher
-                :: Configuration
-                -> [(BackendKind, Backend)]
-                -> TBQ.TBQueue NamedLogItem
+                :: (Show a)
+                => Configuration
+                -> [(BackendKind, Backend a)]
+                -> TBQ.TBQueue (NamedLogItem a)
                 -> IO (Async.Async ())
             spawnDispatcher config backends queue = do
                 now <- getCurrentTime
@@ -243,7 +248,7 @@ instance IsBackend Switchboard where
         in do
         q <- atomically $ TBQ.newTBQueue 2048
         sbref <- newEmptyMVar
-        let sb :: Switchboard = Switchboard sbref
+        let sb :: Switchboard a = Switchboard sbref
 
         backends <- getSetupBackends cfg
         bs <- setupBackends backends cfg sb []
@@ -257,12 +262,12 @@ instance IsBackend Switchboard where
         return sb
 
     unrealize switchboard = do
-        let clearMVar :: MVar a -> IO ()
+        let clearMVar :: MVar some -> IO ()
             clearMVar = void . tryTakeMVar
 
         (dispatcher, queue) <- withMVar (getSB switchboard) (\sb -> return (sbDispatch sb, sbQueue sb))
         -- send terminating item to the queue
-        lo <- LogObject <$> (mkLOMeta Warning) <*> pure KillPill
+        lo <- LogObject <$> (mkLOMeta Warning Confidential) <*> pure KillPill
         atomically $ TBQ.writeTBQueue queue $ LogNamed "kill.switchboard" lo
         -- wait for the dispatcher to exit
         res <- Async.waitCatch dispatcher
@@ -273,16 +278,17 @@ instance IsBackend Switchboard where
 
 \subsubsection{Realizing the backends according to configuration}\label{code:setupBackends}\index{Switchboard!setupBackends}
 \begin{code}
-setupBackends :: [BackendKind]
+setupBackends :: (Show a, ToJSON a)
+              => [BackendKind]
               -> Configuration
-              -> Switchboard
-              -> [(BackendKind, Backend)]
-              -> IO [(BackendKind, Backend)]
+              -> Switchboard a
+              -> [(BackendKind, Backend a)]
+              -> IO [(BackendKind, Backend a)]
 setupBackends [] _ _ acc = return acc
 setupBackends (bk : bes) c sb acc = do
     be' <- setupBackend' bk c sb
     setupBackends bes c sb ((bk,be') : acc)
-setupBackend' :: BackendKind -> Configuration -> Switchboard -> IO Backend
+setupBackend' :: (Show a, ToJSON a) => BackendKind -> Configuration -> Switchboard a -> IO (Backend a)
 setupBackend' SwitchboardBK _ _ = error "cannot instantiate a further Switchboard"
 #ifdef ENABLE_MONITORING
 setupBackend' MonitoringBK c sb = do
@@ -290,7 +296,7 @@ setupBackend' MonitoringBK c sb = do
                              }
         trace = mainTraceConditionally ctx sb
 
-    be :: Cardano.BM.Output.Monitoring.Monitor <- Cardano.BM.Output.Monitoring.realizefrom (ctx, trace) sb
+    be :: Cardano.BM.Output.Monitoring.Monitor a <- Cardano.BM.Output.Monitoring.realizefrom (ctx, trace) sb
     return MkBackend
       { bEffectuate = Cardano.BM.Output.Monitoring.effectuate be
       , bUnrealize = Cardano.BM.Output.Monitoring.unrealize be
@@ -298,7 +304,7 @@ setupBackend' MonitoringBK c sb = do
 #else
 -- We need it anyway, to avoid "Non-exhaustive patterns" warning.
 setupBackend' MonitoringBK _ _ =
-    error "Impossible happened: monitoring is disabled by Cabal-flag, we mustn't match this backend!"
+    TIO.hPutStrLn stderr "disabled! will not setup backend 'Monitoring'"
 #endif
 #ifdef ENABLE_EKG
 setupBackend' EKGViewBK c sb = do
@@ -306,7 +312,7 @@ setupBackend' EKGViewBK c sb = do
                              }
         trace = mainTraceConditionally ctx sb
 
-    be :: Cardano.BM.Output.EKGView.EKGView <- Cardano.BM.Output.EKGView.realizefrom (ctx, trace) sb
+    be :: Cardano.BM.Output.EKGView.EKGView a <- Cardano.BM.Output.EKGView.realizefrom (ctx, trace) sb
     return MkBackend
       { bEffectuate = Cardano.BM.Output.EKGView.effectuate be
       , bUnrealize = Cardano.BM.Output.EKGView.unrealize be
@@ -314,7 +320,7 @@ setupBackend' EKGViewBK c sb = do
 #else
 -- We need it anyway, to avoid "Non-exhaustive patterns" warning.
 setupBackend' EKGViewBK _ _ =
-    error "Impossible happened: EKG is disabled by Cabal-flag, we mustn't match this backend!"
+    TIO.hPutStrLn stderr "disabled! will not setup backend 'EKGView'"
 #endif
 #ifdef ENABLE_AGGREGATION
 setupBackend' AggregationBK c sb = do
@@ -322,7 +328,7 @@ setupBackend' AggregationBK c sb = do
                              }
         trace = mainTraceConditionally ctx sb
 
-    be :: Cardano.BM.Output.Aggregation.Aggregation <- Cardano.BM.Output.Aggregation.realizefrom (ctx,trace) sb
+    be :: Cardano.BM.Output.Aggregation.Aggregation a <- Cardano.BM.Output.Aggregation.realizefrom (ctx,trace) sb
     return MkBackend
       { bEffectuate = Cardano.BM.Output.Aggregation.effectuate be
       , bUnrealize = Cardano.BM.Output.Aggregation.unrealize be
@@ -330,10 +336,10 @@ setupBackend' AggregationBK c sb = do
 #else
 -- We need it anyway, to avoid "Non-exhaustive patterns" warning.
 setupBackend' AggregationBK _ _ =
-    error "Impossible happened: aggregation is disabled by Cabal-flag, we mustn't match this backend!"
+    TIO.hPutStrLn stderr "disabled! will not setup backend 'Aggregation'"
 #endif
 setupBackend' KatipBK c _ = do
-    be :: Cardano.BM.Output.Log.Log <- Cardano.BM.Output.Log.realize c
+    be :: Cardano.BM.Output.Log.Log a <- Cardano.BM.Output.Log.realize c
     return MkBackend
       { bEffectuate = Cardano.BM.Output.Log.effectuate be
       , bUnrealize = Cardano.BM.Output.Log.unrealize be

@@ -1,7 +1,7 @@
 \subsubsection{Module header and import directives}
 \begin{code}
-{-# LANGUAGE CPP               #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE CPP                 #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 #if defined(linux_HOST_OS)
 #define LINUX
@@ -29,7 +29,7 @@ import qualified Data.ByteString.Char8 as BS8
 import           Network.Download (openURI)
 #endif
 #endif
-import           Data.Text (pack)
+import           Data.Text (Text, pack)
 import           System.Random
 
 #ifdef ENABLE_GUI
@@ -180,7 +180,7 @@ config = do
 
 \subsubsection{Thread that outputs a random number to a |Trace|}
 \begin{code}
-randomThr :: Trace IO -> IO (Async.Async ())
+randomThr :: Trace IO Text -> IO (Async.Async ())
 randomThr trace = do
   logInfo trace "starting random generator"
   trace' <- appendName "random" trace
@@ -190,7 +190,7 @@ randomThr trace = do
     loop tr = do
         threadDelay 500000  -- 0.5 second
         num <- randomRIO (42-42, 42+42) :: IO Double
-        lo <- LogObject <$> (mkLOMeta Debug) <*> pure (LogValue "rr" (PureD num))
+        lo <- LogObject <$> (mkLOMeta Debug Public) <*> pure (LogValue "rr" (PureD num))
         traceNamedObject tr lo
         loop tr
 
@@ -199,7 +199,7 @@ randomThr trace = do
 \subsubsection{Thread that observes an |IO| action}
 \begin{code}
 #ifdef ENABLE_OBSERVABLES
-observeIO :: Trace IO -> IO (Async.Async ())
+observeIO :: Trace IO Text -> IO (Async.Async ())
 observeIO trace = do
   logInfo trace "starting observer"
   proc <- Async.async (loop trace)
@@ -218,7 +218,7 @@ observeIO trace = do
 \subsubsection{Threads that observe |STM| actions on the same TVar}
 \begin{code}
 #ifdef ENABLE_OBSERVABLES
-observeSTM :: Trace IO -> IO [Async.Async ()]
+observeSTM :: Trace IO Text -> IO [Async.Async ()]
 observeSTM trace = do
   logInfo trace "starting STM observer"
   tvar <- atomically $ newTVar ([1..1000]::[Int])
@@ -245,7 +245,7 @@ order to observe the I/O statistics}
 \begin{code}
 #ifdef LINUX
 #ifdef ENABLE_OBSERVABLES
-observeDownload :: Trace IO -> IO (Async.Async ())
+observeDownload :: Trace IO Text -> IO (Async.Async ())
 observeDownload trace = do
   proc <- Async.async (loop trace)
   return proc
@@ -267,7 +267,7 @@ observeDownload trace = do
 
 \subsubsection{Thread that periodically outputs a message}
 \begin{code}
-msgThr :: Trace IO -> IO (Async.Async ())
+msgThr :: Trace IO Text -> IO (Async.Async ())
 msgThr trace = do
   logInfo trace "start messaging .."
   trace' <- appendName "message" trace
@@ -295,7 +295,7 @@ main = do
 #endif
 
     -- create initial top-level Trace
-    tr <- setupTrace (Right c) "complex"
+    tr :: Trace IO Text <- setupTrace (Right c) "complex"
 
     logNotice tr "starting program; hit CTRL-C to terminate"
 -- user can watch the progress only if EKG is enabled.

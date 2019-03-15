@@ -25,7 +25,7 @@ import           Data.Word (Word64)
 
 import           Cardano.BM.Data.Aggregated (Measurable (PureI))
 import           Cardano.BM.Data.LogItem (LoggerName, LOContent(LogValue),
-                    LOMeta (..), LogObject (..), mkLOMeta)
+                    LOMeta(..), LogObject(..), PrivacyAnnotation(Confidential), mkLOMeta)
 import           Cardano.BM.Data.Severity (Severity (..))
 import           Cardano.BM.Data.Trace
 import qualified Cardano.BM.Trace as Trace
@@ -46,7 +46,7 @@ data MessageCounter = MessageCounter
 \subsubsection{Update counters.}
 Update counter for specific severity and type of message.
 \begin{code}
-updateMessageCounters :: MessageCounter -> LogObject -> MessageCounter
+updateMessageCounters :: (Show a) => MessageCounter -> LogObject a -> MessageCounter
 updateMessageCounters mc (LogObject meta content) =
     let sev = show $ severity meta
         messageType = head $ words $ show content
@@ -79,7 +79,7 @@ resetCounters time = MessageCounter
 Send counters to |Switchboard| and reset them.
 \begin{code}
 sendAndReset
-    :: Trace IO
+    :: Trace IO a
     -> MessageCounter
     -> Severity
     -> IO MessageCounter
@@ -88,15 +88,10 @@ sendAndReset trace counters sev = do
     let start = mcStart counters
         diffTime = round $ diffUTCTime now start
 
+    lometa <- mkLOMeta sev Confidential
     forM_ (HM.toList $ mcCountersMap counters) $ \(key, count) ->
-        Trace.traceNamedObject trace =<<
-            LogObject
-                <$> (mkLOMeta sev)
-                <*> pure (LogValue (pack key) (PureI $ toInteger count))
-    Trace.traceNamedObject trace =<<
-        LogObject
-            <$> (mkLOMeta sev)
-            <*> pure (LogValue "time_interval_(s)" (PureI diffTime))
+        Trace.traceNamedObject trace $ LogObject lometa $ LogValue (pack key) (PureI $ toInteger count)
+    Trace.traceNamedObject trace $ LogObject lometa $ LogValue "time_interval_(s)" (PureI diffTime)
     return $ resetCounters now
 
 \end{code}
@@ -105,7 +100,7 @@ sendAndReset trace counters sev = do
 Send counters to |Switchboard| and reset them after a given interval in milliseconds.
 \begin{code}
 sendAndResetAfter
-    :: Trace IO
+    :: Trace IO a
     -> LoggerName
     -> MVar MessageCounter
     -> Int

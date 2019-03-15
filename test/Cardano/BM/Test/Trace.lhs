@@ -4,8 +4,9 @@
 
 %if style == newcode
 \begin{code}
-{-# LANGUAGE CPP        #-}
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE CPP                 #-}
+{-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Cardano.BM.Test.Trace (
     TraceConfiguration (..)
@@ -106,17 +107,17 @@ unit_tests = testGroup "Unit tests" [
       ]
       where
         observablesSet = [MonotonicClock, MemoryStats]
-        notObserveOpen :: [LogObject] -> Bool
+        notObserveOpen :: [LogObject a] -> Bool
         notObserveOpen = all (\case {LogObject _ (ObserveOpen _) -> False; _ -> True})
-        notObserveClose :: [LogObject] -> Bool
+        notObserveClose :: [LogObject a] -> Bool
         notObserveClose = all (\case {LogObject _ (ObserveClose _) -> False; _ -> True})
-        notObserveDiff :: [LogObject] -> Bool
+        notObserveDiff :: [LogObject a] -> Bool
         notObserveDiff = all (\case {LogObject _ (ObserveDiff _) -> False; _ -> True})
-        onlyLevelOneMessage :: [LogObject] -> Bool
+        onlyLevelOneMessage :: [LogObject Text] -> Bool
         onlyLevelOneMessage = \case
-            [LogObject _ (LogMessage (LogItem _ "Message from level 1."))] -> True
+            [LogObject _ (LogMessage "Message from level 1.")] -> True
             _                                                                -> False
-        observeNoMeasures :: [LogObject] -> Bool
+        observeNoMeasures :: [LogObject a] -> Bool
         observeNoMeasures obs = notObserveOpen obs && notObserveClose obs && notObserveDiff obs
 
 \end{code}
@@ -124,12 +125,12 @@ unit_tests = testGroup "Unit tests" [
 \subsubsection{Helper routines}
 \begin{code}
 data TraceConfiguration = TraceConfiguration
-    { tcOutputKind   :: OutputKind
+    { tcOutputKind   :: OutputKind Text
     , tcName         :: LoggerName
     , tcSubTrace     :: SubTrace
     }
 
-setupTrace :: TraceConfiguration -> IO (Trace IO)
+setupTrace :: TraceConfiguration -> IO (Trace IO Text)
 setupTrace (TraceConfiguration outk name subTr) = do
     c <- liftIO $ Cardano.BM.Configuration.Model.empty
     ctx <- liftIO $ newContext c
@@ -141,7 +142,7 @@ setupTrace (TraceConfiguration outk name subTr) = do
     let logTrace' = (ctx, logTrace0)
     appendName name logTrace'
 
-setTransformer_ :: Trace IO -> LoggerName -> Maybe SubTrace -> IO ()
+setTransformer_ :: Trace IO Text -> LoggerName -> Maybe SubTrace -> IO ()
 setTransformer_ (ctx, _) name subtr = do
     let c = configuration ctx
     setSubTrace c name subtr
@@ -153,7 +154,7 @@ setTransformer_ (ctx, _) name subtr = do
 simpleDemo :: IO String
 simpleDemo = do
     cfg <- defaultConfigTesting
-    logTrace <- Setup.setupTrace (Right cfg) "test"
+    logTrace :: Trace IO String <- Setup.setupTrace (Right cfg) "test"
     putStrLn "\n"
 
     logDebug     logTrace "This is how a Debug message looks like."
@@ -174,7 +175,7 @@ simpleDemo = do
 exampleWithNamedContexts :: IO String
 exampleWithNamedContexts = do
     cfg <- defaultConfigTesting
-    Setup.withTrace cfg "test" $ \logTrace -> do
+    Setup.withTrace cfg "test" $ \(logTrace :: Trace IO Text) -> do
         putStrLn "\n"
         logInfo logTrace "entering"
         logTrace0 <- appendName "simple-work-0" logTrace
@@ -210,7 +211,7 @@ exampleWithNamedContexts = do
 \subsubsection{Show effect of turning off observables}\label{timingObservableVsUntimed}
 \begin{code}
 #ifdef ENABLE_OBSERVABLES
-runTimedAction :: Trace IO -> Int -> IO Measurable
+runTimedAction :: Trace IO Text -> Int -> IO Measurable
 runTimedAction logTrace reps = do
     runid <- newUnique
     t0 <- getMonoClock
@@ -328,7 +329,7 @@ unitTraceMinSeverity = do
         ("Found Info message when Warning was minimum severity: " ++ show res)
         (all
             (\case
-                LogObject (LOMeta _ _ Info) (LogMessage (LogItem _ "Message #2")) -> False
+                LogObject (LOMeta _ _ Info _) (LogMessage "Message #2") -> False
                 _ -> True)
             res)
 
@@ -396,14 +397,14 @@ unitNamedMinSeverity = do
         ("Found Info message when Warning was minimum severity: " ++ show res)
         (all
             (\case
-                LogObject (LOMeta _ _ Info) (LogMessage (LogItem _ "Message #2")) -> False
+                LogObject (LOMeta _ _ Info _) (LogMessage "Message #2") -> False
                 _ -> True)
             res)
 
 \end{code}
 
 \begin{code}
-unitHierarchy' :: [SubTrace] -> ([LogObject] -> Bool) -> Assertion
+unitHierarchy' :: [SubTrace] -> ([LogObject Text] -> Bool) -> Assertion
 unitHierarchy' subtraces f = do
     let (t1 : t2 : t3 : _) = cycle subtraces
     msgs <- STM.newTVarIO []
@@ -453,12 +454,12 @@ unitTraceInFork = do
         ("Consecutive loggernames are not different: " ++ show names)
         (and $ zipWith (/=) names namesTail)
   where
-    work :: Trace IO -> IO (Async.Async ())
+    work :: Trace IO Text -> IO (Async.Async ())
     work trace = Async.async $ do
         logInfoDelay trace "1"
         logInfoDelay trace "2"
         logInfoDelay trace "3"
-    logInfoDelay :: Trace IO -> Text -> IO ()
+    logInfoDelay :: Trace IO Text -> Text -> IO ()
     logInfoDelay trace msg =
         logInfo trace msg >>
         threadDelay 10000
@@ -486,7 +487,7 @@ stressTraceInFork = do
         ("Frequencies of logged messages according to loggername: " ++ show frequencyMap)
         (all (\name -> (lookup ("test." <> name) frequencyMap) == Just totalMessages) names)
   where
-    work :: Trace IO -> IO (Async.Async ())
+    work :: Trace IO Text -> IO (Async.Async ())
     work trace = Async.async $ forM_ [1..totalMessages] $ (logInfo trace) . pack . show
     totalMessages :: Int
     totalMessages = 10
@@ -688,7 +689,7 @@ unitLoggingPrivate = do
     forM_ [privateFile, publicFile] removeFile
 
     assertBool
-        ("Private file should contain 2 lines and it contains " ++ show countPrivate ++ ".\n" ++
+        ("Confidential file should contain 2 lines and it contains " ++ show countPrivate ++ ".\n" ++
          "Public file should contain 1 line and it contains "   ++ show countPublic  ++ ".\n"
         )
         (countPublic == 1 && countPrivate == 2)

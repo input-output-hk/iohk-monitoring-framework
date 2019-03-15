@@ -23,14 +23,14 @@ import           Cardano.BM.Data.LogItem
 A |Trace| consists of a |TraceContext| and a |TraceNamed| in |m|.
 \begin{code}
 
-type Trace m = (TraceContext, TraceNamed m)
+type Trace m a = (TraceContext, TraceNamed m a)
 \end{code}
 
 \subsubsection{TraceNamed}\label{code:TraceNamed}\index{TraceNamed}
 A |TraceNamed| is a specialized \nameref{code:BaseTrace} of type |NamedLogItem|, a |LogNamed| with payload |LogObject|.
 \begin{code}
 
-type TraceNamed m = BaseTrace m (NamedLogItem)
+type TraceNamed m a = BaseTrace m (NamedLogItem a)
 \end{code}
 
 \subsubsection{TraceContext}\label{code:TraceContext}\index{TraceContext}

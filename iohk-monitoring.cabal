@@ -72,6 +72,11 @@ library
                        Cardano.BM.Setup
                        Cardano.BM.Trace
 
+                       Cardano.BM.Tracer
+                       Cardano.BM.Tracer.Class
+                       Cardano.BM.Tracer.Output
+                       Cardano.BM.Tracer.Transformers
+
   if !flag(disable-aggregation)
     exposed-modules:   Cardano.BM.Output.Aggregation
 
@@ -80,20 +85,21 @@ library
 
   if !flag(disable-gui)
     exposed-modules:   Cardano.BM.Configuration.Editor
- 
+
   if !flag(disable-observables)
     exposed-modules:   Cardano.BM.Observer.Monadic
                        Cardano.BM.Observer.STM
- 
+
   if !flag(disable-monitoring)
     exposed-modules:   Cardano.BM.Output.Monitoring
-  
+
   if os(Linux)
     exposed-modules:   Cardano.BM.Counters.Linux
   else
     exposed-modules:   Cardano.BM.Counters.Dummy
 
   other-modules:
+
   default-language:    Haskell2010
   default-extensions:  OverloadedStrings
   other-extensions:    OverloadedStrings
@@ -162,7 +168,7 @@ test-suite tests
                        Cardano.BM.Test.Configuration
                        Cardano.BM.Test.Rotator
                        Cardano.BM.Test.Routing
-  
+
   if !flag(disable-aggregation)
     other-modules:     Cardano.BM.Test.Aggregated
                        Cardano.BM.Arbitrary.Aggregated
@@ -222,6 +228,7 @@ executable example-simple
   hs-source-dirs:      examples/simple
   main-is:             Main.lhs
   default-language:    Haskell2010
+  default-extensions:  OverloadedStrings
   ghc-options:         -threaded -Wall -O2 "-with-rtsopts=-T"
   other-modules:
   build-depends:       base,
@@ -238,6 +245,7 @@ executable example-complex
   hs-source-dirs:      examples/complex
   main-is:             Main.lhs
   default-language:    Haskell2010
+  default-extensions:  OverloadedStrings
   ghc-options:         -threaded -Wall -O2 "-with-rtsopts=-T"
   other-modules:
   build-depends:       base,

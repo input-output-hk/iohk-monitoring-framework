@@ -4,7 +4,8 @@
 
 %if style == newcode
 \begin{code}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 
 module Cardano.BM.Output.Aggregation
     (
@@ -25,10 +26,12 @@ import           Control.Monad (unless, void)
 import           Control.Monad.IO.Class (liftIO)
 import qualified Data.HashMap.Strict as HM
 import           Data.Text (Text, pack)
+import qualified Data.Text.IO as TIO
 import           Data.Time.Calendar (toModifiedJulianDay)
 import           Data.Time.Clock (UTCTime (..), getCurrentTime)
 import           Data.Word (Word64)
 import           GHC.Clock (getMonotonicTimeNSec)
+import           System.IO (stderr)
 
 import           Cardano.BM.Configuration.Model (Configuration, getAggregatedKind)
 import           Cardano.BM.Data.Aggregated (Aggregated (..), BaseStats (..),
@@ -50,12 +53,12 @@ import qualified Cardano.BM.Trace as Trace
 
 \subsubsection{Internal representation}\label{code:Aggregation}\index{Aggregation}
 \begin{code}
-type AggregationMVar = MVar AggregationInternal
-newtype Aggregation = Aggregation
-    { getAg :: AggregationMVar }
+type AggregationMVar a = MVar (AggregationInternal a)
+newtype Aggregation a = Aggregation
+    { getAg :: AggregationMVar a }
 
-data AggregationInternal = AggregationInternal
-    { agQueue    :: TBQ.TBQueue (Maybe NamedLogItem)
+data AggregationInternal a = AggregationInternal
+    { agQueue    :: TBQ.TBQueue (Maybe (NamedLogItem a))
     , agDispatch :: Async.Async ()
     }
 
@@ -87,7 +90,7 @@ data AggregatedExpanded = AggregatedExpanded
 |Aggregation| is an |IsEffectuator|
 Enter the log item into the |Aggregation| queue.
 \begin{code}
-instance IsEffectuator Aggregation where
+instance IsEffectuator Aggregation a where
     effectuate agg item = do
         ag <- readMVar (getAg agg)
         nocapacity <- atomically $ TBQ.isFullTBQueue (agQueue ag)
@@ -95,14 +98,14 @@ instance IsEffectuator Aggregation where
         then handleOverflow agg
         else atomically $ TBQ.writeTBQueue (agQueue ag) $! Just item
 
-    handleOverflow _ = putStrLn "Notice: Aggregation's queue full, dropping log items!"
+    handleOverflow _ = TIO.hPutStrLn stderr "Notice: Aggregation's queue full, dropping log items!"
 \end{code}
 
 \subsubsection{|Aggregation| implements |Backend| functions}\index{Aggregation!instance of IsBackend}
 
 |Aggregation| is an |IsBackend|
 \begin{code}
-instance IsBackend Aggregation where
+instance Show a => IsBackend Aggregation a where
     typeof _ = AggregationBK
 
     realize _ = error "Aggregation cannot be instantiated by 'realize'"
@@ -137,10 +140,11 @@ instance IsBackend Aggregation where
 
 \subsubsection{Asynchronously reading log items from the queue and their processing}
 \begin{code}
-spawnDispatcher :: Configuration
+spawnDispatcher :: (Show a)
+                => Configuration
                 -> AggregationMap
-                -> TBQ.TBQueue (Maybe NamedLogItem)
-                -> Trace.Trace IO
+                -> TBQ.TBQueue (Maybe (NamedLogItem a))
+                -> Trace.Trace IO a
                 -> IO (Async.Async ())
 spawnDispatcher conf aggMap aggregationQueue trace0 = do
     now <- getCurrentTime
@@ -180,7 +184,7 @@ spawnDispatcher conf aggMap aggregationQueue trace0 = do
                         return $ AggregatedEWMA $ ewma initEWMA value
             Just a -> return $ updateAggregation value (aeAggregated a) lme (aeResetAfter a)
 
-    update :: LogObject
+    update :: LogObject a
            -> LoggerName
            -> AggregationMap
            -> IO (AggregationMap, [(Text, Aggregated)])
@@ -245,7 +249,7 @@ spawnDispatcher conf aggMap aggregationQueue trace0 = do
 
         updateCounters cs lme (logname, msgname) updatedMap (namedAggregated : aggs)
 
-    sendAggregated :: Trace.Trace IO -> LogObject -> Text -> IO ()
+    sendAggregated :: Trace.Trace IO a -> LogObject a -> Text -> IO ()
     sendAggregated trace aggregatedMsg@(LogObject _ (AggregatedMessage _)) logname = do
         -- enter the aggregated message into the |Trace|
         trace' <- Trace.appendName logname trace
