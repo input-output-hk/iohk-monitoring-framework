@@ -9,8 +9,7 @@
 {-# LANGUAGE StandaloneDeriving #-}
 
 module Cardano.BM.Data.LogItem
-  ( LogNamed (..)
-  , LogObject (..)
+  ( LogObject (..)
   , LOMeta (..), mkLOMeta
   , LOContent (..)
   , LoggerName
@@ -36,20 +35,6 @@ import           Cardano.BM.Data.Severity
 A |LoggerName| has currently type |Text|.
 \begin{code}
 type LoggerName = Text
-
-\end{code}
-
-\subsubsection{LogNamed}\label{code:LogNamed}\index{LogNamed}
-A |LogNamed| contains of a context name and some log item.
-\begin{code}
-
-data LogNamed item = LogNamed
-    { lnName :: LoggerName
-    , lnItem :: item
-    } deriving (Show)
-
-deriving instance Generic item => Generic (LogNamed item)
-deriving instance (ToJSON item, Generic item) => ToJSON (LogNamed item)
 
 \end{code}
 

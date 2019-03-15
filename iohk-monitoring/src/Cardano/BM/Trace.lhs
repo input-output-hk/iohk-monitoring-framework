@@ -152,7 +152,7 @@ evalFilters fs nm =
 
 \subsubsection{Concrete Trace on stdout}\label{code:stdoutTrace}\index{stdoutTrace}
 
-This function returns a trace with an action of type "|(LogNamed LogObject) -> IO ()|"
+This function returns a trace with an action of type "|LogObject a -> IO ()|"
 which will output a text message as text and all others as JSON encoded representation
 to the console.
 

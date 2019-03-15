@@ -239,7 +239,8 @@ test :: IO ()
 test = do
     c <- Cardano.BM.Setup.setupTrace (Left "test/config.yaml") "ekg"
     ev <- Cardano.BM.Output.EKGView.realize c
+    meta <- mkLOMeta Info Public
 
-    effectuate ev $ LogNamed "test.questions" (LogValue "answer" 42)
-    effectuate ev $ LogNamed "test.monitor023" (LogMessage (LogItem Public Warning "!!!! ALARM !!!!"))
+    effectuate ev $ LogObject "test.questions" meta (LogValue "answer" 42)
+    effectuate ev $ LogObject "test.monitor023" meta (LogMessage (LogItem Public Warning "!!!! ALARM !!!!"))
 \end{spec}

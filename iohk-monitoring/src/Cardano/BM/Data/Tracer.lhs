@@ -29,7 +29,7 @@ import           Control.Monad (void)
 import           Data.Functor.Contravariant (Op (..))
 import           Data.Text (Text, unpack)
 
-import           Cardano.BM.Data.LogItem (LogNamed (..), LoggerName,
+import           Cardano.BM.Data.LogItem (LoggerName,
                      LogObject (..), LOContent (..),
                      PrivacyAnnotation (..),
                      PrivacyAndSeverityAnnotated (..), mkLOMeta)
@@ -43,8 +43,17 @@ import           Cardano.BM.Tracer.Transformers
 
 This module extends the basic |Tracer| with one that keeps a list of
 
+\subsubsection{LogNamed}\label{code:LogNamed}\index{LogNamed}
+A |LogNamed| contains of a context name and some log item.
 \begin{code}
+data LogNamed item = LogNamed
+    { lnName :: LoggerName
+    , lnItem :: item
+    } deriving (Show)
 
+\end{code}
+
+\begin{code}
 renderNamedItemTracing :: Show a => Tracer m String -> Tracer m (LogNamed a)
 renderNamedItemTracing = contramap $ \item ->
     unpack (lnName item) ++ ": " ++ show (lnItem item)

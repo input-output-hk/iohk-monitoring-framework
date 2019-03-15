@@ -173,6 +173,7 @@ test-suite tests
   default-language:    Haskell2010
   default-extensions:  OverloadedStrings
   build-depends:       base,
+                       basic-tracer,
                        iohk-monitoring,
 
                        aeson,
