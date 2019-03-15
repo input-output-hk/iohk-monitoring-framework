@@ -206,17 +206,17 @@ example :: IO ()
 example = do
     config <- Config.setup "from_some_path.yaml"
     k <- setup config
-    passN (pack (show StdoutSK)) k $ LogNamed
-                                            { lnName = "test"
-                                            , lnItem = LogMessage $ LogItem
-                                                { liSelection = Public
-                                                , liSeverity  = Info
-                                                , liPayload   = "Hello!"
-                                                }
+    meta <- mkLOMeta Info Public
+    passN (pack (show StdoutSK)) k $ LogObject
+                                            { loName = "test"
+                                            , loMeta = meta
+                                            , loContent = LogMessage "Hello!"
                                             }
-    passN (pack (show StdoutSK)) k $ LogNamed
-                                            { lnName = "test"
-                                            , lnItem = LogValue "cpu-no" 1
+    meta' <- mkLOMeta Info Public
+    passN (pack (show StdoutSK)) k $ LogObject
+                                            { loName = "test"
+                                            , loMeta = meta'
+                                            , loContent = LogValue "cpu-no" 1
                                             }
 
 \end{spec}
