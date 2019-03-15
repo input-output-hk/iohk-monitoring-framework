@@ -10,7 +10,7 @@ module Cardano.BM.Trace
     (
       Trace
     , stdoutTrace
-    , BaseTrace.noTrace
+    , Tracer.nullTracer
     , traceInTVar
     , traceInTVarIO
     , traceInTVarIOConditionally
@@ -47,12 +47,13 @@ import qualified Data.Text.IO as TIO
 import           Data.Text.Lazy (toStrict)
 import           System.IO.Unsafe (unsafePerformIO)
 
-import qualified Cardano.BM.BaseTrace as BaseTrace
 import qualified Cardano.BM.Configuration as Config
 import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.Trace
 import           Cardano.BM.Data.SubTrace
+import qualified Cardano.BM.Tracer.Class as Tracer
+import qualified Cardano.BM.Tracer.Transformers as TracerT
 
 \end{code}
 %endif
@@ -61,7 +62,7 @@ import           Cardano.BM.Data.SubTrace
 Natural transformation from monad |m| to monad |n|.
 \begin{code}
 natTrace :: (forall x . m x -> n x) -> Trace m a -> Trace n a
-natTrace nat (ctx, trace) = (ctx, BaseTrace.natTrace nat trace)
+natTrace nat (ctx, trace) = (ctx, TracerT.natTrace nat trace)
 
 \end{code}
 
@@ -107,7 +108,7 @@ modifyNameBase k = contramap f
 
 \subsubsection{Contramap a trace and produce the naming context}
 \begin{code}
-named :: BaseTrace.BaseTrace m (LogObject a) -> BaseTrace.BaseTrace m (LOMeta, LOContent a)
+named :: Tracer.Tracer m (LogObject a) -> Tracer.Tracer m (LOMeta, LOContent a)
 named = contramap $ uncurry (LogObject mempty)
 
 \end{code}
@@ -121,7 +122,7 @@ traceNamedObject
     -> (LOMeta, LOContent a)
     -> m ()
 traceNamedObject (_, logTrace) lo =
-    BaseTrace.traceWith (named logTrace) lo
+    Tracer.tracingWith (named logTrace) lo
 
 \end{code}
 
@@ -167,7 +168,7 @@ locallock = unsafePerformIO $ newMVar ()
 
 \begin{code}
 stdoutTrace :: TraceNamed IO T.Text
-stdoutTrace = BaseTrace.BaseTrace $ Op $ \(LogObject logname _ lc) ->
+stdoutTrace = Tracer.Tracer $ Op $ \(LogObject logname _ lc) ->
     withMVar locallock $ \_ ->
         case lc of
             (LogMessage logItem) ->
@@ -183,16 +184,16 @@ stdoutTrace = BaseTrace.BaseTrace $ Op $ \(LogObject logname _ lc) ->
 \subsubsection{Concrete Trace into a |TVar|}\label{code:traceInTVar}\label{code:traceInTVarIO}\index{traceInTVar}\index{traceInTVarIO}
 
 \begin{code}
-traceInTVar :: STM.TVar [a] -> BaseTrace.BaseTrace STM.STM a
-traceInTVar tvar = BaseTrace.BaseTrace $ Op $ \a -> STM.modifyTVar tvar ((:) a)
+traceInTVar :: STM.TVar [a] -> Tracer.Tracer STM.STM a
+traceInTVar tvar = Tracer.Tracer $ Op $ \a -> STM.modifyTVar tvar ((:) a)
 
 traceInTVarIO :: STM.TVar [LogObject a] -> TraceNamed IO a
-traceInTVarIO tvar = BaseTrace.BaseTrace $ Op $ \ln ->
+traceInTVarIO tvar = Tracer.Tracer $ Op $ \ln ->
                          STM.atomically $ STM.modifyTVar tvar ((:) ln)
 
 traceInTVarIOConditionally :: STM.TVar [LogObject a] -> TraceContext -> TraceNamed IO a
 traceInTVarIOConditionally tvar ctx =
-    BaseTrace.BaseTrace $ Op $ \item@(LogObject loggername meta _) -> do
+    Tracer.Tracer $ Op $ \item@(LogObject loggername meta _) -> do
         let conf = configuration ctx
         globminsev  <- Config.minSeverity conf
         globnamesev <- Config.inspectSeverity conf loggername

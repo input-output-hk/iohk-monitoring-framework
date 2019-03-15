@@ -35,7 +35,7 @@ import           Data.Time.Clock (getCurrentTime)
 import           Data.Functor.Contravariant (Op (..))
 import           System.IO (stderr)
 
-import qualified Cardano.BM.BaseTrace as BaseTrace
+import qualified Cardano.BM.Tracer.Class as Tracer
 import           Cardano.BM.Configuration (Configuration)
 import qualified Cardano.BM.Configuration as Config
 import           Cardano.BM.Configuration.Model (getBackends,
@@ -89,10 +89,10 @@ dispatching the messages to outputs
 
 \begin{code}
 mainTrace :: Switchboard a -> TraceNamed IO a
-mainTrace sb = BaseTrace.BaseTrace $ Op $ effectuate sb
+mainTrace sb = Tracer.Tracer $ Op $ effectuate sb
 
 mainTraceConditionally :: TraceContext -> Switchboard a -> TraceNamed IO a
-mainTraceConditionally ctx sb = BaseTrace.BaseTrace $ Op $ \item@(LogObject loggername meta _) -> do
+mainTraceConditionally ctx sb = Tracer.Tracer $ Op $ \item@(LogObject loggername meta _) -> do
     globminsev  <- liftIO $ Config.minSeverity (configuration ctx)
     globnamesev <- liftIO $ Config.inspectSeverity (configuration ctx) loggername
     let minsev = max globminsev $ fromMaybe Debug globnamesev
@@ -158,7 +158,7 @@ instance (Show a, ToJSON a) => IsBackend Switchboard a where
                 let messageCounters = resetCounters now
                 countersMVar <- newMVar messageCounters
                 let traceInQueue q =
-                        BaseTrace.BaseTrace $ Op $ \lognamed -> do
+                        Tracer.Tracer $ Op $ \lognamed -> do
                             nocapacity <- atomically $ TBQ.isFullTBQueue q
                             if nocapacity
                             then putStrLn "Error: Switchboard's queue full, dropping log items!"
