@@ -44,11 +44,12 @@ import           Cardano.BM.Data.Backend
 import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.MessageCounter (resetCounters, sendAndResetAfter,
                      updateMessageCounters)
-import           Cardano.BM.Data.Trace (TraceNamed, TraceContext (..))
+import           Cardano.BM.Data.Trace (TraceContext (..))
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.SubTrace (SubTrace (..))
 import qualified Cardano.BM.Output.Log
 import           Cardano.BM.Trace (evalFilters)
+import           Cardano.BM.Tracer.Class (Tracer)
 
 #ifdef ENABLE_AGGREGATION
 import qualified Cardano.BM.Output.Aggregation
@@ -88,10 +89,10 @@ Every |Trace| ends in the \nameref{code:Switchboard} which then takes care of
 dispatching the messages to outputs
 
 \begin{code}
-mainTrace :: Switchboard a -> TraceNamed IO a
+mainTrace :: Switchboard a -> Tracer IO (LogObject a)
 mainTrace sb = Tracer.Tracer $ Op $ effectuate sb
 
-mainTraceConditionally :: TraceContext -> Switchboard a -> TraceNamed IO a
+mainTraceConditionally :: TraceContext -> Switchboard a -> Tracer IO (LogObject a)
 mainTraceConditionally ctx sb = Tracer.Tracer $ Op $ \item@(LogObject loggername meta _) -> do
     globminsev  <- liftIO $ Config.minSeverity (configuration ctx)
     globnamesev <- liftIO $ Config.inspectSeverity (configuration ctx) loggername
