@@ -17,12 +17,6 @@ module Cardano.BM.Tracer
     -- * conditional tracing
     , condTracing
     , condTracingM
-    -- * named tracing
-    , namedTrace
-    , appendNamedTracing
-    , filterAppendNameTracing
-    , filterNamedTracing
-    , renderNamedTracing
     -- * testing
     , test1
     , test2
@@ -39,7 +33,6 @@ import           Cardano.BM.Data.LogItem (LogNamed (..), LoggerName,
                      PrivacyAnnotation (..),
                      PrivacyAndSeverityAnnotated (..), mkLOMeta)
 import           Cardano.BM.Data.Severity (Severity (..))
-import           Cardano.BM.Tracer.CallGraph
 import           Cardano.BM.Tracer.Class
 import           Cardano.BM.Tracer.Simple
 import           Cardano.BM.Tracer.Transformers
@@ -74,24 +67,6 @@ callFun1 logTrace = do
     return 42
 
 \end{code}
-
-\subsubsection{Testing named tracing in \emph{ghci}}
-\begin{spec}
-
-import Cardano.BM.Tracer
-
-:set +m
-:set -Wno-type-defaults
-
-let f = \tr -> do tracingWith tr 42
-let tr = namedTrace (appendNamedTracing "last"
-                      (appendNamedTracing "mid"
-                        (appendNamedTracing "first"
-                          (renderNamedTracing stdoutTracer ))))
-
-f tr
-
-\end{spec}
 
 \begin{code}
 
