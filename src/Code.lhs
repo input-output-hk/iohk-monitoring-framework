@@ -148,7 +148,6 @@ where
 %include Cardano/BM/Trace.lhs
 
 %include Cardano/BM/Tracer.lhs
-%include Cardano/BM/Tracer/CallGraph.lhs
 %include Cardano/BM/Tracer/Class.lhs
 %include Cardano/BM/Tracer/Simple.lhs
 %include Cardano/BM/Tracer/Transformers.lhs

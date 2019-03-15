@@ -73,7 +73,6 @@ library
                        Cardano.BM.Trace
 
                        Cardano.BM.Tracer
-                       Cardano.BM.Tracer.CallGraph
                        Cardano.BM.Tracer.Class
                        Cardano.BM.Tracer.Simple
                        Cardano.BM.Tracer.Transformers
@@ -86,14 +85,14 @@ library
 
   if !flag(disable-gui)
     exposed-modules:   Cardano.BM.Configuration.Editor
- 
+
   if !flag(disable-observables)
     exposed-modules:   Cardano.BM.Observer.Monadic
                        Cardano.BM.Observer.STM
- 
+
   if !flag(disable-monitoring)
     exposed-modules:   Cardano.BM.Output.Monitoring
-  
+
   if os(Linux)
     exposed-modules:   Cardano.BM.Counters.Linux
   else
@@ -169,7 +168,7 @@ test-suite tests
                        Cardano.BM.Test.Configuration
                        Cardano.BM.Test.Rotator
                        Cardano.BM.Test.Routing
-  
+
   if !flag(disable-aggregation)
     other-modules:     Cardano.BM.Test.Aggregated
                        Cardano.BM.Arbitrary.Aggregated
