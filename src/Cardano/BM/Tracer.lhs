@@ -18,11 +18,11 @@ module Cardano.BM.Tracer
     -- * conditional tracing
     , condTracing
     , condTracingM
-    -- * testing
-    , test1
-    , test2
-    , test3
-    , test4
+    -- * examples
+     , example1
+     , example2
+     , example3
+     , example4
     ) where
 
 import           Control.Monad (void)
@@ -35,31 +35,23 @@ import           Cardano.BM.Data.LogItem (LogNamed (..), LoggerName,
                      PrivacyAndSeverityAnnotated (..), mkLOMeta)
 import           Cardano.BM.Data.Severity (Severity (..))
 import           Cardano.BM.Tracer.Class
-import           Cardano.BM.Tracer.Simple
+import           Cardano.BM.Tracer.Output
 import           Cardano.BM.Tracer.Transformers
 
 \end{code}
 %endif
 
-\subsubsection{Testing conditional tracing in \emph{ghci}}
+Tracing using the contravariant |Tracer| naturally reads:
+ 
 \begin{spec}
-
-import Cardano.BM.Tracer
-
-:set -Wno-type-defaults
-
-let f = \tr -> do tracingWith tr "hello"
-f (showTracing stdoutTracer)
-f (condTracing False $ showTracing stdoutTracer)
-f (condTracing True $ showTracing stdoutTracer)
-f (condTracingM (pure True) $ showTracing stdoutTracer)
-
+let logTrace = tracing $ showTracing $ stdoutTracer
+in  logTrace "hello world"
 \end{spec}
 
 \begin{code}
 
-test1 :: IO ()
-test1 = do
+example1 :: IO ()
+example1 = do
     let logTrace a = tracingWith (showTracing (contramap ("Debug: " ++) stdoutTracer)) a
     void $ callFun1 logTrace
 
@@ -76,9 +68,15 @@ renderNamedItemTracing :: Show a => Tracer m String -> Tracer m (NamedLogItem a)
 renderNamedItemTracing = contramap $ \item ->
     unpack (lnName item) ++ ": " ++ show (lnItem item)
 
+\end{code}
+
+\begin{code}
 named :: Tracer m (LogNamed a) -> Tracer m a
 named = contramap (LogNamed mempty)
+\end{code}
 
+Add a new name to the logging context
+\begin{code}
 appendNamed :: LoggerName -> Tracer m (LogNamed a) -> Tracer m (LogNamed a)
 appendNamed name = contramap $ (\(LogNamed oldName item) ->
     LogNamed (name <> "." <> oldName) item)
@@ -117,9 +115,9 @@ instance (MonadFork m, MonadTimer m) => ToLogObject m where
 tracingNamed :: Show a => Tracer IO (NamedLogItem a) -> Tracer IO a
 tracingNamed = toLogObject . named
 
-test2 :: IO ()
-test2 = do
-    let logTrace = appendNamed "test2" (renderNamedItemTracing stdoutTracer)
+example2 :: IO ()
+example2 = do
+    let logTrace = appendNamed "example2" (renderNamedItemTracing stdoutTracer)
 
     void $ callFun2 logTrace
 
@@ -134,18 +132,24 @@ callFun3 logTrace = do
     tracingWith (tracingNamed (appendNamed "fun3" logTrace)) "in function 3"
     return 42
 
-severityAnnotatedM :: Show a
+\end{code}
+
+A |Tracer| transformer creating a |LogObject| from |PrivacyAndSeverityAnnotated|.
+\begin{code}
+logObjectFromAnnotated :: Show a
     => Tracer IO (LogObject Text)
     -> Tracer IO (PrivacyAndSeverityAnnotated a)
-severityAnnotatedM (Tracer (Op tr)) = Tracer $ Op $ \(PSA sev priv a) -> do
-    lo <- LogObject <$> (mkLOMeta sev priv)
-                    <*> pure (LogMessage $ pack $ show a)
-    tr lo
+logObjectFromAnnotated (Tracer (Op tr)) = Tracer $ Op $ \(PSA sev priv a) -> do
+    lometa <- mkLOMeta sev priv
+    tr $ LogObject lometa (LogMessage $ pack $ show a)
 
-test3 :: IO ()
-test3 = do
+\end{code}
+
+\begin{code}
+example3 :: IO ()
+example3 = do
     let logTrace =
-            severityAnnotatedM $ named $ appendNamed "test3" $ renderNamedItemTracing stdoutTracer
+            logObjectFromAnnotated $ named $ appendNamed "example3" $ renderNamedItemTracing stdoutTracer
 
     tracingWith logTrace $ PSA Info Confidential ("Hello" :: String)
     tracingWith logTrace $ PSA Warning Public "World"
@@ -160,10 +164,10 @@ filterAppendNameTracing' :: Monad m
     -> Tracer m (LogNamed a)
 filterAppendNameTracing' test name = (appendNamed name) . (condTracingM test)
 
-test4 :: IO ()
-test4 = do
+example4 :: IO ()
+example4 = do
     let appendF = filterAppendNameTracing' oracle
-        logTrace = appendF "test4" (renderNamedItemTracing stdoutTracer)
+        logTrace = appendF "example4" (renderNamedItemTracing stdoutTracer)
 
     tracingWith (tracingNamed logTrace) ("Hello" :: String)
 
@@ -174,6 +178,6 @@ test4 = do
     tracingWith (tracingNamed logTrace'') "!!"
   where
     oracle :: Monad m => m (LogNamed a -> Bool)
-    oracle = return $ ((/=) "test4.inner.") . lnName
+    oracle = return $ ((/=) "example4.inner.") . lnName
 
 \end{code}

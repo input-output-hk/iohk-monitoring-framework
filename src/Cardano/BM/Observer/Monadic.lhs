@@ -116,8 +116,6 @@ in a configuration file (YAML) means
             runProtocolWithPipe x hdl proto `catch` (\ProtocolStopped -> return ())
 \end{spec}
 
--------------------
-
 \begin{code}
 bracketObserveIO :: Trace IO a -> Severity -> Text -> IO t -> IO t
 bracketObserveIO trace@(ctx, _) severity name action = do

@@ -1,9 +1,9 @@
-\subsection{Cardano.BM.Tracer.Simple}
-\label{code:Cardano.BM.Tracer.Simple}
+\subsection{Cardano.BM.Tracer.Output}
+\label{code:Cardano.BM.Tracer.Output}
 
 %if style == newcode
 \begin{code}
-module Cardano.BM.Tracer.Simple
+module Cardano.BM.Tracer.Output
     ( stdoutTracer
     , debugTracer
     ) where
@@ -17,7 +17,7 @@ import           Cardano.BM.Tracer.Class
 \end{code}
 %endif
 
-Some simple Tracers
++\subsubsection{Directing a |Tracer|'s output to stdout}\label{code:stdoutTracer}\index{stdoutTracer}
 
 The Tracer that prints a string (as a line) to stdout (usual caveats
 about interleaving should be heeded).
@@ -28,7 +28,9 @@ stdoutTracer = Tracer $ Op $ liftIO . putStrLn
 
 \end{code}
 
-A Tracer that uses `TraceM` (from `Debug.Trace`) as its output mechanism.
++\subsubsection{Outputting a |Tracer| with \emph{Debug.Trace}}\label{code:debugTracer}\index{debugTracer}
+
+A Tracer that uses |TraceM| (from |Debug.Trace|) as its output mechanism.
 
 \begin{code}
 debugTracer :: (Applicative m) => Tracer m String
