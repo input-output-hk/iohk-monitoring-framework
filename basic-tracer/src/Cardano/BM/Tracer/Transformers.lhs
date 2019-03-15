@@ -3,10 +3,13 @@
 
 %if style == newcode
 \begin{code}
+{-# LANGUAGE RankNTypes #-}
+
 module Cardano.BM.Tracer.Transformers
     ( showTracing
     , condTracing
     , condTracingM
+    , natTrace
     ) where
 
 import           Control.Monad (when)
@@ -47,4 +50,14 @@ condTracingM :: (Monad m) => m (a -> Bool) -> Tracer m a -> Tracer m a
 condTracingM activeP tr = Tracer $ Op $ \s -> do
     active <- activeP
     when (active s) (tracingWith tr s)
+
+\end{code}
+
+\subsubsection{natTrace}\label{code:natTrace}\index{natTrace}
+Natural transformation from monad |m| to monad |n|.
+\begin{code}
+
+natTrace :: (forall x . m x -> n x) -> Tracer m s -> Tracer n s
+natTrace nat (Tracer (Op tr)) = Tracer $ Op $ nat . tr
+
 \end{code}

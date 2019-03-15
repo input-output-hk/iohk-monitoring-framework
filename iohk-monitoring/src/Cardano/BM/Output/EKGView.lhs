@@ -39,7 +39,7 @@ import           System.Remote.Monitoring (Server, forkServer,
 
 import           Paths_iohk_monitoring (version)
 
-import qualified Cardano.BM.BaseTrace as BaseTrace
+import qualified Cardano.BM.Tracer.Class as Tracer
 import           Cardano.BM.Configuration (Configuration, getEKGport)
 import           Cardano.BM.Data.Aggregated
 import           Cardano.BM.Data.Backend
@@ -84,7 +84,7 @@ ekgTrace ekg c = do
     Trace.appendName "#ekgview" (ctx, trace)
   where
     ekgTrace' :: Show a => EKGView a -> TraceNamed IO a
-    ekgTrace' ekgview = BaseTrace.BaseTrace $ Op $ \lo@(LogObject loname _ _) -> do
+    ekgTrace' ekgview = Tracer.Tracer $ Op $ \lo@(LogObject loname _ _) -> do
         let setlabel :: Text -> Text -> EKGViewInternal a -> IO (Maybe (EKGViewInternal a))
             setlabel name label ekg_i@(EKGViewInternal _ labels server) =
                 case HM.lookup name labels of

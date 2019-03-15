@@ -13,9 +13,10 @@ module Cardano.BM.Data.Trace
   )
   where
 
-import           Cardano.BM.BaseTrace
 import           Cardano.BM.Configuration (Configuration)
 import           Cardano.BM.Data.LogItem
+import           Cardano.BM.Tracer.Class (Tracer)
+
 \end{code}
 %endif
 
@@ -27,10 +28,10 @@ type Trace m a = (TraceContext, TraceNamed m a)
 \end{code}
 
 \subsubsection{TraceNamed}\label{code:TraceNamed}\index{TraceNamed}
-A |TraceNamed| is a specialized \nameref{code:BaseTrace} of type |NamedLogItem|, a |LogNamed| with payload |LogObject|.
+A |TraceNamed| is a specialized \nameref{code:Tracer} of type |NamedLogItem|, a |LogNamed| with payload |LogObject|.
 \begin{code}
 
-type TraceNamed m a = BaseTrace m (NamedLogItem a)
+type TraceNamed m a = Tracer m (NamedLogItem a)
 \end{code}
 
 \subsubsection{TraceContext}\label{code:TraceContext}\index{TraceContext}

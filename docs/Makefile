@@ -3,7 +3,6 @@ DOC = IOHK-Monitoring
 SRCDIR1 = ../iohk-monitoring/src
 SRCDIR2 = ../basic-tracer/src
 SOURCES = Code.lhs \
-					$(SRCDIR1)/Cardano/BM/BaseTrace.lhs \
 					$(SRCDIR1)/Cardano/BM/Configuration.lhs \
 					$(SRCDIR1)/Cardano/BM/Configuration/Model.lhs \
 					$(SRCDIR1)/Cardano/BM/Configuration/Static.lhs \
