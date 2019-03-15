@@ -91,7 +91,6 @@
 %format diffCounters = "\hyperref[code:diffCounters]{diffCounters}"
 %format Cardano.BM.Data.LogItem = "\hyperref[code:Cardano.BM.Data.LogItem]{Cardano.BM.Data.LogItem}"
 %format LoggerName = "\hyperref[code:LoggerName]{LoggerName}"
-%format NamedLogItem = "\hyperref[code:NamedLogItem]{NamedLogItem}"
 %format LogNamed = "\hyperref[code:LogNamed]{LogNamed}"
 %format LogObject = "\hyperref[code:LogObject]{LogObject}"
 %format LOMeta = "\hyperref[code:LOMeta]{LOMeta}"

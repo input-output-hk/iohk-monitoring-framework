@@ -58,7 +58,7 @@ newtype Aggregation a = Aggregation
     { getAg :: AggregationMVar a }
 
 data AggregationInternal a = AggregationInternal
-    { agQueue    :: TBQ.TBQueue (Maybe (NamedLogItem a))
+    { agQueue    :: TBQ.TBQueue (Maybe (LogObject a))
     , agDispatch :: Async.Async ()
     }
 
@@ -143,7 +143,7 @@ instance Show a => IsBackend Aggregation a where
 spawnDispatcher :: (Show a)
                 => Configuration
                 -> AggregationMap
-                -> TBQ.TBQueue (Maybe (NamedLogItem a))
+                -> TBQ.TBQueue (Maybe (LogObject a))
                 -> Trace.Trace IO a
                 -> IO (Async.Async ())
 spawnDispatcher conf aggMap aggregationQueue trace0 = do

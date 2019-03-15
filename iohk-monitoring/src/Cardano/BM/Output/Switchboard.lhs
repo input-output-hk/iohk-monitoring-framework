@@ -76,7 +76,7 @@ newtype Switchboard a = Switchboard
     { getSB :: SwitchboardMVar a }
 
 data SwitchboardInternal a = SwitchboardInternal
-    { sbQueue    :: TBQ.TBQueue (NamedLogItem a)
+    { sbQueue    :: TBQ.TBQueue (LogObject a)
     , sbDispatch :: Async.Async ()
     }
 
@@ -112,7 +112,7 @@ The queue is initialized and the message dispatcher launched.
 \begin{code}
 instance IsEffectuator Switchboard a where
     effectuate switchboard item = do
-        let writequeue :: TBQ.TBQueue (NamedLogItem a) -> NamedLogItem a -> IO ()
+        let writequeue :: TBQ.TBQueue (LogObject a) -> LogObject a -> IO ()
             writequeue q i = do
                     nocapacity <- atomically $ TBQ.isFullTBQueue q
                     if nocapacity
@@ -132,9 +132,9 @@ instead of 'writequeue ...':
         evalMonitoringAction config item >>=
             mapM_ (writequeue (sbQueue sb))
 
-evalMonitoringAction :: Configuration -> NamedLogItem a -> m [NamedLogItem a]
+evalMonitoringAction :: Configuration -> LogObject a -> m [LogObject a]
 evalMonitoringAction c item = return [item]
-    -- let action = LogNamed { lnName=(lnName item) <> ".action", lnItem=LogMessage ... }
+    -- let action = LogObject { loName=(loName item) <> ".action", loContent=LogMessage ... }
     -- return (action : item)
 
 \end{spec}
@@ -151,7 +151,7 @@ instance (Show a, ToJSON a) => IsBackend Switchboard a where
                 :: (Show a)
                 => Configuration
                 -> [(BackendKind, Backend a)]
-                -> TBQ.TBQueue (NamedLogItem a)
+                -> TBQ.TBQueue (LogObject a)
                 -> IO (Async.Async ())
             spawnDispatcher config backends queue = do
                 now <- getCurrentTime

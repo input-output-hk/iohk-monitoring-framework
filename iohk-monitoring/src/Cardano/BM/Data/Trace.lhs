@@ -28,10 +28,10 @@ type Trace m a = (TraceContext, TraceNamed m a)
 \end{code}
 
 \subsubsection{TraceNamed}\label{code:TraceNamed}\index{TraceNamed}
-A |TraceNamed| is a specialized \nameref{code:Tracer} of type |NamedLogItem|, a |LogNamed| with payload |LogObject|.
+A |TraceNamed| is a specialized \nameref{code:Tracer} of type |LogObject|.
 \begin{code}
 
-type TraceNamed m a = Tracer m (NamedLogItem a)
+type TraceNamed m a = Tracer m (LogObject a)
 \end{code}
 
 \subsubsection{TraceContext}\label{code:TraceContext}\index{TraceContext}

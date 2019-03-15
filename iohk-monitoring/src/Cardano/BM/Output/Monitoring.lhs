@@ -53,7 +53,7 @@ newtype Monitor a = Monitor
     { getMon :: MonitorMVar a }
 
 data MonitorInternal a = MonitorInternal
-    { monQueue   :: TBQ.TBQueue (Maybe (NamedLogItem a))
+    { monQueue   :: TBQ.TBQueue (Maybe (LogObject a))
     }
 
 \end{code}
@@ -71,7 +71,7 @@ type MonitorMap = HM.HashMap LoggerName MonitorState
 \end{code}
 
 \subsubsection{Monitor view is an effectuator}\index{Monitor!instance of IsEffectuator}
-Function |effectuate| is called to pass in a |NamedLogItem| for monitoring.
+Function |effectuate| is called to pass in a |LogObject| for monitoring.
 \begin{code}
 instance IsEffectuator Monitor a where
     effectuate monitor item = do
@@ -117,7 +117,7 @@ instance Show a => IsBackend Monitor a where
 \subsubsection{Asynchrouniously reading log items from the queue and their processing}
 \begin{code}
 spawnDispatcher :: (Show a)
-                => TBQ.TBQueue (Maybe (NamedLogItem a))
+                => TBQ.TBQueue (Maybe (LogObject a))
                 -> Configuration
                 -> Trace.Trace IO a
                 -> IO (Async.Async ())

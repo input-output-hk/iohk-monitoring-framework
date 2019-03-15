@@ -30,7 +30,7 @@ import           Data.Functor.Contravariant (Op (..))
 import           Data.Text (Text, unpack)
 
 import           Cardano.BM.Data.LogItem (LogNamed (..), LoggerName,
-                     NamedLogItem, LogObject (..), LOContent (..),
+                     LogObject (..), LOContent (..),
                      PrivacyAnnotation (..),
                      PrivacyAndSeverityAnnotated (..), mkLOMeta)
 import           Cardano.BM.Data.Severity (Severity (..))
@@ -49,7 +49,7 @@ renderNamedItemTracing :: Show a => Tracer m String -> Tracer m (LogNamed a)
 renderNamedItemTracing = contramap $ \item ->
     unpack (lnName item) ++ ": " ++ show (lnItem item)
 
-renderNamedItemTracing' :: Show a => Tracer m String -> Tracer m (NamedLogItem a)
+renderNamedItemTracing' :: Show a => Tracer m String -> Tracer m (LogObject a)
 renderNamedItemTracing' = contramap $ \item ->
     unpack (loName item) ++ ": " ++ show (loContent item) ++ ", (meta): " ++ show (loMeta item)
 
@@ -109,7 +109,7 @@ instance (MonadFork m, MonadTimer m) => ToLogObject m where
 \end{spec}
 
 \begin{code}
-tracingNamed :: Show a => Tracer IO (NamedLogItem a) -> Tracer IO a
+tracingNamed :: Show a => Tracer IO (LogObject a) -> Tracer IO a
 tracingNamed = toLogObject
 
 example2 :: IO ()
