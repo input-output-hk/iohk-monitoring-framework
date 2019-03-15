@@ -2,6 +2,7 @@
 \subsection{Cardano.BM.Tracer}
 \label{code:Cardano.BM.Tracer}
 
+%if style == newcode
 \begin{code}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE InstanceSigs      #-}
@@ -38,6 +39,7 @@ import           Cardano.BM.Tracer.Simple
 import           Cardano.BM.Tracer.Transformers
 
 \end{code}
+%endif
 
 \subsubsection{Testing conditional tracing in \emph{ghci}}
 \begin{spec}
