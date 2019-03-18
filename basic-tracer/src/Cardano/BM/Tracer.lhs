@@ -8,12 +8,14 @@
 module Cardano.BM.Tracer
     ( Tracer (..)
     , Contravariant(..)
+    -- * tracing
+    , tracingWith
     -- * tracers
     , nullTracer
     , stdoutTracer
     , debugTracer
+    -- * transformers
     , showTracing
-    -- * conditional tracing
     , condTracing
     , condTracingM
     -- * examples
