@@ -1,3 +1,10 @@
 
-packages: .
+packages: ./iohk-monitoring
+          ./basic-tracer
+
+package iohk-monitoring
+  tests: True
+
+package basic-tracer
+  tests: False
 
