@@ -2,58 +2,6 @@ format 221
 
 classcanvas 128021 class_ref 136981 // Configuration
   classdiagramsettings hide_attributes no hide_operations yes show_members_full_definition yes show_members_multiplicity yes show_members_initialization yes show_attribute_modifiers yes member_max_width 0 end
-  xyzwh 55 50 2000 355 211
-end
-classcanvas 128405 class_ref 130069 // Severity
-  classdiagramsettings member_max_width 0 end
-  xyz 314 291 2000
-end
-classcanvas 129301 class_ref 184341 // SubTrace
-  classdiagramsettings member_max_width 0 end
-  xyz 314 463 2000
-end
-classcanvas 130325 class_ref 130197 // LoggerName
-  classdiagramsettings member_max_width 0 end
-  xyz 42 301 2000
-end
-classcanvas 130581 class_ref 130197 // LoggerName
-  classdiagramsettings member_max_width 0 end
-  xyz 42 384 2000
-end
-classcanvas 130837 class_ref 130197 // LoggerName
-  classdiagramsettings member_max_width 0 end
-  xyz 42 465 2005
-end
-classcanvas 131221 class_ref 130197 // LoggerName
-  classdiagramsettings member_max_width 0 end
-  xyz 43 541 2000
-end
-classcanvas 131605 class_ref 191125 // BackendKind
-  classdiagramsettings member_max_width 0 end
-  xyz 314 375 2005
-end
-classcanvas 131861 class_ref 191765 // ScribeId
-  classdiagramsettings member_max_width 0 end
-  xyz 314 528 2000
-end
-relationcanvas 130453 relation_ref 200085 // <association>
-  from ref 130325 z 2001 stereotype "<<cgMapSeverity>>" xyz 164 319 3000 to ref 128405
-  no_role_a no_role_b
-  multiplicity_a_pos 298 326 3000 no_multiplicity_b
-end
-relationcanvas 130965 relation_ref 200341 // <association>
-  from ref 130837 z 2006 stereotype "<<cgMapSubtrace>>" xyz 161 482 3000 to ref 129301
-  no_role_a no_role_b
-  no_multiplicity_a no_multiplicity_b
-end
-relationcanvas 131733 relation_ref 207125 // <association>
-  from ref 130581 z 2006 stereotype "<<cgMapBackend>>" xyz 162 403 3000 to ref 131605
-  no_role_a no_role_b
-  multiplicity_a_pos 298 410 3000 no_multiplicity_b
-end
-relationcanvas 131989 relation_ref 207253 // <association>
-  from ref 131221 z 2001 stereotype "<<cgMapScribe>>" xyz 169.5 559.5 3000 to ref 131861
-  no_role_a no_role_b
-  multiplicity_a_pos 298 567 3000 no_multiplicity_b
+  xyzwh 55 50 2000 411 275
 end
 end

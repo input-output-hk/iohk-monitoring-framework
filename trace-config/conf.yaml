@@ -1,9 +1,0 @@
-min_severity: Debug
-severity_map:
-    - [ "critical.work1", Warning ]
-    - [ "critical.work2", Error ]
-output_map:
-    - [ "critical.work2", [] ] # TODO Backend FromJSON
-subtrace_map:
-    - [ "critical.work2", {tag: ObservableTrace, contents: [MonotonicClock, MemoryStats, ProcessStats]} ]
-    - [ "critical.work3", {tag: NoTrace} ]

@@ -1,0 +1,122 @@
+Monitoring
+==========
+
+The evaluation of observables and their matching against a defined threshold
+could lead to the creation of new events that change the configuration, or
+need to be routed towards a backend for alerting.
+
+Evaluation
+----------
+
+Various types of LogObjects need to be inspected (e.g. aggregated values, raw
+values, log messages).
+In a DSL, one would typically match the value or other properties of log
+messages against a defined threshold (from configuration) using different types
+of operators.
+If the threshold is reached or surpassed, then a set of defined actions is
+executed.
+
+`evalMessage :: Configuration -> NamedLogItem -> Comparator-> Threshold -> Bool`
+
+(Threshold could either be a |Measurable|, |Severity|, ..)
+
+DSL playground:
+
+let m = LogNamed {lnName="test.observeIO.anything", lnItem=AggregatedMessage [("avg", PureD 3.61)]
+
+let comp :: Predicate =
+         EvalAnd 
+            ( ExtractAggregation "avg" (Operator GTE) )
+
+            (EvalNot (MatchedLast (Operator LT) (Microsends 500)))
+
+OR e1 e2, AND e1 e2, NOT e
+
+let threshold = MatchValue (PureD 3.50)
+             -- MatchSeverity (Error)
+
+
+evalMessage c m comp threshold
+
+
+type class for Comparator
+
+class Matchable
+    match :: Accessor -> Operator -> Threshold -> Bool
+
+instance Matchable LOContent where
+    match (LogMessage m) (ExtractSeverity) op t = 
+    match (AggregatedMessage as) (ExtractAggregation n) op t = matchThreshold op t $ extractAggregation n as 
+
+    match _ _ _ = False
+
+matchThreshold :: Operator -> Threshold -> Threshold -> Bool
+
+matchThreshold op (MatchValue _) (MatchValue _)
+matchThreshold op (MatchSeverity _) (MatchSeverity _)
+matchThreshold _ _ _ = False
+
+mapMonitor:
+    test.observeIO.anything:
+        "EvalAnd 
+            ( ExtractAggregation "avg" (Operator GTE) )
+            (EvalNot (MatchedLast (Operator LT) (Microsends 500)))"
+
+Actions
+-------
+
+Actions could lead to internal or external effects.
+Internal: change of configuration (e.g. routing, minimum severity filter), log
+          message generation
+External: alert an external service (e.g. pager, SMS, Email) by some specially
+          implemented backend
+
+A transformation of the incoming message to an alert message, changing its
+context name for routing:
+`actionMessage :: NamedLogItem -> [NamedLogItem]`
+
+DSL:
+
+data Actions = AlterMinSeverity n sev
+             | AlterGlobalMinSeverity sev
+             | AlterSubTrace n tr
+             | AlterRouting n bk
+             | AlterScribe n sc
+             | AlterAggregation n ak
+             | ChangeBackends bks
+             | ChangeScribes scs
+             | ChangeAggregation ak
+             | CreateMessage n m
+
+    mapAction:
+        test.observeIO.anything: 
+            "AlterMinSeverity 'test.observerIO' Info"
+
+Routing
+-------
+
+Actions are routed through the switchboard.
+External effects could be implemented in specific backends, and thus be
+reached through normal message routing.
+
+
+Implementation (A)
+------------------
+
+* integrated in Switchboard *
+One place to implement |Monitoring| might be the switchboard in its
+`effectuate` function which accepts a NamedLogItem.
+For performance reasons, the message could be analyzed before it is entered
+in the queue. This would run in the caller's thread. If the evaluation would
+lead to an alerting action, then this could be executed with priority. (how?)
+The original log message is then entered into the queue for dispatching.
+
+
+Implementation (B)
+------------------
+
+* independent backend *
+Another place would be to put |Monitoring| into its own backend. Only messages
+that are routed to it would be evaluated; independent of the caller's thread.
+This backend can execute actions from evaluation and also send in new messages
+wrapped in a |MonitoringEffect| to the switchboard (not to cause a loop).

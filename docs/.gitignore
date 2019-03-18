@@ -1,0 +1,15 @@
+*.fls
+*.log
+*.toc
+*.idx
+*.ilg
+*.ind
+SetupProcedure.pdf
+OverviewModules.pdf
+ConfigurationModel.pdf
+ConfigEditor.pdf
+IOHK-*.tex
+*.out
+*.ptb
+*.fdb_latexmk
+

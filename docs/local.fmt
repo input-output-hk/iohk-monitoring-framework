@@ -1,0 +1,29 @@
+
+%if style /= newcode
+
+% defines special rendering of specific words
+% color codes adapted from "lhs2texhl"
+
+
+% use package color
+\definecolor{syntax}{RGB}{0, 0, 0}
+\definecolor{comment}{RGB}{30, 60, 60}
+\definecolor{datatype}{RGB}{196, 6, 11}
+\definecolor{class}{RGB}{168,37,39}
+\definecolor{fieldname}{RGB}{0,0,162}
+\definecolor{prelude}{RGB}{64,80,117}
+\definecolor{numeral}{RGB}{0,0,205}
+\definecolor{infixoperator}{RGB}{19, 19, 168}
+\definecolor{constructor}{RGB}{196, 6, 11}
+\definecolor{keyword}{RGB}{4, 58, 252}
+\definecolor{special1}{RGB}{159,138,0}
+\definecolor{string}{RGB}{3, 106, 7}
+\definecolor{char}  {RGB}{3, 106, 7}
+
+%subst char a    = "{\color{char}\text{\tt ''" a "''}}"
+%subst string a  = "{\color{string}\text{\tt \char34 " a "\char34}}"
+%subst numeral a = "{\color{numeral}{ " a " }}"
+
+%subst comment a = "{\color{comment}\text{\tt -- " a " }}"
+
+%endif

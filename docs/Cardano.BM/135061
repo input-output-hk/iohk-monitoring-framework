@@ -1,6 +1,6 @@
 format 221
 "Output" // Cardano.BM::Output
-  revision 10
+  revision 11
   modified_by 21 "axeld"
   // class settings
   
@@ -204,6 +204,18 @@ ${inlines}
 	    classrelation_ref 151317 // <generalisation>
 	  b parent class_ref 144533 // Backend
       end
+
+      classrelation 216469 // <aggregation>
+	relation 213781 o---
+	  a role_name "" private
+	    idl "  ${comment}${visibility}${type} ${name};
+"
+	    classrelation_ref 216469 // <aggregation>
+	  b role_name "" private
+	    idl "  ${comment}${visibility}${type} ${name};
+"
+	    classrelation_ref 216597 // <aggregation>
+      end
     end
 
     class 128917 "Aggregation"
@@ -225,6 +237,18 @@ ${inlines}
 	    idl "${type}"
 	    classrelation_ref 151445 // <generalisation>
 	  b parent class_ref 144533 // Backend
+      end
+
+      classrelation 216725 // <aggregation>
+	relation 213909 o---
+	  a role_name "" private
+	    idl "  ${comment}${visibility}${type} ${name};
+"
+	    classrelation_ref 216725 // <aggregation>
+	  b role_name "" private
+	    idl "  ${comment}${visibility}${type} ${name};
+"
+	    classrelation_ref 216853 // <aggregation>
       end
     end
 

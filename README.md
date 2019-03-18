@@ -6,8 +6,7 @@ This framework provides logging, benchmarking and monitoring.
 
 ## documentation
 
-Documentation of the [source code](docs/IOHK-Monitoring-code.pdf) and
-[tests](docs/IOHK-Monitoring-tests.pdf) are available in PDF format.
+Documentation of the [source code and tests](docs/IOHK-Monitoring.pdf) in PDF format. Please, download the PDF file and open in external viewer. It contains links that make it easy to navigate in the source code. Those links are not active in the online viewer.
 
 View our first presentation (2018-12-04) on this subject in [html](https://input-output-hk.github.io/iohk-monitoring-framework/pres-20181204/html/index.html)
 
@@ -15,17 +14,24 @@ View our first presentation (2018-12-04) on this subject in [html](https://input
 
 ![Overview of modules](docs/OverviewModules.png)
 
-## building
+## building and testing
 
 `cabal new-build`
 
 `cabal new-test`
 
 ## examples
+https://github.com/input-output-hk/iohk-monitoring-framework/edit/develop/README.md
+Some examples are available in the directory `examples`:
+* `simple`  -  run with `cabal new-run example-simple`
+* `complex`  -  run with `cabal new-run example-complex`
 
-in directory `examples` are these examples:
-* `simple`  -  run with `cabal new-exec example-simple`
+These showcase the usage of this framework in an application. The *complex* example includes `EKGView` (http://localhost:12789) and the configuration editor (http://localhost:13789).
+
+![Edit runtime configuration](docs/ConfigEditor.png)
+
 
 ## development
 
-`ghcid -c "cabal new-repl"` watches for file changes and recompiles them immediately
+* `cabal new-build` and `cabal new-test`
+* `ghcid -c "cabal new-repl"` watches for file changes and recompiles them immediately
