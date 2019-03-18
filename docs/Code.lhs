@@ -105,31 +105,31 @@ thus specializes its interface.}\label{fig:overview}
 
 \section{Requirements}
 
-%include ../docs/requirements.tex
+%include requirements.tex
 
 \section{Description}
 
-%include ../docs/traces.tex
+%include traces.tex
 
-%include ../docs/mu-benchmarks.tex
+%include mu-benchmarks.tex
 
-%include ../docs/configuration.tex
+%include configuration.tex
 
-%include ../docs/aggregation.tex
+%include aggregation.tex
 
-%include ../docs/output-selection.tex
+%include output-selection.tex
 
-%include ../docs/monitoring.tex
+%include monitoring.tex
 
 \section{Examples}
 
 \subsection{Simple example showing plain logging}\label{sec:examplesimple}
 
-%include ../examples/simple/Main.lhs
+%include ../iohk-monitoring/examples/simple/Main.lhs
 
 \subsection{Complex example showing logging, aggregation, and observing |IO| actions}\label{sec:examplecomplex}
 
-%include ../examples/complex/Main.lhs
+%include ../iohk-monitoring/examples/complex/Main.lhs
 
 \section{Code listings}
 
@@ -141,52 +141,49 @@ where
 \end{code}
 %endif
 
-%include Cardano/BM/Observer/STM.lhs
-%include Cardano/BM/Observer/Monadic.lhs
+%include ../iohk-monitoring/src/Cardano/BM/Observer/STM.lhs
+%include ../iohk-monitoring/src/Cardano/BM/Observer/Monadic.lhs
 
-%include Cardano/BM/BaseTrace.lhs
-%include Cardano/BM/Trace.lhs
+%include ../iohk-monitoring/src/Cardano/BM/BaseTrace.lhs
+%include ../iohk-monitoring/src/Cardano/BM/Trace.lhs
 
-%include Cardano/BM/Tracer.lhs
-%include Cardano/BM/Tracer/Class.lhs
-%include Cardano/BM/Tracer/Output.lhs
-%include Cardano/BM/Tracer/Transformers.lhs
+%include ../iohk-monitoring/src/Cardano/BM/Tracer.lhs
 
-%include Cardano/BM/Setup.lhs
+%include ../iohk-monitoring/src/Cardano/BM/Setup.lhs
 
-%include Cardano/BM/Counters.lhs
-%include Cardano/BM/Counters/Common.lhs
-%include Cardano/BM/Counters/Dummy.lhs
-%include Cardano/BM/Counters/Linux.lhs
+%include ../iohk-monitoring/src/Cardano/BM/Counters.lhs
+%include ../iohk-monitoring/src/Cardano/BM/Counters/Common.lhs
+%include ../iohk-monitoring/src/Cardano/BM/Counters/Dummy.lhs
+%include ../iohk-monitoring/src/Cardano/BM/Counters/Linux.lhs
 
-%include Cardano/BM/Data/Aggregated.lhs
-%include Cardano/BM/Data/AggregatedKind.lhs
-%include Cardano/BM/Data/Backend.lhs
-%include Cardano/BM/Data/BackendKind.lhs
-%include Cardano/BM/Data/Configuration.lhs
-%include Cardano/BM/Data/Counter.lhs
-%include Cardano/BM/Data/LogItem.lhs
-%include Cardano/BM/Data/Observable.lhs
-%include Cardano/BM/Data/Output.lhs
-%include Cardano/BM/Data/Rotation.lhs
-%include Cardano/BM/Data/Severity.lhs
-%include Cardano/BM/Data/SubTrace.lhs
-%include Cardano/BM/Data/Trace.lhs
+%include ../iohk-monitoring/src/Cardano/BM/Data/Aggregated.lhs
+%include ../iohk-monitoring/src/Cardano/BM/Data/AggregatedKind.lhs
+%include ../iohk-monitoring/src/Cardano/BM/Data/Backend.lhs
+%include ../iohk-monitoring/src/Cardano/BM/Data/BackendKind.lhs
+%include ../iohk-monitoring/src/Cardano/BM/Data/Configuration.lhs
+%include ../iohk-monitoring/src/Cardano/BM/Data/Counter.lhs
+%include ../iohk-monitoring/src/Cardano/BM/Data/LogItem.lhs
+%include ../iohk-monitoring/src/Cardano/BM/Data/Observable.lhs
+%include ../iohk-monitoring/src/Cardano/BM/Data/Output.lhs
+%include ../iohk-monitoring/src/Cardano/BM/Data/Rotation.lhs
+%include ../iohk-monitoring/src/Cardano/BM/Data/Severity.lhs
+%include ../iohk-monitoring/src/Cardano/BM/Data/SubTrace.lhs
+%include ../iohk-monitoring/src/Cardano/BM/Data/Trace.lhs
 
-%include Cardano/BM/Configuration.lhs
-%include Cardano/BM/Configuration/Model.lhs
-%include Cardano/BM/Configuration/Static.lhs
-%include Cardano/BM/Configuration/Editor.lhs
+%include ../iohk-monitoring/src/Cardano/BM/Configuration.lhs
+%include ../iohk-monitoring/src/Cardano/BM/Configuration/Model.lhs
+%include ../iohk-monitoring/src/Cardano/BM/Configuration/Static.lhs
+%include ../iohk-monitoring/src/Cardano/BM/Configuration/Editor.lhs
 
-%include Cardano/BM/Output/Switchboard.lhs
-%include Cardano/BM/Output/Log.lhs
-%include Cardano/BM/Output/EKGView.lhs
-%include Cardano/BM/Output/Aggregation.lhs
-%include Cardano/BM/Output/Monitoring.lhs
+%include ../iohk-monitoring/src/Cardano/BM/Output/Switchboard.lhs
+%include ../iohk-monitoring/src/Cardano/BM/Output/Log.lhs
+%include ../iohk-monitoring/src/Cardano/BM/Output/EKGView.lhs
+%include ../iohk-monitoring/src/Cardano/BM/Output/Aggregation.lhs
+%include ../iohk-monitoring/src/Cardano/BM/Output/Monitoring.lhs
 
 \chapter{Testing}
 
-%include ../test/Test.lhs
+%include ../iohk-monitoring/test/Test.lhs
 
 \printindex
 
