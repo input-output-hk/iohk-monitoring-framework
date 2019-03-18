@@ -41,7 +41,50 @@ import           Cardano.BM.Tracer.Transformers
 \end{code}
 %endif
 
-This module extends the basic |Tracer| with one that keeps a list of
+This module extends the basic |Tracer| with one that keeps a list of context names to
+create the basis for |Trace| which accepts messages from a Tracer and ends in the |Switchboard|
+for further processing of the messages.
+
+\begin{scriptsize}
+\begin{verbatim}
+   +-----------------------+
+   |                       |
+   |  ouroboros network    |
+   |                       |
+   +----------+------------+
+              |
+              |
+        +-----v-----+
+        |           |
+        |  Tracer   |
+        |           |
+        +-----+-----+
+              |
+              |
+  +-----------v------------+
+  |                        |
+  |        Trace           |
+  |                        |
+  +-----------+------------+
+              |
+  +-----------v------------+
+  |      Switchboard       |
+  +------------------------+
+
+  +----------+ +-----------+
+  |Monitoring| |Aggregation|
+  +----------+ +-----------+
+
+          +-------+
+          |Logging|
+          +-------+
+
++-------------+ +------------+
+|Visualisation| |Benchmarking|
++-------------+ +------------+
+
+\end{verbatim}
+\end{scriptsize}
 
 \subsubsection{LogNamed}\label{code:LogNamed}\index{LogNamed}
 A |LogNamed| contains of a context name and some log item.

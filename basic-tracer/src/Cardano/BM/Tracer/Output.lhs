@@ -17,7 +17,7 @@ import           Cardano.BM.Tracer.Class
 \end{code}
 %endif
 
-+\subsubsection{Directing a |Tracer|'s output to stdout}\label{code:stdoutTracer}\index{stdoutTracer}
+\subsubsection{Directing a |Tracer|'s output to stdout}\label{code:stdoutTracer}\index{stdoutTracer}
 
 The Tracer that prints a string (as a line) to stdout (usual caveats
 about interleaving should be heeded).
@@ -28,7 +28,7 @@ stdoutTracer = Tracer $ Op $ liftIO . putStrLn
 
 \end{code}
 
-+\subsubsection{Outputting a |Tracer| with \emph{Debug.Trace}}\label{code:debugTracer}\index{debugTracer}
+\subsubsection{Outputting a |Tracer| with \emph{Debug.Trace}}\label{code:debugTracer}\index{debugTracer}
 
 A Tracer that uses |TraceM| (from |Debug.Trace|) as its output mechanism.
 
