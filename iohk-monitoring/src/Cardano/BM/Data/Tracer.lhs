@@ -1,13 +1,13 @@
 
-\subsection{Cardano.BM.Tracer}
-\label{code:Cardano.BM.Tracer}
+\subsection{Cardano.BM.Data.Tracer}
+\label{code:Cardano.BM.Data.Tracer}
 
 %if style == newcode
 \begin{code}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE InstanceSigs      #-}
 
-module Cardano.BM.Tracer
+module Cardano.BM.Data.Tracer
     ( Tracer (..)
     , Contravariant(..)
     -- * tracers
@@ -19,10 +19,9 @@ module Cardano.BM.Tracer
     , condTracing
     , condTracingM
     -- * examples
-     , example1
-     , example2
-     , example3
-     , example4
+    , example2
+    , example3
+    , example4
     ) where
 
 import           Control.Monad (void)
@@ -41,26 +40,7 @@ import           Cardano.BM.Tracer.Transformers
 \end{code}
 %endif
 
-Tracing using the contravariant |Tracer| naturally reads:
- 
-\begin{spec}
-let logTrace = tracing $ showTracing $ stdoutTracer
-in  logTrace "hello world"
-\end{spec}
-
-\begin{code}
-
-example1 :: IO ()
-example1 = do
-    let logTrace a = tracingWith (showTracing (contramap ("Debug: " ++) stdoutTracer)) a
-    void $ callFun1 logTrace
-
-callFun1 :: (String -> IO ()) -> IO Int
-callFun1 logTrace = do
-    logTrace "in function 1"
-    return 42
-
-\end{code}
+This module extends the basic |Tracer| with one that keeps a list of 
 
 \begin{code}
 

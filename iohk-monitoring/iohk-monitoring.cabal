@@ -72,11 +72,6 @@ library
                        Cardano.BM.Setup
                        Cardano.BM.Trace
 
-                       Cardano.BM.Tracer
-                       Cardano.BM.Tracer.Class
-                       Cardano.BM.Tracer.Output
-                       Cardano.BM.Tracer.Transformers
-
   if !flag(disable-aggregation)
     exposed-modules:   Cardano.BM.Output.Aggregation
 
@@ -98,12 +93,13 @@ library
   else
     exposed-modules:   Cardano.BM.Counters.Dummy
 
-  other-modules:
+  other-modules:       Cardano.BM.Data.Tracer
 
   default-language:    Haskell2010
   default-extensions:  OverloadedStrings
   other-extensions:    OverloadedStrings
   build-depends:       base >= 4.11,
+                       basic-tracer,
                        aeson,
                        array,
                        async,
