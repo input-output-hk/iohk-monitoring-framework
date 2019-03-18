@@ -19,10 +19,10 @@ module Cardano.BM.Tracer
     , condTracing
     , condTracingM
     -- * examples
-     , example1
-     , example2
-     , example3
-     , example4
+    , example1
+    , example2
+    , example3
+    , example4
     ) where
 
 import           Control.Monad (void)
@@ -42,7 +42,7 @@ import           Cardano.BM.Tracer.Transformers
 %endif
 
 Tracing using the contravariant |Tracer| naturally reads:
- 
+
 \begin{spec}
 let logTrace = tracing $ showTracing $ stdoutTracer
 in  logTrace "hello world"

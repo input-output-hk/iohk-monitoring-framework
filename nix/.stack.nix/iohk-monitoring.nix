@@ -24,6 +24,7 @@
       "library" = {
         depends = (([
           (hsPkgs.base)
+          (hsPkgs.basic-tracer)
           (hsPkgs.aeson)
           (hsPkgs.array)
           (hsPkgs.async)
@@ -123,4 +124,4 @@
           };
         };
       };
-    } // rec { src = (pkgs.lib).mkDefault .././../.; }
+    } // rec { src = (pkgs.lib).mkDefault .././../iohk-monitoring; }
