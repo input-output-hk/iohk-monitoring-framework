@@ -131,23 +131,22 @@ thus specializes its interface.}\label{fig:overview}
 
 %include ../iohk-monitoring/examples/complex/Main.lhs
 
-\section{Code listings}
+\section{Code listings - basic-tracer package}
 
-%if style == newcode
-\begin{code}
-module Code
-where
+%include ../basic-tracer/src/Cardano/BM/Tracer.lhs
+%include ../basic-tracer/src/Cardano/BM/Tracer/Class.lhs
+%include ../basic-tracer/src/Cardano/BM/Tracer/Output.lhs
+%include ../basic-tracer/src/Cardano/BM/Tracer/Transformers.lhs
 
-\end{code}
-%endif
+
+\section{Code listings - iohk-monitoring package}
+
 
 %include ../iohk-monitoring/src/Cardano/BM/Observer/STM.lhs
 %include ../iohk-monitoring/src/Cardano/BM/Observer/Monadic.lhs
 
 %include ../iohk-monitoring/src/Cardano/BM/BaseTrace.lhs
 %include ../iohk-monitoring/src/Cardano/BM/Trace.lhs
-
-%include ../iohk-monitoring/src/Cardano/BM/Tracer.lhs
 
 %include ../iohk-monitoring/src/Cardano/BM/Setup.lhs
 
@@ -169,6 +168,7 @@ where
 %include ../iohk-monitoring/src/Cardano/BM/Data/Severity.lhs
 %include ../iohk-monitoring/src/Cardano/BM/Data/SubTrace.lhs
 %include ../iohk-monitoring/src/Cardano/BM/Data/Trace.lhs
+%include ../iohk-monitoring/src/Cardano/BM/Data/Tracer.lhs
 
 %include ../iohk-monitoring/src/Cardano/BM/Configuration.lhs
 %include ../iohk-monitoring/src/Cardano/BM/Configuration/Model.lhs
