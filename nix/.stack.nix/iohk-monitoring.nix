@@ -92,6 +92,7 @@
         "tests" = {
           depends = [
             (hsPkgs.base)
+            (hsPkgs.basic-tracer)
             (hsPkgs.iohk-monitoring)
             (hsPkgs.aeson)
             (hsPkgs.array)

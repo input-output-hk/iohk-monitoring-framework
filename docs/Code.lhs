@@ -145,7 +145,6 @@ thus specializes its interface.}\label{fig:overview}
 %include ../iohk-monitoring/src/Cardano/BM/Observer/STM.lhs
 %include ../iohk-monitoring/src/Cardano/BM/Observer/Monadic.lhs
 
-%include ../iohk-monitoring/src/Cardano/BM/BaseTrace.lhs
 %include ../iohk-monitoring/src/Cardano/BM/Trace.lhs
 
 %include ../iohk-monitoring/src/Cardano/BM/Setup.lhs

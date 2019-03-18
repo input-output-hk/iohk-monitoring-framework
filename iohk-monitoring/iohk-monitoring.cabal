@@ -41,8 +41,6 @@ library
   hs-source-dirs:      src
   exposed-modules:     Paths_iohk_monitoring
 
-                       Cardano.BM.BaseTrace
-
                        Cardano.BM.Configuration
                        Cardano.BM.Configuration.Model
                        Cardano.BM.Configuration.Static
@@ -175,6 +173,7 @@ test-suite tests
   default-language:    Haskell2010
   default-extensions:  OverloadedStrings
   build-depends:       base,
+                       basic-tracer,
                        iohk-monitoring,
 
                        aeson,

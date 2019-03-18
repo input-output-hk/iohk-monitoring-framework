@@ -35,7 +35,7 @@ import           Data.Time.Clock (getCurrentTime)
 import           Data.Functor.Contravariant (Op (..))
 import           System.IO (stderr)
 
-import qualified Cardano.BM.BaseTrace as BaseTrace
+import qualified Cardano.BM.Tracer.Class as Tracer
 import           Cardano.BM.Configuration (Configuration)
 import qualified Cardano.BM.Configuration as Config
 import           Cardano.BM.Configuration.Model (getBackends,
@@ -44,11 +44,12 @@ import           Cardano.BM.Data.Backend
 import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.MessageCounter (resetCounters, sendAndResetAfter,
                      updateMessageCounters)
-import           Cardano.BM.Data.Trace (TraceNamed, TraceContext (..))
+import           Cardano.BM.Data.Trace (TraceContext (..))
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.SubTrace (SubTrace (..))
 import qualified Cardano.BM.Output.Log
 import           Cardano.BM.Trace (evalFilters)
+import           Cardano.BM.Tracer.Class (Tracer)
 
 #ifdef ENABLE_AGGREGATION
 import qualified Cardano.BM.Output.Aggregation
@@ -76,7 +77,7 @@ newtype Switchboard a = Switchboard
     { getSB :: SwitchboardMVar a }
 
 data SwitchboardInternal a = SwitchboardInternal
-    { sbQueue    :: TBQ.TBQueue (NamedLogItem a)
+    { sbQueue    :: TBQ.TBQueue (LogObject a)
     , sbDispatch :: Async.Async ()
     }
 
@@ -88,11 +89,11 @@ Every |Trace| ends in the \nameref{code:Switchboard} which then takes care of
 dispatching the messages to outputs
 
 \begin{code}
-mainTrace :: Switchboard a -> TraceNamed IO a
-mainTrace sb = BaseTrace.BaseTrace $ Op $ effectuate sb
+mainTrace :: Switchboard a -> Tracer IO (LogObject a)
+mainTrace sb = Tracer.Tracer $ Op $ effectuate sb
 
-mainTraceConditionally :: TraceContext -> Switchboard a -> TraceNamed IO a
-mainTraceConditionally ctx sb = BaseTrace.BaseTrace $ Op $ \item@(LogNamed loggername (LogObject meta _)) -> do
+mainTraceConditionally :: TraceContext -> Switchboard a -> Tracer IO (LogObject a)
+mainTraceConditionally ctx sb = Tracer.Tracer $ Op $ \item@(LogObject loggername meta _) -> do
     globminsev  <- liftIO $ Config.minSeverity (configuration ctx)
     globnamesev <- liftIO $ Config.inspectSeverity (configuration ctx) loggername
     let minsev = max globminsev $ fromMaybe Debug globnamesev
@@ -112,7 +113,7 @@ The queue is initialized and the message dispatcher launched.
 \begin{code}
 instance IsEffectuator Switchboard a where
     effectuate switchboard item = do
-        let writequeue :: TBQ.TBQueue (NamedLogItem a) -> NamedLogItem a -> IO ()
+        let writequeue :: TBQ.TBQueue (LogObject a) -> LogObject a -> IO ()
             writequeue q i = do
                     nocapacity <- atomically $ TBQ.isFullTBQueue q
                     if nocapacity
@@ -132,9 +133,9 @@ instead of 'writequeue ...':
         evalMonitoringAction config item >>=
             mapM_ (writequeue (sbQueue sb))
 
-evalMonitoringAction :: Configuration -> NamedLogItem a -> m [NamedLogItem a]
+evalMonitoringAction :: Configuration -> LogObject a -> m [LogObject a]
 evalMonitoringAction c item = return [item]
-    -- let action = LogNamed { lnName=(lnName item) <> ".action", lnItem=LogMessage ... }
+    -- let action = LogObject { loName=(loName item) <> ".action", loContent=LogMessage ... }
     -- return (action : item)
 
 \end{spec}
@@ -151,14 +152,14 @@ instance (Show a, ToJSON a) => IsBackend Switchboard a where
                 :: (Show a)
                 => Configuration
                 -> [(BackendKind, Backend a)]
-                -> TBQ.TBQueue (NamedLogItem a)
+                -> TBQ.TBQueue (LogObject a)
                 -> IO (Async.Async ())
             spawnDispatcher config backends queue = do
                 now <- getCurrentTime
                 let messageCounters = resetCounters now
                 countersMVar <- newMVar messageCounters
                 let traceInQueue q =
-                        BaseTrace.BaseTrace $ Op $ \lognamed -> do
+                        Tracer.Tracer $ Op $ \lognamed -> do
                             nocapacity <- atomically $ TBQ.isFullTBQueue q
                             if nocapacity
                             then putStrLn "Error: Switchboard's queue full, dropping log items!"
@@ -173,10 +174,10 @@ instance (Show a, ToJSON a) => IsBackend Switchboard a where
                                             Warning -- Debug
 
                 let sendMessage nli befilter = do
-                        selectedBackends <- getBackends config (lnName nli)
+                        selectedBackends <- getBackends config (loName nli)
                         let selBEs = befilter selectedBackends
                         forM_ backends $ \(bek, be) ->
-                            when (bek `elem` selBEs) (bEffectuate be $ nli)
+                            when (bek `elem` selBEs) (bEffectuate be nli)
 
                     qProc counters = do
                         -- read complete queue at once and process items
@@ -185,10 +186,8 @@ instance (Show a, ToJSON a) => IsBackend Switchboard a where
                                       when (null r) retry
                                       return r
 
-                        let processItem nli = do
-                                let (LogObject lometa loitem) = lnItem nli
-                                    loname = lnName nli
-                                    losev = severity lometa
+                        let processItem nli@(LogObject loname lometa loitem) = do
+                                let losev = severity lometa
 
                                 -- evaluate minimum severity criteria
                                 locsev <- fromMaybe Debug <$> Config.inspectSeverity cfg loname
@@ -199,12 +198,12 @@ instance (Show a, ToJSON a) => IsBackend Switchboard a where
                                 when (loname /= "#messagecounters.switchboard") $
                                     -- increase the counter for the specific severity
                                     modifyMVar_ counters $
-                                        \cnt -> return $ updateMessageCounters cnt $ lnItem nli
+                                        \cnt -> return $ updateMessageCounters cnt nli
 
                                 subtrace <- fromMaybe Neutral <$> Config.findSubTrace (configuration ctx) loname
                                 case subtrace of
                                     TeeTrace secName ->
-                                        atomically $ TBQ.writeTBQueue queue $ nli{ lnName = secName }
+                                        atomically $ TBQ.writeTBQueue queue $ nli{ loName = secName }
                                     _ -> return ()
 
                                 let doOutput = case subtrace of
@@ -233,7 +232,7 @@ instance (Show a, ToJSON a) => IsBackend Switchboard a where
 #ifdef ENABLE_MONITORING
                                     (MonitoringEffect inner) -> do
                                         when (sevGE && doOutput) $
-                                            sendMessage (nli {lnItem = inner}) (filter (/= MonitoringBK))
+                                            sendMessage (inner {loName = loname}) (filter (/= MonitoringBK))
                                         return True
 #endif
                                     _ -> do
@@ -267,8 +266,10 @@ instance (Show a, ToJSON a) => IsBackend Switchboard a where
 
         (dispatcher, queue) <- withMVar (getSB switchboard) (\sb -> return (sbDispatch sb, sbQueue sb))
         -- send terminating item to the queue
-        lo <- LogObject <$> (mkLOMeta Warning Confidential) <*> pure KillPill
-        atomically $ TBQ.writeTBQueue queue $ LogNamed "kill.switchboard" lo
+        lo <- LogObject <$> pure "kill.switchboard"
+                        <*> (mkLOMeta Warning Confidential)
+                        <*> pure KillPill
+        atomically $ TBQ.writeTBQueue queue lo
         -- wait for the dispatcher to exit
         res <- Async.waitCatch dispatcher
         either throwM return res

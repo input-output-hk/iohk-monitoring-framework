@@ -25,13 +25,13 @@ import           Cardano.BM.Configuration.Model (Configuration)
 \end{code}
 %endif
 
-\subsubsection{Accepts a \nameref{code:NamedLogItem}}\label{code:IsEffectuator}\index{IsEffectuator}
-Instances of this type class accept a |NamedLogItem| and deal with it.
+\subsubsection{Accepts a \nameref{code:LogObject}}\label{code:IsEffectuator}\index{IsEffectuator}
+Instances of this type class accept a |LogObject| and deal with it.
 \begin{code}
 class IsEffectuator t a where
-    effectuate     :: t a -> NamedLogItem a -> IO ()
-    effectuatefrom :: forall s . (IsEffectuator s a) => t a -> NamedLogItem a -> s a -> IO ()
-    default effectuatefrom :: forall s . (IsEffectuator s a) => t a -> NamedLogItem a -> s a -> IO ()
+    effectuate     :: t a -> LogObject a -> IO ()
+    effectuatefrom :: forall s . (IsEffectuator s a) => t a -> LogObject a -> s a -> IO ()
+    default effectuatefrom :: forall s . (IsEffectuator s a) => t a -> LogObject a -> s a -> IO ()
     effectuatefrom t nli _ = effectuate t nli
     handleOverflow :: t a -> IO ()
 
@@ -56,7 +56,7 @@ as an |IsEffectuator| when processing an incoming message,
 and as an |IsBackend| for unrealizing the backend.
 \begin{code}
 data Backend a = MkBackend
-    { bEffectuate :: NamedLogItem a -> IO ()
+    { bEffectuate :: LogObject a -> IO ()
     , bUnrealize  :: IO ()
     }
 

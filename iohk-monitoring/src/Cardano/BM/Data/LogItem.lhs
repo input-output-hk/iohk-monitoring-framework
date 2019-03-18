@@ -9,9 +9,7 @@
 {-# LANGUAGE StandaloneDeriving #-}
 
 module Cardano.BM.Data.LogItem
-  ( NamedLogItem
-  , LogNamed (..)
-  , LogObject (..)
+  ( LogObject (..)
   , LOMeta (..), mkLOMeta
   , LOContent (..)
   , LoggerName
@@ -40,33 +38,17 @@ type LoggerName = Text
 
 \end{code}
 
-\subsubsection{NamedLogItem}\label{code:NamedLogItem}\index{NamedLogItem}
-\begin{code}
-type NamedLogItem a = LogNamed (LogObject a)
-
-\end{code}
-
-\subsubsection{LogNamed}\label{code:LogNamed}\index{LogNamed}
-A |LogNamed| contains of a context name and some log item.
-\begin{code}
-
-data LogNamed item = LogNamed
-    { lnName :: LoggerName
-    , lnItem :: item
-    } deriving (Show)
-
-deriving instance Generic item => Generic (LogNamed item)
-deriving instance (ToJSON item, Generic item) => ToJSON (LogNamed item)
-
-\end{code}
-
 \subsubsection{Logging of outcomes with |LogObject|}
 \label{code:LogObject}\index{LogObject}
 \label{code:LOMeta}\index{LOMeta}
 \label{code:LOContent}\index{LOContent}
 
 \begin{code}
-data LogObject a = LogObject LOMeta (LOContent a)
+data LogObject a = LogObject
+                    { loName    :: LoggerName
+                    , loMeta    :: !LOMeta
+                    , loContent :: (LOContent a)
+                    }
                    deriving (Generic, Show, ToJSON)
 
 \end{code}
@@ -86,7 +68,11 @@ data LOMeta = LOMeta {
 
 instance ToJSON LOMeta where
     toJSON (LOMeta _tstamp _tid _sev _priv) =
-        object ["tstamp" .= _tstamp, "tid" .= show _tid , "severity" .= show _sev, "privacy" .= show _priv]
+        object [ "tstamp"   .= _tstamp
+               , "tid"      .= show _tid
+               , "severity" .= show _sev
+               , "privacy"  .= show _priv
+               ]
 
 mkLOMeta :: Severity -> PrivacyAnnotation -> IO LOMeta
 mkLOMeta sev priv =

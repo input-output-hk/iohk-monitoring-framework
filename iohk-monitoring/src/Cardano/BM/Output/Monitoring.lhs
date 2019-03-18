@@ -53,7 +53,7 @@ newtype Monitor a = Monitor
     { getMon :: MonitorMVar a }
 
 data MonitorInternal a = MonitorInternal
-    { monQueue   :: TBQ.TBQueue (Maybe (NamedLogItem a))
+    { monQueue   :: TBQ.TBQueue (Maybe (LogObject a))
     }
 
 \end{code}
@@ -71,7 +71,7 @@ type MonitorMap = HM.HashMap LoggerName MonitorState
 \end{code}
 
 \subsubsection{Monitor view is an effectuator}\index{Monitor!instance of IsEffectuator}
-Function |effectuate| is called to pass in a |NamedLogItem| for monitoring.
+Function |effectuate| is called to pass in a |LogObject| for monitoring.
 \begin{code}
 instance IsEffectuator Monitor a where
     effectuate monitor item = do
@@ -117,7 +117,7 @@ instance Show a => IsBackend Monitor a where
 \subsubsection{Asynchrouniously reading log items from the queue and their processing}
 \begin{code}
 spawnDispatcher :: (Show a)
-                => TBQ.TBQueue (Maybe (NamedLogItem a))
+                => TBQ.TBQueue (Maybe (LogObject a))
                 -> Configuration
                 -> Trace.Trace IO a
                 -> IO (Async.Async ())
@@ -137,8 +137,8 @@ spawnDispatcher mqueue config sbtrace = do
     qProc counters state = do
         maybeItem <- atomically $ TBQ.readTBQueue mqueue
         case maybeItem of
-            Just (LogNamed logname logvalue@(LogObject _ _)) -> do
-                state' <- evalMonitoringAction state logname logvalue
+            Just (logvalue@(LogObject _ _ _)) -> do
+                state' <- evalMonitoringAction state logvalue
                 -- increase the counter for the type of message
                 modifyMVar_ counters $ \cnt -> return $ updateMessageCounters cnt logvalue
                 qProc counters state'
@@ -152,12 +152,12 @@ spawnDispatcher mqueue config sbtrace = do
 Inspect the log message and match it against configured thresholds. If positive,
 then run the action on the current state and return the updated state.
 \begin{code}
-evalMonitoringAction :: MonitorMap -> LoggerName -> LogObject a -> IO MonitorMap
-evalMonitoringAction mmap logname logvalue =
+evalMonitoringAction :: MonitorMap -> LogObject a -> IO MonitorMap
+evalMonitoringAction mmap logObj@(LogObject logname _ _) =
     case HM.lookup logname mmap of
         Nothing -> return mmap
         Just mon@(MonitorState expr acts env0) -> do
-            let env' = updateEnv env0 logvalue
+            let env' = updateEnv env0 logObj
             if evaluate env' expr
             then do
                 now <- getMonotonicTimeNSec
@@ -175,16 +175,16 @@ evalMonitoringAction mmap logname logvalue =
             s2ns = 1000000000
         in
         Nanoseconds $ round $ (fromRational $ s2ns * rsecs + rdays * yearsecs :: Double)
-    updateEnv env (LogObject _ (ObserveOpen _)) = env
-    updateEnv env (LogObject _ (ObserveDiff _)) = env
-    updateEnv env (LogObject _ (ObserveClose _)) = env
-    updateEnv env (LogObject lometa (LogValue vn val)) =
+    updateEnv env (LogObject _ _ (ObserveOpen _)) = env
+    updateEnv env (LogObject _ _ (ObserveDiff _)) = env
+    updateEnv env (LogObject _ _ (ObserveClose _)) = env
+    updateEnv env (LogObject _ lometa (LogValue vn val)) =
         let addenv = HM.fromList [ (vn, val)
                                  , ("timestamp", utc2ns (tstamp lometa))
                                  ]
         in
         HM.union addenv env
-    updateEnv env (LogObject lometa (LogMessage _logitem)) =
+    updateEnv env (LogObject _ lometa (LogMessage _logitem)) =
         let addenv = HM.fromList [ ("severity", (Severity (severity lometa)))
                                 --  , ("selection", (liSelection logitem))
                                 --  , ("message", (liPayload logitem))
@@ -192,7 +192,7 @@ evalMonitoringAction mmap logname logvalue =
                                  ]
         in
         HM.union addenv env
-    updateEnv env (LogObject lometa (AggregatedMessage vals)) =
+    updateEnv env (LogObject _ lometa (AggregatedMessage vals)) =
         let addenv = ("timestamp", utc2ns (tstamp lometa)) : aggs2measurables vals []
         in
         HM.union (HM.fromList addenv) env

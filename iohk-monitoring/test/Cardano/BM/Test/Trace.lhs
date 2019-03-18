@@ -39,7 +39,7 @@ import           Cardano.BM.Configuration.Model (empty, setDefaultBackends,
                      setDefaultScribes, setSubTrace, setSetupBackends,
                      setSetupScribes)
 import           Cardano.BM.Configuration.Static (defaultConfigTesting)
-import qualified Cardano.BM.BaseTrace as BaseTrace
+import qualified Cardano.BM.Tracer.Transformers as TracerT
 import           Cardano.BM.Data.BackendKind (BackendKind (..))
 import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.Observable
@@ -59,7 +59,7 @@ import qualified Cardano.BM.Setup as Setup
 import           Cardano.BM.Trace (Trace, appendName, evalFilters, logDebug,
                      logInfo, logInfoS, logNotice, logWarning, logError,
                      logCritical, logAlert, logEmergency,
-                     traceInTVarIOConditionally, traceNamedInTVarIOConditionally)
+                     traceInTVarIOConditionally)
 
 import           Test.Tasty (TestTree, testGroup)
 import           Test.Tasty.HUnit (Assertion, assertBool, testCase,
@@ -108,15 +108,15 @@ unit_tests = testGroup "Unit tests" [
       where
         observablesSet = [MonotonicClock, MemoryStats]
         notObserveOpen :: [LogObject a] -> Bool
-        notObserveOpen = all (\case {LogObject _ (ObserveOpen _) -> False; _ -> True})
+        notObserveOpen = all (\case {LogObject _ _ (ObserveOpen _) -> False; _ -> True})
         notObserveClose :: [LogObject a] -> Bool
-        notObserveClose = all (\case {LogObject _ (ObserveClose _) -> False; _ -> True})
+        notObserveClose = all (\case {LogObject _ _ (ObserveClose _) -> False; _ -> True})
         notObserveDiff :: [LogObject a] -> Bool
-        notObserveDiff = all (\case {LogObject _ (ObserveDiff _) -> False; _ -> True})
+        notObserveDiff = all (\case {LogObject _ _ (ObserveDiff _) -> False; _ -> True})
         onlyLevelOneMessage :: [LogObject Text] -> Bool
         onlyLevelOneMessage = \case
-            [LogObject _ (LogMessage "Message from level 1.")] -> True
-            _                                                                -> False
+            [LogObject _ _ (LogMessage "Message from level 1.")] -> True
+            _                                                    -> False
         observeNoMeasures :: [LogObject a] -> Bool
         observeNoMeasures obs = notObserveOpen obs && notObserveClose obs && notObserveDiff obs
 
@@ -135,8 +135,7 @@ setupTrace (TraceConfiguration outk name subTr) = do
     c <- liftIO $ Cardano.BM.Configuration.Model.empty
     ctx <- liftIO $ newContext c
     let logTrace0 = case outk of
-            TVarList      tvar -> BaseTrace.natTrace liftIO $ traceInTVarIOConditionally tvar ctx
-            TVarListNamed tvar -> BaseTrace.natTrace liftIO $ traceNamedInTVarIOConditionally tvar ctx
+            TVarList tvar -> TracerT.natTrace liftIO $ traceInTVarIOConditionally tvar ctx
 
     setSubTrace (configuration ctx) name (Just subTr)
     let logTrace' = (ctx, logTrace0)
@@ -329,7 +328,7 @@ unitTraceMinSeverity = do
         ("Found Info message when Warning was minimum severity: " ++ show res)
         (all
             (\case
-                LogObject (LOMeta _ _ Info _) (LogMessage "Message #2") -> False
+                LogObject _ (LOMeta _ _ Info _) (LogMessage "Message #2") -> False
                 _ -> True)
             res)
 
@@ -397,7 +396,7 @@ unitNamedMinSeverity = do
         ("Found Info message when Warning was minimum severity: " ++ show res)
         (all
             (\case
-                LogObject (LOMeta _ _ Info _) (LogMessage "Message #2") -> False
+                LogObject _ (LOMeta _ _ Info _) (LogMessage "Message #2") -> False
                 _ -> True)
             res)
 
@@ -438,7 +437,7 @@ unitHierarchy' subtraces f = do
 unitTraceInFork :: Assertion
 unitTraceInFork = do
     msgs <- STM.newTVarIO []
-    trace <- setupTrace $ TraceConfiguration (TVarListNamed msgs) "test" Neutral
+    trace <- setupTrace $ TraceConfiguration (TVarList msgs) "test" Neutral
     trace0 <- appendName "work0" trace
     trace1 <- appendName "work1" trace
     work0 <- work trace0
@@ -448,7 +447,7 @@ unitTraceInFork = do
     Async.wait $ work1
 
     res <- STM.readTVarIO msgs
-    let names@(_: namesTail) = map lnName res
+    let names@(_: namesTail) = map loName res
     -- each trace should have its own name and log right after the other
     assertBool
         ("Consecutive loggernames are not different: " ++ show names)
@@ -471,7 +470,7 @@ unitTraceInFork = do
 stressTraceInFork :: Assertion
 stressTraceInFork = do
     msgs <- STM.newTVarIO []
-    trace <- setupTrace $ TraceConfiguration (TVarListNamed msgs) "test" Neutral
+    trace <- setupTrace $ TraceConfiguration (TVarList msgs) "test" Neutral
     let names = map (\a -> ("work-" <> pack (show a))) [1..(10::Int)]
     ts <- forM names $ \name -> do
         trace' <- appendName name trace
@@ -479,7 +478,7 @@ stressTraceInFork = do
     forM_ ts Async.wait
 
     res <- STM.readTVarIO msgs
-    let resNames = map lnName res
+    let resNames = map loName res
     let frequencyMap = fromListWith (+) [(x, 1) | x <- resNames]
 
     -- each trace should have traced totalMessages' messages
@@ -506,7 +505,7 @@ unitNoOpeningTrace = do
     res <- STM.readTVarIO msgs
     assertBool
         ("Found non-expected ObserveOpen message: " ++ show res)
-        (all (\case {LogObject _ (ObserveOpen _) -> False; _ -> True}) res)
+        (all (\case {LogObject _ _ (ObserveOpen _) -> False; _ -> True}) res)
 
 \end{code}
 
@@ -517,12 +516,12 @@ the limit is set to 80.
 unitAppendName :: Assertion
 unitAppendName = do
     msgs <- STM.newTVarIO []
-    trace0 <- setupTrace $ TraceConfiguration (TVarListNamed msgs) "test" Neutral
+    trace0 <- setupTrace $ TraceConfiguration (TVarList msgs) "test" Neutral
     trace1 <- appendName bigName trace0
     trace2 <- appendName bigName trace1
     forM_ [trace0, trace1, trace2] $ (flip logInfo msg)
     res <- reverse <$> STM.readTVarIO msgs
-    let loggernames = map lnName res
+    let loggernames = map loName res
     assertBool
         ("AppendName did not work properly. The loggernames for the messages are: " ++
             show loggernames)

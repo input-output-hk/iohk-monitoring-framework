@@ -94,16 +94,16 @@ instance (ToJSON a, Show a) => IsEffectuator Log a where
         let logMVar = getK katip
         c <- configuration <$> readMVar logMVar
         setupScribes <- getSetupScribes c
-        selscribes <- getScribes c (lnName item)
+        selscribes <- getScribes c (loName item)
         let selscribesFiltered =
-                case lnItem item of
-                    LogObject (LOMeta _ _ _ Confidential) (LogMessage _)
+                case item of
+                    LogObject _ (LOMeta _ _ _ Confidential) (LogMessage _)
                         -> removePublicScribes setupScribes selscribes
                     _   -> selscribes
         forM_ selscribesFiltered $ \sc -> passN sc katip item
         -- increase the counter for the specific severity and message type
         modifyMVar_ logMVar $ \li -> return $
-            li{ msgCounters = updateMessageCounters (msgCounters li) (lnItem item) }
+            li{ msgCounters = updateMessageCounters (msgCounters li) item }
         -- reset message counters afer 60 sec = 1 min
         resetMessageCounters logMVar 60 Warning selscribesFiltered
       where
@@ -118,20 +118,21 @@ instance (ToJSON a, Show a) => IsEffectuator Log a where
         resetMessageCounters logMVar interval sev scribes = do
             counters <- msgCounters <$> readMVar logMVar
             let start = mcStart counters
-                now = case lnItem item of
-                        LogObject meta _ -> tstamp meta
+                now = case item of
+                        LogObject _ meta _ -> tstamp meta
                 diffTime = round $ diffUTCTime now start
             when (diffTime > interval) $ do
                 countersObjects <- forM (HM.toList $ mcCountersMap counters) $ \(key, count) ->
                         LogObject
-                            <$> (mkLOMeta sev Confidential)
+                            <$> pure "#messagecounters.katip"
+                            <*> (mkLOMeta sev Confidential)
                             <*> pure (LogValue (pack key) (PureI $ toInteger count))
                 intervalObject <-
                     LogObject
-                        <$> (mkLOMeta sev Confidential)
+                        <$> pure "#messagecounters.katip"
+                        <*> (mkLOMeta sev Confidential)
                         <*> pure (LogValue "time_interval_(s)" (PureI diffTime))
-                let namedCounters = map (\lo -> LogNamed "#messagecounters.katip" lo)
-                                        (countersObjects ++ [intervalObject])
+                let namedCounters = countersObjects ++ [intervalObject]
                 forM_ scribes $ \sc ->
                     forM_ namedCounters $ \namedCounter ->
                         passN sc katip namedCounter
@@ -205,17 +206,17 @@ example :: IO ()
 example = do
     config <- Config.setup "from_some_path.yaml"
     k <- setup config
-    passN (pack (show StdoutSK)) k $ LogNamed
-                                            { lnName = "test"
-                                            , lnItem = LogMessage $ LogItem
-                                                { liSelection = Public
-                                                , liSeverity  = Info
-                                                , liPayload   = "Hello!"
-                                                }
+    meta <- mkLOMeta Info Public
+    passN (pack (show StdoutSK)) k $ LogObject
+                                            { loName = "test"
+                                            , loMeta = meta
+                                            , loContent = LogMessage "Hello!"
                                             }
-    passN (pack (show StdoutSK)) k $ LogNamed
-                                            { lnName = "test"
-                                            , lnItem = LogValue "cpu-no" 1
+    meta' <- mkLOMeta Info Public
+    passN (pack (show StdoutSK)) k $ LogObject
+                                            { loName = "test"
+                                            , loMeta = meta'
+                                            , loContent = LogValue "cpu-no" 1
                                             }
 
 \end{spec}
@@ -236,20 +237,19 @@ instance ToJSON a => KC.LogItem (Maybe (LOContent a)) where
 \end{code}
 
 \subsubsection{Log.passN}\label{code:passN}
-The following function copies the |NamedLogItem| to the queues of all scribes
+The following function copies the |LogObject| to the queues of all scribes
 that match on their name.
 Compare start of name of scribe to |(show backend <> "::")|.
 This function is non-blocking.
 \begin{code}
-passN :: (ToJSON a, Show a) => ScribeId -> Log a -> NamedLogItem a -> IO ()
-passN backend katip namedLogItem = do
+passN :: (ToJSON a, Show a) => ScribeId -> Log a -> LogObject a -> IO ()
+passN backend katip (LogObject loname lometa loitem) = do
     env <- kLogEnv <$> readMVar (getK katip)
     forM_ (Map.toList $ K._logEnvScribes env) $
           \(scName, (KC.ScribeHandle _ shChan)) ->
               -- check start of name to match |ScribeKind|
                 if backend `isPrefixOf` scName
                 then do
-                    let (LogObject lometa loitem) = lnItem namedLogItem
                     let (sev, msg, payload) = case loitem of
                                 (LogMessage logItem) ->
                                      (severity lometa, pack $ show logItem, Nothing)
@@ -282,7 +282,6 @@ passN backend katip namedLogItem = do
                     then return ()
                     else do
                         let threadIdText = KC.ThreadIdText $ tid lometa
-                        let ns = lnName namedLogItem
                         let itemTime = tstamp lometa
                         let itemKatip = K.Item {
                                   _itemApp       = env ^. KC.logEnvApp
@@ -294,7 +293,7 @@ passN backend katip namedLogItem = do
                                 , _itemPayload   = payload
                                 , _itemMessage   = K.logStr msg
                                 , _itemTime      = itemTime
-                                , _itemNamespace = (env ^. KC.logEnvApp) <> (K.Namespace [ns])
+                                , _itemNamespace = (env ^. KC.logEnvApp) <> (K.Namespace [loname])
                                 , _itemLoc       = Nothing
                                 }
                         void $ atomically $ KC.tryWriteTBQueue shChan (KC.NewItem itemKatip)
