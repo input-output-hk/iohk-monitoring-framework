@@ -26,6 +26,7 @@ SOURCES = Code.lhs \
 					$(SRCDIR1)/Cardano/BM/Data/Severity.lhs \
 					$(SRCDIR1)/Cardano/BM/Data/SubTrace.lhs \
 					$(SRCDIR1)/Cardano/BM/Data/Trace.lhs \
+					$(SRCDIR1)/Cardano/BM/Data/Tracer.lhs \
 					$(SRCDIR1)/Cardano/BM/Observer/Monadic.lhs \
 					$(SRCDIR1)/Cardano/BM/Observer/STM.lhs \
 					$(SRCDIR1)/Cardano/BM/Output/Aggregation.lhs \
