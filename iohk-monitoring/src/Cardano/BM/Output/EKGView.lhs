@@ -79,8 +79,7 @@ the messages that are being displayed by EKG.
 ekgTrace :: Show a => EKGView a -> Configuration -> IO (Trace IO a)
 ekgTrace ekg _c = do
     let trace = ekgTrace' ekg
-        ctx   = TraceContext { }
-    Trace.appendName "#ekgview" (ctx, trace)
+    Trace.appendName "#ekgview" trace
   where
     ekgTrace' :: Show a => EKGView a -> Tracer IO (LogObject a)
     ekgTrace' ekgview = Tracer $ Op $ \lo@(LogObject loname _ _) -> do

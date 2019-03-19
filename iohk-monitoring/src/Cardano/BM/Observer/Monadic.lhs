@@ -52,7 +52,7 @@ Microbenchmarking steps:
         import qualified Cardano.BM.Configuration.Model as CM
         . . .
         c <- config
-        trace@(ctx, _) <- setupTrace (Right c) "demo-playground"
+        trace <- setupTrace (Right c) "demo-playground"
             where
                 config :: IO CM.Configuration
                 config = do
@@ -94,7 +94,7 @@ in a configuration file (YAML) means
 
 \begin{spec}
         CM.setSubTrace
-            (configuration ctx)
+            config
             "demo-playground.submit-tx"
             (Just $ ObservableTrace observablesSet)
           where
