@@ -40,7 +40,6 @@ import           Cardano.BM.Data.MessageCounter (resetCounters, sendAndResetAfte
                      updateMessageCounters)
 import           Cardano.BM.Data.MonitoringEval
 import           Cardano.BM.Data.Severity (Severity (..))
-import           Cardano.BM.Data.Trace (TraceContext (configuration))
 import qualified Cardano.BM.Trace as Trace
 
 \end{code}
@@ -94,8 +93,7 @@ instance Show a => IsBackend Monitor a where
 
     realize _ = error "Monitoring cannot be instantiated by 'realize'"
 
-    realizefrom sbtrace@(ctx, _) _ = do
-        let config = configuration ctx
+    realizefrom config sbtrace _ = do
         monref <- newEmptyMVar
         let monitor = Monitor monref
         queue <- atomically $ TBQ.newTBQueue 512

@@ -77,10 +77,9 @@ This is an internal |Trace|, named "\#ekgview", which can be used to control
 the messages that are being displayed by EKG.
 \begin{code}
 ekgTrace :: Show a => EKGView a -> Configuration -> IO (Trace IO a)
-ekgTrace ekg c = do
+ekgTrace ekg _c = do
     let trace = ekgTrace' ekg
-        ctx   = TraceContext { configuration = c
-                             }
+        ctx   = TraceContext { }
     Trace.appendName "#ekgview" (ctx, trace)
   where
     ekgTrace' :: Show a => EKGView a -> Tracer IO (LogObject a)
@@ -172,8 +171,7 @@ instance Show a => IsBackend EKGView a where
 
     realize _ = error "EKGView cannot be instantiated by 'realize'"
 
-    realizefrom sbtrace@(ctx, _) _ = do
-        let config = configuration ctx
+    realizefrom config sbtrace _ = do
         evref <- newEmptyMVar
         let ekgview = EKGView evref
         evport <- getEKGport config

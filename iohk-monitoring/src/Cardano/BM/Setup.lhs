@@ -82,9 +82,7 @@ withTrace cfg name action =
 \begin{code}
 newContext :: Config.Configuration
            -> IO TraceContext
-newContext cfg =
-    return $ TraceContext {
-        configuration = cfg
-      }
+newContext _ =
+    return $ TraceContext { }
 
 \end{code}

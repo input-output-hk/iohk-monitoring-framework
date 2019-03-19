@@ -39,6 +39,7 @@ import qualified Cardano.BM.Configuration.Model as CM
 import           Cardano.BM.Data.Aggregated (Measurable (..))
 import           Cardano.BM.Data.AggregatedKind
 import           Cardano.BM.Data.BackendKind
+import           Cardano.BM.Configuration (Configuration)
 import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.Output
 import           Cardano.BM.Data.Rotation
@@ -59,8 +60,8 @@ Selected values can be viewed in EKG on \url{http://localhost:12789}.
 \\
 The configuration editor listens on \url{http://localhost:13789}.
 \begin{code}
-config :: IO CM.Configuration
-config = do
+prepare_configuration :: IO CM.Configuration
+prepare_configuration = do
     c <- CM.empty
     CM.setMinSeverity c Debug
     CM.setSetupBackends c [ KatipBK
@@ -199,15 +200,15 @@ randomThr trace = do
 \subsubsection{Thread that observes an |IO| action}
 \begin{code}
 #ifdef ENABLE_OBSERVABLES
-observeIO :: Trace IO Text -> IO (Async.Async ())
-observeIO trace = do
+observeIO :: Configuration -> Trace IO Text -> IO (Async.Async ())
+observeIO config trace = do
   logInfo trace "starting observer"
   proc <- Async.async (loop trace)
   return proc
   where
     loop tr = do
         threadDelay 5000000  -- 5 seconds
-        _ <- bracketObserveIO tr Debug "observeIO" $ do
+        _ <- bracketObserveIO config tr Debug "observeIO" $ do
             num <- randomRIO (100000, 200000) :: IO Int
             ls <- return $ reverse $ init $ reverse $ 42 : [1 .. num]
             pure $ const ls ()
@@ -218,8 +219,8 @@ observeIO trace = do
 \subsubsection{Threads that observe |STM| actions on the same TVar}
 \begin{code}
 #ifdef ENABLE_OBSERVABLES
-observeSTM :: Trace IO Text -> IO [Async.Async ()]
-observeSTM trace = do
+observeSTM :: Configuration -> Trace IO Text -> IO [Async.Async ()]
+observeSTM config trace = do
   logInfo trace "starting STM observer"
   tvar <- atomically $ newTVar ([1..1000]::[Int])
   -- spawn 10 threads
@@ -228,7 +229,7 @@ observeSTM trace = do
   where
     loop tr tvarlist name = do
         threadDelay 10000000  -- 10 seconds
-        STM.bracketObserveIO tr Debug ("observeSTM." <> name) (stmAction tvarlist)
+        STM.bracketObserveIO config tr Debug ("observeSTM." <> name) (stmAction tvarlist)
         loop tr tvarlist name
 
 stmAction :: TVar [Int] -> STM ()
@@ -245,15 +246,15 @@ order to observe the I/O statistics}
 \begin{code}
 #ifdef LINUX
 #ifdef ENABLE_OBSERVABLES
-observeDownload :: Trace IO Text -> IO (Async.Async ())
-observeDownload trace = do
+observeDownload :: Configuration -> Trace IO Text -> IO (Async.Async ())
+observeDownload config trace = do
   proc <- Async.async (loop trace)
   return proc
   where
     loop tr = do
         threadDelay 1000000  -- 1 second
         tr' <- appendName "observeDownload" tr
-        bracketObserveIO tr' Debug "" $ do
+        bracketObserveIO config tr' Debug "" $ do
             license <- openURI "http://www.gnu.org/licenses/gpl.txt"
             case license of
               Right bs -> logNotice tr' $ pack $ BS8.unpack bs
@@ -287,7 +288,7 @@ msgThr trace = do
 main :: IO ()
 main = do
     -- create configuration
-    c <- config
+    c <- prepare_configuration
 
 #ifdef ENABLE_GUI
     -- start configuration editor
@@ -311,20 +312,20 @@ main = do
 #ifdef RUN_ProcObserveIO
     -- start thread endlessly reversing lists of random length
 #ifdef ENABLE_OBSERVABLES
-    procObsvIO <- observeIO tr
+    procObsvIO <- observeIO c tr
 #endif
 #endif
 #ifdef RUN_ProcObseverSTM
     -- start threads endlessly observing STM actions operating on the same TVar
 #ifdef ENABLE_OBSERVABLES
-    procObsvSTMs <- observeSTM tr
+    procObsvSTMs <- observeSTM c tr
 #endif
 #endif
 #ifdef LINUX
 #ifdef RUN_ProcObseveDownload
     -- start thread endlessly which downloads sth in order to check the I/O usage
 #ifdef ENABLE_OBSERVABLES
-    procObsvDownload <- observeDownload tr
+    procObsvDownload <- observeDownload c tr
 #endif
 #endif
 #endif
