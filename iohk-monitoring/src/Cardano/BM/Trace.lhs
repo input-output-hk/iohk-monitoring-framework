@@ -68,10 +68,7 @@ natTrace nat (ctx, trace) = (ctx, TracerT.natTrace nat trace)
 \end{code}
 
 \subsubsection{Enter new named context}\label{code:appendName}\index{appendName}
-The context name is created and checked that its size is below a limit
-(currently 80 chars).
-The minimum severity that a log message must be labelled with is looked up in
-the configuration and recalculated.
+A new context name is added.
 \begin{code}
 appendName :: MonadIO m => LoggerName -> Trace m a -> m (Trace m a)
 appendName name =
@@ -86,10 +83,7 @@ appendWithDot xs newName = xs <> "." <> newName
 \end{code}
 
 \subsubsection{Change named context}\label{code:modifyName}\index{modifyName}
-The context name is created and checked that its size is below a limit
-(currently 80 chars).
-The minimum severity that a log message must be labelled with is looked up in
-the configuration and recalculated.
+The context name is overwritten.
 \begin{code}
 modifyName :: MonadIO m => (LoggerName -> LoggerName) -> Trace m a -> m (Trace m a)
 modifyName f (ctx, basetrace0) =
@@ -192,15 +186,14 @@ traceInTVarIO :: STM.TVar [LogObject a] -> Tracer IO (LogObject a)
 traceInTVarIO tvar = Tracer $ Op $ \ln ->
                          STM.atomically $ STM.modifyTVar tvar ((:) ln)
 
-traceInTVarIOConditionally :: STM.TVar [LogObject a] -> TraceContext -> Tracer IO (LogObject a)
-traceInTVarIOConditionally tvar ctx =
+traceInTVarIOConditionally :: STM.TVar [LogObject a] -> Config.Configuration -> Tracer IO (LogObject a)
+traceInTVarIOConditionally tvar config =
     Tracer $ Op $ \item@(LogObject loggername meta _) -> do
-        let conf = configuration ctx
-        globminsev  <- Config.minSeverity conf
-        globnamesev <- Config.inspectSeverity conf loggername
+        globminsev  <- Config.minSeverity config
+        globnamesev <- Config.inspectSeverity config loggername
         let minsev = max globminsev $ fromMaybe Debug globnamesev
 
-        subTrace <- fromMaybe Neutral <$> Config.findSubTrace conf loggername
+        subTrace <- fromMaybe Neutral <$> Config.findSubTrace config loggername
         let doOutput = subtraceOutput subTrace item
 
         when ((severity meta) >= minsev && doOutput) $
