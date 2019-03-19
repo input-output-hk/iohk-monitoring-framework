@@ -44,7 +44,6 @@ import           Cardano.BM.Data.Backend
 import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.MessageCounter (resetCounters, sendAndResetAfter,
                      updateMessageCounters)
-import           Cardano.BM.Data.Trace (TraceContext (..))
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.SubTrace (SubTrace (..))
 import qualified Cardano.BM.Output.Log
@@ -184,10 +183,8 @@ instance (Show a, ToJSON a) => IsBackend Switchboard a where
                             if nocapacity
                             then putStrLn "Error: Switchboard's queue full, dropping log items!"
                             else atomically $ TBQ.writeTBQueue q lognamed
-                    ctx = TraceContext { configuration = cfg
-                                       }
                 _timer <- Async.async $ sendAndResetAfter
-                                            (ctx, traceInQueue queue)
+                                            (traceInQueue queue)
                                             "#messagecounters.switchboard"
                                             countersMVar
                                             60000   -- 60000 ms = 1 min
@@ -283,11 +280,9 @@ setupBackend' :: (Show a, ToJSON a) => BackendKind -> Configuration -> Switchboa
 setupBackend' SwitchboardBK _ _ = error "cannot instantiate a further Switchboard"
 #ifdef ENABLE_MONITORING
 setupBackend' MonitoringBK c sb = do
-    let ctx   = TraceContext { configuration = c
-                             }
-        trace = mainTraceConditionally c sb
+    let trace = mainTraceConditionally c sb
 
-    be :: Cardano.BM.Output.Monitoring.Monitor a <- Cardano.BM.Output.Monitoring.realizefrom (ctx, trace) sb
+    be :: Cardano.BM.Output.Monitoring.Monitor a <- Cardano.BM.Output.Monitoring.realizefrom c trace sb
     return MkBackend
       { bEffectuate = Cardano.BM.Output.Monitoring.effectuate be
       , bUnrealize = Cardano.BM.Output.Monitoring.unrealize be
@@ -299,11 +294,9 @@ setupBackend' MonitoringBK _ _ =
 #endif
 #ifdef ENABLE_EKG
 setupBackend' EKGViewBK c sb = do
-    let ctx   = TraceContext { configuration = c
-                             }
-        trace = mainTraceConditionally c sb
+    let trace = mainTraceConditionally c sb
 
-    be :: Cardano.BM.Output.EKGView.EKGView a <- Cardano.BM.Output.EKGView.realizefrom (ctx, trace) sb
+    be :: Cardano.BM.Output.EKGView.EKGView a <- Cardano.BM.Output.EKGView.realizefrom c trace sb
     return MkBackend
       { bEffectuate = Cardano.BM.Output.EKGView.effectuate be
       , bUnrealize = Cardano.BM.Output.EKGView.unrealize be
@@ -315,11 +308,9 @@ setupBackend' EKGViewBK _ _ =
 #endif
 #ifdef ENABLE_AGGREGATION
 setupBackend' AggregationBK c sb = do
-    let ctx   = TraceContext { configuration = c
-                             }
-        trace = mainTraceConditionally c sb
+    let trace = mainTraceConditionally c sb
 
-    be :: Cardano.BM.Output.Aggregation.Aggregation a <- Cardano.BM.Output.Aggregation.realizefrom (ctx,trace) sb
+    be :: Cardano.BM.Output.Aggregation.Aggregation a <- Cardano.BM.Output.Aggregation.realizefrom c trace sb
     return MkBackend
       { bEffectuate = Cardano.BM.Output.Aggregation.effectuate be
       , bUnrealize = Cardano.BM.Output.Aggregation.unrealize be
