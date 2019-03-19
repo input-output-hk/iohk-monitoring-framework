@@ -63,7 +63,7 @@ import qualified Cardano.BM.Tracer.Transformers as TracerT
 Natural transformation from monad |m| to monad |n|.
 \begin{code}
 natTrace :: (forall x . m x -> n x) -> Trace m a -> Trace n a
-natTrace nat (ctx, trace) = (ctx, TracerT.natTrace nat trace)
+natTrace nat trace = TracerT.natTrace nat trace
 
 \end{code}
 
@@ -86,10 +86,7 @@ appendWithDot xs newName = xs <> "." <> newName
 The context name is overwritten.
 \begin{code}
 modifyName :: MonadIO m => (LoggerName -> LoggerName) -> Trace m a -> m (Trace m a)
-modifyName f (ctx, basetrace0) =
-    let basetrace = modifyNameBase f basetrace0
-    in
-    return (ctx, basetrace)
+modifyName f trace0 = return $ modifyNameBase f trace0
 
 modifyNameBase
     :: (LoggerName -> LoggerName)
@@ -116,7 +113,7 @@ traceNamedObject
     => Trace m a
     -> (LOMeta, LOContent a)
     -> m ()
-traceNamedObject (_, logTrace) lo =
+traceNamedObject logTrace lo =
     tracingWith (named logTrace) lo
 
 \end{code}

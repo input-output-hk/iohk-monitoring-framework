@@ -53,7 +53,6 @@ import           Cardano.BM.Data.Counter
 import qualified Cardano.BM.Observer.Monadic as MonadicObserver
 import qualified Cardano.BM.Observer.STM as STMObserver
 #endif
-import           Cardano.BM.Setup (newContext)
 import qualified Cardano.BM.Setup as Setup
 import           Cardano.BM.Trace (Trace, appendName, evalFilters, logDebug,
                      logInfo, logInfoS, logNotice, logWarning, logError,
@@ -132,13 +131,11 @@ data TraceConfiguration = TraceConfiguration
 
 setupTrace :: TraceConfiguration -> IO (Trace IO Text)
 setupTrace (TraceConfiguration cfg outk name subTr) = do
-    ctx <- liftIO $ newContext cfg
-    let logTrace0 = case outk of
+    let logTrace = case outk of
             TVarList tvar -> TracerT.natTrace liftIO $ traceInTVarIOConditionally tvar cfg
 
     setSubTrace cfg name (Just subTr)
-    let logTrace' = (ctx, logTrace0)
-    appendName name logTrace'
+    appendName name logTrace
 
 \end{code}
 
