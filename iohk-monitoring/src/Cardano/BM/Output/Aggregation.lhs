@@ -45,7 +45,6 @@ import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.MessageCounter (resetCounters, sendAndResetAfter,
                      updateMessageCounters)
 import           Cardano.BM.Data.Severity (Severity (..))
-import           Cardano.BM.Data.Trace
 import qualified Cardano.BM.Trace as Trace
 
 \end{code}
@@ -110,10 +109,10 @@ instance Show a => IsBackend Aggregation a where
 
     realize _ = error "Aggregation cannot be instantiated by 'realize'"
 
-    realizefrom trace@(ctx,_) _ = do
+    realizefrom config trace _ = do
         aggref <- newEmptyMVar
         aggregationQueue <- atomically $ TBQ.newTBQueue 2048
-        dispatcher <- spawnDispatcher (configuration ctx) HM.empty aggregationQueue trace
+        dispatcher <- spawnDispatcher config HM.empty aggregationQueue trace
         -- link the given Async to the current thread, such that if the Async
         -- raises an exception, that exception will be re-thrown in the current
         -- thread, wrapped in ExceptionInLinkedThread.

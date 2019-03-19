@@ -12,7 +12,6 @@ module Cardano.BM.Data.Trace
   )
   where
 
-import           Cardano.BM.Configuration (Configuration)
 import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Tracer.Class (Tracer)
 
@@ -33,7 +32,5 @@ in the |TraceContext|.
 \begin{code}
 
 data TraceContext = TraceContext
-    { configuration :: Configuration
-    }
 
 \end{code}

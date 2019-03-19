@@ -43,9 +43,9 @@ A backend is life-cycle managed, thus can be |realize|d and |unrealize|d.
 class IsEffectuator t a => IsBackend t a where
     typeof      :: t a -> BackendKind
     realize     :: Configuration -> IO (t a)
-    realizefrom :: forall s . (IsEffectuator s a) => Trace IO a -> s a -> IO (t a)
-    default realizefrom :: forall s . (IsEffectuator s a) => Trace IO a -> s a -> IO (t a)
-    realizefrom (ctx,_) _ = realize (configuration ctx)
+    realizefrom :: forall s . (IsEffectuator s a) => Configuration -> Trace IO a -> s a -> IO (t a)
+    default realizefrom :: forall s . (IsEffectuator s a) => Configuration -> Trace IO a -> s a -> IO (t a)
+    realizefrom cfg _ _ = realize cfg
     unrealize   :: t a -> IO ()
 
 \end{code}

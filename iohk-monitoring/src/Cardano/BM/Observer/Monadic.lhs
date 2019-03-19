@@ -32,7 +32,6 @@ import           Cardano.BM.Data.Severity (Severity)
 import qualified Cardano.BM.Configuration as Config
 import           Cardano.BM.Counters (readCounters)
 import           Cardano.BM.Data.SubTrace (SubTrace (Neutral, NoTrace))
-import           Cardano.BM.Data.Trace (TraceContext (..))
 import           Cardano.BM.Trace (Trace, traceNamedObject)
 \end{code}
 %endif
@@ -117,9 +116,9 @@ in a configuration file (YAML) means
 \end{spec}
 
 \begin{code}
-bracketObserveIO :: Trace IO a -> Severity -> Text -> IO t -> IO t
-bracketObserveIO trace@(ctx, _) severity name action = do
-    subTrace <- fromMaybe Neutral <$> Config.findSubTrace (configuration ctx) name
+bracketObserveIO :: Config.Configuration -> Trace IO a -> Severity -> Text -> IO t -> IO t
+bracketObserveIO config trace severity name action = do
+    subTrace <- fromMaybe Neutral <$> Config.findSubTrace config name
     bracketObserveIO' subTrace severity trace action
   where
     bracketObserveIO' :: SubTrace -> Severity -> Trace IO a -> IO t -> IO t
@@ -149,9 +148,9 @@ Observes a |MonadIO m => m| action and adds a name to the logger
 name of the passed in |Trace|. An empty |Text| leaves
 the logger name untouched.
 \begin{code}
-bracketObserveM :: (MonadCatch m, MonadIO m) => Trace IO a -> Severity -> Text -> m t -> m t
-bracketObserveM trace@(ctx, _) severity name action = do
-    subTrace <- liftIO $ fromMaybe Neutral <$> Config.findSubTrace (configuration ctx) name
+bracketObserveM :: (MonadCatch m, MonadIO m) => Config.Configuration -> Trace IO a -> Severity -> Text -> m t -> m t
+bracketObserveM config trace severity name action = do
+    subTrace <- liftIO $ fromMaybe Neutral <$> Config.findSubTrace config name
     bracketObserveM' subTrace severity trace action
   where
     bracketObserveM' :: (MonadCatch m, MonadIO m) => SubTrace -> Severity -> Trace IO a -> m t -> m t

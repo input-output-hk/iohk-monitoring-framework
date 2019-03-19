@@ -24,7 +24,6 @@ import qualified Cardano.BM.Configuration as Config
 import           Cardano.BM.Data.LogItem (LOContent, LOMeta)
 import           Cardano.BM.Data.SubTrace
 import           Cardano.BM.Data.Severity (Severity)
-import           Cardano.BM.Data.Trace (TraceContext (..))
 import           Cardano.BM.Observer.Monadic (observeClose, observeOpen)
 import           Cardano.BM.Trace (Trace)
 
@@ -41,9 +40,9 @@ stmWithLog action = action
 With given name, create a |SubTrace| according to |Configuration|
 and run the passed |STM| action on it.
 \begin{code}
-bracketObserveIO :: Trace IO a -> Severity -> Text -> STM.STM t -> IO t
-bracketObserveIO trace@(ctx, _) severity name action = do
-    subTrace <- fromMaybe Neutral <$> Config.findSubTrace (configuration ctx) name
+bracketObserveIO :: Config.Configuration -> Trace IO a -> Severity -> Text -> STM.STM t -> IO t
+bracketObserveIO config trace severity name action = do
+    subTrace <- fromMaybe Neutral <$> Config.findSubTrace config name
     bracketObserveIO' subTrace severity trace action
   where
     bracketObserveIO' :: SubTrace -> Severity -> Trace IO a -> STM.STM t -> IO t
@@ -73,9 +72,9 @@ bracketObserveIO trace@(ctx, _) severity name action = do
 The |STM| action might output messages, which after "success" will be forwarded to the logging trace.
 Otherwise, this function behaves the same as \nameref{code:bracketObserveIO}.
 \begin{code}
-bracketObserveLogIO :: Trace IO a -> Severity -> Text -> STM.STM (t,[(LOMeta, LOContent a)]) -> IO t
-bracketObserveLogIO trace@(ctx, _) severity name action = do
-    subTrace <- fromMaybe Neutral <$> Config.findSubTrace (configuration ctx) name
+bracketObserveLogIO :: Config.Configuration -> Trace IO a -> Severity -> Text -> STM.STM (t,[(LOMeta, LOContent a)]) -> IO t
+bracketObserveLogIO config trace severity name action = do
+    subTrace <- fromMaybe Neutral <$> Config.findSubTrace config name
     bracketObserveLogIO' subTrace severity trace action
   where
     bracketObserveLogIO' :: SubTrace -> Severity -> Trace IO a -> STM.STM (t,[(LOMeta, LOContent a)]) -> IO t
