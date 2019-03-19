@@ -52,7 +52,7 @@ setupTrace_ c name = do
     sb <- liftIO $ Switchboard.realize c
     ctx <- liftIO $ newContext c
 
-    tr <- appendName name $ natTrace liftIO (ctx, Switchboard.mainTraceConditionally ctx sb)
+    tr <- appendName name $ natTrace liftIO (ctx, Switchboard.mainTraceConditionally c sb)
     return (tr,sb)
 
 \end{code}
