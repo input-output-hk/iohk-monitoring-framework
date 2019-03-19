@@ -135,7 +135,7 @@ setupTrace (TraceConfiguration outk name subTr) = do
     c <- liftIO $ Cardano.BM.Configuration.Model.empty
     ctx <- liftIO $ newContext c
     let logTrace0 = case outk of
-            TVarList tvar -> TracerT.natTrace liftIO $ traceInTVarIOConditionally tvar ctx
+            TVarList tvar -> TracerT.natTrace liftIO $ traceInTVarIOConditionally tvar c
 
     setSubTrace (configuration ctx) name (Just subTr)
     let logTrace' = (ctx, logTrace0)

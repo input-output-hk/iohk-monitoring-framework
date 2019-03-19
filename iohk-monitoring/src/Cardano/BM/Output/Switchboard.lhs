@@ -4,16 +4,16 @@
 
 %if style == newcode
 \begin{code}
-{-# LANGUAGE CPP                 #-}
+{-# LANGUAGE CPP                   #-}
 {-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE RankNTypes          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE RankNTypes            #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
 
 module Cardano.BM.Output.Switchboard
     (
       Switchboard (..)
-    , mainTrace
     , mainTraceConditionally
     , effectuate
     , realize
@@ -83,23 +83,45 @@ data SwitchboardInternal a = SwitchboardInternal
 
 \end{code}
 
-\subsubsection{Trace that forwards to the \nameref{code:Switchboard}}\label{code:mainTrace}\index{mainTrace}
-
-Every |Trace| ends in the \nameref{code:Switchboard} which then takes care of
-dispatching the messages to outputs
-
-\begin{code}
+\subsubsection{Trace that forwards to the |Switchboard|}
+\label{code:mainTraceConditionally}\index{mainTraceConditionally}
+Every |Trace| ends in the |Switchboard| which then takes care of
+dispatching the messages to the selected backends.
+\\
+This |Tracer| will forward all messages unconditionally to the |Switchboard|.
+(currently disabled)
+\begin{spec}
 mainTrace :: Switchboard a -> Tracer IO (LogObject a)
 mainTrace sb = Tracer.Tracer $ Op $ effectuate sb
 
-mainTraceConditionally :: TraceContext -> Switchboard a -> Tracer IO (LogObject a)
-mainTraceConditionally ctx sb = Tracer.Tracer $ Op $ \item@(LogObject loggername meta _) -> do
-    globminsev  <- liftIO $ Config.minSeverity (configuration ctx)
-    globnamesev <- liftIO $ Config.inspectSeverity (configuration ctx) loggername
-    let minsev = max globminsev $ fromMaybe Debug globnamesev
-    if (severity meta) >= minsev
+\end{spec}
+
+This function will apply to every message the severity filter as defined in the |Configuration|.
+\begin{code}
+mainTraceConditionally :: Configuration -> Switchboard a -> Tracer IO (LogObject a)
+mainTraceConditionally config sb = Tracer.Tracer $ Op $ \item@(LogObject loggername meta _) -> do
+    passSevFilter <- testSeverity loggername meta
+    passSubTrace <- testSubTrace loggername item
+    if passSevFilter && passSubTrace
     then effectuate sb item
     else return ()
+  where
+    testSeverity :: LoggerName -> LOMeta -> IO Bool
+    testSeverity loggername meta = do
+        globminsev  <- liftIO $ Config.minSeverity config
+        globnamesev <- liftIO $ Config.inspectSeverity config loggername
+        let minsev = max globminsev $ fromMaybe Debug globnamesev
+        return $ (severity meta) >= minsev
+    testSubTrace :: LoggerName -> LogObject a -> IO Bool
+    testSubTrace loggername lo = do
+        subtrace <- fromMaybe Neutral <$> Config.findSubTrace config loggername
+        return $ testSubTrace' lo subtrace
+    testSubTrace' :: LogObject a -> SubTrace -> Bool
+    testSubTrace' _ NoTrace = False
+    testSubTrace' (LogObject _ _ (ObserveOpen _)) DropOpening = False
+    testSubTrace' (LogObject loname _ (LogValue vname _)) (FilterTrace filters) = evalFilters filters (loname <> "." <> vname)
+    testSubTrace' (LogObject loname _ _) (FilterTrace filters) = evalFilters filters loname
+    testSubTrace' _ _ = True    -- fallback: all pass
 
 \end{code}
 
@@ -123,7 +145,6 @@ instance IsEffectuator Switchboard a where
         sb <- readMVar (getSB switchboard)
         writequeue (sbQueue sb) item
 
-    -- TODO where to put this error message
     handleOverflow _ = TIO.hPutStrLn stderr "Error: Switchboard's queue full, dropping log items!"
 
 \end{code}
@@ -150,11 +171,10 @@ instance (Show a, ToJSON a) => IsBackend Switchboard a where
     realize cfg =
         let spawnDispatcher
                 :: (Show a)
-                => Configuration
-                -> [(BackendKind, Backend a)]
+                => [(BackendKind, Backend a)]
                 -> TBQ.TBQueue (LogObject a)
                 -> IO (Async.Async ())
-            spawnDispatcher config backends queue = do
+            spawnDispatcher backends queue = do
                 now <- getCurrentTime
                 let messageCounters = resetCounters now
                 countersMVar <- newMVar messageCounters
@@ -174,7 +194,7 @@ instance (Show a, ToJSON a) => IsBackend Switchboard a where
                                             Warning -- Debug
 
                 let sendMessage nli befilter = do
-                        selectedBackends <- getBackends config (loName nli)
+                        selectedBackends <- getBackends cfg (loName nli)
                         let selBEs = befilter selectedBackends
                         forM_ backends $ \(bek, be) ->
                             when (bek `elem` selBEs) (bEffectuate be nli)
@@ -186,58 +206,28 @@ instance (Show a, ToJSON a) => IsBackend Switchboard a where
                                       when (null r) retry
                                       return r
 
-                        let processItem nli@(LogObject loname lometa loitem) = do
-                                let losev = severity lometa
-
-                                -- evaluate minimum severity criteria
-                                locsev <- fromMaybe Debug <$> Config.inspectSeverity cfg loname
-                                globsev <- Config.minSeverity config
-                                let sevGE = losev >= globsev && losev >= locsev
-
-                                -- do not count again messages that contain the results of message counters
+                        let processItem nli@(LogObject loname _ loitem) = do
                                 when (loname /= "#messagecounters.switchboard") $
-                                    -- increase the counter for the specific severity
                                     modifyMVar_ counters $
                                         \cnt -> return $ updateMessageCounters cnt nli
 
-                                subtrace <- fromMaybe Neutral <$> Config.findSubTrace (configuration ctx) loname
-                                case subtrace of
-                                    TeeTrace secName ->
+                                Config.findSubTrace cfg loname >>= \case
+                                    Just (TeeTrace secName) ->
                                         atomically $ TBQ.writeTBQueue queue $ nli{ loName = secName }
                                     _ -> return ()
-
-                                let doOutput = case subtrace of
-                                        FilterTrace filters ->
-                                            case loitem of
-                                                LogValue name _ ->
-                                                    evalFilters filters (loname <> "." <> name)
-                                                _ ->
-                                                    evalFilters filters loname
-                                        DropOpening -> case loitem of
-                                                        ObserveOpen _ -> False
-                                                        _             -> True
-                                        NoTrace     -> False
-                                        _           -> True
 
                                 case loitem of
                                     KillPill -> do
                                         forM_ backends ( \(_, be) -> bUnrealize be )
                                         return False
-#ifdef ENABLE_AGGREGATION
                                     (AggregatedMessage _) -> do
-                                        when (sevGE && doOutput) $
-                                            sendMessage nli (filter (/= AggregationBK))
+                                        sendMessage nli (filter (/= AggregationBK))
                                         return True
-#endif
-#ifdef ENABLE_MONITORING
                                     (MonitoringEffect inner) -> do
-                                        when (sevGE && doOutput) $
-                                            sendMessage (inner {loName = loname}) (filter (/= MonitoringBK))
+                                        sendMessage (inner {loName = loname}) (filter (/= MonitoringBK))
                                         return True
-#endif
                                     _ -> do
-                                        when (sevGE && doOutput) $
-                                            sendMessage nli id
+                                        sendMessage nli id
                                         return True
 
                         res <- mapM processItem nlis
@@ -251,7 +241,7 @@ instance (Show a, ToJSON a) => IsBackend Switchboard a where
 
         backends <- getSetupBackends cfg
         bs <- setupBackends backends cfg sb []
-        dispatcher <- spawnDispatcher cfg bs q
+        dispatcher <- spawnDispatcher bs q
         -- link the given Async to the current thread, such that if the Async
         -- raises an exception, that exception will be re-thrown in the current
         -- thread, wrapped in ExceptionInLinkedThread.
@@ -295,7 +285,7 @@ setupBackend' SwitchboardBK _ _ = error "cannot instantiate a further Switchboar
 setupBackend' MonitoringBK c sb = do
     let ctx   = TraceContext { configuration = c
                              }
-        trace = mainTraceConditionally ctx sb
+        trace = mainTraceConditionally c sb
 
     be :: Cardano.BM.Output.Monitoring.Monitor a <- Cardano.BM.Output.Monitoring.realizefrom (ctx, trace) sb
     return MkBackend
@@ -311,7 +301,7 @@ setupBackend' MonitoringBK _ _ =
 setupBackend' EKGViewBK c sb = do
     let ctx   = TraceContext { configuration = c
                              }
-        trace = mainTraceConditionally ctx sb
+        trace = mainTraceConditionally c sb
 
     be :: Cardano.BM.Output.EKGView.EKGView a <- Cardano.BM.Output.EKGView.realizefrom (ctx, trace) sb
     return MkBackend
@@ -327,7 +317,7 @@ setupBackend' EKGViewBK _ _ =
 setupBackend' AggregationBK c sb = do
     let ctx   = TraceContext { configuration = c
                              }
-        trace = mainTraceConditionally ctx sb
+        trace = mainTraceConditionally c sb
 
     be :: Cardano.BM.Output.Aggregation.Aggregation a <- Cardano.BM.Output.Aggregation.realizefrom (ctx,trace) sb
     return MkBackend
