@@ -56,7 +56,7 @@ startup config = do
         thd <- Async.async $
              startGUI defaultConfig { jsPort       = Just port
                                     , jsAddr       = Just "127.0.0.1"
-                                    , jsStatic     = Just "static"
+                                    , jsStatic     = Just "iohk-monitoring/static"
                                     , jsCustomHTML = Just "configuration-editor.html"
                                     } $ prepare config
         Async.link thd
