@@ -116,7 +116,6 @@ prepare_configuration = do
                          ]
     CM.setDefaultScribes c ["StdoutSK::stdout"]
     CM.setScribes c "complex.random" (Just ["StdoutSK::stdout", "FileTextSK::logs/out.txt"])
-    -- CM.setScribes c "#aggregated.complex.random" (Just ["StdoutSK::stdout"])
     forM_ [(1::Int)..10] $ \x ->
       if odd x
       then
@@ -177,7 +176,6 @@ prepare_configuration = do
 #ifdef ENABLE_EKG
     CM.setBackends c "#aggregation.complex.message" (Just [EKGViewBK])
     CM.setBackends c "#aggregation.complex.observeIO" (Just [EKGViewBK])
-    -- CM.setBackends c "#aggregation.complex.random" (Just [EKGViewBK])
     CM.setBackends c "#aggregation.complex.random.ewma" (Just [EKGViewBK])
     CM.setEKGport c 12789
 #endif
@@ -192,8 +190,6 @@ prepare_configuration = do
 dumpBuffer :: Switchboard Text -> Trace IO Text -> IO (Async.Async ())
 dumpBuffer sb trace = do
   logInfo trace "starting buffer dump"
---   trace' <- appendName "buffer" trace
---   trace' <- modifyName (const "#buffer") trace
   proc <- Async.async (loop trace)
   return proc
   where
@@ -201,7 +197,6 @@ dumpBuffer sb trace = do
         threadDelay 25000000  -- 25 seconds
         buf <- readLogBuffer sb
         forM_ buf $ \(logname, LogObject _ lometa locontent) -> do
-            -- tr' <- appendName logname tr
             tr' <- modifyName (\n -> "#buffer." <> n <> logname) tr
             traceNamedObject tr' (lometa, locontent)
         loop tr

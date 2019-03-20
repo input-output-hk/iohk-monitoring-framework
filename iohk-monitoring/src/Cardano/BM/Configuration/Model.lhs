@@ -319,7 +319,7 @@ setSeverity configuration name sev =
 
 \subsubsection{Relation of context name to SubTrace}\label{code:findSubTrace}\label{code:setSubTrace}
 A new context may contain a different type of |Trace|.
-The function |appendName| (\nameref{code:appendName}) will look up the |SubTrace| for the context's name.
+The function |appendName| will look up the |SubTrace| for the context's name.
 \begin{code}
 findSubTrace :: Configuration -> Text -> IO (Maybe SubTrace)
 findSubTrace configuration name = do

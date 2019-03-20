@@ -31,6 +31,7 @@ SOURCES = Code.lhs \
 					$(SRCDIR1)/Cardano/BM/Output/Aggregation.lhs \
 					$(SRCDIR1)/Cardano/BM/Output/EKGView.lhs \
 					$(SRCDIR1)/Cardano/BM/Output/Log.lhs \
+					$(SRCDIR1)/Cardano/BM/Output/LogBuffer.lhs \
 					$(SRCDIR1)/Cardano/BM/Output/Monitoring.lhs \
 					$(SRCDIR1)/Cardano/BM/Output/Switchboard.lhs \
 					$(SRCDIR1)/Cardano/BM/Rotator.lhs \

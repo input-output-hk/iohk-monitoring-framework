@@ -164,7 +164,7 @@ evalMonitoringAction c item = return [item]
 
 \subsubsection{|Switchboard| implements |Backend| functions}\index{Switchboard!instance of IsBackend}
 
-|Switchboard| is an \nameref{code:IsBackend}
+|Switchboard| is an |IsBackend|
 \begin{code}
 instance (Show a, ToJSON a) => IsBackend Switchboard a where
     typeof _ = SwitchboardBK
@@ -348,10 +348,4 @@ setupBackend' KatipBK c _ = do
       , bUnrealize = Cardano.BM.Output.Log.unrealize be
       }
 setupBackend' LogBufferBK _ _ = return Nothing
--- setupBackend' LogBufferBK c _ = do
---     be :: Cardano.BM.Output.LogBuffer.LogBuffer a <- Cardano.BM.Output.LogBuffer.realize c
---     return MkBackend
---       { bEffectuate = Cardano.BM.Output.LogBuffer.effectuate be
---       , bUnrealize = Cardano.BM.Output.LogBuffer.unrealize be
---       }
 \end{code}
