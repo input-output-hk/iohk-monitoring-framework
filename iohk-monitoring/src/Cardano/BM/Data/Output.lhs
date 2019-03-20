@@ -51,7 +51,7 @@ data ScribeKind = FileTextSK
                 | FileJsonSK
                 | StdoutSK
                 | StderrSK
-                deriving (Generic, Eq, Ord, Show, FromJSON, ToJSON)
+                deriving (Generic, Eq, Ord, Show, Read, FromJSON, ToJSON)
 
 \end{code}
 
