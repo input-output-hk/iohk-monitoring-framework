@@ -16,6 +16,7 @@
 module Cardano.BM.Setup
     (
       setupTrace
+    , setupTrace_
     , shutdown
     , withTrace
     ) where
