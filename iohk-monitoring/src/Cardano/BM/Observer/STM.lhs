@@ -70,7 +70,7 @@ bracketObserveIO config trace severity name action = do
 
 \subsubsection{Observe |STM| action in a named context and output captured log items}\label{code:bracketObserveLogIO}
 The |STM| action might output messages, which after "success" will be forwarded to the logging trace.
-Otherwise, this function behaves the same as \nameref{code:bracketObserveIO}.
+Otherwise, this function behaves the same as |bracketObserveIO|.
 \begin{code}
 bracketObserveLogIO :: Config.Configuration -> Trace IO a -> Severity -> Text -> STM.STM (t,[(LOMeta, LOContent a)]) -> IO t
 bracketObserveLogIO config trace severity name action = do

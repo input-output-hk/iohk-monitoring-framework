@@ -35,7 +35,7 @@ import           Cardano.BM.Trace (Trace, appendName, natTrace)
 %endif
 
 \subsubsection{setupTrace}\label{code:setupTrace}\index{setupTrace}
-Setup a new |Trace| (\nameref{code:Trace}) with either a given |Configuration| (\nameref{code:Configuration})
+Setup a new |Trace| with either a given |Configuration|
 or a |FilePath| to a configuration file. After all tracing operations have ended;
 |shutdownTrace| must be called.
 \begin{code}

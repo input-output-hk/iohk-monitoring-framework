@@ -64,7 +64,7 @@ data AggregationInternal a = AggregationInternal
 \end{code}
 
 \subsubsection{Relation from context name to aggregated statistics}
-We keep the aggregated values (\nameref{code:Aggregated}) for a named context in a |HashMap|.
+We keep the aggregated values (|Aggregated|) for a named context in a |HashMap|.
 \begin{code}
 type AggregationMap = HM.HashMap Text AggregatedExpanded
 

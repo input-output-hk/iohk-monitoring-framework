@@ -25,7 +25,7 @@ import           Cardano.BM.Configuration.Model (Configuration)
 \end{code}
 %endif
 
-\subsubsection{Accepts a \nameref{code:LogObject}}\label{code:IsEffectuator}\index{IsEffectuator}
+\subsubsection{Accepts a |LogObject|}\label{code:IsEffectuator}\index{IsEffectuator}
 Instances of this type class accept a |LogObject| and deal with it.
 \begin{code}
 class IsEffectuator t a where
