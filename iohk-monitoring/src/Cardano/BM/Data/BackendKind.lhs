@@ -28,7 +28,7 @@ data BackendKind =
       AggregationBK
     | EKGViewBK
     | KatipBK
-    | LogBufferingBK
+    | LogBufferBK
     | MonitoringBK
     | SwitchboardBK
     deriving (Generic, Eq, Ord, Show, ToJSON, FromJSON, Read)
