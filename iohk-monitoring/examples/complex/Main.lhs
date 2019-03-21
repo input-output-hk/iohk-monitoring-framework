@@ -13,6 +13,7 @@
 #define RUN_ProcObseverSTM
 #define RUN_ProcObseveDownload
 #define RUN_ProcRandom
+#define RUN_ProcBufferDump
 
 module Main
   ( main )
@@ -35,11 +36,11 @@ import           System.Random
 #ifdef ENABLE_GUI
 import qualified Cardano.BM.Configuration.Editor as CME
 #endif
+import           Cardano.BM.Configuration (Configuration)
 import qualified Cardano.BM.Configuration.Model as CM
 import           Cardano.BM.Data.Aggregated (Measurable (..))
 import           Cardano.BM.Data.AggregatedKind
 import           Cardano.BM.Data.BackendKind
-import           Cardano.BM.Configuration (Configuration)
 import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.Output
 import           Cardano.BM.Data.Rotation
@@ -50,6 +51,7 @@ import           Cardano.BM.Data.Observable
 import           Cardano.BM.Observer.Monadic (bracketObserveIO)
 import qualified Cardano.BM.Observer.STM as STM
 #endif
+import           Cardano.BM.Output.Switchboard
 import           Cardano.BM.Setup
 import           Cardano.BM.Trace
 
@@ -110,7 +112,6 @@ prepare_configuration = do
                          ]
     CM.setDefaultScribes c ["StdoutSK::stdout"]
     CM.setScribes c "complex.random" (Just ["StdoutSK::stdout", "FileTextSK::logs/out.txt"])
-    CM.setScribes c "#aggregated.complex.random" (Just ["StdoutSK::stdout"])
     forM_ [(1::Int)..10] $ \x ->
       if odd x
       then
@@ -166,10 +167,11 @@ prepare_configuration = do
     CM.setAggregatedKind c "complex.random.rr" (Just StatsAK)
     CM.setAggregatedKind c "complex.random.ewma.rr" (Just (EwmaAK 0.42))
 
+    CM.setBackends c "#aggregation.complex.random" (Just [LogBufferBK])
+
 #ifdef ENABLE_EKG
     CM.setBackends c "#aggregation.complex.message" (Just [EKGViewBK])
     CM.setBackends c "#aggregation.complex.observeIO" (Just [EKGViewBK])
-    CM.setBackends c "#aggregation.complex.random" (Just [EKGViewBK])
     CM.setBackends c "#aggregation.complex.random.ewma" (Just [EKGViewBK])
     CM.setEKGport c 12789
 #endif
@@ -177,6 +179,23 @@ prepare_configuration = do
 
     return c
 
+\end{code}
+
+\subsubsection{Dump the log buffer periodically}
+\begin{code}
+dumpBuffer :: Switchboard Text -> Trace IO Text -> IO (Async.Async ())
+dumpBuffer sb trace = do
+  logInfo trace "starting buffer dump"
+  proc <- Async.async (loop trace)
+  return proc
+  where
+    loop tr = do
+        threadDelay 25000000  -- 25 seconds
+        buf <- readLogBuffer sb
+        forM_ buf $ \(logname, LogObject _ lometa locontent) -> do
+            tr' <- modifyName (\n -> "#buffer." <> n <> logname) tr
+            traceNamedObject tr' (lometa, locontent)
+        loop tr
 \end{code}
 
 \subsubsection{Thread that outputs a random number to a |Trace|}
@@ -296,12 +315,16 @@ main = do
 #endif
 
     -- create initial top-level Trace
-    tr :: Trace IO Text <- setupTrace (Right c) "complex"
+    (tr :: Trace IO Text, sb) <- setupTrace_ c "complex"
 
     logNotice tr "starting program; hit CTRL-C to terminate"
 -- user can watch the progress only if EKG is enabled.
 #ifdef ENABLE_EKG
     logInfo tr "watch its progress on http://localhost:12789"
+#endif
+
+#ifdef RUN_ProcBufferDump
+    procDump <- dumpBuffer sb tr
 #endif
 
 #ifdef RUN_ProcRandom
@@ -361,6 +384,10 @@ main = do
     -- wait for random thread to finish, ignoring any exception
     _ <- Async.waitCatch procRandom
 #endif
+#ifdef RUN_ProcBufferDump
+    _ <- Async.waitCatch procDump
+#endif
+
     return ()
 
 \end{code}

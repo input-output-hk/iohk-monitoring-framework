@@ -89,6 +89,7 @@ mkLOMeta sev priv =
 \label{code:ObserveDiff}\index{ObserveDiff}
 \label{code:ObserveClose}\index{ObserveClose}
 \label{code:AggregatedMessage}\index{AggregatedMessage}
+\label{code:MonitoringEffect}\index{MonitoringEffect}
 Payload of a |LogObject|:
 \begin{code}
 data LOContent a = LogMessage a
