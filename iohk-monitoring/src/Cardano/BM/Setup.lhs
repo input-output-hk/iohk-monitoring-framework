@@ -16,9 +16,9 @@
 module Cardano.BM.Setup
     (
       setupTrace
+    , setupTrace_
     , shutdown
     , withTrace
-    , newContext
     ) where
 
 import           Control.Exception.Safe (MonadMask, bracket)
@@ -28,7 +28,6 @@ import           Data.Text (Text)
 import           System.IO (FilePath)
 
 import qualified Cardano.BM.Configuration as Config
-import           Cardano.BM.Data.Trace
 import qualified Cardano.BM.Output.Switchboard as Switchboard
 import           Cardano.BM.Trace (Trace, appendName, natTrace)
 
@@ -36,7 +35,7 @@ import           Cardano.BM.Trace (Trace, appendName, natTrace)
 %endif
 
 \subsubsection{setupTrace}\label{code:setupTrace}\index{setupTrace}
-Setup a new |Trace| (\nameref{code:Trace}) with either a given |Configuration| (\nameref{code:Configuration})
+Setup a new |Trace| with either a given |Configuration|
 or a |FilePath| to a configuration file. After all tracing operations have ended;
 |shutdownTrace| must be called.
 \begin{code}
@@ -50,9 +49,8 @@ setupTrace (Right c) name = fst <$> setupTrace_ c name
 setupTrace_ :: (MonadIO m, Show a, ToJSON a) => Config.Configuration -> Text -> m (Trace m a, Switchboard.Switchboard a)
 setupTrace_ c name = do
     sb <- liftIO $ Switchboard.realize c
-    ctx <- liftIO $ newContext c
 
-    tr <- appendName name $ natTrace liftIO (ctx, Switchboard.mainTraceConditionally ctx sb)
+    tr <- appendName name $ natTrace liftIO (Switchboard.mainTraceConditionally c sb)
     return (tr,sb)
 
 \end{code}
@@ -75,16 +73,5 @@ withTrace cfg name action =
         (setupTrace_ cfg name)              -- aquire
         (\(_,sb) -> liftIO $ shutdown sb)   -- release
         (\(tr,_) -> action tr)              -- action
-
-\end{code}
-
-\subsubsection{newContext}\label{code:newContext}\index{newContext}
-\begin{code}
-newContext :: Config.Configuration
-           -> IO TraceContext
-newContext cfg =
-    return $ TraceContext {
-        configuration = cfg
-      }
 
 \end{code}

@@ -13,6 +13,11 @@
 #define RUN_ProcObseverSTM
 #define RUN_ProcObseveDownload
 #define RUN_ProcRandom
+#define RUN_ProcBufferDump
+
+#if defined(linux_HOST_OS)
+#define LINUX
+#endif
 
 module Main
   ( main )
@@ -35,6 +40,7 @@ import           System.Random
 #ifdef ENABLE_GUI
 import qualified Cardano.BM.Configuration.Editor as CME
 #endif
+import           Cardano.BM.Configuration (Configuration)
 import qualified Cardano.BM.Configuration.Model as CM
 import           Cardano.BM.Data.Aggregated (Measurable (..))
 import           Cardano.BM.Data.AggregatedKind
@@ -49,6 +55,7 @@ import           Cardano.BM.Data.Observable
 import           Cardano.BM.Observer.Monadic (bracketObserveIO)
 import qualified Cardano.BM.Observer.STM as STM
 #endif
+import           Cardano.BM.Output.Switchboard
 import           Cardano.BM.Setup
 import           Cardano.BM.Trace
 
@@ -59,8 +66,8 @@ Selected values can be viewed in EKG on \url{http://localhost:12789}.
 \\
 The configuration editor listens on \url{http://localhost:13789}.
 \begin{code}
-config :: IO CM.Configuration
-config = do
+prepare_configuration :: IO CM.Configuration
+prepare_configuration = do
     c <- CM.empty
     CM.setMinSeverity c Debug
     CM.setSetupBackends c [ KatipBK
@@ -109,7 +116,6 @@ config = do
                          ]
     CM.setDefaultScribes c ["StdoutSK::stdout"]
     CM.setScribes c "complex.random" (Just ["StdoutSK::stdout", "FileTextSK::logs/out.txt"])
-    CM.setScribes c "#aggregated.complex.random" (Just ["StdoutSK::stdout"])
     forM_ [(1::Int)..10] $ \x ->
       if odd x
       then
@@ -165,10 +171,11 @@ config = do
     CM.setAggregatedKind c "complex.random.rr" (Just StatsAK)
     CM.setAggregatedKind c "complex.random.ewma.rr" (Just (EwmaAK 0.42))
 
+    CM.setBackends c "#aggregation.complex.random" (Just [LogBufferBK])
+
 #ifdef ENABLE_EKG
     CM.setBackends c "#aggregation.complex.message" (Just [EKGViewBK])
     CM.setBackends c "#aggregation.complex.observeIO" (Just [EKGViewBK])
-    CM.setBackends c "#aggregation.complex.random" (Just [EKGViewBK])
     CM.setBackends c "#aggregation.complex.random.ewma" (Just [EKGViewBK])
     CM.setEKGport c 12789
 #endif
@@ -176,6 +183,23 @@ config = do
 
     return c
 
+\end{code}
+
+\subsubsection{Dump the log buffer periodically}
+\begin{code}
+dumpBuffer :: Switchboard Text -> Trace IO Text -> IO (Async.Async ())
+dumpBuffer sb trace = do
+  logInfo trace "starting buffer dump"
+  proc <- Async.async (loop trace)
+  return proc
+  where
+    loop tr = do
+        threadDelay 25000000  -- 25 seconds
+        buf <- readLogBuffer sb
+        forM_ buf $ \(logname, LogObject _ lometa locontent) -> do
+            tr' <- modifyName (\n -> "#buffer." <> n <> logname) tr
+            traceNamedObject tr' (lometa, locontent)
+        loop tr
 \end{code}
 
 \subsubsection{Thread that outputs a random number to a |Trace|}
@@ -199,15 +223,15 @@ randomThr trace = do
 \subsubsection{Thread that observes an |IO| action}
 \begin{code}
 #ifdef ENABLE_OBSERVABLES
-observeIO :: Trace IO Text -> IO (Async.Async ())
-observeIO trace = do
+observeIO :: Configuration -> Trace IO Text -> IO (Async.Async ())
+observeIO config trace = do
   logInfo trace "starting observer"
   proc <- Async.async (loop trace)
   return proc
   where
     loop tr = do
         threadDelay 5000000  -- 5 seconds
-        _ <- bracketObserveIO tr Debug "observeIO" $ do
+        _ <- bracketObserveIO config tr Debug "observeIO" $ do
             num <- randomRIO (100000, 200000) :: IO Int
             ls <- return $ reverse $ init $ reverse $ 42 : [1 .. num]
             pure $ const ls ()
@@ -218,8 +242,8 @@ observeIO trace = do
 \subsubsection{Threads that observe |STM| actions on the same TVar}
 \begin{code}
 #ifdef ENABLE_OBSERVABLES
-observeSTM :: Trace IO Text -> IO [Async.Async ()]
-observeSTM trace = do
+observeSTM :: Configuration -> Trace IO Text -> IO [Async.Async ()]
+observeSTM config trace = do
   logInfo trace "starting STM observer"
   tvar <- atomically $ newTVar ([1..1000]::[Int])
   -- spawn 10 threads
@@ -228,7 +252,7 @@ observeSTM trace = do
   where
     loop tr tvarlist name = do
         threadDelay 10000000  -- 10 seconds
-        STM.bracketObserveIO tr Debug ("observeSTM." <> name) (stmAction tvarlist)
+        STM.bracketObserveIO config tr Debug ("observeSTM." <> name) (stmAction tvarlist)
         loop tr tvarlist name
 
 stmAction :: TVar [Int] -> STM ()
@@ -245,15 +269,15 @@ order to observe the I/O statistics}
 \begin{code}
 #ifdef LINUX
 #ifdef ENABLE_OBSERVABLES
-observeDownload :: Trace IO Text -> IO (Async.Async ())
-observeDownload trace = do
+observeDownload :: Configuration -> Trace IO Text -> IO (Async.Async ())
+observeDownload config trace = do
   proc <- Async.async (loop trace)
   return proc
   where
     loop tr = do
         threadDelay 1000000  -- 1 second
         tr' <- appendName "observeDownload" tr
-        bracketObserveIO tr' Debug "" $ do
+        bracketObserveIO config tr' Debug "" $ do
             license <- openURI "http://www.gnu.org/licenses/gpl.txt"
             case license of
               Right bs -> logNotice tr' $ pack $ BS8.unpack bs
@@ -287,7 +311,7 @@ msgThr trace = do
 main :: IO ()
 main = do
     -- create configuration
-    c <- config
+    c <- prepare_configuration
 
 #ifdef ENABLE_GUI
     -- start configuration editor
@@ -295,12 +319,16 @@ main = do
 #endif
 
     -- create initial top-level Trace
-    tr :: Trace IO Text <- setupTrace (Right c) "complex"
+    (tr :: Trace IO Text, sb) <- setupTrace_ c "complex"
 
     logNotice tr "starting program; hit CTRL-C to terminate"
 -- user can watch the progress only if EKG is enabled.
 #ifdef ENABLE_EKG
     logInfo tr "watch its progress on http://localhost:12789"
+#endif
+
+#ifdef RUN_ProcBufferDump
+    procDump <- dumpBuffer sb tr
 #endif
 
 #ifdef RUN_ProcRandom
@@ -311,20 +339,20 @@ main = do
 #ifdef RUN_ProcObserveIO
     -- start thread endlessly reversing lists of random length
 #ifdef ENABLE_OBSERVABLES
-    procObsvIO <- observeIO tr
+    procObsvIO <- observeIO c tr
 #endif
 #endif
 #ifdef RUN_ProcObseverSTM
     -- start threads endlessly observing STM actions operating on the same TVar
 #ifdef ENABLE_OBSERVABLES
-    procObsvSTMs <- observeSTM tr
+    procObsvSTMs <- observeSTM c tr
 #endif
 #endif
 #ifdef LINUX
 #ifdef RUN_ProcObseveDownload
     -- start thread endlessly which downloads sth in order to check the I/O usage
 #ifdef ENABLE_OBSERVABLES
-    procObsvDownload <- observeDownload tr
+    procObsvDownload <- observeDownload c tr
 #endif
 #endif
 #endif
@@ -360,6 +388,10 @@ main = do
     -- wait for random thread to finish, ignoring any exception
     _ <- Async.waitCatch procRandom
 #endif
+#ifdef RUN_ProcBufferDump
+    _ <- Async.waitCatch procDump
+#endif
+
     return ()
 
 \end{code}

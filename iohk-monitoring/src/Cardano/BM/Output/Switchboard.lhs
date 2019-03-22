@@ -4,17 +4,18 @@
 
 %if style == newcode
 \begin{code}
-{-# LANGUAGE CPP                 #-}
+{-# LANGUAGE CPP                   #-}
 {-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE RankNTypes          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE RankNTypes            #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
 
 module Cardano.BM.Output.Switchboard
     (
       Switchboard (..)
-    , mainTrace
     , mainTraceConditionally
+    , readLogBuffer
     , effectuate
     , realize
     , unrealize
@@ -26,16 +27,15 @@ import           Control.Concurrent.MVar (MVar, newEmptyMVar, newMVar,
 import           Control.Concurrent.STM (atomically, retry)
 import qualified Control.Concurrent.STM.TBQueue as TBQ
 import           Control.Exception.Safe (throwM)
-import           Control.Monad (forM_, when, void)
+import           Control.Monad (forM, forM_, when, void)
 import           Control.Monad.IO.Class (liftIO)
 import           Data.Aeson (ToJSON)
-import           Data.Maybe (fromMaybe)
+import           Data.Functor.Contravariant (Op (..))
+import           Data.Maybe (catMaybes, fromMaybe)
 import qualified Data.Text.IO as TIO
 import           Data.Time.Clock (getCurrentTime)
-import           Data.Functor.Contravariant (Op (..))
 import           System.IO (stderr)
 
-import qualified Cardano.BM.Tracer.Class as Tracer
 import           Cardano.BM.Configuration (Configuration)
 import qualified Cardano.BM.Configuration as Config
 import           Cardano.BM.Configuration.Model (getBackends,
@@ -44,12 +44,12 @@ import           Cardano.BM.Data.Backend
 import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.MessageCounter (resetCounters, sendAndResetAfter,
                      updateMessageCounters)
-import           Cardano.BM.Data.Trace (TraceContext (..))
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.SubTrace (SubTrace (..))
 import qualified Cardano.BM.Output.Log
 import           Cardano.BM.Trace (evalFilters)
-import           Cardano.BM.Tracer.Class (Tracer)
+import           Cardano.BM.Tracer.Class (Tracer (..))
+import qualified Cardano.BM.Output.LogBuffer
 
 #ifdef ENABLE_AGGREGATION
 import qualified Cardano.BM.Output.Aggregation
@@ -77,29 +77,52 @@ newtype Switchboard a = Switchboard
     { getSB :: SwitchboardMVar a }
 
 data SwitchboardInternal a = SwitchboardInternal
-    { sbQueue    :: TBQ.TBQueue (LogObject a)
-    , sbDispatch :: Async.Async ()
+    { sbQueue     :: TBQ.TBQueue (LogObject a)
+    , sbDispatch  :: Async.Async ()
+    , sbLogBuffer :: Cardano.BM.Output.LogBuffer.LogBuffer a
     }
 
 \end{code}
 
-\subsubsection{Trace that forwards to the \nameref{code:Switchboard}}\label{code:mainTrace}\index{mainTrace}
-
-Every |Trace| ends in the \nameref{code:Switchboard} which then takes care of
-dispatching the messages to outputs
-
-\begin{code}
+\subsubsection{Trace that forwards to the |Switchboard|}
+\label{code:mainTraceConditionally}\index{mainTraceConditionally}
+Every |Trace| ends in the |Switchboard| which then takes care of
+dispatching the messages to the selected backends.
+\\
+This |Tracer| will forward all messages unconditionally to the |Switchboard|.
+(currently disabled)
+\begin{spec}
 mainTrace :: Switchboard a -> Tracer IO (LogObject a)
-mainTrace sb = Tracer.Tracer $ Op $ effectuate sb
+mainTrace sb = Tracer $ Op $ effectuate sb
 
-mainTraceConditionally :: TraceContext -> Switchboard a -> Tracer IO (LogObject a)
-mainTraceConditionally ctx sb = Tracer.Tracer $ Op $ \item@(LogObject loggername meta _) -> do
-    globminsev  <- liftIO $ Config.minSeverity (configuration ctx)
-    globnamesev <- liftIO $ Config.inspectSeverity (configuration ctx) loggername
-    let minsev = max globminsev $ fromMaybe Debug globnamesev
-    if (severity meta) >= minsev
+\end{spec}
+
+This function will apply to every message the severity filter as defined in the |Configuration|.
+\begin{code}
+mainTraceConditionally :: Configuration -> Switchboard a -> Tracer IO (LogObject a)
+mainTraceConditionally config sb = Tracer $ Op $ \item@(LogObject loggername meta _) -> do
+    passSevFilter <- testSeverity loggername meta
+    passSubTrace <- testSubTrace loggername item
+    if passSevFilter && passSubTrace
     then effectuate sb item
     else return ()
+  where
+    testSeverity :: LoggerName -> LOMeta -> IO Bool
+    testSeverity loggername meta = do
+        globminsev  <- liftIO $ Config.minSeverity config
+        globnamesev <- liftIO $ Config.inspectSeverity config loggername
+        let minsev = max globminsev $ fromMaybe Debug globnamesev
+        return $ (severity meta) >= minsev
+    testSubTrace :: LoggerName -> LogObject a -> IO Bool
+    testSubTrace loggername lo = do
+        subtrace <- fromMaybe Neutral <$> Config.findSubTrace config loggername
+        return $ testSubTrace' lo subtrace
+    testSubTrace' :: LogObject a -> SubTrace -> Bool
+    testSubTrace' _ NoTrace = False
+    testSubTrace' (LogObject _ _ (ObserveOpen _)) DropOpening = False
+    testSubTrace' (LogObject loname _ (LogValue vname _)) (FilterTrace filters) = evalFilters filters (loname <> "." <> vname)
+    testSubTrace' (LogObject loname _ _) (FilterTrace filters) = evalFilters filters loname
+    testSubTrace' _ _ = True    -- fallback: all pass
 
 \end{code}
 
@@ -123,7 +146,6 @@ instance IsEffectuator Switchboard a where
         sb <- readMVar (getSB switchboard)
         writequeue (sbQueue sb) item
 
-    -- TODO where to put this error message
     handleOverflow _ = TIO.hPutStrLn stderr "Error: Switchboard's queue full, dropping log items!"
 
 \end{code}
@@ -142,7 +164,7 @@ evalMonitoringAction c item = return [item]
 
 \subsubsection{|Switchboard| implements |Backend| functions}\index{Switchboard!instance of IsBackend}
 
-|Switchboard| is an \nameref{code:IsBackend}
+|Switchboard| is an |IsBackend|
 \begin{code}
 instance (Show a, ToJSON a) => IsBackend Switchboard a where
     typeof _ = SwitchboardBK
@@ -150,31 +172,28 @@ instance (Show a, ToJSON a) => IsBackend Switchboard a where
     realize cfg =
         let spawnDispatcher
                 :: (Show a)
-                => Configuration
-                -> [(BackendKind, Backend a)]
+                => [(BackendKind, Backend a)]
                 -> TBQ.TBQueue (LogObject a)
                 -> IO (Async.Async ())
-            spawnDispatcher config backends queue = do
+            spawnDispatcher backends queue = do
                 now <- getCurrentTime
                 let messageCounters = resetCounters now
                 countersMVar <- newMVar messageCounters
                 let traceInQueue q =
-                        Tracer.Tracer $ Op $ \lognamed -> do
+                        Tracer $ Op $ \lognamed -> do
                             nocapacity <- atomically $ TBQ.isFullTBQueue q
                             if nocapacity
                             then putStrLn "Error: Switchboard's queue full, dropping log items!"
                             else atomically $ TBQ.writeTBQueue q lognamed
-                    ctx = TraceContext { configuration = cfg
-                                       }
                 _timer <- Async.async $ sendAndResetAfter
-                                            (ctx, traceInQueue queue)
+                                            (traceInQueue queue)
                                             "#messagecounters.switchboard"
                                             countersMVar
                                             60000   -- 60000 ms = 1 min
                                             Warning -- Debug
 
                 let sendMessage nli befilter = do
-                        selectedBackends <- getBackends config (loName nli)
+                        selectedBackends <- getBackends cfg (loName nli)
                         let selBEs = befilter selectedBackends
                         forM_ backends $ \(bek, be) ->
                             when (bek `elem` selBEs) (bEffectuate be nli)
@@ -186,58 +205,28 @@ instance (Show a, ToJSON a) => IsBackend Switchboard a where
                                       when (null r) retry
                                       return r
 
-                        let processItem nli@(LogObject loname lometa loitem) = do
-                                let losev = severity lometa
-
-                                -- evaluate minimum severity criteria
-                                locsev <- fromMaybe Debug <$> Config.inspectSeverity cfg loname
-                                globsev <- Config.minSeverity config
-                                let sevGE = losev >= globsev && losev >= locsev
-
-                                -- do not count again messages that contain the results of message counters
+                        let processItem nli@(LogObject loname _ loitem) = do
                                 when (loname /= "#messagecounters.switchboard") $
-                                    -- increase the counter for the specific severity
                                     modifyMVar_ counters $
                                         \cnt -> return $ updateMessageCounters cnt nli
 
-                                subtrace <- fromMaybe Neutral <$> Config.findSubTrace (configuration ctx) loname
-                                case subtrace of
-                                    TeeTrace secName ->
+                                Config.findSubTrace cfg loname >>= \case
+                                    Just (TeeTrace secName) ->
                                         atomically $ TBQ.writeTBQueue queue $ nli{ loName = secName }
                                     _ -> return ()
-
-                                let doOutput = case subtrace of
-                                        FilterTrace filters ->
-                                            case loitem of
-                                                LogValue name _ ->
-                                                    evalFilters filters (loname <> "." <> name)
-                                                _ ->
-                                                    evalFilters filters loname
-                                        DropOpening -> case loitem of
-                                                        ObserveOpen _ -> False
-                                                        _             -> True
-                                        NoTrace     -> False
-                                        _           -> True
 
                                 case loitem of
                                     KillPill -> do
                                         forM_ backends ( \(_, be) -> bUnrealize be )
                                         return False
-#ifdef ENABLE_AGGREGATION
                                     (AggregatedMessage _) -> do
-                                        when (sevGE && doOutput) $
-                                            sendMessage nli (filter (/= AggregationBK))
+                                        sendMessage nli (filter (/= AggregationBK))
                                         return True
-#endif
-#ifdef ENABLE_MONITORING
                                     (MonitoringEffect inner) -> do
-                                        when (sevGE && doOutput) $
-                                            sendMessage (inner {loName = loname}) (filter (/= MonitoringBK))
+                                        sendMessage (inner {loName = loname}) (filter (/= MonitoringBK))
                                         return True
-#endif
                                     _ -> do
-                                        when (sevGE && doOutput) $
-                                            sendMessage nli id
+                                        sendMessage nli id
                                         return True
 
                         res <- mapM processItem nlis
@@ -250,13 +239,21 @@ instance (Show a, ToJSON a) => IsBackend Switchboard a where
         let sb :: Switchboard a = Switchboard sbref
 
         backends <- getSetupBackends cfg
-        bs <- setupBackends backends cfg sb []
-        dispatcher <- spawnDispatcher cfg bs q
+        bs0 <- setupBackends backends cfg sb
+        -- we setup |LogBuffer| explicitly so we can access it as a |Backend| and as |LogBuffer|
+        logbuf :: Cardano.BM.Output.LogBuffer.LogBuffer a <- Cardano.BM.Output.LogBuffer.realize cfg
+        bs1 <- return (LogBufferBK, MkBackend
+                            { bEffectuate = Cardano.BM.Output.LogBuffer.effectuate logbuf
+                            , bUnrealize = Cardano.BM.Output.LogBuffer.unrealize logbuf
+                            })
+
+        let bs = bs1 : bs0
+        dispatcher <- spawnDispatcher bs q
         -- link the given Async to the current thread, such that if the Async
         -- raises an exception, that exception will be re-thrown in the current
         -- thread, wrapped in ExceptionInLinkedThread.
         Async.link dispatcher
-        putMVar sbref $ SwitchboardInternal {sbQueue = q, sbDispatch = dispatcher}
+        putMVar sbref $ SwitchboardInternal {sbQueue = q, sbDispatch = dispatcher, sbLogBuffer = logbuf}
 
         return sb
 
@@ -277,73 +274,78 @@ instance (Show a, ToJSON a) => IsBackend Switchboard a where
 
 \end{code}
 
+\subsubsection{Reading the buffered log messages}\label{code:readLogBuffer}\index{readLogBuffer}
+\begin{code}
+readLogBuffer :: Switchboard a -> IO [(LoggerName, LogObject a)]
+readLogBuffer switchboard = do
+    sb <- readMVar (getSB switchboard)
+    Cardano.BM.Output.LogBuffer.readBuffer (sbLogBuffer sb)
+
+\end{code}
+
 \subsubsection{Realizing the backends according to configuration}\label{code:setupBackends}\index{Switchboard!setupBackends}
 \begin{code}
 setupBackends :: (Show a, ToJSON a)
               => [BackendKind]
               -> Configuration
               -> Switchboard a
-              -> [(BackendKind, Backend a)]
               -> IO [(BackendKind, Backend a)]
-setupBackends [] _ _ acc = return acc
-setupBackends (bk : bes) c sb acc = do
-    be' <- setupBackend' bk c sb
-    setupBackends bes c sb ((bk,be') : acc)
-setupBackend' :: (Show a, ToJSON a) => BackendKind -> Configuration -> Switchboard a -> IO (Backend a)
+setupBackends bes c sb = catMaybes <$>
+                         forM bes (\bk -> do { setupBackend' bk c sb >>= \case Nothing -> return Nothing
+                                                                               Just be -> return $ Just (bk, be) })
+
+setupBackend' :: (Show a, ToJSON a) => BackendKind -> Configuration -> Switchboard a -> IO (Maybe (Backend a))
 setupBackend' SwitchboardBK _ _ = error "cannot instantiate a further Switchboard"
 #ifdef ENABLE_MONITORING
 setupBackend' MonitoringBK c sb = do
-    let ctx   = TraceContext { configuration = c
-                             }
-        trace = mainTraceConditionally ctx sb
+    let trace = mainTraceConditionally c sb
 
-    be :: Cardano.BM.Output.Monitoring.Monitor a <- Cardano.BM.Output.Monitoring.realizefrom (ctx, trace) sb
-    return MkBackend
+    be :: Cardano.BM.Output.Monitoring.Monitor a <- Cardano.BM.Output.Monitoring.realizefrom c trace sb
+    return $ Just MkBackend
       { bEffectuate = Cardano.BM.Output.Monitoring.effectuate be
       , bUnrealize = Cardano.BM.Output.Monitoring.unrealize be
       }
 #else
 -- We need it anyway, to avoid "Non-exhaustive patterns" warning.
-setupBackend' MonitoringBK _ _ =
+setupBackend' MonitoringBK _ _ = do
     TIO.hPutStrLn stderr "disabled! will not setup backend 'Monitoring'"
+    return Nothing
 #endif
 #ifdef ENABLE_EKG
 setupBackend' EKGViewBK c sb = do
-    let ctx   = TraceContext { configuration = c
-                             }
-        trace = mainTraceConditionally ctx sb
+    let trace = mainTraceConditionally c sb
 
-    be :: Cardano.BM.Output.EKGView.EKGView a <- Cardano.BM.Output.EKGView.realizefrom (ctx, trace) sb
-    return MkBackend
+    be :: Cardano.BM.Output.EKGView.EKGView a <- Cardano.BM.Output.EKGView.realizefrom c trace sb
+    return $ Just MkBackend
       { bEffectuate = Cardano.BM.Output.EKGView.effectuate be
       , bUnrealize = Cardano.BM.Output.EKGView.unrealize be
       }
 #else
 -- We need it anyway, to avoid "Non-exhaustive patterns" warning.
-setupBackend' EKGViewBK _ _ =
+setupBackend' EKGViewBK _ _ = do
     TIO.hPutStrLn stderr "disabled! will not setup backend 'EKGView'"
+    return Nothing
 #endif
 #ifdef ENABLE_AGGREGATION
 setupBackend' AggregationBK c sb = do
-    let ctx   = TraceContext { configuration = c
-                             }
-        trace = mainTraceConditionally ctx sb
+    let trace = mainTraceConditionally c sb
 
-    be :: Cardano.BM.Output.Aggregation.Aggregation a <- Cardano.BM.Output.Aggregation.realizefrom (ctx,trace) sb
-    return MkBackend
+    be :: Cardano.BM.Output.Aggregation.Aggregation a <- Cardano.BM.Output.Aggregation.realizefrom c trace sb
+    return $ Just MkBackend
       { bEffectuate = Cardano.BM.Output.Aggregation.effectuate be
       , bUnrealize = Cardano.BM.Output.Aggregation.unrealize be
       }
 #else
 -- We need it anyway, to avoid "Non-exhaustive patterns" warning.
-setupBackend' AggregationBK _ _ =
+setupBackend' AggregationBK _ _ = do
     TIO.hPutStrLn stderr "disabled! will not setup backend 'Aggregation'"
+    return Nothing
 #endif
 setupBackend' KatipBK c _ = do
     be :: Cardano.BM.Output.Log.Log a <- Cardano.BM.Output.Log.realize c
-    return MkBackend
+    return $ Just MkBackend
       { bEffectuate = Cardano.BM.Output.Log.effectuate be
       , bUnrealize = Cardano.BM.Output.Log.unrealize be
       }
-
+setupBackend' LogBufferBK _ _ = return Nothing
 \end{code}
