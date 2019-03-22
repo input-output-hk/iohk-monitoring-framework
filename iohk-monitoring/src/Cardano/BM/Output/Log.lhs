@@ -278,6 +278,8 @@ passN backend katip (LogObject loname lometa loitem) = do
                                      (severity lometa, text, Just loitem)
                                 KillPill ->
                                     (severity lometa, "Kill pill received!", Nothing)
+                                Command _ ->
+                                    (severity lometa, "Command received!", Nothing)
                     if (msg == "") && (isNothing payload)
                     then return ()
                     else do

@@ -1,24 +1,30 @@
-\subsection{Cardano.BM.Configuration.Editor}
-\label{code:Cardano.BM.Configuration.Editor}
+\subsection{Cardano.BM.Output.Editor}
+\label{code:Cardano.BM.Output.Editor}
 
 %if style == newcode
 \begin{code}
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
 
-module Cardano.BM.Configuration.Editor
+module Cardano.BM.Output.Editor
     (
-      startup
+      Editor
+    , effectuate
+    , realizefrom
+    , unrealize
     ) where
 
 import           Prelude hiding (lookup)
 import qualified Control.Concurrent.Async as Async
-import           Control.Concurrent.MVar (readMVar)
+import           Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar, readMVar, withMVar)
 import           Control.Monad  (void, when, forM_)
 import qualified Data.HashMap.Strict as HM
 import           Data.List (delete)
 import           Data.Text (pack, unpack)
+import qualified Data.Text.IO as TIO
 import           Safe (readMay)
+import           System.IO (stderr)
 
 import qualified Graphics.UI.Threepenny as UI
 import           Graphics.UI.Threepenny.Core hiding (delete)
@@ -26,11 +32,13 @@ import           Graphics.UI.Threepenny.Core hiding (delete)
 import           Cardano.BM.Configuration
 import qualified Cardano.BM.Configuration.Model as CM
 import           Cardano.BM.Data.AggregatedKind
-import           Cardano.BM.Data.BackendKind
+import           Cardano.BM.Data.Backend
+import           Cardano.BM.Data.BackendKind (BackendKind(EditorBK))
 import           Cardano.BM.Data.LogItem (LoggerName)
 import           Cardano.BM.Data.Output (ScribeId)
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.SubTrace
+import           Cardano.BM.Data.Trace
 
 \end{code}
 %endif
@@ -48,18 +56,62 @@ of log messages.
 The GUI is built on top of \emph{Threepenny-GUI} (\url{http://hackage.haskell.org/package/threepenny-gui}).
 The appearance is due to \emph{w3-css} (\url{https://www.w3schools.com/w3css}).
 
+\subsubsection{Structure of Editor}\label{code:Editor}\index{Editor}
 \begin{code}
-startup :: Configuration -> IO ()
-startup config = do
-    port <- getGUIport config
-    when (port > 0) $ do
+type EditorMVar a = MVar (EditorInternal a)
+newtype Editor a = Editor
+    { getEd :: EditorMVar a }
+
+data EditorInternal a = EditorInternal
+    { edSBtrace :: Trace IO a
+    , edWindow  :: Maybe Window
+    , edThread  :: Async.Async ()
+    }
+
+\end{code}
+
+\subsubsection{|Editor| implements |Backend| functions}\index{Editor!instance of IsBackend}
+
+|Editor| is an |IsBackend|
+\begin{code}
+instance Show a => IsBackend Editor a where
+    typeof _ = EditorBK
+
+    realize _ = error "Editor cannot be instantiated by 'realize'"
+
+    realizefrom config sbtrace _ = do
+        gref <- newEmptyMVar
+        let gui = Editor gref
+        port <- getGUIport config
+        when (port <= 0) $ error "cannot create GUI"
         thd <- Async.async $
-             startGUI defaultConfig { jsPort       = Just port
+            startGUI defaultConfig { jsPort       = Just port
                                     , jsAddr       = Just "127.0.0.1"
                                     , jsStatic     = Just "iohk-monitoring/static"
                                     , jsCustomHTML = Just "configuration-editor.html"
-                                    } $ prepare config
+                                    } $ prepare gui config
         Async.link thd
+        putMVar gref $ EditorInternal
+                        { edSBtrace = sbtrace
+                        , edWindow = Nothing
+                        , edThread = thd
+                        }
+        return gui
+
+    unrealize editor =
+        withMVar (getEd editor) $ \ed ->
+            Async.cancel $ edThread ed
+
+\end{code}
+
+\subsubsection{Editor is an effectuator}\index{Editor!instance of IsEffectuator}
+Function |effectuate| is called to pass in a |LogObject| for display in the GUI.
+\begin{code}
+instance IsEffectuator Editor a where
+    effectuate _editor _item = do
+        return ()
+
+    handleOverflow _ = TIO.hPutStrLn stderr "Notice: overflow in Editor!"
 
 \end{code}
 
@@ -68,8 +120,8 @@ startup config = do
 data Cmd = Backends | Scribes | Severities | SubTrace | Aggregation
            deriving (Enum, Eq, Show, Read)
 
-prepare :: Configuration -> Window -> UI ()
-prepare config window = void $ do
+prepare :: Editor a -> Configuration -> Window -> UI ()
+prepare _editor config window = void $ do
     let commands = [Backends .. Aggregation]
 
     inputKey   <- UI.input #. "w3-input w3-border" # set UI.size "34"

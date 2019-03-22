@@ -78,7 +78,7 @@ library
     exposed-modules:   Cardano.BM.Output.EKGView
 
   if !flag(disable-gui)
-    exposed-modules:   Cardano.BM.Configuration.Editor
+    exposed-modules:   Cardano.BM.Output.Editor
 
   if !flag(disable-observables)
     exposed-modules:   Cardano.BM.Observer.Monadic

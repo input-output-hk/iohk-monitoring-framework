@@ -47,9 +47,9 @@ import           Cardano.BM.Data.MessageCounter (resetCounters, sendAndResetAfte
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.SubTrace (SubTrace (..))
 import qualified Cardano.BM.Output.Log
+import qualified Cardano.BM.Output.LogBuffer
 import           Cardano.BM.Trace (evalFilters)
 import           Cardano.BM.Tracer.Class (Tracer (..))
-import qualified Cardano.BM.Output.LogBuffer
 
 #ifdef ENABLE_AGGREGATION
 import qualified Cardano.BM.Output.Aggregation
@@ -61,6 +61,10 @@ import qualified Cardano.BM.Output.EKGView
 
 #ifdef ENABLE_MONITORING
 import qualified Cardano.BM.Output.Monitoring
+#endif
+
+#ifdef ENABLE_GUI
+import qualified Cardano.BM.Output.Editor
 #endif
 
 \end{code}
@@ -339,6 +343,20 @@ setupBackend' AggregationBK c sb = do
 -- We need it anyway, to avoid "Non-exhaustive patterns" warning.
 setupBackend' AggregationBK _ _ = do
     TIO.hPutStrLn stderr "disabled! will not setup backend 'Aggregation'"
+    return Nothing
+#endif
+#ifdef ENABLE_GUI
+setupBackend' EditorBK c sb = do
+    let trace = mainTraceConditionally c sb
+
+    be :: Cardano.BM.Output.Editor.Editor a <- Cardano.BM.Output.Editor.realizefrom c trace sb
+    return $ Just MkBackend
+      { bEffectuate = Cardano.BM.Output.Editor.effectuate be
+      , bUnrealize = Cardano.BM.Output.Editor.unrealize be
+      }
+#else
+setupBackend' EditorBK _ _ = do
+    TIO.hPutStrLn stderr "disabled! will not setup backend 'Editor'"
     return Nothing
 #endif
 setupBackend' KatipBK c _ = do

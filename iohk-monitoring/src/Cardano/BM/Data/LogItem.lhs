@@ -25,6 +25,7 @@ import           Data.Time.Clock (UTCTime, getCurrentTime)
 import           GHC.Generics (Generic)
 
 import           Cardano.BM.Data.Aggregated (Aggregated (..), Measurable (..))
+import           Cardano.BM.Data.BackendKind
 import           Cardano.BM.Data.Counter
 import           Cardano.BM.Data.Severity
 
@@ -99,8 +100,18 @@ data LOContent a = LogMessage a
                  | ObserveClose CounterState
                  | AggregatedMessage [(Text, Aggregated)]
                  | MonitoringEffect (LogObject a)
+                 | Command CommandValue
                  | KillPill
                    deriving (Generic, Show, ToJSON)
+
+\end{code}
+
+\label{code:CommandValue}
+Backends can enter commands to the trace. Commands will end up in the
+|Switchboard, which will interpret them and take action.
+\begin{code}
+data CommandValue = DumpBufferedTo BackendKind
+                    deriving (Generic, Show, ToJSON)
 
 \end{code}
 
