@@ -10,7 +10,7 @@ module Cardano.BM.Tracer.Class
     , tracingWith
     ) where
 
-import           Data.Functor.Contravariant (Contravariant (..), Op (..))
+import           Data.Functor.Contravariant (Contravariant (..))
 
 \end{code}
 %endif
@@ -22,7 +22,7 @@ annotate) such observations with additional information from their
 execution context.
 
 \begin{code}
-newtype Tracer m s = Tracer { tracing :: Op (m ()) s }
+newtype Tracer m s = Tracer { trace :: s -> m () }
 \end{code}
 
 \index{Tracer!instance of Contravariant}
@@ -32,7 +32,7 @@ of |contramap|.
 
 \begin{code}
 instance Contravariant (Tracer m) where
-    contramap f = Tracer . contramap f . tracing
+    contramap f (Tracer t) = Tracer (t . f)
 
 \end{code}
 
@@ -46,8 +46,8 @@ hierachy which has its root at the top level tracer.
 The simplest tracer - one that suppresses all output.
 
 \begin{code}
-nullTracer :: (Applicative m) => Tracer m a
-nullTracer = Tracer $ Op $ \_ -> pure ()
+nullTracer :: Applicative m => Tracer m a
+nullTracer = Tracer $ \_ -> pure ()
 
 \end{code}
 
@@ -58,6 +58,6 @@ translates to "|s -> m ()|".
 
 \begin{code}
 tracingWith :: Tracer m a -> a -> m ()
-tracingWith = getOp . tracing
+tracingWith = trace
 
 \end{code}

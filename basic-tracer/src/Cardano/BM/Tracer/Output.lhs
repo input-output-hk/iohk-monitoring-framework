@@ -10,7 +10,6 @@ module Cardano.BM.Tracer.Output
 
 import           Control.Monad.IO.Class (MonadIO(..))
 import           Debug.Trace (traceM)
-import           Data.Functor.Contravariant (Op (..))
 
 import           Cardano.BM.Tracer.Class
 
@@ -24,7 +23,7 @@ about interleaving should be heeded).
 
 \begin{code}
 stdoutTracer :: (MonadIO m) => Tracer m String
-stdoutTracer = Tracer $ Op $ liftIO . putStrLn
+stdoutTracer = Tracer $ liftIO . putStrLn
 
 \end{code}
 
@@ -34,6 +33,6 @@ A Tracer that uses |TraceM| (from |Debug.Trace|) as its output mechanism.
 
 \begin{code}
 debugTracer :: (Applicative m) => Tracer m String
-debugTracer = Tracer $ Op traceM
+debugTracer = Tracer Debug.Trace.traceM
 
 \end{code}
