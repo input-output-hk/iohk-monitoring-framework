@@ -11,6 +11,8 @@ module Cardano.BM.Tracer.Class
     ) where
 
 import           Data.Functor.Contravariant (Contravariant (..))
+import           Data.Semigroup (Semigroup(..))
+import           Data.Monoid (Monoid(..))
 
 \end{code}
 %endif
@@ -41,6 +43,20 @@ Although a |Tracer| is invoked in a monadic context (which may be
 
 This brings with it the constraint that the derived |Tracer|s form a
 hierachy which has its root at the top level tracer.
+
+\index{Tracer!instance of Monoid}
+
+In principle a |Tracer| is an instance of |Semigroup| and |Monoid|, by
+sequential composition of the tracing actions.
+
+\begin{code}
+instance Applicative m => Semigroup (Tracer m s) where
+    Tracer a1 <> Tracer a2 = Tracer $ \s -> a1 s *> a2 s
+
+instance Applicative m => Monoid (Tracer m s) where
+    mappend = (<>)
+    mempty  = nullTracer
+\end{code}
 
 \subsubsection{|nullTracer|}\label{code:nullTracer}\index{nullTracer}
 The simplest tracer - one that suppresses all output.
