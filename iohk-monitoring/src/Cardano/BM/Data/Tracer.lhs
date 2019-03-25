@@ -185,7 +185,6 @@ A |Tracer| transformer creating a |LogObject| from |PrivacyAndSeverityAnnotated|
 logObjectFromAnnotated :: Show a
     => Tracer IO (LogObject a)
     -> Tracer IO (PrivacyAndSeverityAnnotated a)
--- logObjectFromAnnotated (Tracer (Op tr)) = Tracer $ Op $ \(PSA sev priv a) -> do
 logObjectFromAnnotated tr = Tracer $ \(PSA sev priv a) -> do
     lometa <- mkLOMeta sev priv
     tracingWith tr $ LogObject "" lometa (LogMessage a)

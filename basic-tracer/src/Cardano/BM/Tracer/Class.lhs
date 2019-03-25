@@ -68,9 +68,6 @@ nullTracer = Tracer $ \_ -> pure ()
 \end{code}
 
 \subsubsection{tracingWith}\label{code:tracingWith}\index{tracingWith}
-Accepts a |Tracer| and some payload |s|. First it gets the contravariant
-from the |Tracer| as type "|Op (m ()) s|" and, after "|getOp :: b -> a|" which
-translates to "|s -> m ()|".
 
 \begin{code}
 tracingWith :: Tracer m a -> a -> m ()
