@@ -12,7 +12,7 @@ module Cardano.BM.Data.Trace
   where
 
 import           Cardano.BM.Data.LogItem
-import           Cardano.BM.Tracer.Class (Tracer)
+import           Cardano.BM.Tracer (Tracer)
 
 \end{code}
 %endif

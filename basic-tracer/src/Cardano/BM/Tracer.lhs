@@ -18,6 +18,7 @@ module Cardano.BM.Tracer
     , showTracing
     , condTracing
     , condTracingM
+    , natTracer
     -- * examples
     , example1
     ) where

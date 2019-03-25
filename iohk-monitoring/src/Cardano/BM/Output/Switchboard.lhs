@@ -30,7 +30,6 @@ import           Control.Exception.Safe (throwM)
 import           Control.Monad (forM, forM_, when, void)
 import           Control.Monad.IO.Class (liftIO)
 import           Data.Aeson (ToJSON)
-import           Data.Functor.Contravariant (Op (..))
 import           Data.Maybe (catMaybes, fromMaybe)
 import qualified Data.Text.IO as TIO
 import           Data.Time.Clock (getCurrentTime)
@@ -49,7 +48,8 @@ import           Cardano.BM.Data.SubTrace (SubTrace (..))
 import qualified Cardano.BM.Output.Log
 import qualified Cardano.BM.Output.LogBuffer
 import           Cardano.BM.Trace (evalFilters)
-import           Cardano.BM.Tracer.Class (Tracer (..))
+import           Cardano.BM.Tracer (Tracer (..))
+import qualified Cardano.BM.Output.LogBuffer
 
 #ifdef ENABLE_AGGREGATION
 import qualified Cardano.BM.Output.Aggregation
@@ -97,14 +97,14 @@ This |Tracer| will forward all messages unconditionally to the |Switchboard|.
 (currently disabled)
 \begin{spec}
 mainTrace :: Switchboard a -> Tracer IO (LogObject a)
-mainTrace sb = Tracer $ Op $ effectuate sb
+mainTrace sb = Tracer $ effectuate sb
 
 \end{spec}
 
 This function will apply to every message the severity filter as defined in the |Configuration|.
 \begin{code}
 mainTraceConditionally :: Configuration -> Switchboard a -> Tracer IO (LogObject a)
-mainTraceConditionally config sb = Tracer $ Op $ \item@(LogObject loggername meta _) -> do
+mainTraceConditionally config sb = Tracer $ \item@(LogObject loggername meta _) -> do
     passSevFilter <- testSeverity loggername meta
     passSubTrace <- testSubTrace loggername item
     if passSevFilter && passSubTrace
@@ -186,7 +186,7 @@ instance (Show a, ToJSON a) => IsBackend Switchboard a where
                 let messageCounters = resetCounters now
                 countersMVar <- newMVar messageCounters
                 let traceInQueue q =
-                        Tracer $ Op $ \lognamed -> do
+                        Tracer $ \lognamed -> do
                             nocapacity <- atomically $ TBQ.isFullTBQueue q
                             if nocapacity
                             then putStrLn "Error: Switchboard's queue full, dropping log items!"
@@ -306,9 +306,9 @@ setupBackend' :: (Show a, ToJSON a) => BackendKind -> Configuration -> Switchboa
 setupBackend' SwitchboardBK _ _ = error "cannot instantiate a further Switchboard"
 #ifdef ENABLE_MONITORING
 setupBackend' MonitoringBK c sb = do
-    let trace = mainTraceConditionally c sb
+    let trace0 = mainTraceConditionally c sb
 
-    be :: Cardano.BM.Output.Monitoring.Monitor a <- Cardano.BM.Output.Monitoring.realizefrom c trace sb
+    be :: Cardano.BM.Output.Monitoring.Monitor a <- Cardano.BM.Output.Monitoring.realizefrom c trace0 sb
     return $ Just MkBackend
       { bEffectuate = Cardano.BM.Output.Monitoring.effectuate be
       , bUnrealize = Cardano.BM.Output.Monitoring.unrealize be
@@ -320,9 +320,9 @@ setupBackend' MonitoringBK _ _ = do
 #endif
 #ifdef ENABLE_EKG
 setupBackend' EKGViewBK c sb = do
-    let trace = mainTraceConditionally c sb
+    let trace0 = mainTraceConditionally c sb
 
-    be :: Cardano.BM.Output.EKGView.EKGView a <- Cardano.BM.Output.EKGView.realizefrom c trace sb
+    be :: Cardano.BM.Output.EKGView.EKGView a <- Cardano.BM.Output.EKGView.realizefrom c trace0 sb
     return $ Just MkBackend
       { bEffectuate = Cardano.BM.Output.EKGView.effectuate be
       , bUnrealize = Cardano.BM.Output.EKGView.unrealize be
@@ -334,9 +334,9 @@ setupBackend' EKGViewBK _ _ = do
 #endif
 #ifdef ENABLE_AGGREGATION
 setupBackend' AggregationBK c sb = do
-    let trace = mainTraceConditionally c sb
+    let trace0 = mainTraceConditionally c sb
 
-    be :: Cardano.BM.Output.Aggregation.Aggregation a <- Cardano.BM.Output.Aggregation.realizefrom c trace sb
+    be :: Cardano.BM.Output.Aggregation.Aggregation a <- Cardano.BM.Output.Aggregation.realizefrom c trace0 sb
     return $ Just MkBackend
       { bEffectuate = Cardano.BM.Output.Aggregation.effectuate be
       , bUnrealize = Cardano.BM.Output.Aggregation.unrealize be

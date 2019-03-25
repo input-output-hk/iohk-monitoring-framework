@@ -39,7 +39,7 @@ import           Cardano.BM.Configuration.Model (empty, setDefaultBackends,
                      setDefaultScribes, setSubTrace, setSetupBackends,
                      setSetupScribes)
 import           Cardano.BM.Configuration.Static (defaultConfigTesting)
-import qualified Cardano.BM.Tracer.Transformers as TracerT
+import qualified Cardano.BM.Tracer as Tracer
 import           Cardano.BM.Data.BackendKind (BackendKind (..))
 import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.Observable
@@ -132,7 +132,7 @@ data TraceConfiguration = TraceConfiguration
 setupTrace :: TraceConfiguration -> IO (Trace IO Text)
 setupTrace (TraceConfiguration cfg outk name subTr) = do
     let logTrace = case outk of
-            TVarList tvar -> TracerT.natTrace liftIO $ traceInTVarIOConditionally tvar cfg
+            TVarList tvar -> Tracer.natTracer liftIO $ traceInTVarIOConditionally tvar cfg
 
     setSubTrace cfg name (Just subTr)
     appendName name logTrace

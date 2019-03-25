@@ -23,7 +23,6 @@ import           Control.Concurrent.MVar (MVar, newEmptyMVar, newMVar,
 import           Control.Concurrent.STM (atomically)
 import qualified Control.Concurrent.STM.TBQueue as TBQ
 import           Control.Monad.IO.Class (liftIO)
-import           Data.Functor.Contravariant (Op (..))
 import qualified Data.HashMap.Strict as HM
 import           Data.Text (Text, pack, stripPrefix)
 import qualified Data.Text.IO as TIO
@@ -46,7 +45,7 @@ import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.Trace
 import qualified Cardano.BM.Trace as Trace
-import           Cardano.BM.Tracer.Class (Tracer (..))
+import           Cardano.BM.Tracer (Tracer (..))
 
 \end{code}
 %endif
@@ -78,11 +77,11 @@ the messages that are being displayed by EKG.
 \begin{code}
 ekgTrace :: Show a => EKGView a -> Configuration -> IO (Trace IO a)
 ekgTrace ekg _c = do
-    let trace = ekgTrace' ekg
-    Trace.appendName "#ekgview" trace
+    let trace0 = ekgTrace' ekg
+    Trace.appendName "#ekgview" trace0
   where
     ekgTrace' :: Show a => EKGView a -> Tracer IO (LogObject a)
-    ekgTrace' ekgview = Tracer $ Op $ \lo@(LogObject loname _ _) -> do
+    ekgTrace' ekgview = Tracer $ \lo@(LogObject loname _ _) -> do
         let setlabel :: Text -> Text -> EKGViewInternal a -> IO (Maybe (EKGViewInternal a))
             setlabel name label ekg_i@(EKGViewInternal _ labels server) =
                 case HM.lookup name labels of
@@ -204,7 +203,7 @@ spawnDispatcher :: (Show a)
                 -> Trace.Trace IO a
                 -> Trace.Trace IO a
                 -> IO (Async.Async ())
-spawnDispatcher evqueue sbtrace trace = do
+spawnDispatcher evqueue sbtrace trace0 = do
     now <- getCurrentTime
     let messageCounters = resetCounters now
     countersMVar <- newMVar messageCounters
@@ -221,8 +220,8 @@ spawnDispatcher evqueue sbtrace trace = do
         maybeItem <- atomically $ TBQ.readTBQueue evqueue
         case maybeItem of
             Just obj@(LogObject logname meta content) -> do
-                trace' <- Trace.appendName logname trace
-                Trace.traceNamedObject trace' (meta, content)
+                trace1 <- Trace.appendName logname trace0
+                Trace.traceNamedObject trace1 (meta, content)
                 -- increase the counter for the type of message
                 modifyMVar_ counters $ \cnt -> return $ updateMessageCounters cnt obj
                 qProc counters

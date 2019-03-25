@@ -26,7 +26,6 @@ module Cardano.BM.Data.Tracer
     ) where
 
 import           Control.Monad (void)
-import           Data.Functor.Contravariant (Op (..))
 import           Data.Text (Text, unpack)
 
 import           Cardano.BM.Data.LogItem (LoggerName,
@@ -34,9 +33,7 @@ import           Cardano.BM.Data.LogItem (LoggerName,
                      PrivacyAnnotation (..),
                      PrivacyAndSeverityAnnotated (..), mkLOMeta)
 import           Cardano.BM.Data.Severity (Severity (..))
-import           Cardano.BM.Tracer.Class
-import           Cardano.BM.Tracer.Output
-import           Cardano.BM.Tracer.Transformers
+import           Cardano.BM.Tracer
 
 \end{code}
 %endif
@@ -137,7 +134,7 @@ class Monad m => ToLogObject m where
 
 instance ToLogObject IO where
     toLogObject :: Tracer IO (LogObject a) -> Tracer IO a
-    toLogObject tr = Tracer $ Op $ \a -> do
+    toLogObject tr = Tracer $ \a -> do
         lo <- LogObject <$> pure ""
                         <*> (mkLOMeta Debug Public)
                         <*> pure (LogMessage a)
@@ -188,9 +185,10 @@ A |Tracer| transformer creating a |LogObject| from |PrivacyAndSeverityAnnotated|
 logObjectFromAnnotated :: Show a
     => Tracer IO (LogObject a)
     -> Tracer IO (PrivacyAndSeverityAnnotated a)
-logObjectFromAnnotated (Tracer (Op tr)) = Tracer $ Op $ \(PSA sev priv a) -> do
+-- logObjectFromAnnotated (Tracer (Op tr)) = Tracer $ Op $ \(PSA sev priv a) -> do
+logObjectFromAnnotated tr = Tracer $ \(PSA sev priv a) -> do
     lometa <- mkLOMeta sev priv
-    tr $ LogObject "" lometa (LogMessage a)
+    tracingWith tr $ LogObject "" lometa (LogMessage a)
 
 \end{code}
 
