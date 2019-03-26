@@ -6,6 +6,7 @@
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
 
 module Cardano.BM.Output.Editor
     (
@@ -33,12 +34,13 @@ import           Cardano.BM.Configuration
 import qualified Cardano.BM.Configuration.Model as CM
 import           Cardano.BM.Data.AggregatedKind
 import           Cardano.BM.Data.Backend
-import           Cardano.BM.Data.BackendKind (BackendKind(EditorBK))
-import           Cardano.BM.Data.LogItem (LoggerName)
+import           Cardano.BM.Data.BackendKind (BackendKind (EditorBK))
+import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.Output (ScribeId)
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.SubTrace
 import           Cardano.BM.Data.Trace
+import           Cardano.BM.Output.LogBuffer
 
 \end{code}
 %endif
@@ -64,8 +66,8 @@ newtype Editor a = Editor
 
 data EditorInternal a = EditorInternal
     { edSBtrace :: Trace IO a
-    , edWindow  :: Maybe Window
     , edThread  :: Async.Async ()
+    , edBuffer  :: LogBuffer a
     }
 
 \end{code}
@@ -84,17 +86,21 @@ instance Show a => IsBackend Editor a where
         let gui = Editor gref
         port <- getGUIport config
         when (port <= 0) $ error "cannot create GUI"
+
+        -- local |LogBuffer|
+        logbuf :: Cardano.BM.Output.LogBuffer.LogBuffer a <- Cardano.BM.Output.LogBuffer.realize config
+
         thd <- Async.async $
             startGUI defaultConfig { jsPort       = Just port
-                                    , jsAddr       = Just "127.0.0.1"
-                                    , jsStatic     = Just "iohk-monitoring/static"
-                                    , jsCustomHTML = Just "configuration-editor.html"
-                                    } $ prepare gui config
+                                   , jsAddr       = Just "127.0.0.1"
+                                   , jsStatic     = Just "iohk-monitoring/static"
+                                   , jsCustomHTML = Just "configuration-editor.html"
+                                   } $ prepare gui config
         Async.link thd
         putMVar gref $ EditorInternal
                         { edSBtrace = sbtrace
-                        , edWindow = Nothing
                         , edThread = thd
+                        , edBuffer = logbuf
                         }
         return gui
 
@@ -108,21 +114,23 @@ instance Show a => IsBackend Editor a where
 Function |effectuate| is called to pass in a |LogObject| for display in the GUI.
 \begin{code}
 instance IsEffectuator Editor a where
-    effectuate _editor _item = do
-        return ()
+    effectuate editor item =
+        withMVar (getEd editor) $ \ed ->
+            effectuate (edBuffer ed) item
 
     handleOverflow _ = TIO.hPutStrLn stderr "Notice: overflow in Editor!"
 
 \end{code}
 
+\subsubsection{Prepare the view}
 \begin{code}
 
-data Cmd = Backends | Scribes | Severities | SubTrace | Aggregation
+data Cmd = Backends | Scribes | Severities | SubTrace | Aggregation | Buffer
            deriving (Enum, Eq, Show, Read)
 
-prepare :: Editor a -> Configuration -> Window -> UI ()
-prepare _editor config window = void $ do
-    let commands = [Backends .. Aggregation]
+prepare :: Show a => Editor a -> Configuration -> Window -> UI ()
+prepare editor config window = void $ do
+    let commands = [Backends .. ]
 
     inputKey   <- UI.input #. "w3-input w3-border" # set UI.size "34"
     inputValue <- UI.input #. "w3-input w3-border" # set UI.size "60"
@@ -154,6 +162,7 @@ prepare _editor config window = void $ do
         removeItem Scribes     k = CM.setScribes        config k Nothing
         removeItem SubTrace    k = CM.setSubTrace       config k Nothing
         removeItem Aggregation k = CM.setAggregatedKind config k Nothing
+        removeItem Buffer     _k = pure ()
 
     let updateItem Backends    k v = case (readMay v :: Maybe [BackendKind]) of
                                          Nothing -> setError "parse error on backend list"
@@ -170,6 +179,7 @@ prepare _editor config window = void $ do
         updateItem Aggregation k v = case (readMay v :: Maybe AggregatedKind) of
                                          Nothing -> setError "parse error on aggregated kind"
                                          Just v' -> liftIO $ CM.setAggregatedKind config k $ Just v'
+        updateItem Buffer    _k _v = pure ()
 
     disable inputKey
     disable inputValue
@@ -183,6 +193,11 @@ prepare _editor config window = void $ do
     let saveItemButton         = performActionOnId saveItemButtonId
     let cancelSaveItemButton   = performActionOnId cancelSaveItemButtonId
 
+    let mkSimpleRow :: Show t => LoggerName -> t -> UI Element
+        mkSimpleRow n v = UI.tr #. "itemrow" #+
+            [ UI.td #+ [ string (unpack n) ]
+            , UI.td #+ [ string (show v) ]
+            ]
     let mkTableRow :: Show t => Cmd -> LoggerName -> t -> UI Element
         mkTableRow cmd n v = UI.tr #. "itemrow" #+
             [ UI.td #+ [ string (unpack n) ]
@@ -223,14 +238,13 @@ prepare _editor config window = void $ do
             forM_ otherTabs $ \tabName ->
                 performActionOnId (show tabName) $ setClasses baseClasses
 
-    let showCorrespondingItems cmd sel = do
+    let displayItems cmd sel = do
             showCurrentTab cmd
             rememberCurrent cmd
             saveItemButton disable
             cancelSaveItemButton disable
             performActionOnId addItemButtonId enable
             performActionOnId outputTableId $ \t -> void $ element t # set children []
-            cg <- liftIO $ readMVar (CM.getCG config)
             performActionOnId outputTableId $
                 \t -> void $ element t #+
                     [ UI.tr #+
@@ -239,15 +253,40 @@ prepare _editor config window = void $ do
                         , UI.th #+ [ string "" ]
                         ]
                     ]
+            cg <- liftIO $ readMVar (CM.getCG config)
             forM_ (HM.toList $ sel cg) $
                 \(n,v) -> performActionOnId outputTableId $
                     \t -> void $ element t #+ [ mkTableRow cmd n v ]
 
-    let switchToTab c@Backends    = showCorrespondingItems c CM.cgMapBackend
-        switchToTab c@Severities  = showCorrespondingItems c CM.cgMapSeverity
-        switchToTab c@Scribes     = showCorrespondingItems c CM.cgMapScribe
-        switchToTab c@SubTrace    = showCorrespondingItems c CM.cgMapSubtrace
-        switchToTab c@Aggregation = showCorrespondingItems c CM.cgMapAggregatedKind
+    let displayBuffer cmd sel = do
+            showCurrentTab cmd
+            rememberCurrent cmd
+            saveItemButton disable
+            cancelSaveItemButton disable
+            performActionOnId addItemButtonId disable
+            performActionOnId outputTableId $ \t -> void $ element t # set children []
+            performActionOnId outputTableId $
+                \t -> void $ element t #+
+                    [ UI.tr #+
+                        [ UI.th #+ [ string "LoggerName" ]
+                        , UI.th #+ [ string $ show cmd <> " value" ]
+                        , UI.th #+ [ string "" ]
+                        ]
+                    ]
+            forM_ (sel) $
+                \(n,v) -> performActionOnId outputTableId $
+                    \t -> void $ element t #+ [ mkSimpleRow n v ]
+
+    let accessBufferMap = do
+            ed <- liftIO $ readMVar (getEd editor)
+            liftIO $ readBuffer $ edBuffer ed
+
+    let switchToTab c@Backends    = displayItems c $ CM.cgMapBackend
+        switchToTab c@Severities  = displayItems c $ CM.cgMapSeverity
+        switchToTab c@Scribes     = displayItems c $ CM.cgMapScribe
+        switchToTab c@SubTrace    = displayItems c $ CM.cgMapSubtrace
+        switchToTab c@Aggregation = displayItems c $ CM.cgMapAggregatedKind
+        switchToTab c@Buffer      = accessBufferMap >>= displayBuffer c
 
     let mkEditInputs =
             row [ element inputKey

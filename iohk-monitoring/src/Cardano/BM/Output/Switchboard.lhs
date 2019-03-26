@@ -23,7 +23,7 @@ module Cardano.BM.Output.Switchboard
 
 import qualified Control.Concurrent.Async as Async
 import           Control.Concurrent.MVar (MVar, newEmptyMVar, newMVar,
-                     putMVar, readMVar, tryTakeMVar, withMVar, modifyMVar_)
+                     modifyMVar_, putMVar, readMVar, tryTakeMVar, withMVar)
 import           Control.Concurrent.STM (atomically, retry)
 import qualified Control.Concurrent.STM.TBQueue as TBQ
 import           Control.Exception.Safe (throwM)
@@ -173,7 +173,9 @@ evalMonitoringAction c item = return [item]
 instance (Show a, ToJSON a) => IsBackend Switchboard a where
     typeof _ = SwitchboardBK
 
-    realize cfg =
+    realize cfg = do
+        -- we setup |LogBuffer| explicitly so we can access it as a |Backend| and as |LogBuffer|
+        logbuf :: Cardano.BM.Output.LogBuffer.LogBuffer a <- Cardano.BM.Output.LogBuffer.realize cfg
         let spawnDispatcher
                 :: (Show a)
                 => [(BackendKind, Backend a)]
@@ -215,8 +217,8 @@ instance (Show a, ToJSON a) => IsBackend Switchboard a where
                                         \cnt -> return $ updateMessageCounters cnt nli
 
                                 Config.findSubTrace cfg loname >>= \case
-                                    Just (TeeTrace secName) ->
-                                        atomically $ TBQ.writeTBQueue queue $ nli{ loName = secName }
+                                    Just (TeeTrace sndName) ->
+                                        atomically $ TBQ.writeTBQueue queue $ nli{ loName = loname <> "." <> sndName }
                                     _ -> return ()
 
                                 case loitem of
@@ -229,6 +231,10 @@ instance (Show a, ToJSON a) => IsBackend Switchboard a where
                                     (MonitoringEffect inner) -> do
                                         sendMessage (inner {loName = loname}) (filter (/= MonitoringBK))
                                         return True
+                                    (Command (DumpBufferedTo bk)) -> do
+                                        msgs <- Cardano.BM.Output.LogBuffer.readBuffer logbuf
+                                        forM_ msgs (\(lonm, lobj) -> sendMessage (lobj {loName = lonm}) (const [bk]))
+                                        return True
                                     _ -> do
                                         sendMessage nli id
                                         return True
@@ -237,15 +243,13 @@ instance (Show a, ToJSON a) => IsBackend Switchboard a where
                         when (and res) $ qProc counters
 
                 Async.async $ qProc countersMVar
-        in do
+
         q <- atomically $ TBQ.newTBQueue 2048
         sbref <- newEmptyMVar
         let sb :: Switchboard a = Switchboard sbref
 
         backends <- getSetupBackends cfg
         bs0 <- setupBackends backends cfg sb
-        -- we setup |LogBuffer| explicitly so we can access it as a |Backend| and as |LogBuffer|
-        logbuf :: Cardano.BM.Output.LogBuffer.LogBuffer a <- Cardano.BM.Output.LogBuffer.realize cfg
         bs1 <- return (LogBufferBK, MkBackend
                             { bEffectuate = Cardano.BM.Output.LogBuffer.effectuate logbuf
                             , bUnrealize = Cardano.BM.Output.LogBuffer.unrealize logbuf
@@ -310,7 +314,6 @@ setupBackend' MonitoringBK c sb = do
       , bUnrealize = Cardano.BM.Output.Monitoring.unrealize be
       }
 #else
--- We need it anyway, to avoid "Non-exhaustive patterns" warning.
 setupBackend' MonitoringBK _ _ = do
     TIO.hPutStrLn stderr "disabled! will not setup backend 'Monitoring'"
     return Nothing
@@ -325,7 +328,6 @@ setupBackend' EKGViewBK c sb = do
       , bUnrealize = Cardano.BM.Output.EKGView.unrealize be
       }
 #else
--- We need it anyway, to avoid "Non-exhaustive patterns" warning.
 setupBackend' EKGViewBK _ _ = do
     TIO.hPutStrLn stderr "disabled! will not setup backend 'EKGView'"
     return Nothing
@@ -340,20 +342,23 @@ setupBackend' AggregationBK c sb = do
       , bUnrealize = Cardano.BM.Output.Aggregation.unrealize be
       }
 #else
--- We need it anyway, to avoid "Non-exhaustive patterns" warning.
 setupBackend' AggregationBK _ _ = do
     TIO.hPutStrLn stderr "disabled! will not setup backend 'Aggregation'"
     return Nothing
 #endif
 #ifdef ENABLE_GUI
 setupBackend' EditorBK c sb = do
-    let trace = mainTraceConditionally c sb
-
-    be :: Cardano.BM.Output.Editor.Editor a <- Cardano.BM.Output.Editor.realizefrom c trace sb
-    return $ Just MkBackend
-      { bEffectuate = Cardano.BM.Output.Editor.effectuate be
-      , bUnrealize = Cardano.BM.Output.Editor.unrealize be
-      }
+    port <- Config.getGUIport c
+    if port > 0
+    then do
+        let trace = mainTraceConditionally c sb
+        be :: Cardano.BM.Output.Editor.Editor a <- Cardano.BM.Output.Editor.realizefrom c trace sb
+        return $ Just MkBackend
+            { bEffectuate = Cardano.BM.Output.Editor.effectuate be
+            , bUnrealize = Cardano.BM.Output.Editor.unrealize be
+            }
+    else
+        return Nothing
 #else
 setupBackend' EditorBK _ _ = do
     TIO.hPutStrLn stderr "disabled! will not setup backend 'Editor'"
@@ -362,8 +367,8 @@ setupBackend' EditorBK _ _ = do
 setupBackend' KatipBK c _ = do
     be :: Cardano.BM.Output.Log.Log a <- Cardano.BM.Output.Log.realize c
     return $ Just MkBackend
-      { bEffectuate = Cardano.BM.Output.Log.effectuate be
-      , bUnrealize = Cardano.BM.Output.Log.unrealize be
-      }
+        { bEffectuate = Cardano.BM.Output.Log.effectuate be
+        , bUnrealize = Cardano.BM.Output.Log.unrealize be
+        }
 setupBackend' LogBufferBK _ _ = return Nothing
 \end{code}
