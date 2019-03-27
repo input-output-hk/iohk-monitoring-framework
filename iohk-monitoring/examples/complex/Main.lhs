@@ -13,7 +13,7 @@
 #define RUN_ProcObseverSTM
 #define RUN_ProcObseveDownload
 #define RUN_ProcRandom
-#define RUN_ProcBufferDump
+#undef RUN_ProcBufferDump
 
 module Main
   ( main )
@@ -33,9 +33,6 @@ import           Network.Download (openURI)
 import           Data.Text (Text, pack)
 import           System.Random
 
-#ifdef ENABLE_GUI
-import qualified Cardano.BM.Configuration.Editor as CME
-#endif
 import           Cardano.BM.Configuration (Configuration)
 import qualified Cardano.BM.Configuration.Model as CM
 import           Cardano.BM.Data.Aggregated (Measurable (..))
@@ -51,7 +48,6 @@ import           Cardano.BM.Data.Observable
 import           Cardano.BM.Observer.Monadic (bracketObserveIO)
 import qualified Cardano.BM.Observer.STM as STM
 #endif
-import           Cardano.BM.Output.Switchboard
 import           Cardano.BM.Setup
 import           Cardano.BM.Trace
 
@@ -72,6 +68,9 @@ prepare_configuration = do
 #endif
 #ifdef ENABLE_EKG
                           , EKGViewBK
+#endif
+#ifdef ENABLE_GUI
+                          , EditorBK
 #endif
                           ]
     CM.setDefaultBackends c [KatipBK]
@@ -151,7 +150,7 @@ prepare_configuration = do
 #ifdef ENABLE_AGGREGATION
     CM.setBackends c "complex.message" (Just [AggregationBK, KatipBK])
     CM.setBackends c "complex.random" (Just [AggregationBK, KatipBK])
-    CM.setBackends c "complex.random.ewma" (Just [AggregationBK])
+    CM.setBackends c "complex.random.ewma" (Just [AggregationBK, KatipBK])
     CM.setBackends c "complex.observeIO" (Just [AggregationBK])
 #endif
     forM_ [(1::Int)..10] $ \x -> do
@@ -167,22 +166,26 @@ prepare_configuration = do
     CM.setAggregatedKind c "complex.random.rr" (Just StatsAK)
     CM.setAggregatedKind c "complex.random.ewma.rr" (Just (EwmaAK 0.42))
 
-    CM.setBackends c "#aggregation.complex.random" (Just [LogBufferBK])
+#ifdef ENABLE_GUI
+    CM.setBackends c "#aggregation.complex.random" (Just [EditorBK])
+    CM.setBackends c "#aggregation.complex.random.ewma" (Just [EditorBK])
+    CM.setBackends c "#messagecounters.switchboard" (Just [EditorBK, KatipBK])
+#endif
 
 #ifdef ENABLE_EKG
     CM.setBackends c "#aggregation.complex.message" (Just [EKGViewBK])
     CM.setBackends c "#aggregation.complex.observeIO" (Just [EKGViewBK])
-    CM.setBackends c "#aggregation.complex.random.ewma" (Just [EKGViewBK])
     CM.setEKGport c 12789
 #endif
+#ifdef ENABLE_GUI
     CM.setGUIport c 13789
-
+#endif
     return c
 
 \end{code}
 
 \subsubsection{Dump the log buffer periodically}
-\begin{code}
+\begin{spec}
 dumpBuffer :: Switchboard Text -> Trace IO Text -> IO (Async.Async ())
 dumpBuffer sb trace = do
   logInfo trace "starting buffer dump"
@@ -196,7 +199,7 @@ dumpBuffer sb trace = do
             tr' <- modifyName (\n -> "#buffer." <> n <> logname) tr
             traceNamedObject tr' (lometa, locontent)
         loop tr
-\end{code}
+\end{spec}
 
 \subsubsection{Thread that outputs a random number to a |Trace|}
 \begin{code}
@@ -309,13 +312,8 @@ main = do
     -- create configuration
     c <- prepare_configuration
 
-#ifdef ENABLE_GUI
-    -- start configuration editor
-    CME.startup c
-#endif
-
     -- create initial top-level Trace
-    (tr :: Trace IO Text, sb) <- setupTrace_ c "complex"
+    (tr :: Trace IO Text, _sb) <- setupTrace_ c "complex"
 
     logNotice tr "starting program; hit CTRL-C to terminate"
 -- user can watch the progress only if EKG is enabled.

@@ -12,6 +12,7 @@ module Cardano.BM.Data.LogItem
   ( LogObject (..)
   , LOMeta (..), mkLOMeta
   , LOContent (..)
+  , CommandValue (..)
   , LoggerName
   , PrivacyAnnotation (..)
   , PrivacyAndSeverityAnnotated (..)
@@ -25,6 +26,7 @@ import           Data.Time.Clock (UTCTime, getCurrentTime)
 import           GHC.Generics (Generic)
 
 import           Cardano.BM.Data.Aggregated (Aggregated (..), Measurable (..))
+import           Cardano.BM.Data.BackendKind
 import           Cardano.BM.Data.Counter
 import           Cardano.BM.Data.Severity
 
@@ -45,26 +47,27 @@ type LoggerName = Text
 
 \begin{code}
 data LogObject a = LogObject
-                    { loName    :: LoggerName
-                    , loMeta    :: !LOMeta
-                    , loContent :: (LOContent a)
-                    }
-                   deriving (Generic, Show, ToJSON)
+                     { loName    :: LoggerName
+                     , loMeta    :: !LOMeta
+                     , loContent :: (LOContent a)
+                     }
+                     deriving (Generic, Show, ToJSON)
 
 \end{code}
 
+\label{code:mkLOMeta}\index{mkLOMeta}
 Meta data for a |LogObject|.
 Text was selected over ThreadId in order to be able to use the logging system
 under SimM of ouroboros-network because ThreadId from Control.Concurrent lacks a Read
 instance.
 \begin{code}
 data LOMeta = LOMeta {
-                tstamp   :: {-# UNPACK #-} !UTCTime
-              , tid      :: {-# UNPACK #-} !Text
-              , severity :: !Severity
-              , privacy  :: !PrivacyAnnotation
-              }
-              deriving (Show)
+                  tstamp   :: {-# UNPACK #-} !UTCTime
+                , tid      :: {-# UNPACK #-} !Text
+                , severity :: !Severity
+                , privacy  :: !PrivacyAnnotation
+                }
+                deriving (Show)
 
 instance ToJSON LOMeta where
     toJSON (LOMeta _tstamp _tid _sev _priv) =
@@ -90,6 +93,8 @@ mkLOMeta sev priv =
 \label{code:ObserveClose}\index{ObserveClose}
 \label{code:AggregatedMessage}\index{AggregatedMessage}
 \label{code:MonitoringEffect}\index{MonitoringEffect}
+\label{code:Command}\index{Command}
+\label{code:KillPill}\index{KillPill}
 Payload of a |LogObject|:
 \begin{code}
 data LOContent a = LogMessage a
@@ -99,11 +104,22 @@ data LOContent a = LogMessage a
                  | ObserveClose CounterState
                  | AggregatedMessage [(Text, Aggregated)]
                  | MonitoringEffect (LogObject a)
+                 | Command CommandValue
                  | KillPill
                    deriving (Generic, Show, ToJSON)
 
 \end{code}
 
+\label{code:CommandValue}\index{CommandValue}
+Backends can enter commands to the trace. Commands will end up in the
+|Switchboard|, which will interpret them and take action.
+\begin{code}
+data CommandValue = DumpBufferedTo BackendKind
+                    deriving (Generic, Show, ToJSON)
+
+\end{code}
+
+\subsubsection{Privacy annotation}
 \label{code:PrivacyAnnotation}\index{PrivacyAnnotation}
 \label{code:Confidential}\index{PrivacyAnnotation!Confidential}
 \label{code:Public}\index{PrivacyAnnotation!Public}
@@ -118,11 +134,10 @@ data PrivacyAnnotation =
 Data structure for annotating the severity and privacy of an object.
 \begin{code}
 data PrivacyAndSeverityAnnotated a
-            = PSA
-                { psaSeverity :: !Severity
-                , psaPrivacy  :: !PrivacyAnnotation
-                , psaPayload  :: a
-                }
+            = PSA { psaSeverity :: !Severity
+                  , psaPrivacy  :: !PrivacyAnnotation
+                  , psaPayload  :: a
+                  }
               deriving (Show)
 
 \end{code}

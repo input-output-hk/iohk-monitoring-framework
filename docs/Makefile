@@ -6,7 +6,6 @@ SOURCES = Code.lhs \
 					$(SRCDIR1)/Cardano/BM/Configuration.lhs \
 					$(SRCDIR1)/Cardano/BM/Configuration/Model.lhs \
 					$(SRCDIR1)/Cardano/BM/Configuration/Static.lhs \
-					$(SRCDIR1)/Cardano/BM/Configuration/Editor.lhs \
 					$(SRCDIR1)/Cardano/BM/Counters.lhs \
 					$(SRCDIR1)/Cardano/BM/Counters/Common.lhs \
 					$(SRCDIR1)/Cardano/BM/Counters/Dummy.lhs \
@@ -29,6 +28,7 @@ SOURCES = Code.lhs \
 					$(SRCDIR1)/Cardano/BM/Observer/Monadic.lhs \
 					$(SRCDIR1)/Cardano/BM/Observer/STM.lhs \
 					$(SRCDIR1)/Cardano/BM/Output/Aggregation.lhs \
+					$(SRCDIR1)/Cardano/BM/Output/Editor.lhs \
 					$(SRCDIR1)/Cardano/BM/Output/EKGView.lhs \
 					$(SRCDIR1)/Cardano/BM/Output/Log.lhs \
 					$(SRCDIR1)/Cardano/BM/Output/LogBuffer.lhs \
