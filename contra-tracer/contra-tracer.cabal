@@ -1,4 +1,4 @@
-name:                basic-tracer
+name:                contra-tracer
 version:             0.1.0.0
 synopsis:            A simple interface for logging, tracing or monitoring.
 -- description:
@@ -14,12 +14,12 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs:      src
-  exposed-modules:     Cardano.BM.Tracer
+  exposed-modules:     Control.Tracer
 
   other-modules:
-                       Cardano.BM.Tracer.Class
-                       Cardano.BM.Tracer.Output
-                       Cardano.BM.Tracer.Transformers
+                       Control.Tracer.Class
+                       Control.Tracer.Output
+                       Control.Tracer.Transformers
 
   default-language:    Haskell2010
   build-depends:       base
@@ -35,7 +35,7 @@ test-suite tests
 
   default-language:    Haskell2010
   build-depends:       base,
-                       basic-tracer,
+                       contra-tracer,
 
                        QuickCheck,
                        tasty,

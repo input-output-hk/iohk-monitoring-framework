@@ -6,15 +6,15 @@
 
 %if style /= newcode
 
-%format Cardano.BM.Tracer = "\hyperref[code:Cardano.BM.Tracer]{Cardano.BM.Tracer}"
-%format Cardano.BM.Tracer.Class = "\hyperref[code:Cardano.BM.Tracer.Class]{Cardano.BM.Tracer.Class}"
+%format Control.Tracer = "\hyperref[code:Control.Tracer]{Control.Tracer}"
+%format Control.Tracer.Class = "\hyperref[code:Control.Tracer.Class]{Control.Tracer.Class}"
 %format Tracer = "\hyperref[code:Tracer]{Tracer}"
 %format nullTracer = "\hyperref[code:nullTracer]{nullTracer}"
-%format tracingWith = "\hyperref[code:tracingWith]{tracingWith}"
-%format Cardano.BM.Tracer.Output = "\hyperref[code:Cardano.BM.Tracer.Output]{Cardano.BM.Tracer.Output}"
+%format traceWith = "\hyperref[code:traceWith]{traceWith}"
+%format Control.Tracer.Output = "\hyperref[code:Control.Tracer.Output]{Control.Tracer.Output}"
 %format stdoutTracer = "\hyperref[code:stdoutTracer]{stdoutTracer}"
 %format debugTracer = "\hyperref[code:debugTracer]{debugTracer}"
-%format Cardano.BM.Tracer.Transformers = "\hyperref[code:Cardano.BM.Tracer.Transformers]{Cardano.BM.Tracer.Transformers}"
+%format Control.Tracer.Transformers = "\hyperref[code:Control.Tracer.Transformers]{Control.Tracer.Transformers}"
 %format condTracing = "\hyperref[code:condTracing]{condTracing}"
 %format condTracingM = "\hyperref[code:condTracingM]{condTracingM}"
 %format natTrace = "\hyperref[code:natTrace]{natTrace}"

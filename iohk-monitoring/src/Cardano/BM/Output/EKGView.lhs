@@ -44,8 +44,8 @@ import           Cardano.BM.Data.Backend
 import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.Trace
+import           Cardano.BM.Data.Tracer (Tracer (..))
 import qualified Cardano.BM.Trace as Trace
-import           Cardano.BM.Tracer (Tracer (..))
 
 \end{code}
 %endif
@@ -77,8 +77,8 @@ the messages that are being displayed by EKG.
 \begin{code}
 ekgTrace :: Show a => EKGView a -> Configuration -> IO (Trace IO a)
 ekgTrace ekg _c = do
-    let trace0 = ekgTrace' ekg
-    Trace.appendName "#ekgview" trace0
+    let basetrace = ekgTrace' ekg
+    Trace.appendName "#ekgview" basetrace
   where
     ekgTrace' :: Show a => EKGView a -> Tracer IO (LogObject a)
     ekgTrace' ekgview = Tracer $ \lo@(LogObject loname _ _) -> do
@@ -203,7 +203,7 @@ spawnDispatcher :: (Show a)
                 -> Trace.Trace IO a
                 -> Trace.Trace IO a
                 -> IO (Async.Async ())
-spawnDispatcher evqueue sbtrace trace0 = do
+spawnDispatcher evqueue sbtrace basetrace = do
     now <- getCurrentTime
     let messageCounters = resetCounters now
     countersMVar <- newMVar messageCounters
@@ -220,8 +220,8 @@ spawnDispatcher evqueue sbtrace trace0 = do
         maybeItem <- atomically $ TBQ.readTBQueue evqueue
         case maybeItem of
             Just obj@(LogObject logname meta content) -> do
-                trace1 <- Trace.appendName logname trace0
-                Trace.traceNamedObject trace1 (meta, content)
+                trace <- Trace.appendName logname basetrace
+                Trace.traceNamedObject trace (meta, content)
                 -- increase the counter for the type of message
                 modifyMVar_ counters $ \cnt -> return $ updateMessageCounters cnt obj
                 qProc counters

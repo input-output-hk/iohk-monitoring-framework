@@ -1,7 +1,7 @@
 resolver: lts-13.6
 compiler: ghc-8.6.3
 packages:
-- basic-tracer
+- contra-tracer
 - iohk-monitoring
 extra-deps:
 - time-units-1.0.0

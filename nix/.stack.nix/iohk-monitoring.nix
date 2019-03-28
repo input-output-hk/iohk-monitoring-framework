@@ -24,7 +24,7 @@
       "library" = {
         depends = (([
           (hsPkgs.base)
-          (hsPkgs.basic-tracer)
+          (hsPkgs.contra-tracer)
           (hsPkgs.aeson)
           (hsPkgs.array)
           (hsPkgs.async)
@@ -92,7 +92,7 @@
         "tests" = {
           depends = [
             (hsPkgs.base)
-            (hsPkgs.basic-tracer)
+            (hsPkgs.contra-tracer)
             (hsPkgs.iohk-monitoring)
             (hsPkgs.aeson)
             (hsPkgs.array)

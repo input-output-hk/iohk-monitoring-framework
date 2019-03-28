@@ -39,13 +39,13 @@ import           Cardano.BM.Configuration.Model (empty, setDefaultBackends,
                      setDefaultScribes, setSubTrace, setSetupBackends,
                      setSetupScribes)
 import           Cardano.BM.Configuration.Static (defaultConfigTesting)
-import qualified Cardano.BM.Tracer as Tracer
 import           Cardano.BM.Data.BackendKind (BackendKind (..))
 import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.Observable
 import           Cardano.BM.Data.Output
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.SubTrace
+import           Cardano.BM.Data.Tracer
 #ifdef ENABLE_OBSERVABLES
 import           Cardano.BM.Counters (diffTimeObserved, getMonoClock)
 import           Cardano.BM.Data.Aggregated
@@ -132,7 +132,7 @@ data TraceConfiguration = TraceConfiguration
 setupTrace :: TraceConfiguration -> IO (Trace IO Text)
 setupTrace (TraceConfiguration cfg outk name subTr) = do
     let logTrace = case outk of
-            TVarList tvar -> Tracer.natTracer liftIO $ traceInTVarIOConditionally tvar cfg
+            TVarList tvar -> natTracer liftIO $ traceInTVarIOConditionally tvar cfg
 
     setSubTrace cfg name (Just subTr)
     appendName name logTrace
@@ -263,13 +263,13 @@ unitHierarchy :: Assertion
 unitHierarchy = do
     cfg <- defaultConfigTesting
     msgs <- STM.newTVarIO []
-    trace0 <- setupTrace $ TraceConfiguration cfg (TVarList msgs) "test" Neutral
-    logInfo trace0 "This should have been displayed!"
+    basetrace <- setupTrace $ TraceConfiguration cfg (TVarList msgs) "test" Neutral
+    logInfo basetrace "This should have been displayed!"
 
     -- subtrace of trace which traces nothing
     setSubTrace cfg "test.inner" (Just NoTrace)
 
-    trace1 <- appendName "inner" trace0
+    trace1 <- appendName "inner" basetrace
     logInfo trace1 "This should NOT have been displayed!"
 
     setSubTrace cfg "test.inner.innermost" (Just Neutral)
@@ -336,12 +336,12 @@ unitTraceDuplicate :: Assertion
 unitTraceDuplicate = do
     cfg <- defaultConfigTesting
     msgs <- STM.newTVarIO []
-    trace0 <- setupTrace $ TraceConfiguration cfg (TVarList msgs) "test-duplicate" Neutral
-    logInfo trace0 "Message #1"
+    basetrace <- setupTrace $ TraceConfiguration cfg (TVarList msgs) "test-duplicate" Neutral
+    logInfo basetrace "Message #1"
 
     -- create a subtrace which duplicates all messages
     setSubTrace cfg "test-duplicate.orig" $ Just (TeeTrace "test-duplicate.dup")
-    trace <- appendName "orig" trace0
+    trace <- appendName "orig" basetrace
 
     -- this message will be duplicated
     logInfo trace "You will see me twice!"
@@ -364,8 +364,8 @@ unitNamedMinSeverity :: Assertion
 unitNamedMinSeverity = do
     cfg <- defaultConfigTesting
     msgs <- STM.newTVarIO []
-    trace0 <- setupTrace $ TraceConfiguration cfg (TVarList msgs) "test-named-severity" Neutral
-    trace <- appendName "sev-change" trace0
+    basetrace <- setupTrace $ TraceConfiguration cfg (TVarList msgs) "test-named-severity" Neutral
+    trace <- appendName "sev-change" basetrace
     logInfo trace "Message #1"
 
     -- raise the minimum severity to Warning
@@ -517,10 +517,10 @@ unitAppendName :: Assertion
 unitAppendName = do
     cfg <- defaultConfigTesting
     msgs <- STM.newTVarIO []
-    trace0 <- setupTrace $ TraceConfiguration cfg (TVarList msgs) "test" Neutral
-    trace1 <- appendName bigName trace0
+    basetrace <- setupTrace $ TraceConfiguration cfg (TVarList msgs) "test" Neutral
+    trace1 <- appendName bigName basetrace
     trace2 <- appendName bigName trace1
-    forM_ [trace0, trace1, trace2] $ (flip logInfo msg)
+    forM_ [basetrace, trace1, trace2] $ (flip logInfo msg)
     res <- reverse <$> STM.readTVarIO msgs
     let loggernames = map loName res
     assertBool
@@ -639,9 +639,9 @@ unitTestLazyEvaluation = do
     work :: Text -> IO (Async.Async ())
     work message = Async.async $ do
         cfg <- defaultConfigTesting
-        trace0 <- Setup.setupTrace (Right cfg) "test"
+        basetrace <- Setup.setupTrace (Right cfg) "test"
         setSubTrace cfg "test.work" (Just NoTrace)
-        trace <- appendName "work" trace0
+        trace <- appendName "work" basetrace
 
         logInfo trace message
 

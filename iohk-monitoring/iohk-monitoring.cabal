@@ -63,6 +63,7 @@ library
                        Cardano.BM.Data.Severity
                        Cardano.BM.Data.SubTrace
                        Cardano.BM.Data.Trace
+                       Cardano.BM.Data.Tracer
 
                        Cardano.BM.Output.Log
                        Cardano.BM.Output.LogBuffer
@@ -92,13 +93,13 @@ library
   else
     exposed-modules:   Cardano.BM.Counters.Dummy
 
-  other-modules:       Cardano.BM.Data.Tracer
+  other-modules:       
 
   default-language:    Haskell2010
   default-extensions:  OverloadedStrings
   other-extensions:    OverloadedStrings
   build-depends:       base >= 4.11,
-                       basic-tracer,
+                       contra-tracer,
                        aeson,
                        array,
                        async,
@@ -174,7 +175,7 @@ test-suite tests
   default-language:    Haskell2010
   default-extensions:  OverloadedStrings
   build-depends:       base,
-                       basic-tracer,
+                       contra-tracer,
                        iohk-monitoring,
 
                        aeson,

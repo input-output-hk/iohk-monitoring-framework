@@ -131,12 +131,12 @@ thus specializes its interface.}\label{fig:overview}
 
 %include ../iohk-monitoring/examples/complex/Main.lhs
 
-\section{Code listings - basic-tracer package}
+\section{Code listings - contra-tracer package}
 
-%include ../basic-tracer/src/Cardano/BM/Tracer.lhs
-%include ../basic-tracer/src/Cardano/BM/Tracer/Class.lhs
-%include ../basic-tracer/src/Cardano/BM/Tracer/Output.lhs
-%include ../basic-tracer/src/Cardano/BM/Tracer/Transformers.lhs
+%include ../contra-tracer/src/Control/Tracer.lhs
+%include ../contra-tracer/src/Control/Tracer/Class.lhs
+%include ../contra-tracer/src/Control/Tracer/Output.lhs
+%include ../contra-tracer/src/Control/Tracer/Transformers.lhs
 
 
 \section{Code listings - iohk-monitoring package}

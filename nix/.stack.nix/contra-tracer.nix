@@ -3,7 +3,7 @@
     flags = {};
     package = {
       specVersion = "1.10";
-      identifier = { name = "basic-tracer"; version = "0.1.0.0"; };
+      identifier = { name = "contra-tracer"; version = "0.1.0.0"; };
       license = "MIT";
       copyright = "2019 IOHK";
       maintainer = "operations@iohk.io";
@@ -24,7 +24,7 @@
         "tests" = {
           depends = [
             (hsPkgs.base)
-            (hsPkgs.basic-tracer)
+            (hsPkgs.contra-tracer)
             (hsPkgs.QuickCheck)
             (hsPkgs.tasty)
             (hsPkgs.tasty-hunit)
@@ -33,4 +33,4 @@
           };
         };
       };
-    } // rec { src = (pkgs.lib).mkDefault .././../basic-tracer; }
+    } // rec { src = (pkgs.lib).mkDefault .././../contra-tracer; }

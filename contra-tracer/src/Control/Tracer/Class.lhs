@@ -1,13 +1,13 @@
-\subsection{Cardano.BM.Tracer.Class}
-\label{code:Cardano.BM.Tracer.Class}
+\subsection{Control.Tracer.Class}
+\label{code:Control.Tracer.Class}
 
 %if style == newcode
 \begin{code}
-module Cardano.BM.Tracer.Class
+module Control.Tracer.Class
     ( Tracer (..)
     , Contravariant(..)
     , nullTracer
-    , tracingWith
+    , traceWith
     ) where
 
 import           Data.Functor.Contravariant (Contravariant (..))
@@ -24,7 +24,7 @@ annotate) such observations with additional information from their
 execution context.
 
 \begin{code}
-newtype Tracer m s = Tracer { trace :: s -> m () }
+newtype Tracer m a = Tracer { runTracer :: a -> m () }
 \end{code}
 
 \index{Tracer!instance of Contravariant}
@@ -67,10 +67,10 @@ nullTracer = Tracer $ \_ -> pure ()
 
 \end{code}
 
-\subsubsection{tracingWith}\label{code:tracingWith}\index{tracingWith}
+\subsubsection{traceWith}\label{code:traceWith}\index{traceWith}
 
 \begin{code}
-tracingWith :: Tracer m a -> a -> m ()
-tracingWith = trace
+traceWith :: Tracer m a -> a -> m ()
+traceWith = runTracer
 
 \end{code}

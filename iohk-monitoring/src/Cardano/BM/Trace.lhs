@@ -10,7 +10,7 @@ module Cardano.BM.Trace
     (
       Trace
     , stdoutTrace
-    , Tracer.nullTracer
+    , nullTracer
     , traceInTVar
     , traceInTVarIO
     , traceInTVarIOConditionally
@@ -52,8 +52,8 @@ import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.Trace
 import           Cardano.BM.Data.SubTrace
-import qualified Cardano.BM.Tracer as Tracer
-import           Cardano.BM.Tracer (Tracer (..), tracingWith)
+import           Cardano.BM.Data.Tracer (Tracer (..), natTracer, nullTracer,
+                     traceWith)
 
 \end{code}
 %endif
@@ -62,7 +62,7 @@ import           Cardano.BM.Tracer (Tracer (..), tracingWith)
 Natural transformation from monad |m| to monad |n|.
 \begin{code}
 natTrace :: (forall x . m x -> n x) -> Trace m a -> Trace n a
-natTrace nat trace0 = Tracer.natTracer nat trace0
+natTrace nat basetrace = natTracer nat basetrace
 
 \end{code}
 
@@ -85,7 +85,7 @@ appendWithDot xs newName = xs <> "." <> newName
 The context name is overwritten.
 \begin{code}
 modifyName :: MonadIO m => (LoggerName -> LoggerName) -> Trace m a -> m (Trace m a)
-modifyName f trace0 = return $ modifyNameBase f trace0
+modifyName f basetrace = return $ modifyNameBase f basetrace
 
 modifyNameBase
     :: (LoggerName -> LoggerName)
@@ -113,7 +113,7 @@ traceNamedObject
     -> (LOMeta, LOContent a)
     -> m ()
 traceNamedObject logTrace lo =
-    tracingWith (named logTrace) lo
+    traceWith (named logTrace) lo
 
 \end{code}
 
@@ -229,8 +229,8 @@ traceNamedItem
     -> Severity
     -> a
     -> m ()
-traceNamedItem trace0 p s m =
-    traceNamedObject trace0 =<<
+traceNamedItem logTrace p s m =
+    traceNamedObject logTrace =<<
         (,) <$> liftIO (mkLOMeta s p)
             <*> pure (LogMessage m)
 

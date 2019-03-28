@@ -1,10 +1,10 @@
 
 packages: ./iohk-monitoring
-          ./basic-tracer
+          ./contra-tracer
 
 package iohk-monitoring
   tests: True
 
-package basic-tracer
+package contra-tracer
   tests: False
 

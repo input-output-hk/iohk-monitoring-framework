@@ -8,8 +8,10 @@
 
 module Cardano.BM.Data.Tracer
     ( Tracer (..)
-    , Contravariant(..)
-    -- * tracers
+    , traceWith
+    -- , Contravariant(..)
+    -- * tracer transformers
+    , natTracer
     , nullTracer
     , stdoutTracer
     , debugTracer
@@ -33,7 +35,7 @@ import           Cardano.BM.Data.LogItem (LoggerName,
                      PrivacyAnnotation (..),
                      PrivacyAndSeverityAnnotated (..), mkLOMeta)
 import           Cardano.BM.Data.Severity (Severity (..))
-import           Cardano.BM.Tracer
+import           Control.Tracer
 
 \end{code}
 %endif
@@ -46,7 +48,7 @@ for further processing of the messages.
 \begin{verbatim}
    +-----------------------+
    |                       |
-   |  ouroboros network    |
+   |    external code      |
    |                       |
    +----------+------------+
               |
@@ -138,7 +140,7 @@ instance ToLogObject IO where
         lo <- LogObject <$> pure ""
                         <*> (mkLOMeta Debug Public)
                         <*> pure (LogMessage a)
-        tracingWith tr lo
+        traceWith tr lo
 
 \end{code}
 
@@ -170,12 +172,12 @@ example2 = do
 callFun2 :: Tracer IO (LogObject Text) -> IO Int
 callFun2 logTrace = do
     let logTrace' = appendNamed' "fun2" logTrace
-    tracingWith (tracingNamed logTrace') "in function 2"
+    traceWith (tracingNamed logTrace') "in function 2"
     callFun3 logTrace'
 
 callFun3 :: Tracer IO (LogObject Text) -> IO Int
 callFun3 logTrace = do
-    tracingWith (tracingNamed (appendNamed' "fun3" logTrace)) "in function 3"
+    traceWith (tracingNamed (appendNamed' "fun3" logTrace)) "in function 3"
     return 42
 
 \end{code}
@@ -187,7 +189,7 @@ logObjectFromAnnotated :: Show a
     -> Tracer IO (PrivacyAndSeverityAnnotated a)
 logObjectFromAnnotated tr = Tracer $ \(PSA sev priv a) -> do
     lometa <- mkLOMeta sev priv
-    tracingWith tr $ LogObject "" lometa (LogMessage a)
+    traceWith tr $ LogObject "" lometa (LogMessage a)
 
 \end{code}
 
@@ -197,8 +199,8 @@ example3 = do
     let logTrace =
             logObjectFromAnnotated $ appendNamed' "example3" $ renderNamedItemTracing' stdoutTracer
 
-    tracingWith logTrace $ PSA Info Confidential ("Hello" :: String)
-    tracingWith logTrace $ PSA Warning Public "World"
+    traceWith logTrace $ PSA Info Confidential ("Hello" :: String)
+    traceWith logTrace $ PSA Warning Public "World"
 
 \end{code}
 
@@ -215,13 +217,13 @@ example4 = do
     let appendF = filterAppendNameTracing oracle
         logTrace = appendF "example4" (renderNamedItemTracing stdoutTracer)
 
-    tracingWith (named logTrace) ("Hello" :: String)
+    traceWith (named logTrace) ("Hello" :: String)
 
     let logTrace' = appendF "inner" logTrace
-    tracingWith (named logTrace') "World"
+    traceWith (named logTrace') "World"
 
     let logTrace'' = appendF "innest" logTrace'
-    tracingWith (named logTrace'') "!!"
+    traceWith (named logTrace'') "!!"
   where
     oracle :: Monad m => m (LogNamed a -> Bool)
     oracle = return $ ((/=) "example4.inner.") . lnName
@@ -238,8 +240,8 @@ example5 = do
                 logObjectFromAnnotated $
                     appendNamed' "test5" $ renderNamedItemTracing' stdoutTracer
 
-    tracingWith logTrace $ PSA Debug Confidential ("Hello"::String)
-    tracingWith logTrace $ PSA Warning Public "World"
+    traceWith logTrace $ PSA Debug Confidential ("Hello"::String)
+    traceWith logTrace $ PSA Warning Public "World"
 
   where
     oracle :: Monad m => m (PrivacyAndSeverityAnnotated a -> Bool)
@@ -257,11 +259,11 @@ example6 = do
         logTrace3 =  -- oracle should eliminate messages from this trace
             appendNamed' "raw" $ condTracingM oracleName $ logTrace0
 
-    tracingWith logTrace1 $ PSA Debug Confidential ("Hello" :: String)
-    tracingWith logTrace1 $ PSA Warning Public "World"
+    traceWith logTrace1 $ PSA Debug Confidential ("Hello" :: String)
+    traceWith logTrace1 $ PSA Warning Public "World"
     lometa <- mkLOMeta Info Public
-    tracingWith logTrace2 $ LogObject "" lometa (LogMessage ", RoW!")
-    tracingWith logTrace3 $ LogObject "" lometa (LogMessage ", RoW!")
+    traceWith logTrace2 $ LogObject "" lometa (LogMessage ", RoW!")
+    traceWith logTrace3 $ LogObject "" lometa (LogMessage ", RoW!")
 
   where
     oracleSev :: Monad m => m (PrivacyAndSeverityAnnotated a -> Bool)

@@ -1,15 +1,15 @@
 
-\subsection{Cardano.BM.Tracer}
-\label{code:Cardano.BM.Tracer}
+\subsection{Control.Tracer}
+\label{code:Control.Tracer}
 
 %if style == newcode
 \begin{code}
 
-module Cardano.BM.Tracer
+module Control.Tracer
     ( Tracer (..)
     , Contravariant(..)
     -- * tracing
-    , tracingWith
+    , traceWith
     -- * tracers
     , nullTracer
     , stdoutTracer
@@ -25,9 +25,9 @@ module Cardano.BM.Tracer
 
 import           Control.Monad (void)
 
-import           Cardano.BM.Tracer.Class
-import           Cardano.BM.Tracer.Output
-import           Cardano.BM.Tracer.Transformers
+import           Control.Tracer.Class
+import           Control.Tracer.Output
+import           Control.Tracer.Transformers
 
 \end{code}
 %endif
@@ -35,7 +35,7 @@ import           Cardano.BM.Tracer.Transformers
 Tracing using the contravariant |Tracer| naturally reads:
 
 \begin{spec}
-let logTrace = tracing $ showTracing $ stdoutTracer
+let logTrace = traceWith $ showTracing $ stdoutTracer
 in  logTrace "hello world"
 \end{spec}
 
@@ -43,7 +43,7 @@ in  logTrace "hello world"
 
 example1 :: IO ()
 example1 = do
-    let logTrace a = tracingWith (showTracing (contramap ("Debug: " ++) stdoutTracer)) a
+    let logTrace a = traceWith (showTracing (contramap ("Debug: " ++) stdoutTracer)) a
     void $ callFun1 logTrace
 
 callFun1 :: (String -> IO ()) -> IO Int

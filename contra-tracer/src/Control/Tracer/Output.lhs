@@ -1,9 +1,9 @@
-\subsection{Cardano.BM.Tracer.Output}
-\label{code:Cardano.BM.Tracer.Output}
+\subsection{Control.Tracer.Output}
+\label{code:Control.Tracer.Output}
 
 %if style == newcode
 \begin{code}
-module Cardano.BM.Tracer.Output
+module Control.Tracer.Output
     ( stdoutTracer
     , debugTracer
     ) where
@@ -11,7 +11,7 @@ module Cardano.BM.Tracer.Output
 import           Control.Monad.IO.Class (MonadIO(..))
 import           Debug.Trace (traceM)
 
-import           Cardano.BM.Tracer.Class
+import           Control.Tracer.Class
 
 \end{code}
 %endif

@@ -45,11 +45,10 @@ import           Cardano.BM.Data.MessageCounter (resetCounters, sendAndResetAfte
                      updateMessageCounters)
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.SubTrace (SubTrace (..))
+import           Cardano.BM.Data.Tracer (Tracer (..))
 import qualified Cardano.BM.Output.Log
 import qualified Cardano.BM.Output.LogBuffer
 import           Cardano.BM.Trace (evalFilters)
-import           Cardano.BM.Tracer (Tracer (..))
-import qualified Cardano.BM.Output.LogBuffer
 
 #ifdef ENABLE_AGGREGATION
 import qualified Cardano.BM.Output.Aggregation
@@ -306,9 +305,9 @@ setupBackend' :: (Show a, ToJSON a) => BackendKind -> Configuration -> Switchboa
 setupBackend' SwitchboardBK _ _ = error "cannot instantiate a further Switchboard"
 #ifdef ENABLE_MONITORING
 setupBackend' MonitoringBK c sb = do
-    let trace0 = mainTraceConditionally c sb
+    let basetrace = mainTraceConditionally c sb
 
-    be :: Cardano.BM.Output.Monitoring.Monitor a <- Cardano.BM.Output.Monitoring.realizefrom c trace0 sb
+    be :: Cardano.BM.Output.Monitoring.Monitor a <- Cardano.BM.Output.Monitoring.realizefrom c basetrace sb
     return $ Just MkBackend
       { bEffectuate = Cardano.BM.Output.Monitoring.effectuate be
       , bUnrealize = Cardano.BM.Output.Monitoring.unrealize be
@@ -320,9 +319,9 @@ setupBackend' MonitoringBK _ _ = do
 #endif
 #ifdef ENABLE_EKG
 setupBackend' EKGViewBK c sb = do
-    let trace0 = mainTraceConditionally c sb
+    let basetrace = mainTraceConditionally c sb
 
-    be :: Cardano.BM.Output.EKGView.EKGView a <- Cardano.BM.Output.EKGView.realizefrom c trace0 sb
+    be :: Cardano.BM.Output.EKGView.EKGView a <- Cardano.BM.Output.EKGView.realizefrom c basetrace sb
     return $ Just MkBackend
       { bEffectuate = Cardano.BM.Output.EKGView.effectuate be
       , bUnrealize = Cardano.BM.Output.EKGView.unrealize be
@@ -334,9 +333,9 @@ setupBackend' EKGViewBK _ _ = do
 #endif
 #ifdef ENABLE_AGGREGATION
 setupBackend' AggregationBK c sb = do
-    let trace0 = mainTraceConditionally c sb
+    let basetrace = mainTraceConditionally c sb
 
-    be :: Cardano.BM.Output.Aggregation.Aggregation a <- Cardano.BM.Output.Aggregation.realizefrom c trace0 sb
+    be :: Cardano.BM.Output.Aggregation.Aggregation a <- Cardano.BM.Output.Aggregation.realizefrom c basetrace sb
     return $ Just MkBackend
       { bEffectuate = Cardano.BM.Output.Aggregation.effectuate be
       , bUnrealize = Cardano.BM.Output.Aggregation.unrealize be
