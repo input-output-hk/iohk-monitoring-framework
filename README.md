@@ -16,9 +16,9 @@ View our first presentation (2018-12-04) on this subject in [html](https://input
 
 ## building and testing
 
-`cabal new-build`
+`cabal new-build all`
 
-`cabal new-test`
+`cabal new-test all`
 
 ## examples
 https://github.com/input-output-hk/iohk-monitoring-framework/edit/develop/README.md
@@ -33,5 +33,5 @@ These showcase the usage of this framework in an application. The *complex* exam
 
 ## development
 
-* `cabal new-build` and `cabal new-test`
+* `cabal new-build all` and `cabal new-test all`
 * `ghcid -c "cabal new-repl"` watches for file changes and recompiles them immediately
