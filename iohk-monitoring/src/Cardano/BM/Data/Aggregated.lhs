@@ -159,13 +159,13 @@ instance Num Measurable where
 Pretty printing of |Measurable|. \index{Measurable!instance of Show}
 \begin{code}
 instance Show Measurable where
-    show (Microseconds a) = show a
-    show (Nanoseconds a)  = show a
-    show (Seconds a)      = show a
-    show (Bytes a)        = show a
-    show (PureI a)        = show a
-    show (PureD a)        = show a
-    show (Severity a)     = show a
+    show v@(Microseconds a) = show a ++ showUnits v
+    show v@(Nanoseconds a)  = show a ++ showUnits v
+    show v@(Seconds a)      = show a ++ showUnits v
+    show v@(Bytes a)        = show a ++ showUnits v
+    show v@(PureI a)        = show a ++ showUnits v
+    show v@(PureD a)        = show a ++ showUnits v
+    show v@(Severity a)     = show a ++ showUnits v
 
 showUnits :: Measurable -> String
 showUnits (Microseconds _) = " µs"
@@ -275,7 +275,7 @@ stats2Text (Stats slast _ sbasic sdelta stimed) =
         " }"
   where
     showStats' :: BaseStats -> String
-    showStats' s = 
+    showStats' s =
         ", { min=" ++ show  (fmin s) ++
         ", max=" ++ show (fmax s) ++
         ", mean=" ++ show (meanOfStats s) ++ showUnits (fmin s) ++

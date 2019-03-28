@@ -11,6 +11,7 @@ module Cardano.BM.Configuration.Model
     , ConfigurationInternal (..)
     , setup
     , setupFromRepresentation
+    , toRepresentation
     , empty
     , minSeverity
     , setMinSeverity
@@ -42,12 +43,16 @@ module Cardano.BM.Configuration.Model
     , setGUIport
     ) where
 
+import           Control.Applicative (Alternative ((<|>)))
 import           Control.Concurrent.MVar (MVar, newMVar, readMVar,
                      modifyMVar_)
 import           Control.Monad (when)
+import           Data.Aeson ((.:))
+import           Data.Aeson.Types (parseMaybe)
 import qualified Data.HashMap.Strict as HM
 import           Data.Maybe (catMaybes)
-import           Data.Text (Text, breakOnEnd, dropWhileEnd, pack, unpack)
+import qualified Data.Text as T
+import           Data.Text (Text, pack, unpack)
 import qualified Data.Vector as Vector
 import           Data.Yaml as Y
 
@@ -56,8 +61,6 @@ import           Cardano.BM.Data.BackendKind
 import qualified Cardano.BM.Data.Configuration as R
 import           Cardano.BM.Data.LogItem (LoggerName)
 import           Cardano.BM.Data.MonitoringEval (MEvAction, MEvExpr)
-import qualified Cardano.BM.Data.MonitoringEval as MEv
-import           Cardano.BM.Data.Observable
 import           Cardano.BM.Data.Output (ScribeDefinition (..), ScribeId,
                      ScribeKind (..))
 import           Cardano.BM.Data.Rotation (RotationParameters (..))
@@ -84,6 +87,8 @@ newtype Configuration = Configuration
 data ConfigurationInternal = ConfigurationInternal
     { cgMinSeverity       :: Severity
     -- minimum severity level of every object that will be output
+    , cgDefRotation       :: Maybe RotationParameters
+    -- default rotation parameters
     , cgMapSeverity       :: HM.HashMap LoggerName Severity
     -- severity filter per loggername
     , cgMapSubtrace       :: HM.HashMap LoggerName SubTrace
@@ -117,7 +122,7 @@ data ConfigurationInternal = ConfigurationInternal
     , cgPortEKG           :: Int
     -- port for EKG server
     , cgPortGUI           :: Int
-    -- port for changes at runtime (NOT IMPLEMENTED YET)
+    -- port for changes at runtime
     } deriving (Show, Eq)
 
 \end{code}
@@ -192,10 +197,10 @@ getScribes configuration name = do
     return scribes
 
 dropToDot :: Text -> Maybe Text
-dropToDot ts = dropToDot' (breakOnEnd "." ts)
+dropToDot ts = dropToDot' (T.breakOnEnd "." ts)
   where
     dropToDot' (_,"")    = Nothing
-    dropToDot' (name',_) = Just $ dropWhileEnd (=='.') name'
+    dropToDot' (name',_) = Just $ T.dropWhileEnd (=='.') name'
 
 getCachedScribes :: Configuration -> LoggerName -> IO (Maybe [ScribeId])
 getCachedScribes configuration name = do
@@ -369,30 +374,12 @@ parseMonitors :: Maybe (HM.HashMap Text Value) -> HM.HashMap LoggerName (MEvExpr
 parseMonitors Nothing = HM.empty
 parseMonitors (Just hmv) = HM.mapMaybe mkMonitor hmv
     where
-    mkMonitor (Array a) =
-        if Vector.length a == 2
-        then do
-            e  <- mkExpression $ a Vector.! 0
-            as <- mkActions $ a Vector.! 1
-            return (e, as)
-        else Nothing
-    mkMonitor _ = Nothing
-    mkExpression :: Value -> Maybe MEvExpr
-    mkExpression (Object o1) =
-        case HM.lookup "monitor" o1 of
-            Nothing            -> Nothing
-            Just (String expr) -> MEv.parseMaybe expr
-            Just _             -> Nothing
-    mkExpression _ = Nothing
-    mkActions :: Value -> Maybe [MEvAction]
-    mkActions (Object o2) =
-        case HM.lookup "actions" o2 of
-            Nothing -> Nothing
-            Just (Array as) -> Just $ map (\(String s) -> s) $ Vector.toList as
-            Just _             -> Nothing
-
-    mkActions _ = Nothing
-
+    mkMonitor :: Value -> Maybe (MEvExpr, [MEvAction])
+    mkMonitor = parseMaybe $ \v ->
+                    (withObject "" $ \o ->
+                        (,) <$> o .: "monitor"
+                            <*> o .: "actions") v
+                    <|> parseJSON v
 
 setupFromRepresentation :: R.Representation -> IO Configuration
 setupFromRepresentation r = do
@@ -404,9 +391,11 @@ setupFromRepresentation r = do
         mapmonitors        = HM.lookup "mapMonitors"        (R.options r)
         mapseverities      = parseSeverityMap mapseverities0
         mapscribes         = parseScribeMap mapscribes0
+        defRotation        = R.rotation r
 
     cgref <- newMVar $ ConfigurationInternal
         { cgMinSeverity       = R.minSeverity r
+        , cgDefRotation       = defRotation
         , cgMapSeverity       = mapseverities
         , cgMapSubtrace       = parseSubtraceMap mapsubtrace
         , cgOptions           = R.options r
@@ -416,7 +405,7 @@ setupFromRepresentation r = do
         , cgMapScribe         = mapscribes
         , cgMapScribeCache    = mapscribes
         , cgDefScribes        = r_defaultScribes r
-        , cgSetupScribes      = fillRotationParams (R.rotation r) (R.setupScribes r)
+        , cgSetupScribes      = fillRotationParams defRotation (R.setupScribes r)
         , cgMapAggregatedKind = parseAggregatedKindMap mapaggregatedkinds
         , cgDefAggregatedKind = StatsAK
         , cgMonitors          = parseMonitors mapmonitors
@@ -462,16 +451,8 @@ setupFromRepresentation r = do
     parseSubtraceMap Nothing = HM.empty
     parseSubtraceMap (Just hmv) = HM.mapMaybe mkSubtrace hmv
       where
-        mkSubtrace (String s) = Just (read (unpack s) :: SubTrace)
-        mkSubtrace (Object hm) = mkSubtrace' (HM.lookup "tag" hm) (HM.lookup "contents" hm)
-        mkSubtrace _ = Nothing
-        mkSubtrace' Nothing _ = Nothing
-        mkSubtrace' _ Nothing = Nothing
-        mkSubtrace' (Just (String tag)) (Just (Array cs)) =
-            if tag == "ObservableTrace"
-            then Just $ ObservableTrace $ map (\(String s) -> (read (unpack s) :: ObservableInstance)) $ Vector.toList cs
-            else Nothing
-        mkSubtrace' _ _ = Nothing
+        mkSubtrace :: Value -> Maybe SubTrace
+        mkSubtrace = parseMaybe parseJSON
 
     r_hasEKG repr = case (R.hasEKG repr) of
                        Nothing -> 0
@@ -481,16 +462,13 @@ setupFromRepresentation r = do
                        Just p  -> p
     r_defaultScribes repr = map (\(k,n) -> pack(show k) <> "::" <> n) (R.defaultScribes repr)
 
-    parseAggregatedKindMap Nothing = HM.empty
-    parseAggregatedKindMap (Just hmv) =
-        let
-            listv = HM.toList hmv
-            mapAggregatedKind = HM.fromList $ catMaybes $ map mkAggregatedKind listv
-        in
-        mapAggregatedKind
-      where
-        mkAggregatedKind (name, String s) = Just (name, read (unpack s) :: AggregatedKind)
-        mkAggregatedKind _ = Nothing
+parseAggregatedKindMap :: Maybe (HM.HashMap Text Value) -> HM.HashMap LoggerName AggregatedKind
+parseAggregatedKindMap Nothing    = HM.empty
+parseAggregatedKindMap (Just hmv) = HM.mapMaybe mkAggregatedKind hmv
+    where
+    mkAggregatedKind :: Value -> Maybe AggregatedKind
+    mkAggregatedKind (String s) = Just $ read $ unpack s
+    mkAggregatedKind v = (parseMaybe parseJSON) v
 
 \end{code}
 
@@ -500,6 +478,7 @@ empty :: IO Configuration
 empty = do
     cgref <- newMVar $ ConfigurationInternal
                            { cgMinSeverity       = Debug
+                           , cgDefRotation       = Nothing
                            , cgMapSeverity       = HM.empty
                            , cgMapSubtrace       = HM.empty
                            , cgOptions           = HM.empty
@@ -517,5 +496,58 @@ empty = do
                            , cgPortGUI           = 0
                            }
     return $ Configuration cgref
+
+\end{code}
+
+\subsubsection{toRepresentation}\label{code:toRepresentation}\index{toRepresentation}
+\begin{code}
+toRepresentation :: Configuration -> IO R.Representation
+toRepresentation (Configuration c) = do
+    cfg <- readMVar c
+    let portEKG = cgPortEKG cfg
+        portGUI = cgPortGUI cfg
+        otherOptions = cgOptions cfg
+        defScribes = cgDefScribes cfg
+        splitScribeId :: ScribeId -> (ScribeKind, Text)
+        splitScribeId x =
+            -- "(ScribeId)" = "(ScribeKind) :: (Filename)"
+            let (a,b) = T.breakOn "::" x
+            in
+                (read $ unpack a, T.drop 2 b)
+        createOption name f hashmap = if null hashmap
+                                      then HM.empty
+                                      else HM.singleton name $ HM.map f hashmap
+        toString :: Show a => a -> Value
+        toString = String . pack . show
+        toObject :: (MEvExpr, [MEvAction]) -> Value
+        toObject (expr, actions) = object ["monitor" .= expr, "actions" .= actions]
+        toJSON' :: [ScribeId] -> Value
+        toJSON' [sid] = toJSON sid
+        toJSON' ss    = toJSON ss
+        mapSeverities = createOption "mapSeverity"        toJSON   $ cgMapSeverity       cfg
+        mapBackends   = createOption "mapBackends"        toJSON   $ cgMapBackend        cfg
+        mapAggKinds   = createOption "mapAggregatedkinds" toString $ cgMapAggregatedKind cfg
+        mapScribes    = createOption "mapScribes"         toJSON'  $ cgMapScribe         cfg
+        mapSubtrace   = createOption "mapSubtrace"        toJSON   $ cgMapSubtrace       cfg
+        mapMonitors   = createOption "mapMonitors"        toObject $ cgMonitors          cfg
+
+    return $
+        R.Representation
+            { R.minSeverity     = cgMinSeverity cfg
+            , R.rotation        = cgDefRotation cfg
+            , R.setupScribes    = cgSetupScribes cfg
+            , R.defaultScribes  = map splitScribeId defScribes
+            , R.setupBackends   = cgSetupBackends cfg
+            , R.defaultBackends = cgDefBackendKs cfg
+            , R.hasEKG          = if portEKG == 0 then Nothing else Just portEKG
+            , R.hasGUI          = if portGUI == 0 then Nothing else Just portGUI
+            , R.options         = mapSeverities `HM.union`
+                                  mapBackends   `HM.union`
+                                  mapAggKinds   `HM.union`
+                                  mapSubtrace   `HM.union`
+                                  mapScribes    `HM.union`
+                                  mapMonitors   `HM.union`
+                                  otherOptions
+            }
 
 \end{code}
