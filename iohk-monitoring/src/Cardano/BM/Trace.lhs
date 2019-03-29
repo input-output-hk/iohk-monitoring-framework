@@ -10,7 +10,7 @@ module Cardano.BM.Trace
     (
       Trace
     , stdoutTrace
-    , Tracer.nullTracer
+    , nullTracer
     , traceInTVar
     , traceInTVarIO
     , traceInTVarIOConditionally
@@ -39,7 +39,7 @@ import           Control.Monad.IO.Class (MonadIO, liftIO)
 import           Control.Monad (when)
 import qualified Control.Monad.STM as STM
 import           Data.Aeson.Text (encodeToLazyText)
-import           Data.Functor.Contravariant (Contravariant (..), Op (..))
+import           Data.Functor.Contravariant (Contravariant (..))
 import           Data.Maybe (fromMaybe)
 import           Data.Monoid ((<>))
 import qualified Data.Text as T
@@ -52,9 +52,8 @@ import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.Trace
 import           Cardano.BM.Data.SubTrace
-import qualified Cardano.BM.Tracer.Class as Tracer
-import           Cardano.BM.Tracer.Class (Tracer (..), tracingWith)
-import qualified Cardano.BM.Tracer.Transformers as TracerT
+import           Cardano.BM.Data.Tracer (Tracer (..), natTracer, nullTracer,
+                     traceWith)
 
 \end{code}
 %endif
@@ -63,7 +62,7 @@ import qualified Cardano.BM.Tracer.Transformers as TracerT
 Natural transformation from monad |m| to monad |n|.
 \begin{code}
 natTrace :: (forall x . m x -> n x) -> Trace m a -> Trace n a
-natTrace nat trace = TracerT.natTrace nat trace
+natTrace nat basetrace = natTracer nat basetrace
 
 \end{code}
 
@@ -86,7 +85,7 @@ appendWithDot xs newName = xs <> "." <> newName
 The context name is overwritten.
 \begin{code}
 modifyName :: MonadIO m => (LoggerName -> LoggerName) -> Trace m a -> m (Trace m a)
-modifyName f trace0 = return $ modifyNameBase f trace0
+modifyName f basetrace = return $ modifyNameBase f basetrace
 
 modifyNameBase
     :: (LoggerName -> LoggerName)
@@ -114,7 +113,7 @@ traceNamedObject
     -> (LOMeta, LOContent a)
     -> m ()
 traceNamedObject logTrace lo =
-    tracingWith (named logTrace) lo
+    traceWith (named logTrace) lo
 
 \end{code}
 
@@ -160,7 +159,7 @@ locallock = unsafePerformIO $ newMVar ()
 
 \begin{code}
 stdoutTrace :: Tracer IO (LogObject T.Text)
-stdoutTrace = Tracer $ Op $ \(LogObject logname _ lc) ->
+stdoutTrace = Tracer $ \(LogObject logname _ lc) ->
     withMVar locallock $ \_ ->
         case lc of
             (LogMessage logItem) ->
@@ -177,15 +176,15 @@ stdoutTrace = Tracer $ Op $ \(LogObject logname _ lc) ->
 
 \begin{code}
 traceInTVar :: STM.TVar [a] -> Tracer STM.STM a
-traceInTVar tvar = Tracer $ Op $ \a -> STM.modifyTVar tvar ((:) a)
+traceInTVar tvar = Tracer $ \a -> STM.modifyTVar tvar ((:) a)
 
 traceInTVarIO :: STM.TVar [LogObject a] -> Tracer IO (LogObject a)
-traceInTVarIO tvar = Tracer $ Op $ \ln ->
+traceInTVarIO tvar = Tracer $ \ln ->
                          STM.atomically $ STM.modifyTVar tvar ((:) ln)
 
 traceInTVarIOConditionally :: STM.TVar [LogObject a] -> Config.Configuration -> Tracer IO (LogObject a)
 traceInTVarIOConditionally tvar config =
-    Tracer $ Op $ \item@(LogObject loggername meta _) -> do
+    Tracer $ \item@(LogObject loggername meta _) -> do
         globminsev  <- Config.minSeverity config
         globnamesev <- Config.inspectSeverity config loggername
         let minsev = max globminsev $ fromMaybe Debug globnamesev
@@ -230,8 +229,8 @@ traceNamedItem
     -> Severity
     -> a
     -> m ()
-traceNamedItem trace p s m =
-    traceNamedObject trace =<<
+traceNamedItem logTrace p s m =
+    traceNamedObject logTrace =<<
         (,) <$> liftIO (mkLOMeta s p)
             <*> pure (LogMessage m)
 

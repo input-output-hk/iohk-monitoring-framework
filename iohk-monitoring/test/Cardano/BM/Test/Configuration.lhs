@@ -11,6 +11,8 @@ module Cardano.BM.Test.Configuration (
     tests
   ) where
 
+import           Prelude hiding (Ordering (..))
+
 import           Control.Concurrent.MVar (readMVar)
 import           Data.Aeson.Types (Value (..))
 import           Data.ByteString (intercalate)
@@ -26,7 +28,7 @@ import           Cardano.BM.Configuration.Model (Configuration (..),
                      getDefaultBackends, getAggregatedKind, getGUIport,
                      getEKGport, empty, setDefaultScribes, setScribes, setup,
                      setDefaultAggregatedKind, setAggregatedKind, setGUIport,
-                     setEKGport)
+                     setEKGport, setupFromRepresentation, toRepresentation)
 import           Cardano.BM.Configuration.Static (defaultConfigStdout)
 import qualified Cardano.BM.Data.Aggregated as Agg
 import           Cardano.BM.Data.AggregatedKind
@@ -63,6 +65,7 @@ unitTests = testGroup "Unit tests" [
         testCase "static representation" unitConfigurationStaticRepresentation
       , testCase "parsed representation" unitConfigurationParsedRepresentation
       , testCase "parsed configuration" unitConfigurationParsed
+      , testCase "export configuration" unitConfigurationExport
       , testCase "include EKG if defined" unitConfigurationCheckEKGpositive
       , testCase "not include EKG if not def" unitConfigurationCheckEKGnegative
       , testCase "check scribe caching" unitConfigurationCheckScribeCache
@@ -243,11 +246,12 @@ unitConfigurationParsedRepresentation = do
             , "options:"
             , "  mapSubtrace:"
             , "    iohk.benchmarking:"
-            , "      tag: ObservableTrace"
             , "      contents:"
             , "      - GhcRtsStats"
             , "      - MonotonicClock"
-            , "    iohk.deadend: NoTrace"
+            , "      subtrace: ObservableTrace"
+            , "    iohk.deadend:"
+            , "      subtrace: NoTrace"
             , "  mapSeverity:"
             , "    iohk.startup: Debug"
             , "    iohk.background.process: Error"
@@ -259,14 +263,14 @@ unitConfigurationParsedRepresentation = do
             , "    value: Release-1.0.0"
             , "  mapMonitors:"
             , "    chain.creation.block:"
-            , "    - monitor: ((time > (23 s)) Or (time < (17 s)))"
-            , "    - actions:"
+            , "      actions:"
             , "      - AlterMinSeverity \"chain.creation\" Debug"
+            , "      monitor: ((time > (23 s)) Or (time < (17 s)))"
             , "    ! '#aggregation.critproc.observable':"
-            , "    - monitor: (mean >= (42))"
-            , "    - actions:"
+            , "      actions:"
             , "      - CreateMessage \"exceeded\" \"the observable has been too long too high!\""
             , "      - AlterGlobalMinSeverity Info"
+            , "      monitor: (mean >= (42))"
             , "  mapScribes:"
             , "    iohk.interesting.value:"
             , "    - StdoutSK::stdout"
@@ -300,6 +304,11 @@ unitConfigurationParsed = do
     cfgInternal <- readMVar $ getCG cfg
     cfgInternal @?= ConfigurationInternal
         { cgMinSeverity       = Info
+        , cgDefRotation       = Just $ RotationParameters
+                                        { rpLogLimitBytes = 5000000
+                                        , rpMaxAgeHours   = 24
+                                        , rpKeepFilesNum  = 10
+                                        }
         , cgMapSeverity       = HM.fromList [ ("iohk.startup", Debug)
                                             , ("iohk.background.process", Error)
                                             , ("iohk.testing.uncritical", Warning)
@@ -311,20 +320,21 @@ unitConfigurationParsed = do
         , cgOptions           = HM.fromList
             [ ("mapSubtrace",
                 HM.fromList [("iohk.benchmarking",
-                              Object (HM.fromList [("tag",String "ObservableTrace")
+                              Object (HM.fromList [("subtrace",String "ObservableTrace")
                                                   ,("contents",Array $ V.fromList
                                                         [String "GhcRtsStats"
                                                         ,String "MonotonicClock"])]))
-                            ,("iohk.deadend",String "NoTrace")])
-            , ("mapMonitors", HM.fromList [("chain.creation.block",Array $ V.fromList
-                                            [Object (HM.fromList [("monitor",String "((time > (23 s)) Or (time < (17 s)))")])
-                                            ,Object (HM.fromList [("actions",Array $ V.fromList
-                                                [String "AlterMinSeverity \"chain.creation\" Debug"])])])
-                                          ,("#aggregation.critproc.observable",Array $ V.fromList
-                                            [Object (HM.fromList [("monitor",String "(mean >= (42))")])
-                                            ,Object (HM.fromList [("actions",Array $ V.fromList
+                            ,("iohk.deadend",
+                              Object (HM.fromList [("subtrace",String "NoTrace")]))])
+            , ("mapMonitors", HM.fromList [("chain.creation.block",Object (HM.fromList
+                                            [("monitor",String "((time > (23 s)) Or (time < (17 s)))")
+                                            ,("actions",Array $ V.fromList
+                                                [String "AlterMinSeverity \"chain.creation\" Debug"])]))
+                                          ,("#aggregation.critproc.observable",Object (HM.fromList
+                                            [("monitor",String "(mean >= (42))")
+                                            ,("actions",Array $ V.fromList
                                                 [String "CreateMessage \"exceeded\" \"the observable has been too long too high!\""
-                                                ,String "AlterGlobalMinSeverity Info"])])])])
+                                                ,String "AlterGlobalMinSeverity Info"])]))])
             , ("mapSeverity", HM.fromList [("iohk.startup",String "Debug")
                                           ,("iohk.background.process",String "Error")
                                           ,("iohk.testing.uncritical",String "Warning")])
@@ -384,11 +394,11 @@ unitConfigurationParsed = do
                                             , ("iohk.background.process", StatsAK)
                                             ]
         , cgDefAggregatedKind = StatsAK
-        , cgMonitors          = HM.fromList [ ("chain.creation.block", ((OR (Compare "time" ((>), (Agg.Seconds 23))) (Compare "time" ((<), (Agg.Seconds 17))))
+        , cgMonitors          = HM.fromList [ ("chain.creation.block", ((OR (Compare "time" (GT, (Agg.Seconds 23))) (Compare "time" (LT, (Agg.Seconds 17))))
                                                                        , ["AlterMinSeverity \"chain.creation\" Debug"]
                                                                        )
                                               )
-                                            , ("#aggregation.critproc.observable", (Compare "mean" ((>=), (Agg.PureI 42))
+                                            , ("#aggregation.critproc.observable", (Compare "mean" (GE, (Agg.PureI 42))
                                                                                    , ["CreateMessage \"exceeded\" \"the observable has been too long too high!\""
                                                                                    , "AlterGlobalMinSeverity Info"]
                                                                                    )
@@ -397,6 +407,18 @@ unitConfigurationParsed = do
         , cgPortEKG           = 12789
         , cgPortGUI           = 0
         }
+
+unitConfigurationExport :: Assertion
+unitConfigurationExport = do
+    cfg  <- setup "test/config.yaml"
+
+    repr <- toRepresentation cfg
+    cfg' <- setupFromRepresentation repr
+
+    cfgInternal  <- readMVar $ getCG cfg
+    cfgInternal' <- readMVar $ getCG cfg'
+
+    cfgInternal' @?= cfgInternal
 
 \end{code}
 

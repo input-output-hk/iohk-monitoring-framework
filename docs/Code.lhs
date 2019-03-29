@@ -131,12 +131,12 @@ thus specializes its interface.}\label{fig:overview}
 
 %include ../iohk-monitoring/examples/complex/Main.lhs
 
-\section{Code listings - basic-tracer package}
+\section{Code listings - contra-tracer package}
 
-%include ../basic-tracer/src/Cardano/BM/Tracer.lhs
-%include ../basic-tracer/src/Cardano/BM/Tracer/Class.lhs
-%include ../basic-tracer/src/Cardano/BM/Tracer/Output.lhs
-%include ../basic-tracer/src/Cardano/BM/Tracer/Transformers.lhs
+%include ../contra-tracer/src/Control/Tracer.lhs
+%include ../contra-tracer/src/Control/Tracer/Class.lhs
+%include ../contra-tracer/src/Control/Tracer/Output.lhs
+%include ../contra-tracer/src/Control/Tracer/Transformers.lhs
 
 
 \section{Code listings - iohk-monitoring package}
@@ -172,12 +172,12 @@ thus specializes its interface.}\label{fig:overview}
 %include ../iohk-monitoring/src/Cardano/BM/Configuration.lhs
 %include ../iohk-monitoring/src/Cardano/BM/Configuration/Model.lhs
 %include ../iohk-monitoring/src/Cardano/BM/Configuration/Static.lhs
-%include ../iohk-monitoring/src/Cardano/BM/Configuration/Editor.lhs
 
 %include ../iohk-monitoring/src/Cardano/BM/Output/Switchboard.lhs
 %include ../iohk-monitoring/src/Cardano/BM/Output/Log.lhs
 %include ../iohk-monitoring/src/Cardano/BM/Output/LogBuffer.lhs
 %include ../iohk-monitoring/src/Cardano/BM/Output/EKGView.lhs
+%include ../iohk-monitoring/src/Cardano/BM/Output/Editor.lhs
 %include ../iohk-monitoring/src/Cardano/BM/Output/Aggregation.lhs
 %include ../iohk-monitoring/src/Cardano/BM/Output/Monitoring.lhs
 

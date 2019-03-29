@@ -145,13 +145,13 @@ spawnDispatcher :: (Show a)
                 -> TBQ.TBQueue (Maybe (LogObject a))
                 -> Trace.Trace IO a
                 -> IO (Async.Async ())
-spawnDispatcher conf aggMap aggregationQueue trace0 = do
+spawnDispatcher conf aggMap aggregationQueue basetrace = do
     now <- getCurrentTime
-    trace <- Trace.appendName "#aggregation" trace0
+    trace <- Trace.appendName "#aggregation" basetrace
     let messageCounters = resetCounters now
     countersMVar <- newMVar messageCounters
     _timer <- Async.async $ sendAndResetAfter
-                                trace0
+                                basetrace
                                 "#messagecounters.aggregation"
                                 countersMVar
                                 60000   -- 60000 ms = 1 min

@@ -1,5 +1,5 @@
 name:                iohk-monitoring
-version:             0.1.4.0
+version:             0.1.5.0
 synopsis:            logging, benchmarking and monitoring framework
 -- description:
 license:             MIT
@@ -63,6 +63,7 @@ library
                        Cardano.BM.Data.Severity
                        Cardano.BM.Data.SubTrace
                        Cardano.BM.Data.Trace
+                       Cardano.BM.Data.Tracer
 
                        Cardano.BM.Output.Log
                        Cardano.BM.Output.LogBuffer
@@ -78,7 +79,7 @@ library
     exposed-modules:   Cardano.BM.Output.EKGView
 
   if !flag(disable-gui)
-    exposed-modules:   Cardano.BM.Configuration.Editor
+    exposed-modules:   Cardano.BM.Output.Editor
 
   if !flag(disable-observables)
     exposed-modules:   Cardano.BM.Observer.Monadic
@@ -92,13 +93,13 @@ library
   else
     exposed-modules:   Cardano.BM.Counters.Dummy
 
-  other-modules:       Cardano.BM.Data.Tracer
+  other-modules:
 
   default-language:    Haskell2010
   default-extensions:  OverloadedStrings
   other-extensions:    OverloadedStrings
   build-depends:       base >= 4.11,
-                       basic-tracer,
+                       contra-tracer,
                        aeson,
                        array,
                        async,
@@ -174,7 +175,7 @@ test-suite tests
   default-language:    Haskell2010
   default-extensions:  OverloadedStrings
   build-depends:       base,
-                       basic-tracer,
+                       contra-tracer,
                        iohk-monitoring,
 
                        aeson,

@@ -4,8 +4,9 @@
 
 %if style == newcode
 \begin{code}
-{-# LANGUAGE DeriveAnyClass #-}
-{-# LANGUAGE DeriveGeneric  #-}
+{-# LANGUAGE DeriveAnyClass      #-}
+{-# LANGUAGE DeriveGeneric       #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Cardano.BM.Data.SubTrace
   (
@@ -15,7 +16,7 @@ module Cardano.BM.Data.SubTrace
   )
   where
 
-import           Data.Aeson (FromJSON (..), ToJSON)
+import           Data.Aeson (FromJSON (..), ToJSON (..), Value (..), (.:), (.=), object, withObject)
 import           Data.Text (Text)
 
 import           Cardano.BM.Data.LogItem (LoggerName)
@@ -51,6 +52,28 @@ data SubTrace = Neutral
               | FilterTrace [(DropName, UnhideNames)]
               | DropOpening
               | ObservableTrace [ObservableInstance]
-                deriving (Generic, Show, FromJSON, ToJSON, Read, Eq)
+                deriving (Generic, Show, Read, Eq)
+
+instance FromJSON SubTrace where
+    parseJSON = withObject "" $ \o -> do
+                    subtrace :: Text <- o .: "subtrace"
+                    case subtrace of
+                        "Neutral"         -> return $ Neutral
+                        "UntimedTrace"    -> return $ UntimedTrace
+                        "NoTrace"         -> return $ NoTrace
+                        "TeeTrace"        -> TeeTrace        <$> o .: "contents"
+                        "FilterTrace"     -> FilterTrace     <$> o .: "contents"
+                        "DropOpening"     -> return $ DropOpening
+                        "ObservableTrace" -> ObservableTrace <$> o .: "contents"
+                        _                 -> error "cannot parse such an expression!"
+
+instance ToJSON SubTrace where
+    toJSON Neutral              = object ["subtrace" .= String "Neutral"         ]
+    toJSON UntimedTrace         = object ["subtrace" .= String "UntimedTrace"    ]
+    toJSON NoTrace              = object ["subtrace" .= String "NoTrace"         ]
+    toJSON (TeeTrace name)      = object ["subtrace" .= String "TeeTrace"        , "contents" .= toJSON name]
+    toJSON (FilterTrace dus)    = object ["subtrace" .= String "FilterTrace"     , "contents" .= toJSON dus ]
+    toJSON DropOpening          = object ["subtrace" .= String "DropOpening"     ]
+    toJSON (ObservableTrace os) = object ["subtrace" .= String "ObservableTrace" , "contents" .= toJSON os  ]
 
 \end{code}

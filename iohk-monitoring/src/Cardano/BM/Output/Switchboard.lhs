@@ -23,14 +23,13 @@ module Cardano.BM.Output.Switchboard
 
 import qualified Control.Concurrent.Async as Async
 import           Control.Concurrent.MVar (MVar, newEmptyMVar, newMVar,
-                     putMVar, readMVar, tryTakeMVar, withMVar, modifyMVar_)
+                     modifyMVar_, putMVar, readMVar, tryTakeMVar, withMVar)
 import           Control.Concurrent.STM (atomically, retry)
 import qualified Control.Concurrent.STM.TBQueue as TBQ
 import           Control.Exception.Safe (throwM)
 import           Control.Monad (forM, forM_, when, void)
 import           Control.Monad.IO.Class (liftIO)
 import           Data.Aeson (ToJSON)
-import           Data.Functor.Contravariant (Op (..))
 import           Data.Maybe (catMaybes, fromMaybe)
 import qualified Data.Text.IO as TIO
 import           Data.Time.Clock (getCurrentTime)
@@ -46,10 +45,10 @@ import           Cardano.BM.Data.MessageCounter (resetCounters, sendAndResetAfte
                      updateMessageCounters)
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.SubTrace (SubTrace (..))
+import           Cardano.BM.Data.Tracer (Tracer (..))
 import qualified Cardano.BM.Output.Log
-import           Cardano.BM.Trace (evalFilters)
-import           Cardano.BM.Tracer.Class (Tracer (..))
 import qualified Cardano.BM.Output.LogBuffer
+import           Cardano.BM.Trace (evalFilters)
 
 #ifdef ENABLE_AGGREGATION
 import qualified Cardano.BM.Output.Aggregation
@@ -61,6 +60,10 @@ import qualified Cardano.BM.Output.EKGView
 
 #ifdef ENABLE_MONITORING
 import qualified Cardano.BM.Output.Monitoring
+#endif
+
+#ifdef ENABLE_GUI
+import qualified Cardano.BM.Output.Editor
 #endif
 
 \end{code}
@@ -93,14 +96,14 @@ This |Tracer| will forward all messages unconditionally to the |Switchboard|.
 (currently disabled)
 \begin{spec}
 mainTrace :: Switchboard a -> Tracer IO (LogObject a)
-mainTrace sb = Tracer $ Op $ effectuate sb
+mainTrace sb = Tracer $ effectuate sb
 
 \end{spec}
 
 This function will apply to every message the severity filter as defined in the |Configuration|.
 \begin{code}
 mainTraceConditionally :: Configuration -> Switchboard a -> Tracer IO (LogObject a)
-mainTraceConditionally config sb = Tracer $ Op $ \item@(LogObject loggername meta _) -> do
+mainTraceConditionally config sb = Tracer $ \item@(LogObject loggername meta _) -> do
     passSevFilter <- testSeverity loggername meta
     passSubTrace <- testSubTrace loggername item
     if passSevFilter && passSubTrace
@@ -169,7 +172,9 @@ evalMonitoringAction c item = return [item]
 instance (Show a, ToJSON a) => IsBackend Switchboard a where
     typeof _ = SwitchboardBK
 
-    realize cfg =
+    realize cfg = do
+        -- we setup |LogBuffer| explicitly so we can access it as a |Backend| and as |LogBuffer|
+        logbuf :: Cardano.BM.Output.LogBuffer.LogBuffer a <- Cardano.BM.Output.LogBuffer.realize cfg
         let spawnDispatcher
                 :: (Show a)
                 => [(BackendKind, Backend a)]
@@ -180,7 +185,7 @@ instance (Show a, ToJSON a) => IsBackend Switchboard a where
                 let messageCounters = resetCounters now
                 countersMVar <- newMVar messageCounters
                 let traceInQueue q =
-                        Tracer $ Op $ \lognamed -> do
+                        Tracer $ \lognamed -> do
                             nocapacity <- atomically $ TBQ.isFullTBQueue q
                             if nocapacity
                             then putStrLn "Error: Switchboard's queue full, dropping log items!"
@@ -211,8 +216,8 @@ instance (Show a, ToJSON a) => IsBackend Switchboard a where
                                         \cnt -> return $ updateMessageCounters cnt nli
 
                                 Config.findSubTrace cfg loname >>= \case
-                                    Just (TeeTrace secName) ->
-                                        atomically $ TBQ.writeTBQueue queue $ nli{ loName = secName }
+                                    Just (TeeTrace sndName) ->
+                                        atomically $ TBQ.writeTBQueue queue $ nli{ loName = loname <> "." <> sndName }
                                     _ -> return ()
 
                                 case loitem of
@@ -225,6 +230,10 @@ instance (Show a, ToJSON a) => IsBackend Switchboard a where
                                     (MonitoringEffect inner) -> do
                                         sendMessage (inner {loName = loname}) (filter (/= MonitoringBK))
                                         return True
+                                    (Command (DumpBufferedTo bk)) -> do
+                                        msgs <- Cardano.BM.Output.LogBuffer.readBuffer logbuf
+                                        forM_ msgs (\(lonm, lobj) -> sendMessage (lobj {loName = lonm}) (const [bk]))
+                                        return True
                                     _ -> do
                                         sendMessage nli id
                                         return True
@@ -233,15 +242,12 @@ instance (Show a, ToJSON a) => IsBackend Switchboard a where
                         when (and res) $ qProc counters
 
                 Async.async $ qProc countersMVar
-        in do
         q <- atomically $ TBQ.newTBQueue 2048
         sbref <- newEmptyMVar
         let sb :: Switchboard a = Switchboard sbref
 
         backends <- getSetupBackends cfg
         bs0 <- setupBackends backends cfg sb
-        -- we setup |LogBuffer| explicitly so we can access it as a |Backend| and as |LogBuffer|
-        logbuf :: Cardano.BM.Output.LogBuffer.LogBuffer a <- Cardano.BM.Output.LogBuffer.realize cfg
         bs1 <- return (LogBufferBK, MkBackend
                             { bEffectuate = Cardano.BM.Output.LogBuffer.effectuate logbuf
                             , bUnrealize = Cardano.BM.Output.LogBuffer.unrealize logbuf
@@ -298,54 +304,69 @@ setupBackend' :: (Show a, ToJSON a) => BackendKind -> Configuration -> Switchboa
 setupBackend' SwitchboardBK _ _ = error "cannot instantiate a further Switchboard"
 #ifdef ENABLE_MONITORING
 setupBackend' MonitoringBK c sb = do
-    let trace = mainTraceConditionally c sb
+    let basetrace = mainTraceConditionally c sb
 
-    be :: Cardano.BM.Output.Monitoring.Monitor a <- Cardano.BM.Output.Monitoring.realizefrom c trace sb
+    be :: Cardano.BM.Output.Monitoring.Monitor a <- Cardano.BM.Output.Monitoring.realizefrom c basetrace sb
     return $ Just MkBackend
       { bEffectuate = Cardano.BM.Output.Monitoring.effectuate be
       , bUnrealize = Cardano.BM.Output.Monitoring.unrealize be
       }
 #else
--- We need it anyway, to avoid "Non-exhaustive patterns" warning.
 setupBackend' MonitoringBK _ _ = do
     TIO.hPutStrLn stderr "disabled! will not setup backend 'Monitoring'"
     return Nothing
 #endif
 #ifdef ENABLE_EKG
 setupBackend' EKGViewBK c sb = do
-    let trace = mainTraceConditionally c sb
+    let basetrace = mainTraceConditionally c sb
 
-    be :: Cardano.BM.Output.EKGView.EKGView a <- Cardano.BM.Output.EKGView.realizefrom c trace sb
+    be :: Cardano.BM.Output.EKGView.EKGView a <- Cardano.BM.Output.EKGView.realizefrom c basetrace sb
     return $ Just MkBackend
       { bEffectuate = Cardano.BM.Output.EKGView.effectuate be
       , bUnrealize = Cardano.BM.Output.EKGView.unrealize be
       }
 #else
--- We need it anyway, to avoid "Non-exhaustive patterns" warning.
 setupBackend' EKGViewBK _ _ = do
     TIO.hPutStrLn stderr "disabled! will not setup backend 'EKGView'"
     return Nothing
 #endif
 #ifdef ENABLE_AGGREGATION
 setupBackend' AggregationBK c sb = do
-    let trace = mainTraceConditionally c sb
+    let basetrace = mainTraceConditionally c sb
 
-    be :: Cardano.BM.Output.Aggregation.Aggregation a <- Cardano.BM.Output.Aggregation.realizefrom c trace sb
+    be :: Cardano.BM.Output.Aggregation.Aggregation a <- Cardano.BM.Output.Aggregation.realizefrom c basetrace sb
     return $ Just MkBackend
       { bEffectuate = Cardano.BM.Output.Aggregation.effectuate be
       , bUnrealize = Cardano.BM.Output.Aggregation.unrealize be
       }
 #else
--- We need it anyway, to avoid "Non-exhaustive patterns" warning.
 setupBackend' AggregationBK _ _ = do
     TIO.hPutStrLn stderr "disabled! will not setup backend 'Aggregation'"
+    return Nothing
+#endif
+#ifdef ENABLE_GUI
+setupBackend' EditorBK c sb = do
+    port <- Config.getGUIport c
+    if port > 0
+    then do
+        let trace = mainTraceConditionally c sb
+        be :: Cardano.BM.Output.Editor.Editor a <- Cardano.BM.Output.Editor.realizefrom c trace sb
+        return $ Just MkBackend
+            { bEffectuate = Cardano.BM.Output.Editor.effectuate be
+            , bUnrealize = Cardano.BM.Output.Editor.unrealize be
+            }
+    else
+        return Nothing
+#else
+setupBackend' EditorBK _ _ = do
+    TIO.hPutStrLn stderr "disabled! will not setup backend 'Editor'"
     return Nothing
 #endif
 setupBackend' KatipBK c _ = do
     be :: Cardano.BM.Output.Log.Log a <- Cardano.BM.Output.Log.realize c
     return $ Just MkBackend
-      { bEffectuate = Cardano.BM.Output.Log.effectuate be
-      , bUnrealize = Cardano.BM.Output.Log.unrealize be
-      }
+        { bEffectuate = Cardano.BM.Output.Log.effectuate be
+        , bUnrealize = Cardano.BM.Output.Log.unrealize be
+        }
 setupBackend' LogBufferBK _ _ = return Nothing
 \end{code}

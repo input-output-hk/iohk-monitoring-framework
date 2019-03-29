@@ -48,13 +48,13 @@ options:
     value: "Release-1.0.0"
   mapMonitors: !
     '#aggregation.critproc.observable':
-        - monitor: (mean >= (42))
-        - actions:
+        monitor: (mean >= (42))
+        actions:
           - 'CreateMessage "exceeded" "the observable has been too long too high!"'
           - 'AlterGlobalMinSeverity Info'
     chain.creation.block:
-        - monitor: ((time > (23 s)) Or (time < (17 s)))
-        - actions:
+        monitor: ((time > (23 s)) Or (time < (17 s)))
+        actions:
           - 'AlterMinSeverity "chain.creation" Debug'
   mapSeverity:
     iohk.startup: Debug
@@ -62,12 +62,12 @@ options:
     iohk.testing.uncritical: Warning
   mapSubtrace:
     iohk.benchmarking:
-      tag: ObservableTrace
+      subtrace: ObservableTrace
       contents:
         - GhcRtsStats
         - MonotonicClock
     iohk.deadend:
-      NoTrace
+      subtrace: NoTrace
   mapBackends:
     iohk.interesting.value:
       - EKGViewBK

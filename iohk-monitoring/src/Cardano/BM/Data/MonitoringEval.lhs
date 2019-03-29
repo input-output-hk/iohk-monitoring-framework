@@ -9,6 +9,7 @@
 
 module Cardano.BM.Data.MonitoringEval
   ( MEvExpr (..)
+  , Operator (..)
   , MEvAction
   , VarName
   , Environment
@@ -18,13 +19,15 @@ module Cardano.BM.Data.MonitoringEval
   )
   where
 
+import Prelude hiding (Ordering (..))
+
 import           Control.Applicative ((<|>))
 import           Control.Monad (void)
-import           Data.Aeson (FromJSON (..), Value (..))
+import           Data.Aeson (FromJSON (..), ToJSON (..), Value (..))
 import qualified Data.Attoparsec.Text as P
 import           Data.Char (isSpace)
 import qualified Data.HashMap.Strict as HM
-import           Data.Text (Text, unpack)
+import           Data.Text (Text, pack, unpack)
 import           Data.Word (Word64)
 
 import           Cardano.BM.Data.Aggregated
@@ -33,24 +36,54 @@ import           Cardano.BM.Data.Severity
 \end{code}
 %endif
 
+\subsubsection{Operators}\label{code:Operator}
+Operators used to construct expressions.
+\begin{code}
+
+data Operator = GE -- >=
+              | EQ -- ==
+              | NE -- /=, !=, <>
+              | LE -- <=
+              | LT -- <
+              | GT -- >
+              deriving (Eq)
+
+instance Show Operator where
+    show GE = ">="
+    show EQ = "=="
+    show NE = "/="
+    show LE = "<="
+    show LT = "<"
+    show GT = ">"
+
+fromOperator :: Operator -> (Measurable -> Measurable -> Bool)
+fromOperator GE = (>=)
+fromOperator EQ = (==)
+fromOperator NE = (/=)
+fromOperator LE = (<=)
+fromOperator LT = (<)
+fromOperator GT = (>)
+
+\end{code}
+
 \subsubsection{Expressions}\label{code:MEvExpr}
 Evaluation in monitoring will evaluate expressions
 \begin{code}
 type VarName = Text
-data MEvExpr = Compare VarName (Measurable -> Measurable -> Bool, Measurable)
+data MEvExpr = Compare VarName (Operator, Measurable)
              | AND MEvExpr MEvExpr
-             | OR MEvExpr MEvExpr
+             | OR  MEvExpr MEvExpr
              | NOT MEvExpr
 
-            -- parsing: "(some >= (2000 µs))"  =>  Compare "some" ((>=), (Microseconds 2000))
+            -- parsing: "(some >= (2000 µs))"  =>  Compare "some" (GE, (Microseconds 2000))
             -- parser "((lastreported >= (5 s)) Or ((other >= (0 s)) And (some > (1500 µs))))"
 
 instance Eq MEvExpr where
-    (==) (Compare vn1 _) (Compare vn2 _) = vn1 == vn2
-    (==) (AND e11 e12) (AND e21 e22)     = (e11 == e21 && e12 == e22)
-    (==) (OR e11 e12) (OR e21 e22)       = (e11 == e21 && e12 == e22)
-    (==) (NOT e1) (NOT e2)               = (e1 == e2)
-    (==) _ _ = False
+    (==) (Compare vn1 p1) (Compare vn2 p2) = (vn1 == vn2) && (p1 == p2)
+    (==) (AND e11 e12)    (AND e21 e22)    = (e11 == e21 && e12 == e22)
+    (==) (OR e11 e12)     (OR e21 e22)     = (e11 == e21 && e12 == e22)
+    (==) (NOT e1)         (NOT e2)         = (e1 == e2)
+    (==) _                _                = False
 
 instance FromJSON MEvExpr where
     parseJSON (String s) =
@@ -59,11 +92,15 @@ instance FromJSON MEvExpr where
             Right expr -> pure expr
     parseJSON _ = error "cannot parse such an expression!"
 
+instance ToJSON MEvExpr where
+    toJSON expr = String $ pack $ show expr
+
 instance Show MEvExpr where
-    show (Compare vn _) = "compare " ++ (unpack vn)
-    show (AND e1 e2)    = "(" ++ (show e1) ++ ") And (" ++ (show e2) ++ ")"
-    show (OR e1 e2)     = "(" ++ (show e1) ++ ") Or ("  ++ (show e2) ++ ")"
-    show (NOT e)        = "Not (" ++ (show e) ++ ")"
+    show (Compare vn (op, x)) = "(" ++ (unpack vn) ++ " " ++ show op ++ " (" ++ show x ++")" ++ ")"
+    show (AND e1 e2)          = "(" ++ (show e1) ++ ") And (" ++ (show e2) ++ ")"
+    show (OR e1 e2)           = "(" ++ (show e1) ++ " Or "  ++ (show e2) ++ ")"
+    show (NOT e)              = "Not (" ++ (show e) ++ ")"
+
 \end{code}
 
 \subsubsection{Monitoring actions}\label{code:MEvAction}
@@ -154,16 +191,16 @@ parseVname :: P.Parser VarName
 parseVname = do
     P.takeTill (isSpace)
 
-parseOp :: (Ord a, Eq a) => P.Parser (a -> a -> Bool)
+parseOp :: P.Parser Operator
 parseOp = do
-        (P.string ">=" >> return (>=))
-    <|> (P.string "==" >> return (==))
-    <|> (P.string "/=" >> return (/=))
-    <|> (P.string "!=" >> return (/=))
-    <|> (P.string "<>" >> return (/=))
-    <|> (P.string "<=" >> return (<=))
-    <|> (P.string "<"  >> return (<))
-    <|> (P.string ">"  >> return (>))
+        (P.string ">=" >> return GE)
+    <|> (P.string "==" >> return EQ)
+    <|> (P.string "/=" >> return NE)
+    <|> (P.string "!=" >> return NE)
+    <|> (P.string "<>" >> return NE)
+    <|> (P.string "<=" >> return LE)
+    <|> (P.string "<"  >> return LT)
+    <|> (P.string ">"  >> return GT)
 
 parseMeasurable :: P.Parser Measurable
 parseMeasurable = do
@@ -178,8 +215,8 @@ parseMeasurable' =
         parseTime
     <|> parseBytes
     <|> parseSeverity
-    <|> (P.double >>= return . PureD)
     <|> (P.decimal >>= return . PureI)
+    <|> (P.double >>= return . PureD)
 
 parseTime :: P.Parser Measurable
 parseTime = do
@@ -236,7 +273,7 @@ evaluate ev expr =
         Compare vn (op, m2) ->
                      case getMeasurable ev vn of
                         Nothing -> False
-                        Just m1 -> op m1 m2
+                        Just m1 -> (fromOperator op) m1 m2
         AND e1 e2 -> (evaluate ev e1) && (evaluate ev e2)
         OR e1 e2  -> (evaluate ev e1) || (evaluate ev e2)
         NOT e     -> not (evaluate ev e)
