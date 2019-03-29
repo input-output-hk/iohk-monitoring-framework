@@ -1,16 +1,18 @@
-\subsection{Cardano.BM.Tracer.Class}
-\label{code:Cardano.BM.Tracer.Class}
+\subsection{Control.Tracer.Class}
+\label{code:Control.Tracer.Class}
 
 %if style == newcode
 \begin{code}
-module Cardano.BM.Tracer.Class
+module Control.Tracer.Class
     ( Tracer (..)
     , Contravariant(..)
     , nullTracer
-    , tracingWith
+    , traceWith
     ) where
 
-import           Data.Functor.Contravariant (Contravariant (..), Op (..))
+import           Data.Functor.Contravariant (Contravariant (..))
+import           Data.Semigroup (Semigroup(..))
+import           Data.Monoid (Monoid(..))
 
 \end{code}
 %endif
@@ -22,7 +24,7 @@ annotate) such observations with additional information from their
 execution context.
 
 \begin{code}
-newtype Tracer m s = Tracer { tracing :: Op (m ()) s }
+newtype Tracer m a = Tracer { runTracer :: a -> m () }
 \end{code}
 
 \index{Tracer!instance of Contravariant}
@@ -32,7 +34,7 @@ of |contramap|.
 
 \begin{code}
 instance Contravariant (Tracer m) where
-    contramap f = Tracer . contramap f . tracing
+    contramap f (Tracer t) = Tracer (t . f)
 
 \end{code}
 
@@ -42,22 +44,33 @@ Although a |Tracer| is invoked in a monadic context (which may be
 This brings with it the constraint that the derived |Tracer|s form a
 hierachy which has its root at the top level tracer.
 
+\index{Tracer!instance of Monoid}
+
+In principle a |Tracer| is an instance of |Semigroup| and |Monoid|, by
+sequential composition of the tracing actions.
+
+\begin{code}
+instance Applicative m => Semigroup (Tracer m s) where
+    Tracer a1 <> Tracer a2 = Tracer $ \s -> a1 s *> a2 s
+
+instance Applicative m => Monoid (Tracer m s) where
+    mappend = (<>)
+    mempty  = nullTracer
+\end{code}
+
 \subsubsection{|nullTracer|}\label{code:nullTracer}\index{nullTracer}
 The simplest tracer - one that suppresses all output.
 
 \begin{code}
-nullTracer :: (Applicative m) => Tracer m a
-nullTracer = Tracer $ Op $ \_ -> pure ()
+nullTracer :: Applicative m => Tracer m a
+nullTracer = Tracer $ \_ -> pure ()
 
 \end{code}
 
-\subsubsection{tracingWith}\label{code:tracingWith}\index{tracingWith}
-Accepts a |Tracer| and some payload |s|. First it gets the contravariant
-from the |Tracer| as type "|Op (m ()) s|" and, after "|getOp :: b -> a|" which
-translates to "|s -> m ()|".
+\subsubsection{traceWith}\label{code:traceWith}\index{traceWith}
 
 \begin{code}
-tracingWith :: Tracer m a -> a -> m ()
-tracingWith = getOp . tracing
+traceWith :: Tracer m a -> a -> m ()
+traceWith = runTracer
 
 \end{code}

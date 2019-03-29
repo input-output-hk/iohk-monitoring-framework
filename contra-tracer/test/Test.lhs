@@ -15,7 +15,7 @@ main :: IO ()
 main = defaultMain tests
 
 tests :: TestTree
-tests = testGroup "basic-tracer"
+tests = testGroup "contra-tracer"
     [
       Cardano.BM.Test.Tracer.tests
     ]

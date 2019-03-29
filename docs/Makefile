@@ -1,7 +1,7 @@
 DOC = IOHK-Monitoring
 
 SRCDIR1 = ../iohk-monitoring/src
-SRCDIR2 = ../basic-tracer/src
+SRCDIR2 = ../contra-tracer/src
 SOURCES = Code.lhs \
 					$(SRCDIR1)/Cardano/BM/Configuration.lhs \
 					$(SRCDIR1)/Cardano/BM/Configuration/Model.lhs \
@@ -37,13 +37,13 @@ SOURCES = Code.lhs \
 					$(SRCDIR1)/Cardano/BM/Rotator.lhs \
 					$(SRCDIR1)/Cardano/BM/Setup.lhs \
 					$(SRCDIR1)/Cardano/BM/Trace.lhs \
-					$(SRCDIR2)/Cardano/BM/Tracer.lhs \
- 					$(SRCDIR2)/Cardano/BM/Tracer/Class.lhs \
- 					$(SRCDIR2)/Cardano/BM/Tracer/Output.lhs \
- 					$(SRCDIR2)/Cardano/BM/Tracer/Transformers.lhs \
+					$(SRCDIR2)/Control/Tracer.lhs \
+ 					$(SRCDIR2)/Control/Tracer/Class.lhs \
+ 					$(SRCDIR2)/Control/Tracer/Output.lhs \
+ 					$(SRCDIR2)/Control/Tracer/Transformers.lhs \
 
 TSTDIR1 = ../iohk-monitoring/test
-TSTDIR2 = ../basic-tracer/test
+TSTDIR2 = ../contra-tracer/test
 TESTS = $(TSTDIR1)/Test.lhs \
 				$(TSTDIR1)/Cardano/BM/Test/Aggregated.lhs \
 				$(TSTDIR1)/Cardano/BM/Test/Configuration.lhs \

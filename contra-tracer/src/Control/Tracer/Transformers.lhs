@@ -1,21 +1,20 @@
-\subsection{Cardano.BM.Tracer.Transformers}
-\label{code:Cardano.BM.Tracer.Transformers}
+\subsection{Control.Tracer.Transformers}
+\label{code:Control.Tracer.Transformers}
 
 %if style == newcode
 \begin{code}
 {-# LANGUAGE RankNTypes #-}
 
-module Cardano.BM.Tracer.Transformers
+module Control.Tracer.Transformers
     ( showTracing
     , condTracing
     , condTracingM
-    , natTrace
+    , natTracer
     ) where
 
 import           Control.Monad (when)
-import           Data.Functor.Contravariant (Contravariant (..), Op (..))
 
-import           Cardano.BM.Tracer.Class
+import           Control.Tracer.Class
 
 \end{code}
 %endif
@@ -35,8 +34,8 @@ trace creation time.
 
 \begin{code}
 condTracing :: (Monad m) => (a -> Bool) -> Tracer m a -> Tracer m a
-condTracing active tr = Tracer $ Op $ \s -> do
-    when (active s) (tracingWith tr s)
+condTracing active tr = Tracer $ \s ->
+    when (active s) (traceWith tr s)
 
 \end{code}
 
@@ -47,9 +46,9 @@ context accessible in the monadic context.
 
 \begin{code}
 condTracingM :: (Monad m) => m (a -> Bool) -> Tracer m a -> Tracer m a
-condTracingM activeP tr = Tracer $ Op $ \s -> do
+condTracingM activeP tr = Tracer $ \s -> do
     active <- activeP
-    when (active s) (tracingWith tr s)
+    when (active s) (traceWith tr s)
 
 \end{code}
 
@@ -57,7 +56,7 @@ condTracingM activeP tr = Tracer $ Op $ \s -> do
 Natural transformation from monad |m| to monad |n|.
 \begin{code}
 
-natTrace :: (forall x . m x -> n x) -> Tracer m s -> Tracer n s
-natTrace nat (Tracer (Op tr)) = Tracer $ Op $ nat . tr
+natTracer :: (forall x . m x -> n x) -> Tracer m s -> Tracer n s
+natTracer nat (Tracer tr) = Tracer (nat . tr)
 
 \end{code}

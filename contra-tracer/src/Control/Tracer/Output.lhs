@@ -1,18 +1,17 @@
-\subsection{Cardano.BM.Tracer.Output}
-\label{code:Cardano.BM.Tracer.Output}
+\subsection{Control.Tracer.Output}
+\label{code:Control.Tracer.Output}
 
 %if style == newcode
 \begin{code}
-module Cardano.BM.Tracer.Output
+module Control.Tracer.Output
     ( stdoutTracer
     , debugTracer
     ) where
 
 import           Control.Monad.IO.Class (MonadIO(..))
 import           Debug.Trace (traceM)
-import           Data.Functor.Contravariant (Op (..))
 
-import           Cardano.BM.Tracer.Class
+import           Control.Tracer.Class
 
 \end{code}
 %endif
@@ -24,7 +23,7 @@ about interleaving should be heeded).
 
 \begin{code}
 stdoutTracer :: (MonadIO m) => Tracer m String
-stdoutTracer = Tracer $ Op $ liftIO . putStrLn
+stdoutTracer = Tracer $ liftIO . putStrLn
 
 \end{code}
 
@@ -34,6 +33,6 @@ A Tracer that uses |TraceM| (from |Debug.Trace|) as its output mechanism.
 
 \begin{code}
 debugTracer :: (Applicative m) => Tracer m String
-debugTracer = Tracer $ Op traceM
+debugTracer = Tracer Debug.Trace.traceM
 
 \end{code}
