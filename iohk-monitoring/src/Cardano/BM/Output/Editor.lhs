@@ -203,6 +203,12 @@ prepare editor config window = void $ do
     let exportButton           = performActionOnId exportButtonId
     let cleanOutputTable       = performActionOnId outputTableId $ \t -> void $ element t # set children []
 
+    let mkLinkToFile :: String -> FilePath -> UI Element
+        mkLinkToFile str file = UI.tr #. "itemrow" #+
+                                        [ UI.anchor # set (attr "href") file
+                                          # set (attr "target") "_blank"
+                                          #+ [ string str ]
+                                        ]
     let mkSimpleRow :: Show t => LoggerName -> t -> UI Element
         mkSimpleRow n v = UI.tr #. "itemrow" #+
             [ UI.td #+ [ string (unpack n) ]
@@ -370,12 +376,18 @@ prepare editor config window = void $ do
                         let dir = currentDir </> "iohk-monitoring/static/conf"
                         liftIO $ createDirectoryIfMissing True dir
                         tsnow <- formatTime defaultTimeLocale tsformat <$> liftIO getCurrentTime
-                        let file = dir </> "config.yaml" ++ "-" ++ tsnow
+                        let filename = "config.yaml" ++ "-" ++ tsnow
+                            filepath = dir </> filename
                         res <- liftIO $ catch
-                            (CM.exportConfiguration config file >>
-                             return ("Exported configuration to file " ++ file ++ "."))
+                            (CM.exportConfiguration config filepath >>
+                             return ("Configuration was exported to the file: " ++ filepath))
                             (\(e :: SomeException) -> return $ show e)
                         setMessage res
+                        performActionOnId outputTableId $
+                            \t -> void $ element t #+ [ mkLinkToFile
+                                                            "Link to configuration file"
+                                                            ("/static/conf" </> filename)
+                                                      ]
                     return b
                 ]
 
@@ -416,7 +428,8 @@ prepare editor config window = void $ do
         Just mainSection -> void $ element mainSection #+
             [ UI.div #. "w3-panel" #+
                 [ UI.div #. "w3-border w3-border-dark-grey" #+
-                    [ UI.div #. "w3-panel" #+ [ minimumSeveritySelection ] ]
+                    [ UI.div #. "w3-panel" #+ [ minimumSeveritySelection ]
+                    ]
                 , UI.div #. "w3-panel" #+ []
                 , UI.div #. "w3-border w3-border-dark-grey" #+
                     [ UI.div #. "w3-bar w3-grey" #+ [ commandTabs ]
