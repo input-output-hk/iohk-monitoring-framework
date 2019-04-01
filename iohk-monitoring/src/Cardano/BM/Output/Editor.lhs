@@ -125,7 +125,7 @@ instance IsEffectuator Editor a where
 \subsubsection{Prepare the view}
 \begin{code}
 
-data Cmd = Backends | Scribes | Severities | SubTrace | Aggregation | Buffer
+data Cmd = Backends | Scribes | Severities | SubTrace | Aggregation | Buffer | ExportConfiguration
            deriving (Enum, Eq, Show, Read)
 
 prepare :: Show a => Editor a -> Configuration -> Window -> UI ()
@@ -162,7 +162,7 @@ prepare editor config window = void $ do
         removeItem Scribes     k = CM.setScribes        config k Nothing
         removeItem SubTrace    k = CM.setSubTrace       config k Nothing
         removeItem Aggregation k = CM.setAggregatedKind config k Nothing
-        removeItem Buffer     _k = pure ()
+        removeItem _           _ = pure ()
 
     let updateItem Backends    k v = case (readMay v :: Maybe [BackendKind]) of
                                          Nothing -> setError "parse error on backend list"
@@ -179,7 +179,7 @@ prepare editor config window = void $ do
         updateItem Aggregation k v = case (readMay v :: Maybe AggregatedKind) of
                                          Nothing -> setError "parse error on aggregated kind"
                                          Just v' -> liftIO $ CM.setAggregatedKind config k $ Just v'
-        updateItem Buffer    _k _v = pure ()
+        updateItem _           _ _ = pure ()
 
     disable inputKey
     disable inputValue
@@ -188,10 +188,14 @@ prepare editor config window = void $ do
     let saveItemButtonId       = "save-item-button"
     let cancelSaveItemButtonId = "cancel-save-item-button"
     let addItemButtonId        = "add-item-button"
+    let exportButtonId         = "export-button"
     let outputTableId          = "output-table"
 
+    let addItemButton          = performActionOnId addItemButtonId
     let saveItemButton         = performActionOnId saveItemButtonId
     let cancelSaveItemButton   = performActionOnId cancelSaveItemButtonId
+    let exportButton           = performActionOnId exportButtonId
+    let cleanOutputTable       = performActionOnId outputTableId $ \t -> void $ element t # set children []
 
     let mkSimpleRow :: Show t => LoggerName -> t -> UI Element
         mkSimpleRow n v = UI.tr #. "itemrow" #+
@@ -243,8 +247,9 @@ prepare editor config window = void $ do
             rememberCurrent cmd
             saveItemButton disable
             cancelSaveItemButton disable
-            performActionOnId addItemButtonId enable
-            performActionOnId outputTableId $ \t -> void $ element t # set children []
+            exportButton disable
+            addItemButton enable
+            cleanOutputTable
             performActionOnId outputTableId $
                 \t -> void $ element t #+
                     [ UI.tr #+
@@ -263,8 +268,9 @@ prepare editor config window = void $ do
             rememberCurrent cmd
             saveItemButton disable
             cancelSaveItemButton disable
-            performActionOnId addItemButtonId disable
-            performActionOnId outputTableId $ \t -> void $ element t # set children []
+            exportButton disable
+            addItemButton disable
+            cleanOutputTable
             performActionOnId outputTableId $
                 \t -> void $ element t #+
                     [ UI.tr #+
@@ -281,12 +287,22 @@ prepare editor config window = void $ do
             ed <- liftIO $ readMVar (getEd editor)
             liftIO $ readBuffer $ edBuffer ed
 
-    let switchToTab c@Backends    = displayItems c $ CM.cgMapBackend
-        switchToTab c@Severities  = displayItems c $ CM.cgMapSeverity
-        switchToTab c@Scribes     = displayItems c $ CM.cgMapScribe
-        switchToTab c@SubTrace    = displayItems c $ CM.cgMapSubtrace
-        switchToTab c@Aggregation = displayItems c $ CM.cgMapAggregatedKind
-        switchToTab c@Buffer      = accessBufferMap >>= displayBuffer c
+    let displayExport cmd = do
+            showCurrentTab cmd
+            rememberCurrent cmd
+            saveItemButton disable
+            cancelSaveItemButton disable
+            exportButton enable
+            addItemButton disable
+            cleanOutputTable
+
+    let switchToTab c@Backends            = displayItems c $ CM.cgMapBackend
+        switchToTab c@Severities          = displayItems c $ CM.cgMapSeverity
+        switchToTab c@Scribes             = displayItems c $ CM.cgMapScribe
+        switchToTab c@SubTrace            = displayItems c $ CM.cgMapSubtrace
+        switchToTab c@Aggregation         = displayItems c $ CM.cgMapAggregatedKind
+        switchToTab c@Buffer              = accessBufferMap >>= displayBuffer c
+        switchToTab c@ExportConfiguration = displayExport c
 
     let mkEditInputs =
             row [ element inputKey
@@ -336,6 +352,16 @@ prepare editor config window = void $ do
                         cleanAndDisable inputValue
                         saveItemButton disable
                         cancelSaveItemButton disable
+                    return b
+                , UI.span #. "key-value-separator" #+ [string ""]
+                , do
+                    b <- UI.button #. "w3-btn w3-ripple w3-green save-item-button"
+                                   #  set (UI.attr "id") exportButtonId
+                                   #  set UI.enabled False
+                                   #+ [UI.bold #+ [string "Export"]]
+                    on UI.click b $ const $ do
+                        file <- return "dummyFileName"
+                        setMessage $ "Exported configuration to file " ++ file ++ "."
                     return b
                 ]
 
