@@ -12,6 +12,7 @@ module Cardano.BM.Configuration.Model
     , setup
     , setupFromRepresentation
     , toRepresentation
+    , exportConfiguration
     , empty
     , minSeverity
     , setMinSeverity
@@ -54,7 +55,7 @@ import           Data.Maybe (catMaybes)
 import qualified Data.Text as T
 import           Data.Text (Text, pack, unpack)
 import qualified Data.Vector as Vector
-import           Data.Yaml as Y
+import           Data.Yaml as Yaml
 
 import           Cardano.BM.Data.AggregatedKind (AggregatedKind(..))
 import           Cardano.BM.Data.BackendKind
@@ -549,5 +550,16 @@ toRepresentation (Configuration c) = do
                                   mapMonitors   `HM.union`
                                   otherOptions
             }
+
+\end{code}
+
+\subsubsection{Export |Configuration| into a file}\label{code:exportConfiguration}\index{exportConfiguration}
+Converts |Configuration| into the form of |Representation| and writes it to
+the given file.
+\begin{code}
+exportConfiguration :: Configuration -> FilePath -> IO ()
+exportConfiguration cfg file = do
+    representation <- toRepresentation cfg
+    Yaml.encodeFile file representation
 
 \end{code}
