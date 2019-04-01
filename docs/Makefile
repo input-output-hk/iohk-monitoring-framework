@@ -38,9 +38,6 @@ SOURCES = Code.lhs \
 					$(SRCDIR1)/Cardano/BM/Setup.lhs \
 					$(SRCDIR1)/Cardano/BM/Trace.lhs \
 					$(SRCDIR2)/Control/Tracer.lhs \
- 					$(SRCDIR2)/Control/Tracer/Class.lhs \
- 					$(SRCDIR2)/Control/Tracer/Output.lhs \
- 					$(SRCDIR2)/Control/Tracer/Transformers.lhs \
 
 TSTDIR1 = ../iohk-monitoring/test
 TSTDIR2 = ../contra-tracer/test

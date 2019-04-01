@@ -134,9 +134,6 @@ thus specializes its interface.}\label{fig:overview}
 \section{Code listings - contra-tracer package}
 
 %include ../contra-tracer/src/Control/Tracer.lhs
-%include ../contra-tracer/src/Control/Tracer/Class.lhs
-%include ../contra-tracer/src/Control/Tracer/Output.lhs
-%include ../contra-tracer/src/Control/Tracer/Transformers.lhs
 
 
 \section{Code listings - iohk-monitoring package}

@@ -20,17 +20,5 @@
           (hsPkgs.base)
           ] ++ (pkgs.lib).optional (compiler.isGhc && (compiler.version).lt "8.5") (hsPkgs.contravariant);
         };
-      tests = {
-        "tests" = {
-          depends = [
-            (hsPkgs.base)
-            (hsPkgs.contra-tracer)
-            (hsPkgs.QuickCheck)
-            (hsPkgs.tasty)
-            (hsPkgs.tasty-hunit)
-            (hsPkgs.tasty-quickcheck)
-            ];
-          };
-        };
       };
     } // rec { src = (pkgs.lib).mkDefault .././../contra-tracer; }
