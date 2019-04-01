@@ -19,12 +19,17 @@ module Cardano.BM.Output.Editor
 import           Prelude hiding (lookup)
 import qualified Control.Concurrent.Async as Async
 import           Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar, readMVar, withMVar)
+import           Control.Exception.Safe (SomeException, catch)
 import           Control.Monad  (void, when, forM_)
 import qualified Data.HashMap.Strict as HM
 import           Data.List (delete)
 import           Data.Text (pack, unpack)
 import qualified Data.Text.IO as TIO
+import           Data.Time (getCurrentTime)
+import           Data.Time.Format (defaultTimeLocale, formatTime)
 import           Safe (readMay)
+import           System.Directory (createDirectoryIfMissing, getCurrentDirectory)
+import           System.FilePath ((</>))
 import           System.IO (stderr)
 
 import qualified Graphics.UI.Threepenny as UI
@@ -41,6 +46,7 @@ import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.SubTrace
 import           Cardano.BM.Data.Trace
 import           Cardano.BM.Output.LogBuffer
+import           Cardano.BM.Rotator (tsformat)
 
 \end{code}
 %endif
@@ -360,8 +366,16 @@ prepare editor config window = void $ do
                                    #  set UI.enabled False
                                    #+ [UI.bold #+ [string "Export"]]
                     on UI.click b $ const $ do
-                        file <- return "dummyFileName"
-                        setMessage $ "Exported configuration to file " ++ file ++ "."
+                        currentDir <- liftIO getCurrentDirectory
+                        let dir = currentDir </> "iohk-monitoring/static/conf"
+                        liftIO $ createDirectoryIfMissing True dir
+                        tsnow <- formatTime defaultTimeLocale tsformat <$> liftIO getCurrentTime
+                        let file = dir </> "config.yaml" ++ "-" ++ tsnow
+                        res <- liftIO $ catch
+                            (CM.exportConfiguration config file >>
+                             return ("Exported configuration to file " ++ file ++ "."))
+                            (\(e :: SomeException) -> return $ show e)
+                        setMessage res
                     return b
                 ]
 
