@@ -28,6 +28,7 @@ module Cardano.BM.Data.Tracer
     ) where
 
 import           Control.Monad (void)
+import           Data.Functor.Contravariant (Contravariant (..))
 import           Data.Text (Text, unpack)
 
 import           Cardano.BM.Data.LogItem (LoggerName,
