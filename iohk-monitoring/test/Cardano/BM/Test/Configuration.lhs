@@ -20,6 +20,7 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.Vector as V
 import           Data.Yaml
 import           System.FilePath ((</>))
+import           System.IO.Temp (withSystemTempFile)
 import           System.Directory (getTemporaryDirectory)
 
 import           Cardano.BM.Data.Configuration
@@ -28,7 +29,7 @@ import           Cardano.BM.Configuration.Model (Configuration (..),
                      getDefaultBackends, getAggregatedKind, getGUIport,
                      getEKGport, empty, setDefaultScribes, setScribes, setup,
                      setDefaultAggregatedKind, setAggregatedKind, setGUIport,
-                     setEKGport, setupFromRepresentation, toRepresentation)
+                     setEKGport, exportConfiguration)
 import           Cardano.BM.Configuration.Static (defaultConfigStdout)
 import qualified Cardano.BM.Data.Aggregated as Agg
 import           Cardano.BM.Data.AggregatedKind
@@ -412,8 +413,9 @@ unitConfigurationExport :: Assertion
 unitConfigurationExport = do
     cfg  <- setup "test/config.yaml"
 
-    repr <- toRepresentation cfg
-    cfg' <- setupFromRepresentation repr
+    cfg' <- withSystemTempFile "config.yaml-1213" $ \file _ -> do
+                exportConfiguration cfg file
+                setup file
 
     cfgInternal  <- readMVar $ getCG cfg
     cfgInternal' <- readMVar $ getCG cfg'

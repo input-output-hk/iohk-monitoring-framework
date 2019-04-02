@@ -162,6 +162,7 @@
 %format Configuration = "\hyperref[code:Configuration]{Configuration}"
 %format setSubTrace = "\hyperref[code:setSubTrace]{setSubTrace}"
 %format toRepresentation = "\hyperref[code:toRepresentation]{toRepresentation}"
+%format exportConfiguration = "\hyperref[code:exportConfiguration]{exportConfiguration}"
 %format Cardano.BM.Configuration.Static = "\hyperref[code:Cardano.BM.Configuration.Static]{Cardano.BM.Configuration.Static}"
 %format Cardano.BM.Output.Switchboard = "\hyperref[code:Cardano.BM.Output.Switchboard]{Cardano.BM.Output.Switchboard}"
 %format Switchboard = "\hyperref[code:Switchboard]{Switchboard}"

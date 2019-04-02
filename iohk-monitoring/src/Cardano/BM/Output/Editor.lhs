@@ -19,12 +19,17 @@ module Cardano.BM.Output.Editor
 import           Prelude hiding (lookup)
 import qualified Control.Concurrent.Async as Async
 import           Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar, readMVar, withMVar)
+import           Control.Exception.Safe (SomeException, catch)
 import           Control.Monad  (void, when, forM_)
 import qualified Data.HashMap.Strict as HM
 import           Data.List (delete)
 import           Data.Text (pack, unpack)
 import qualified Data.Text.IO as TIO
+import           Data.Time (getCurrentTime)
+import           Data.Time.Format (defaultTimeLocale, formatTime)
 import           Safe (readMay)
+import           System.Directory (createDirectoryIfMissing, getCurrentDirectory)
+import           System.FilePath ((</>))
 import           System.IO (stderr)
 
 import qualified Graphics.UI.Threepenny as UI
@@ -41,6 +46,7 @@ import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.SubTrace
 import           Cardano.BM.Data.Trace
 import           Cardano.BM.Output.LogBuffer
+import           Cardano.BM.Rotator (tsformat)
 
 \end{code}
 %endif
@@ -125,7 +131,7 @@ instance IsEffectuator Editor a where
 \subsubsection{Prepare the view}
 \begin{code}
 
-data Cmd = Backends | Scribes | Severities | SubTrace | Aggregation | Buffer
+data Cmd = Backends | Scribes | Severities | SubTrace | Aggregation | Buffer | ExportConfiguration
            deriving (Enum, Eq, Show, Read)
 
 prepare :: Show a => Editor a -> Configuration -> Window -> UI ()
@@ -162,7 +168,7 @@ prepare editor config window = void $ do
         removeItem Scribes     k = CM.setScribes        config k Nothing
         removeItem SubTrace    k = CM.setSubTrace       config k Nothing
         removeItem Aggregation k = CM.setAggregatedKind config k Nothing
-        removeItem Buffer     _k = pure ()
+        removeItem _           _ = pure ()
 
     let updateItem Backends    k v = case (readMay v :: Maybe [BackendKind]) of
                                          Nothing -> setError "parse error on backend list"
@@ -179,7 +185,7 @@ prepare editor config window = void $ do
         updateItem Aggregation k v = case (readMay v :: Maybe AggregatedKind) of
                                          Nothing -> setError "parse error on aggregated kind"
                                          Just v' -> liftIO $ CM.setAggregatedKind config k $ Just v'
-        updateItem Buffer    _k _v = pure ()
+        updateItem _           _ _ = pure ()
 
     disable inputKey
     disable inputValue
@@ -190,9 +196,15 @@ prepare editor config window = void $ do
     let addItemButtonId        = "add-item-button"
     let outputTableId          = "output-table"
 
+    let addItemButton          = performActionOnId addItemButtonId
     let saveItemButton         = performActionOnId saveItemButtonId
     let cancelSaveItemButton   = performActionOnId cancelSaveItemButtonId
+    let cleanOutputTable       = performActionOnId outputTableId $ \t -> void $ element t # set children []
 
+    let mkLinkToFile :: String -> FilePath -> UI Element
+        mkLinkToFile str file = UI.anchor # set (attr "href") file
+                                          # set (attr "target") "_blank"
+                                          #+ [ string str ]
     let mkSimpleRow :: Show t => LoggerName -> t -> UI Element
         mkSimpleRow n v = UI.tr #. "itemrow" #+
             [ UI.td #+ [ string (unpack n) ]
@@ -243,8 +255,8 @@ prepare editor config window = void $ do
             rememberCurrent cmd
             saveItemButton disable
             cancelSaveItemButton disable
-            performActionOnId addItemButtonId enable
-            performActionOnId outputTableId $ \t -> void $ element t # set children []
+            addItemButton enable
+            cleanOutputTable
             performActionOnId outputTableId $
                 \t -> void $ element t #+
                     [ UI.tr #+
@@ -263,8 +275,8 @@ prepare editor config window = void $ do
             rememberCurrent cmd
             saveItemButton disable
             cancelSaveItemButton disable
-            performActionOnId addItemButtonId disable
-            performActionOnId outputTableId $ \t -> void $ element t # set children []
+            addItemButton disable
+            cleanOutputTable
             performActionOnId outputTableId $
                 \t -> void $ element t #+
                     [ UI.tr #+
@@ -281,12 +293,40 @@ prepare editor config window = void $ do
             ed <- liftIO $ readMVar (getEd editor)
             liftIO $ readBuffer $ edBuffer ed
 
-    let switchToTab c@Backends    = displayItems c $ CM.cgMapBackend
-        switchToTab c@Severities  = displayItems c $ CM.cgMapSeverity
-        switchToTab c@Scribes     = displayItems c $ CM.cgMapScribe
-        switchToTab c@SubTrace    = displayItems c $ CM.cgMapSubtrace
-        switchToTab c@Aggregation = displayItems c $ CM.cgMapAggregatedKind
-        switchToTab c@Buffer      = accessBufferMap >>= displayBuffer c
+    let exportConfiguration = do
+            currentDir <- liftIO getCurrentDirectory
+            let dir = currentDir </> "iohk-monitoring/static/conf"
+            liftIO $ createDirectoryIfMissing True dir
+            tsnow <- formatTime defaultTimeLocale tsformat <$> liftIO getCurrentTime
+            let filename = "config.yaml" ++ "-" ++ tsnow
+                filepath = dir </> filename
+            res <- liftIO $ catch
+                (CM.exportConfiguration config filepath >>
+                    return ("Configuration was exported to the file: " ++ filepath))
+                (\(e :: SomeException) -> return $ show e)
+            setMessage res
+            performActionOnId outputTableId $
+                \t -> void $ element t #+ [ mkLinkToFile
+                                                "Link to configuration file"
+                                                ("/static/conf" </> filename)
+                                            ]
+
+    let displayExport cmd = do
+            showCurrentTab cmd
+            rememberCurrent cmd
+            saveItemButton disable
+            cancelSaveItemButton disable
+            addItemButton disable
+            cleanOutputTable
+            exportConfiguration
+
+    let switchToTab c@Backends            = displayItems c $ CM.cgMapBackend
+        switchToTab c@Severities          = displayItems c $ CM.cgMapSeverity
+        switchToTab c@Scribes             = displayItems c $ CM.cgMapScribe
+        switchToTab c@SubTrace            = displayItems c $ CM.cgMapSubtrace
+        switchToTab c@Aggregation         = displayItems c $ CM.cgMapAggregatedKind
+        switchToTab c@Buffer              = accessBufferMap >>= displayBuffer c
+        switchToTab c@ExportConfiguration = displayExport c
 
     let mkEditInputs =
             row [ element inputKey
@@ -376,7 +416,8 @@ prepare editor config window = void $ do
         Just mainSection -> void $ element mainSection #+
             [ UI.div #. "w3-panel" #+
                 [ UI.div #. "w3-border w3-border-dark-grey" #+
-                    [ UI.div #. "w3-panel" #+ [ minimumSeveritySelection ] ]
+                    [ UI.div #. "w3-panel" #+ [ minimumSeveritySelection ]
+                    ]
                 , UI.div #. "w3-panel" #+ []
                 , UI.div #. "w3-border w3-border-dark-grey" #+
                     [ UI.div #. "w3-bar w3-grey" #+ [ commandTabs ]
