@@ -194,21 +194,17 @@ prepare editor config window = void $ do
     let saveItemButtonId       = "save-item-button"
     let cancelSaveItemButtonId = "cancel-save-item-button"
     let addItemButtonId        = "add-item-button"
-    let exportButtonId         = "export-button"
     let outputTableId          = "output-table"
 
     let addItemButton          = performActionOnId addItemButtonId
     let saveItemButton         = performActionOnId saveItemButtonId
     let cancelSaveItemButton   = performActionOnId cancelSaveItemButtonId
-    let exportButton           = performActionOnId exportButtonId
     let cleanOutputTable       = performActionOnId outputTableId $ \t -> void $ element t # set children []
 
     let mkLinkToFile :: String -> FilePath -> UI Element
-        mkLinkToFile str file = UI.tr #. "itemrow" #+
-                                        [ UI.anchor # set (attr "href") file
+        mkLinkToFile str file = UI.anchor # set (attr "href") file
                                           # set (attr "target") "_blank"
                                           #+ [ string str ]
-                                        ]
     let mkSimpleRow :: Show t => LoggerName -> t -> UI Element
         mkSimpleRow n v = UI.tr #. "itemrow" #+
             [ UI.td #+ [ string (unpack n) ]
@@ -259,7 +255,6 @@ prepare editor config window = void $ do
             rememberCurrent cmd
             saveItemButton disable
             cancelSaveItemButton disable
-            exportButton disable
             addItemButton enable
             cleanOutputTable
             performActionOnId outputTableId $
@@ -280,7 +275,6 @@ prepare editor config window = void $ do
             rememberCurrent cmd
             saveItemButton disable
             cancelSaveItemButton disable
-            exportButton disable
             addItemButton disable
             cleanOutputTable
             performActionOnId outputTableId $
@@ -299,14 +293,32 @@ prepare editor config window = void $ do
             ed <- liftIO $ readMVar (getEd editor)
             liftIO $ readBuffer $ edBuffer ed
 
+    let exportConfiguration = do
+            currentDir <- liftIO getCurrentDirectory
+            let dir = currentDir </> "iohk-monitoring/static/conf"
+            liftIO $ createDirectoryIfMissing True dir
+            tsnow <- formatTime defaultTimeLocale tsformat <$> liftIO getCurrentTime
+            let filename = "config.yaml" ++ "-" ++ tsnow
+                filepath = dir </> filename
+            res <- liftIO $ catch
+                (CM.exportConfiguration config filepath >>
+                    return ("Configuration was exported to the file: " ++ filepath))
+                (\(e :: SomeException) -> return $ show e)
+            setMessage res
+            performActionOnId outputTableId $
+                \t -> void $ element t #+ [ mkLinkToFile
+                                                "Link to configuration file"
+                                                ("/static/conf" </> filename)
+                                            ]
+
     let displayExport cmd = do
             showCurrentTab cmd
             rememberCurrent cmd
             saveItemButton disable
             cancelSaveItemButton disable
-            exportButton enable
             addItemButton disable
             cleanOutputTable
+            exportConfiguration
 
     let switchToTab c@Backends            = displayItems c $ CM.cgMapBackend
         switchToTab c@Severities          = displayItems c $ CM.cgMapSeverity
@@ -364,30 +376,6 @@ prepare editor config window = void $ do
                         cleanAndDisable inputValue
                         saveItemButton disable
                         cancelSaveItemButton disable
-                    return b
-                , UI.span #. "key-value-separator" #+ [string ""]
-                , do
-                    b <- UI.button #. "w3-btn w3-ripple w3-green save-item-button"
-                                   #  set (UI.attr "id") exportButtonId
-                                   #  set UI.enabled False
-                                   #+ [UI.bold #+ [string "Export"]]
-                    on UI.click b $ const $ do
-                        currentDir <- liftIO getCurrentDirectory
-                        let dir = currentDir </> "iohk-monitoring/static/conf"
-                        liftIO $ createDirectoryIfMissing True dir
-                        tsnow <- formatTime defaultTimeLocale tsformat <$> liftIO getCurrentTime
-                        let filename = "config.yaml" ++ "-" ++ tsnow
-                            filepath = dir </> filename
-                        res <- liftIO $ catch
-                            (CM.exportConfiguration config filepath >>
-                             return ("Configuration was exported to the file: " ++ filepath))
-                            (\(e :: SomeException) -> return $ show e)
-                        setMessage res
-                        performActionOnId outputTableId $
-                            \t -> void $ element t #+ [ mkLinkToFile
-                                                            "Link to configuration file"
-                                                            ("/static/conf" </> filename)
-                                                      ]
                     return b
                 ]
 
