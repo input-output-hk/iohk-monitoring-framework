@@ -5,6 +5,7 @@
 %if style == newcode
 \begin{code}
 {-# LANGUAGE DeriveAnyClass    #-}
+{-# LANGUAGE LambdaCase        #-}
 
 module Cardano.BM.Data.MessageCounter
   ( MessageCounter (..)
@@ -19,13 +20,14 @@ import           Control.Concurrent.Async.Timer (defaultConf, withAsyncTimer,
 import           Control.Concurrent.MVar (MVar, modifyMVar_)
 import           Control.Monad (forM_, forever)
 import qualified Data.HashMap.Strict as HM
-import           Data.Text (pack)
+import           Data.Text (Text, pack)
 import           Data.Time.Clock (UTCTime, diffUTCTime, getCurrentTime)
 import           Data.Word (Word64)
 
 import           Cardano.BM.Data.Aggregated (Measurable (PureI))
-import           Cardano.BM.Data.LogItem (LoggerName, LOContent(LogValue),
-                    LOMeta(..), LogObject(..), PrivacyAnnotation(Confidential), mkLOMeta)
+import           Cardano.BM.Data.LogItem (LoggerName, LOContent (..),
+                    LOMeta(..), LogObject(..), PrivacyAnnotation(Confidential),
+                    mkLOMeta)
 import           Cardano.BM.Data.Severity (Severity (..))
 import           Cardano.BM.Data.Trace
 import qualified Cardano.BM.Trace as Trace
@@ -37,7 +39,7 @@ Data structure holding essential info for message counters.
 \begin{code}
 data MessageCounter = MessageCounter
                         { mcStart       :: {-# UNPACK #-} !UTCTime
-                        , mcCountersMap :: HM.HashMap String Word64
+                        , mcCountersMap :: HM.HashMap Text Word64
                         }
                         deriving (Show)
 
@@ -46,10 +48,10 @@ data MessageCounter = MessageCounter
 \subsubsection{Update counters.}
 Update counter for specific severity and type of message.
 \begin{code}
-updateMessageCounters :: (Show a) => MessageCounter -> LogObject a -> MessageCounter
+updateMessageCounters :: MessageCounter -> LogObject a -> MessageCounter
 updateMessageCounters mc (LogObject _ meta content) =
-    let sev = show $ severity meta
-        messageType = head $ words $ show content
+    let sev = pack $ show $ severity meta
+        messageType = lotype2name content
         increasedCounter key cmap =
             case HM.lookup key cmap of
                 Nothing -> 1 :: Word64
@@ -61,6 +63,22 @@ updateMessageCounters mc (LogObject _ meta content) =
             HM.insert messageType typeCounter $
                 HM.insert sev sevCounter $ mcCountersMap mc
         }
+
+\end{code}
+
+Name of a message content type
+\begin{code}
+lotype2name :: LOContent a -> Text
+lotype2name = \case 
+    LogMessage _        -> "LogMessage"
+    LogValue _ _        -> "LogValue"
+    ObserveOpen _       -> "ObserveOpen"
+    ObserveDiff _       -> "ObserveDiff"
+    ObserveClose _      -> "ObserveClose"
+    AggregatedMessage _ -> "AggregatedMessage"
+    MonitoringEffect _  -> "MonitoringEffect"
+    Command _           -> "Command"
+    KillPill            -> "KillPill"
 
 \end{code}
 
@@ -90,7 +108,7 @@ sendAndReset trace counters sev = do
 
     lometa <- mkLOMeta sev Confidential
     forM_ (HM.toList $ mcCountersMap counters) $ \(key, count) ->
-        Trace.traceNamedObject trace (lometa, LogValue (pack key) (PureI $ toInteger count))
+        Trace.traceNamedObject trace (lometa, LogValue key (PureI $ toInteger count))
     Trace.traceNamedObject trace (lometa, LogValue "time_interval_(s)" (PureI diffTime))
     return $ resetCounters now
 

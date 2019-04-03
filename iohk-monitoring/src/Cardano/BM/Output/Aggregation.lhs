@@ -104,7 +104,7 @@ instance IsEffectuator Aggregation a where
 
 |Aggregation| is an |IsBackend|
 \begin{code}
-instance Show a => IsBackend Aggregation a where
+instance IsBackend Aggregation a where
     typeof _ = AggregationBK
 
     realize _ = error "Aggregation cannot be instantiated by 'realize'"
@@ -139,8 +139,7 @@ instance Show a => IsBackend Aggregation a where
 
 \subsubsection{Asynchronously reading log items from the queue and their processing}
 \begin{code}
-spawnDispatcher :: (Show a)
-                => Configuration
+spawnDispatcher :: Configuration
                 -> AggregationMap
                 -> TBQ.TBQueue (Maybe (LogObject a))
                 -> Trace.Trace IO a

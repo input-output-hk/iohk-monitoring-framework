@@ -164,6 +164,8 @@ test-suite tests
                        Cardano.BM.Test.Configuration
                        Cardano.BM.Test.Rotator
                        Cardano.BM.Test.Routing
+                       Cardano.BM.Test.Structured
+                       Cardano.BM.Test.Tracer
 
   if !flag(disable-aggregation)
     other-modules:     Cardano.BM.Test.Aggregated

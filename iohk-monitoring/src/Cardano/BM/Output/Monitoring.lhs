@@ -88,7 +88,7 @@ instance IsEffectuator Monitor a where
 
 |Monitor| is an |IsBackend|
 \begin{code}
-instance Show a => IsBackend Monitor a where
+instance IsBackend Monitor a where
     typeof _ = MonitoringBK
 
     realize _ = error "Monitoring cannot be instantiated by 'realize'"
@@ -114,8 +114,7 @@ instance Show a => IsBackend Monitor a where
 
 \subsubsection{Asynchrouniously reading log items from the queue and their processing}
 \begin{code}
-spawnDispatcher :: (Show a)
-                => TBQ.TBQueue (Maybe (LogObject a))
+spawnDispatcher :: TBQ.TBQueue (Maybe (LogObject a))
                 -> Configuration
                 -> Trace.Trace IO a
                 -> IO (Async.Async ())

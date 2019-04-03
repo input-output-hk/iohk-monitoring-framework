@@ -41,16 +41,18 @@ data OutputKind a = TVarList (STM.TVar [LogObject a])
 \end{code}
 
 \subsubsection{ScribeKind}\label{code:ScribeKind}
-\label{FileTextSK}\index{ScribeKind!FileTextSK}
-\label{FileJsonSK}\index{ScribeKind!FileJsonSK}
-\label{StdoutSK}\index{ScribeKind!StdoutSK}
-\label{StderrSK}\index{ScribeKind!StderrSK}
+\label{code:FileTextSK}\index{ScribeKind!FileTextSK}
+\label{code:FileJsonSK}\index{ScribeKind!FileJsonSK}
+\label{code:StdoutSK}\index{ScribeKind!StdoutSK}
+\label{code:StderrSK}\index{ScribeKind!StderrSK}
+\label{code:DevNullSK}\index{ScribeKind!DevNullSK}
 This identifies katip's scribes by type.
 \begin{code}
 data ScribeKind = FileTextSK
                 | FileJsonSK
                 | StdoutSK
                 | StderrSK
+                | DevNullSK
                 deriving (Generic, Eq, Ord, Show, Read, FromJSON, ToJSON)
 
 \end{code}

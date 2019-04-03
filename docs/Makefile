@@ -46,7 +46,9 @@ TESTS = $(TSTDIR1)/Test.lhs \
 				$(TSTDIR1)/Cardano/BM/Test/Configuration.lhs \
 				$(TSTDIR1)/Cardano/BM/Test/Routing.lhs \
 				$(TSTDIR1)/Cardano/BM/Test/STM.lhs \
+				$(TSTDIR1)/Cardano/BM/Test/Structured.lhs \
 				$(TSTDIR1)/Cardano/BM/Test/Trace.lhs \
+				$(TSTDIR1)/Cardano/BM/Test/Tracer.lhs \
 				$(TSTDIR1)/Cardano/BM/Arbitrary/Aggregated.lhs \
 
 EXAMPLES = ../iohk-monitoring/examples/complex/Main.lhs ../iohk-monitoring/examples/simple/Main.lhs

@@ -44,7 +44,7 @@ import           Cardano.BM.Data.Backend
 import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.Trace
-import           Cardano.BM.Data.Tracer (Tracer (..))
+import           Cardano.BM.Data.Tracer (Tracer (..), ToObject (..))
 import qualified Cardano.BM.Trace as Trace
 
 \end{code}
@@ -75,12 +75,12 @@ type EKGViewMap = HM.HashMap Text Label.Label
 This is an internal |Trace|, named "\#ekgview", which can be used to control
 the messages that are being displayed by EKG.
 \begin{code}
-ekgTrace :: Show a => EKGView a -> Configuration -> IO (Trace IO a)
+ekgTrace :: ToObject a => EKGView a -> Configuration -> IO (Trace IO a)
 ekgTrace ekg _c = do
     let basetrace = ekgTrace' ekg
     Trace.appendName "#ekgview" basetrace
   where
-    ekgTrace' :: Show a => EKGView a -> Tracer IO (LogObject a)
+    ekgTrace' :: ToObject a => EKGView a -> Tracer IO (LogObject a)
     ekgTrace' ekgview = Tracer $ \lo@(LogObject loname _ _) -> do
         let setlabel :: Text -> Text -> EKGViewInternal a -> IO (Maybe (EKGViewInternal a))
             setlabel name label ekg_i@(EKGViewInternal _ labels server) =
@@ -93,9 +93,9 @@ ekgTrace ekg _c = do
                         Label.set ekghdl label
                         return Nothing
 
-            update :: Show a => LogObject a -> EKGViewInternal a -> IO (Maybe (EKGViewInternal a))
+            update :: ToObject a => LogObject a -> EKGViewInternal a -> IO (Maybe (EKGViewInternal a))
             update (LogObject logname _ (LogMessage logitem)) ekg_i =
-                setlabel logname (pack $ show logitem) ekg_i
+                setlabel logname (pack $ show $ toObject logitem) ekg_i
             update (LogObject logname _ (LogValue iname value)) ekg_i =
                 let logname' = logname <> "." <> iname
                 in
@@ -164,7 +164,7 @@ instance IsEffectuator EKGView a where
 
 |EKGView| is an |IsBackend|
 \begin{code}
-instance Show a => IsBackend EKGView a where
+instance ToObject a => IsBackend EKGView a where
     typeof _ = EKGViewBK
 
     realize _ = error "EKGView cannot be instantiated by 'realize'"
@@ -198,8 +198,7 @@ instance Show a => IsBackend EKGView a where
 
 \subsubsection{Asynchronously reading log items from the queue and their processing}
 \begin{code}
-spawnDispatcher :: (Show a)
-                => TBQ.TBQueue (Maybe (LogObject a))
+spawnDispatcher :: TBQ.TBQueue (Maybe (LogObject a))
                 -> Trace.Trace IO a
                 -> Trace.Trace IO a
                 -> IO (Async.Async ())
