@@ -13,13 +13,18 @@ module Cardano.BM.Tracer
       Tracer (..)
     -- * observing
     , bracketObserve
+    -- * example
+    , example
     ) where
 
 import           Data.Functor.Contravariant.Divisible (Divisible (..),
                      Decidable (..))
 import           Data.Void (Void)
+import           Data.Word (Word64)
+import           GHC.Clock (getMonotonicTimeNSec)
 
-import           Control.Tracer (Tracer (..), nullTracer, traceWith)
+import           Control.Tracer (Tracer (..), nullTracer, showTracing,
+                                     stdoutTracer, traceWith)
 import           Control.Tracer.Observe (Observable (..), ObserveIndicator (..))
 
 \end{code}
@@ -82,5 +87,37 @@ bracketObserve (getTime, tr) action = do
     traceWith tr' ObserveAfter
 
     return res
+
+\end{code}
+
+\subsubsection{example}
+\begin{code}
+data AddSub a = Add a
+              | Sub a
+              deriving Show
+
+type Time = Word64
+
+example :: IO Int
+example = do
+    let trInt :: Tracer IO (AddSub Int)
+        trInt = showTracing stdoutTracer
+        trObserve :: Tracer IO (Observable Time)
+        trObserve = showTracing stdoutTracer
+
+    _ <- bracketObserve (getMonotonicTimeNSec, trObserve) (actionAdd trInt)
+    bracketObserve (getMonotonicTimeNSec, trObserve) (actionSub trInt)
+
+  where
+    actionAdd :: Tracer IO (AddSub Int) -> IO Int
+    actionAdd tr = do
+        let res = 1+2
+        traceWith tr $ Add res
+        return res
+    actionSub :: Tracer IO (AddSub Int) -> IO Int
+    actionSub tr = do
+        let res = 1-2
+        traceWith tr $ Sub res
+        return res
 
 \end{code}
