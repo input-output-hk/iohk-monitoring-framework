@@ -6,6 +6,7 @@
 \begin{code}
 {-# LANGUAGE InstanceSigs         #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE FlexibleInstances    #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module Cardano.BM.Tracer
@@ -13,10 +14,12 @@ module Cardano.BM.Tracer
       Tracer (..)
     -- * observing
     , bracketObserve
-    -- * example
+    -- * examples
     , example
+    , exampleWithChoose
     ) where
 
+import           Data.Functor.Contravariant (contramap)
 import           Data.Functor.Contravariant.Divisible (Divisible (..),
                      Decidable (..))
 import           Data.Void (Void)
@@ -119,5 +122,33 @@ example = do
         let res = 1-2
         traceWith tr $ Sub res
         return res
+
+exampleWithChoose :: IO Int
+exampleWithChoose = do
+    let trInt :: Tracer IO (AddSub Int)
+        trInt = showTracing stdoutTracer
+        trObserve :: Tracer IO (Observable (AddSub Time))
+        trObserve = showTracing stdoutTracer
+
+        trace :: Tracer IO (Either (Observable (AddSub Time)) (AddSub Int))
+        trace = choose id trObserve trInt
+
+    _ <- bracketObserve (Add <$> getMonotonicTimeNSec, contramap Left trace) $ actionAdd $ contramap Right trace
+    bracketObserve (Sub <$> getMonotonicTimeNSec, contramap Left trace) $ actionSub $ contramap Right trace
+
+  where
+    actionAdd :: Tracer IO (AddSub Int) -> IO Int
+    actionAdd tr = do
+        let res = 1+2
+        traceWith tr $ Add res
+        return res
+    actionSub :: Tracer IO (AddSub Int) -> IO Int
+    actionSub tr = do
+        let res = 1-2
+        traceWith tr $ Sub res
+        return res
+
+instance Show (Observable (AddSub Time)) where
+  show (Obs ind a) = show ind ++ " " ++ show a
 
 \end{code}
