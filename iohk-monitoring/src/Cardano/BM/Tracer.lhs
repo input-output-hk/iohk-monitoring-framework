@@ -81,7 +81,9 @@ bracketObserve (getTime, tr) action = do
     let transform :: Tracer m (Observable t) -> Tracer m ObserveIndicator
         transform trace =  Tracer $ \observeIndicator -> do
             now <- getTime
-            traceWith trace $ Obs observeIndicator now
+            case observeIndicator of
+                ObserveBefore -> traceWith trace $ OStart now
+                ObserveAfter  -> traceWith trace $ OEnd   now Nothing
 
         tr' = transform tr
 
@@ -149,6 +151,7 @@ exampleWithChoose = do
         return res
 
 instance Show (Observable (AddSub Time)) where
-  show (Obs ind a) = show ind ++ " " ++ show a
+  show (OStart a)   = "OStart " ++ show a
+  show (OEnd   a b) = "OEnd "   ++ show a ++ ", ODiff "  ++ show b
 
 \end{code}

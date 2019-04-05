@@ -9,16 +9,19 @@ Module: Control.Tracer.Observe
 Functions useful for observing and measuring actions.
 -}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE LambdaCase        #-}
 
 module Control.Tracer.Observe
     (
     -- * observing
       ObserveIndicator (..)
     , Observable (..)
+    , matchObservations
     -- * example
     , example
     ) where
 
+import           Control.Concurrent.MVar (MVar, newMVar, modifyMVar_, readMVar)
 import           Data.Word (Word64)
 import           GHC.Clock (getMonotonicTimeNSec)
 
@@ -46,8 +49,15 @@ example = do
         transform :: Tracer IO (Observable Time) -> Tracer IO ObserveIndicator
         transform trace = Tracer $ \observeIndicator -> do
             now <- getMonotonicTimeNSec
-            traceWith trace $ Obs observeIndicator now
-        trObserve' = transform trObserve
+            case observeIndicator of
+                ObserveBefore -> traceWith trace $ OStart now
+                ObserveAfter  -> traceWith trace $ OEnd   now Nothing
+
+    beforeMVarAdd  <- newMVar Nothing
+    beforeMVarSub <- newMVar Nothing
+
+    let trObserve'  = transform $ matchObservations beforeMVarAdd (flip (-)) trObserve
+        trObserve'' = transform $ matchObservations beforeMVarSub (flip (-)) trObserve
 
     -- observe add
     traceWith trObserve' ObserveBefore
@@ -55,9 +65,9 @@ example = do
     traceWith trObserve' ObserveAfter
 
     -- observe sub
-    traceWith trObserve' ObserveBefore
+    traceWith trObserve'' ObserveBefore
     _ <- actionSub tr
-    traceWith trObserve' ObserveAfter
+    traceWith trObserve'' ObserveAfter
 
   where
     tr :: Tracer IO (AddSub Int)
@@ -74,7 +84,8 @@ example = do
         return res
 
 instance Show (Observable Time) where
-  show (Obs ind time) = show ind ++ " " ++ show time
+  show (OStart time)     = "OStart " ++ show time
+  show (OEnd time mTime) = "OEnd "   ++ show time ++ ", ODiff " ++ show mTime
 
 \end{code}
 
@@ -91,6 +102,22 @@ data ObserveIndicator = ObserveBefore | ObserveAfter
 Data structure which holds the observation along with the indicator
 of the observation.
 \begin{code}
-data Observable t = Obs ObserveIndicator t
+data Observable t = OStart t
+                  | OEnd t (Maybe t)
+                  --         ^^ holds the difference between start and end
+
+\end{code}
+
+\subsubsection{matchObservations}\label{code:matchObservations}\index{matchObservations}
+Match start and end of observations.
+\begin{code}
+matchObservations :: MVar (Maybe t) -> (t -> t -> t) -> Tracer IO (Observable t) -> Tracer IO (Observable t)
+matchObservations beforeMVar f tr = Tracer $ \case
+    obs@(OStart s) -> do
+        modifyMVar_ beforeMVar $ const $ return $ Just s
+        traceWith tr obs
+    (OEnd e _) -> do
+        before <- readMVar beforeMVar
+        traceWith tr $ OEnd e $ fmap ((flip f) e) before
 
 \end{code}
