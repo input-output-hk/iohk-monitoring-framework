@@ -29,7 +29,6 @@ import qualified Control.Concurrent.STM.TBQueue as TBQ
 import           Control.Exception.Safe (throwM)
 import           Control.Monad (forM, forM_, when, void)
 import           Control.Monad.IO.Class (liftIO)
-import           Data.Aeson (ToJSON)
 import           Data.Maybe (catMaybes, fromMaybe)
 import qualified Data.Text.IO as TIO
 import           Data.Time.Clock (getCurrentTime)
@@ -45,7 +44,7 @@ import           Cardano.BM.Data.MessageCounter (resetCounters, sendAndResetAfte
                      updateMessageCounters)
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.SubTrace (SubTrace (..))
-import           Cardano.BM.Data.Tracer (Tracer (..))
+import           Cardano.BM.Data.Tracer (Tracer (..), ToObject)
 import qualified Cardano.BM.Output.Log
 import qualified Cardano.BM.Output.LogBuffer
 import           Cardano.BM.Trace (evalFilters)
@@ -169,15 +168,14 @@ evalMonitoringAction c item = return [item]
 
 |Switchboard| is an |IsBackend|
 \begin{code}
-instance (Show a, ToJSON a) => IsBackend Switchboard a where
+instance ToObject a => IsBackend Switchboard a where
     typeof _ = SwitchboardBK
 
     realize cfg = do
         -- we setup |LogBuffer| explicitly so we can access it as a |Backend| and as |LogBuffer|
         logbuf :: Cardano.BM.Output.LogBuffer.LogBuffer a <- Cardano.BM.Output.LogBuffer.realize cfg
         let spawnDispatcher
-                :: (Show a)
-                => [(BackendKind, Backend a)]
+                :: [(BackendKind, Backend a)]
                 -> TBQ.TBQueue (LogObject a)
                 -> IO (Async.Async ())
             spawnDispatcher backends queue = do
@@ -292,7 +290,7 @@ readLogBuffer switchboard = do
 
 \subsubsection{Realizing the backends according to configuration}\label{code:setupBackends}\index{Switchboard!setupBackends}
 \begin{code}
-setupBackends :: (Show a, ToJSON a)
+setupBackends :: ToObject a
               => [BackendKind]
               -> Configuration
               -> Switchboard a
@@ -301,7 +299,7 @@ setupBackends bes c sb = catMaybes <$>
                          forM bes (\bk -> do { setupBackend' bk c sb >>= \case Nothing -> return Nothing
                                                                                Just be -> return $ Just (bk, be) })
 
-setupBackend' :: (Show a, ToJSON a) => BackendKind -> Configuration -> Switchboard a -> IO (Maybe (Backend a))
+setupBackend' :: ToObject a => BackendKind -> Configuration -> Switchboard a -> IO (Maybe (Backend a))
 setupBackend' SwitchboardBK _ _ = error "cannot instantiate a further Switchboard"
 #ifdef ENABLE_MONITORING
 setupBackend' MonitoringBK c sb = do

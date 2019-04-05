@@ -68,6 +68,7 @@ import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.Output
 import           Cardano.BM.Data.Rotation (RotationParameters (..))
 import           Cardano.BM.Data.Severity
+import           Cardano.BM.Data.Tracer (ToObject (..))
 import           Cardano.BM.Rotator (cleanupRotator, evalRotator,
                      initializeRotator, prtoutException)
 
@@ -89,7 +90,7 @@ data LogInternal = LogInternal
 
 \subsubsection{Log implements |effectuate|}\index{Log!instance of IsEffectuator}
 \begin{code}
-instance (ToJSON a, Show a) => IsEffectuator Log a where
+instance ToObject a => IsEffectuator Log a where
     effectuate katip item = do
         let logMVar = getK katip
         c <- configuration <$> readMVar logMVar
@@ -126,7 +127,7 @@ instance (ToJSON a, Show a) => IsEffectuator Log a where
                         LogObject
                             <$> pure "#messagecounters.katip"
                             <*> (mkLOMeta sev Confidential)
-                            <*> pure (LogValue (pack key) (PureI $ toInteger count))
+                            <*> pure (LogValue key (PureI $ toInteger count))
                 intervalObject <-
                     LogObject
                         <$> pure "#messagecounters.katip"
@@ -145,7 +146,7 @@ instance (ToJSON a, Show a) => IsEffectuator Log a where
 
 \subsubsection{Log implements backend functions}\index{Log!instance of IsBackend}
 \begin{code}
-instance (ToJSON a, Show a) => IsBackend Log a where
+instance ToObject a => IsBackend Log a where
     typeof _ = KatipBK
 
     realize config = do
@@ -178,6 +179,7 @@ instance (ToJSON a, Show a) => IsBackend Log a where
                                                         False
             createScribe StdoutSK _ _ = mkStdoutScribe
             createScribe StderrSK _ _ = mkStderrScribe
+            createScribe DevNullSK _ _ = mkDevNullScribe
 
         cfoKey <- Config.getOptionOrDefault config (pack "cfokey") (pack "<unknown>")
         le0 <- K.initLogEnv
@@ -242,7 +244,7 @@ that match on their name.
 Compare start of name of scribe to |(show backend <> "::")|.
 This function is non-blocking.
 \begin{code}
-passN :: (ToJSON a, Show a) => ScribeId -> Log a -> LogObject a -> IO ()
+passN :: ToObject a => ScribeId -> Log a -> LogObject a -> IO ()
 passN backend katip (LogObject loname lometa loitem) = do
     env <- kLogEnv <$> readMVar (getK katip)
     forM_ (Map.toList $ K._logEnvScribes env) $
@@ -252,17 +254,17 @@ passN backend katip (LogObject loname lometa loitem) = do
                 then do
                     let (sev, msg, payload) = case loitem of
                                 (LogMessage logItem) ->
-                                     (severity lometa, pack $ show logItem, Nothing)
+                                     (severity lometa, TL.toStrict (encodeToLazyText (toObject logItem)), Nothing)
                                 (ObserveDiff _) ->
-                                     let text = TL.toStrict (encodeToLazyText loitem)
+                                     let text = TL.toStrict (encodeToLazyText (toObject loitem))
                                      in
                                      (severity lometa, text, Just loitem)
                                 (ObserveOpen _) ->
-                                     let text = TL.toStrict (encodeToLazyText loitem)
+                                     let text = TL.toStrict (encodeToLazyText (toObject loitem))
                                      in
                                      (severity lometa, text, Just loitem)
                                 (ObserveClose _) ->
-                                     let text = TL.toStrict (encodeToLazyText loitem)
+                                     let text = TL.toStrict (encodeToLazyText (toObject loitem))
                                      in
                                      (severity lometa, text, Just loitem)
                                 (AggregatedMessage aggregated) ->
@@ -273,7 +275,7 @@ passN backend katip (LogObject loname lometa loitem) = do
                                 (LogValue name value) ->
                                     (severity lometa, name <> " = " <> pack (showSI value), Nothing)
                                 (MonitoringEffect logitem) ->
-                                     let text = TL.toStrict (encodeToLazyText logitem)
+                                     let text = TL.toStrict (encodeToLazyText (toObject logitem))
                                      in
                                      (severity lometa, text, Just loitem)
                                 KillPill ->
@@ -317,6 +319,11 @@ mkStderrScribe = do
     -- action will not close the real stderr
     stderr' <- hDuplicate stderr
     mkTextFileScribeH stderr' True
+
+mkDevNullScribe :: IO K.Scribe
+mkDevNullScribe = do
+    let logger _ = pure ()
+    pure $ K.Scribe logger (pure ())
 
 mkTextFileScribeH :: Handle -> Bool -> IO K.Scribe
 mkTextFileScribeH handler color = do

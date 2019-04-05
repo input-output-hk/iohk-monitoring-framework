@@ -38,7 +38,7 @@ import           Cardano.BM.Configuration (Configuration, inspectSeverity,
 import           Cardano.BM.Configuration.Model (empty, setDefaultBackends,
                      setDefaultScribes, setSubTrace, setSetupBackends,
                      setSetupScribes)
-import           Cardano.BM.Configuration.Static (defaultConfigTesting)
+import           Cardano.BM.Configuration.Static
 import           Cardano.BM.Data.BackendKind (BackendKind (..))
 import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.Observable
@@ -595,7 +595,9 @@ unitNameFiltering = do
 \end{code}
 
 \subsubsection{Exception throwing}\label{code:unitExceptionThrowing}
-Exceptions encountered should be thrown.
+Exceptions encountered should be thrown. Lazy evaluation is really happening!
+This test fails if run with a configuration |defaultConfigTesting|, because
+this one will ignore all traced messages.
 \begin{code}
 unitExceptionThrowing :: Assertion
 unitExceptionThrowing = do
@@ -612,7 +614,7 @@ unitExceptionThrowing = do
     msg = error "faulty message"
     work :: Text -> IO (Async.Async ())
     work message = Async.async $ do
-        cfg <- defaultConfigTesting
+        cfg <- defaultConfigStdout
         trace <- Setup.setupTrace (Right cfg) "test"
 
         logInfo trace message

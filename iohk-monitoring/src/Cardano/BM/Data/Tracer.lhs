@@ -4,10 +4,15 @@
 
 %if style == newcode
 \begin{code}
-{-# LANGUAGE InstanceSigs #-}
+{-# LANGUAGE DefaultSignatures #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE InstanceSigs      #-}
+{-# LANGUAGE TypeSynonymInstances #-}
 
 module Cardano.BM.Data.Tracer
     ( Tracer (..)
+    , ToLogObject (..)
+    , ToObject (..)
     , traceWith
     -- , Contravariant(..)
     -- * tracer transformers
@@ -19,22 +24,14 @@ module Cardano.BM.Data.Tracer
     -- * conditional tracing
     , condTracing
     , condTracingM
-    -- * examples
-     , example2
-     , example3
-     , example4
-     , example5
-     , example6
     ) where
 
-import           Control.Monad (void)
-import           Data.Functor.Contravariant (Contravariant (..))
-import           Data.Text (Text, unpack)
+import           Data.Aeson (Object, ToJSON (..), Value (..))
+import qualified Data.HashMap.Strict as HM
+import           Data.Text (Text)
 
-import           Cardano.BM.Data.LogItem (LoggerName,
-                     LogObject (..), LOContent (..),
-                     PrivacyAnnotation (..),
-                     PrivacyAndSeverityAnnotated (..), mkLOMeta)
+import           Cardano.BM.Data.LogItem (LogObject (..), LOContent (..),
+                     PrivacyAnnotation (..), mkLOMeta)
 import           Cardano.BM.Data.Severity (Severity (..))
 import           Control.Tracer
 
@@ -86,57 +83,16 @@ for further processing of the messages.
 \end{verbatim}
 \end{scriptsize}
 
-\subsubsection{LogNamed}\label{code:LogNamed}\index{LogNamed}
-A |LogNamed| contains of a context name and some log item.
-\begin{code}
-data LogNamed item = LogNamed
-    { lnName :: LoggerName
-    , lnItem :: item
-    } deriving (Show)
-
-\end{code}
-
-\begin{code}
-renderNamedItemTracing :: Show a => Tracer m String -> Tracer m (LogNamed a)
-renderNamedItemTracing = contramap $ \item ->
-    unpack (lnName item) ++ ": " ++ show (lnItem item)
-
-renderNamedItemTracing' :: Show a => Tracer m String -> Tracer m (LogObject a)
-renderNamedItemTracing' = contramap $ \item ->
-    unpack (loName item) ++ ": " ++ show (loContent item) ++ ", (meta): " ++ show (loMeta item)
-
-\end{code}
-
-\begin{code}
-named :: Tracer m (LogNamed a) -> Tracer m a
-named = contramap (LogNamed mempty)
-\end{code}
-
-Add a new name to the logging context
-\begin{code}
-appendNamed :: LoggerName -> Tracer m (LogNamed a) -> Tracer m (LogNamed a)
-appendNamed name = contramap $ (\(LogNamed oldName item) ->
-    LogNamed (name <> "." <> oldName) item)
-
-\end{code}
-
-Add a new name to the logging context
-\begin{code}
-appendNamed' :: LoggerName -> Tracer m (LogObject a) -> Tracer m (LogObject a)
-appendNamed' name = contramap $ (\(LogObject oldName meta item) ->
-    if oldName == ""
-    then LogObject name meta item
-    else LogObject (name <> "." <> oldName) meta item)
-
-\end{code}
-
+\subsubsection{ToLogObject - transforms a logged item to LogObject}
+\label{code:ToLogObject}\index{ToLogObject}
+\label{code:toLogObject}\index{ToLogObject!toLogObject}
 The function |toLogObject| can be specialized for various environments
 \begin{code}
 class Monad m => ToLogObject m where
-  toLogObject :: Tracer m (LogObject a) -> Tracer m a
+  toLogObject :: ToObject a => Tracer m (LogObject a) -> Tracer m a
 
 instance ToLogObject IO where
-    toLogObject :: Tracer IO (LogObject a) -> Tracer IO a
+    toLogObject :: ToObject a => Tracer IO (LogObject a) -> Tracer IO a
     toLogObject tr = Tracer $ \a -> do
         lo <- LogObject <$> pure ""
                         <*> (mkLOMeta Debug Public)
@@ -149,127 +105,44 @@ instance ToLogObject IO where
 To be placed in ouroboros-network.
 
 instance (MonadFork m, MonadTimer m) => ToLogObject m where
-    toLogObject (Tracer (Op tr) = Tracer $ Op $ \a -> do
+    toLogObject tr = Tracer $ \a -> do
         lo <- LogObject <$> pure ""
                         <*> (LOMeta <$> getMonotonicTime  -- must be evaluated at the calling site
                                     <*> (pack . show <$> myThreadId)
                                     <*> pure Debug
                                     <*> pure Public)
                         <*> pure (LogMessage a)
-        tr lo
+        traceWith tr lo
 
 \end{spec}
 
-\begin{code}
-tracingNamed :: Show a => Tracer IO (LogObject a) -> Tracer IO a
-tracingNamed = toLogObject
-
-example2 :: IO ()
-example2 = do
-    let logTrace = appendNamed' "example2" (renderNamedItemTracing' stdoutTracer)
-
-    void $ callFun2 logTrace
-
-callFun2 :: Tracer IO (LogObject Text) -> IO Int
-callFun2 logTrace = do
-    let logTrace' = appendNamed' "fun2" logTrace
-    traceWith (tracingNamed logTrace') "in function 2"
-    callFun3 logTrace'
-
-callFun3 :: Tracer IO (LogObject Text) -> IO Int
-callFun3 logTrace = do
-    traceWith (tracingNamed (appendNamed' "fun3" logTrace)) "in function 3"
-    return 42
-
-\end{code}
-
-A |Tracer| transformer creating a |LogObject| from |PrivacyAndSeverityAnnotated|.
-\begin{code}
-logObjectFromAnnotated :: Show a
-    => Tracer IO (LogObject a)
-    -> Tracer IO (PrivacyAndSeverityAnnotated a)
-logObjectFromAnnotated tr = Tracer $ \(PSA sev priv a) -> do
-    lometa <- mkLOMeta sev priv
-    traceWith tr $ LogObject "" lometa (LogMessage a)
-
-\end{code}
+\subsubsection{ToObject - transforms a logged item to JSON}\label{code:ToObject}\index{ToObject}\label{code:toObject}\index{ToObject!toObject}
+Katip requires JSON objects to be logged as context. This
+typeclass provides a default instance which uses |ToJSON| and
+produces an empty object if 'toJSON' results in any type other than
+|Object|. If you have a type you want to log that produces an Array
+or Number for example, you'll want to write an explicit instance
+here. You can trivially add a |ToObject| instance for something with
+a ToJSON instance like:
+\begin{spec}
+instance ToObject Foo
+\end{spec}
 
 \begin{code}
-example3 :: IO ()
-example3 = do
-    let logTrace =
-            logObjectFromAnnotated $ appendNamed' "example3" $ renderNamedItemTracing' stdoutTracer
+class ToJSON a => ToObject a where
+    toObject :: a -> Object
+    default toObject :: a -> Object
+    toObject v = case toJSON v of
+        Object o -> o
+        s@(String _) -> HM.singleton "string" s
+        _        -> mempty
 
-    traceWith logTrace $ PSA Info Confidential ("Hello" :: String)
-    traceWith logTrace $ PSA Warning Public "World"
+instance ToObject () where
+    toObject _ = mempty
 
-\end{code}
-
-\begin{code}
-filterAppendNameTracing :: Monad m
-    => m (LogNamed a -> Bool)
-    -> LoggerName
-    -> Tracer m (LogNamed a)
-    -> Tracer m (LogNamed a)
-filterAppendNameTracing test name = (appendNamed name) . (condTracingM test)
-
-example4 :: IO ()
-example4 = do
-    let appendF = filterAppendNameTracing oracle
-        logTrace = appendF "example4" (renderNamedItemTracing stdoutTracer)
-
-    traceWith (named logTrace) ("Hello" :: String)
-
-    let logTrace' = appendF "inner" logTrace
-    traceWith (named logTrace') "World"
-
-    let logTrace'' = appendF "innest" logTrace'
-    traceWith (named logTrace'') "!!"
-  where
-    oracle :: Monad m => m (LogNamed a -> Bool)
-    oracle = return $ ((/=) "example4.inner.") . lnName
-
-\end{code}
-
-\begin{code}
-
--- severity anotated
-example5 :: IO ()
-example5 = do
-    let logTrace =
-            condTracingM oracle $
-                logObjectFromAnnotated $
-                    appendNamed' "test5" $ renderNamedItemTracing' stdoutTracer
-
-    traceWith logTrace $ PSA Debug Confidential ("Hello"::String)
-    traceWith logTrace $ PSA Warning Public "World"
-
-  where
-    oracle :: Monad m => m (PrivacyAndSeverityAnnotated a -> Bool)
-    oracle = return $ \(PSA sev _priv _) -> (sev > Debug)
-
--- test for combined name and severity
-example6 :: IO ()
-example6 = do
-    let logTrace0 =  -- the basis, will output using the local renderer to stdout
-            appendNamed' "test6" $ renderNamedItemTracing' stdoutTracer
-        logTrace1 =  -- the trace from |Privacy...Annotated| to |LogObject|
-            condTracingM oracleSev $ logObjectFromAnnotated $ logTrace0
-        logTrace2 =
-            appendNamed' "row" $ condTracingM oracleName $ logTrace0
-        logTrace3 =  -- oracle should eliminate messages from this trace
-            appendNamed' "raw" $ condTracingM oracleName $ logTrace0
-
-    traceWith logTrace1 $ PSA Debug Confidential ("Hello" :: String)
-    traceWith logTrace1 $ PSA Warning Public "World"
-    lometa <- mkLOMeta Info Public
-    traceWith logTrace2 $ LogObject "" lometa (LogMessage ", RoW!")
-    traceWith logTrace3 $ LogObject "" lometa (LogMessage ", RoW!")
-
-  where
-    oracleSev :: Monad m => m (PrivacyAndSeverityAnnotated a -> Bool)
-    oracleSev = return $ \(PSA sev _priv _) -> (sev > Debug)
-    oracleName :: Monad m => m (LogObject a -> Bool)
-    oracleName = return $ \(LogObject name _ _) -> (name == "row")  -- we only see the names from us to the leaves
+instance ToObject String
+instance ToObject Text
+instance ToJSON a => ToObject (LogObject a)
+instance ToJSON a => ToObject (LOContent a)
 
 \end{code}

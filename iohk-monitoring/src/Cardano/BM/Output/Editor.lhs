@@ -21,10 +21,12 @@ import qualified Control.Concurrent.Async as Async
 import           Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar, readMVar, withMVar)
 import           Control.Exception.Safe (SomeException, catch)
 import           Control.Monad  (void, when, forM_)
+import           Data.Aeson.Text (encodeToLazyText)
 import qualified Data.HashMap.Strict as HM
 import           Data.List (delete)
 import           Data.Text (pack, unpack)
 import qualified Data.Text.IO as TIO
+import qualified Data.Text.Lazy as TL
 import           Data.Time (getCurrentTime)
 import           Data.Time.Format (defaultTimeLocale, formatTime)
 import           Safe (readMay)
@@ -45,6 +47,7 @@ import           Cardano.BM.Data.Output (ScribeId)
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.SubTrace
 import           Cardano.BM.Data.Trace
+import           Cardano.BM.Data.Tracer (ToObject (..))
 import           Cardano.BM.Output.LogBuffer
 import           Cardano.BM.Rotator (tsformat)
 
@@ -70,7 +73,7 @@ type EditorMVar a = MVar (EditorInternal a)
 newtype Editor a = Editor
     { getEd :: EditorMVar a }
 
-data EditorInternal a = EditorInternal
+data ToObject a => EditorInternal a = EditorInternal
     { edSBtrace :: Trace IO a
     , edThread  :: Async.Async ()
     , edBuffer  :: LogBuffer a
@@ -82,7 +85,7 @@ data EditorInternal a = EditorInternal
 
 |Editor| is an |IsBackend|
 \begin{code}
-instance Show a => IsBackend Editor a where
+instance ToObject a => IsBackend Editor a where
     typeof _ = EditorBK
 
     realize _ = error "Editor cannot be instantiated by 'realize'"
@@ -119,7 +122,7 @@ instance Show a => IsBackend Editor a where
 \subsubsection{Editor is an effectuator}\index{Editor!instance of IsEffectuator}
 Function |effectuate| is called to pass in a |LogObject| for display in the GUI.
 \begin{code}
-instance IsEffectuator Editor a where
+instance ToObject a => IsEffectuator Editor a where
     effectuate editor item =
         withMVar (getEd editor) $ \ed ->
             effectuate (edBuffer ed) item
@@ -134,7 +137,7 @@ instance IsEffectuator Editor a where
 data Cmd = Backends | Scribes | Severities | SubTrace | Aggregation | Buffer | ExportConfiguration
            deriving (Enum, Eq, Show, Read)
 
-prepare :: Show a => Editor a -> Configuration -> Window -> UI ()
+prepare :: ToObject a => Editor a -> Configuration -> Window -> UI ()
 prepare editor config window = void $ do
     let commands = [Backends .. ]
 
@@ -205,10 +208,10 @@ prepare editor config window = void $ do
         mkLinkToFile str file = UI.anchor # set (attr "href") file
                                           # set (attr "target") "_blank"
                                           #+ [ string str ]
-    let mkSimpleRow :: Show t => LoggerName -> t -> UI Element
-        mkSimpleRow n v = UI.tr #. "itemrow" #+
+    let mkSimpleRow :: ToObject a => LoggerName -> LogObject a -> UI Element
+        mkSimpleRow n lo@(LogObject _lonm _lometa _lov) = UI.tr #. "itemrow" #+
             [ UI.td #+ [ string (unpack n) ]
-            , UI.td #+ [ string (show v) ]
+            , UI.td #+ [ string $ unpack $ TL.toStrict (encodeToLazyText (toObject lo)) ]
             ]
     let mkTableRow :: Show t => Cmd -> LoggerName -> t -> UI Element
         mkTableRow cmd n v = UI.tr #. "itemrow" #+
@@ -270,7 +273,8 @@ prepare editor config window = void $ do
                 \(n,v) -> performActionOnId outputTableId $
                     \t -> void $ element t #+ [ mkTableRow cmd n v ]
 
-    let displayBuffer cmd sel = do
+    let displayBuffer :: ToObject a => Cmd -> [(LoggerName, LogObject a)] -> UI ()
+        displayBuffer cmd sel = do
             showCurrentTab cmd
             rememberCurrent cmd
             saveItemButton disable

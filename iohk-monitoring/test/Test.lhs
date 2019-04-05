@@ -40,6 +40,8 @@ import qualified Cardano.BM.Test.Trace (tests)
 import qualified Cardano.BM.Test.Configuration (tests)
 import qualified Cardano.BM.Test.Rotator (tests)
 import qualified Cardano.BM.Test.Routing (tests)
+import qualified Cardano.BM.Test.Structured (tests)
+import qualified Cardano.BM.Test.Tracer (tests)
 #ifdef ENABLE_MONITORING
 import qualified Cardano.BM.Test.Monitoring (tests)
 #endif
@@ -60,6 +62,8 @@ tests =
   , Cardano.BM.Test.Configuration.tests
   , Cardano.BM.Test.Rotator.tests
   , Cardano.BM.Test.Routing.tests
+  , Cardano.BM.Test.Structured.tests
+  , Cardano.BM.Test.Tracer.tests
 #ifdef ENABLE_MONITORING
   , Cardano.BM.Test.Monitoring.tests
 #endif
@@ -76,3 +80,5 @@ tests =
 %include ../test/Cardano/BM/Test/Trace.lhs
 %include ../test/Cardano/BM/Test/Configuration.lhs
 %include ../test/Cardano/BM/Test/Rotator.lhs
+%include ../test/Cardano/BM/Test/Structured.lhs
+%include ../test/Cardano/BM/Test/Tracer.lhs
