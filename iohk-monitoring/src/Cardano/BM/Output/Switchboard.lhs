@@ -14,6 +14,7 @@
 module Cardano.BM.Output.Switchboard
     (
       Switchboard (..)
+    , MockSwitchboard (..)
     , mainTraceConditionally
     , readLogBuffer
     , effectuate
@@ -24,7 +25,7 @@ module Cardano.BM.Output.Switchboard
 import qualified Control.Concurrent.Async as Async
 import           Control.Concurrent.MVar (MVar, newEmptyMVar, newMVar,
                      modifyMVar_, putMVar, readMVar, tryTakeMVar, withMVar)
-import           Control.Concurrent.STM (atomically, retry)
+import           Control.Concurrent.STM (TVar, atomically, modifyTVar, retry)
 import qualified Control.Concurrent.STM.TBQueue as TBQ
 import           Control.Exception.Safe (throwM)
 import           Control.Monad (forM, forM_, when, void)
@@ -368,4 +369,18 @@ setupBackend' KatipBK c _ = do
         , bUnrealize = Cardano.BM.Output.Log.unrealize be
         }
 setupBackend' LogBufferBK _ _ = return Nothing
+
+\end{code}
+
+\subsubsection{MockSwitchboard}\label{code:MockSwitchboard}\index{MockSwitchboard}
+|MockSwitchboard| is useful for tests since it keeps the |LogObject|s
+to be output in a list.
+
+\begin{code}
+newtype MockSwitchboard a = MockSB (TVar [LogObject a])
+
+instance IsEffectuator MockSwitchboard a where
+    effectuate (MockSB tvar) item = atomically $ modifyTVar tvar ((:) item)
+    handleOverflow _ = pure ()
+
 \end{code}
