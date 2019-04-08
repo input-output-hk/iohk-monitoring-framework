@@ -43,10 +43,10 @@ type Time = Word64
 example :: IO ()
 example = do
     let -- a Tracer handling the observations
-        trObserve :: Tracer IO (Observable Time)
+        trObserve :: Tracer IO (Observable Time Time Time)
         trObserve = showTracing stdoutTracer
         -- a transformer which enriches observations with time measurement
-        transform :: Tracer IO (Observable Time) -> Tracer IO ObserveIndicator
+        transform :: Tracer IO (Observable Time Time Time) -> Tracer IO ObserveIndicator
         transform trace = Tracer $ \observeIndicator -> do
             now <- getMonotonicTimeNSec
             case observeIndicator of
@@ -83,7 +83,7 @@ example = do
         traceWith trace $ Sub res
         return res
 
-instance Show (Observable Time) where
+instance Show (Observable Time Time Time) where
   show (OStart time)     = "OStart " ++ show time
   show (OEnd time mTime) = "OEnd "   ++ show time ++ ", ODiff " ++ show mTime
 
@@ -102,16 +102,16 @@ data ObserveIndicator = ObserveBefore | ObserveAfter
 Data structure which holds the observation along with the indicator
 of the observation.
 \begin{code}
-data Observable t = OStart t
-                  | OEnd t (Maybe t)
-                  --         ^^ holds the difference between start and end
+data Observable s e d = OStart s
+                      | OEnd e (Maybe d)
+                      --         ^^ holds the difference between start and end
 
 \end{code}
 
 \subsubsection{matchObservations}\label{code:matchObservations}\index{matchObservations}
 Match start and end of observations.
 \begin{code}
-matchObservations :: MVar (Maybe t) -> (t -> t -> t) -> Tracer IO (Observable t) -> Tracer IO (Observable t)
+matchObservations :: MVar (Maybe s) -> (s -> e -> d) -> Tracer IO (Observable s e d) -> Tracer IO (Observable s e d)
 matchObservations beforeMVar f tr = Tracer $ \case
     obs@(OStart s) -> do
         modifyMVar_ beforeMVar $ const $ return $ Just s

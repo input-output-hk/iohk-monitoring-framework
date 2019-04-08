@@ -5,7 +5,8 @@
 %if style == newcode
 \begin{code}
 {-# LANGUAGE InstanceSigs         #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE LambdaCase           #-}
+{-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE FlexibleInstances    #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
@@ -72,18 +73,20 @@ instance Applicative m => Decidable (Tracer m) where
 
 \subsubsection{bracketObserve}\label{code:bracketObserve}\index{bracketObserve}
 \begin{code}
-bracketObserve :: forall m t b . Monad m
-               => (m t, Tracer m (Observable t))
+bracketObserve :: forall m s e b d . Monad m
+               => (m s, m e, Tracer m (Observable s e d))
                -> m b
                -> m b
-bracketObserve (getTime, tr) action = do
+bracketObserve (getStart, getEnd, tr) action = do
 
-    let transform :: Tracer m (Observable t) -> Tracer m ObserveIndicator
-        transform trace =  Tracer $ \observeIndicator -> do
-            now <- getTime
-            case observeIndicator of
-                ObserveBefore -> traceWith trace $ OStart now
-                ObserveAfter  -> traceWith trace $ OEnd   now Nothing
+    let transform :: Tracer m (Observable s e d) -> Tracer m ObserveIndicator
+        transform trace =  Tracer $ \case
+            ObserveBefore -> do
+                start <- getStart
+                traceWith trace $ OStart start
+            ObserveAfter -> do
+                end <- getEnd
+                traceWith trace $ OEnd end Nothing
 
         tr' = transform tr
 
@@ -103,15 +106,17 @@ data AddSub a = Add a
 
 type Time = Word64
 
+type ObservableS t = Observable t t t
+
 example :: IO Int
 example = do
     let trInt :: Tracer IO (AddSub Int)
         trInt = showTracing stdoutTracer
-        trObserve :: Tracer IO (Observable Time)
+        trObserve :: Tracer IO (ObservableS Time)
         trObserve = showTracing stdoutTracer
 
-    _ <- bracketObserve (getMonotonicTimeNSec, trObserve) (actionAdd trInt)
-    bracketObserve (getMonotonicTimeNSec, trObserve) (actionSub trInt)
+    _ <- bracketObserve (getMonotonicTimeNSec, getMonotonicTimeNSec, trObserve) (actionAdd trInt)
+    bracketObserve (getMonotonicTimeNSec, getMonotonicTimeNSec, trObserve) (actionSub trInt)
 
   where
     actionAdd :: Tracer IO (AddSub Int) -> IO Int
@@ -129,14 +134,16 @@ exampleWithChoose :: IO Int
 exampleWithChoose = do
     let trInt :: Tracer IO (AddSub Int)
         trInt = showTracing stdoutTracer
-        trObserve :: Tracer IO (Observable (AddSub Time))
+        trObserve :: Tracer IO (ObservableS (AddSub Time))
         trObserve = showTracing stdoutTracer
 
-        trace :: Tracer IO (Either (Observable (AddSub Time)) (AddSub Int))
+        trace :: Tracer IO (Either (ObservableS (AddSub Time)) (AddSub Int))
         trace = choose id trObserve trInt
 
-    _ <- bracketObserve (Add <$> getMonotonicTimeNSec, contramap Left trace) $ actionAdd $ contramap Right trace
-    bracketObserve (Sub <$> getMonotonicTimeNSec, contramap Left trace) $ actionSub $ contramap Right trace
+        bracketObserve' (getTime, tr) = bracketObserve (getTime, getTime, tr)
+
+    _ <- bracketObserve' (Add <$> getMonotonicTimeNSec, contramap Left trace) $ actionAdd $ contramap Right trace
+    bracketObserve' (Sub <$> getMonotonicTimeNSec, contramap Left trace) $ actionSub $ contramap Right trace
 
   where
     actionAdd :: Tracer IO (AddSub Int) -> IO Int
@@ -150,7 +157,7 @@ exampleWithChoose = do
         traceWith tr $ Sub res
         return res
 
-instance Show (Observable (AddSub Time)) where
+instance Show (ObservableS (AddSub Time)) where
   show (OStart a)   = "OStart " ++ show a
   show (OEnd   a b) = "OEnd "   ++ show a ++ ", ODiff "  ++ show b
 
