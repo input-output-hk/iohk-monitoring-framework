@@ -45,7 +45,7 @@ import           Cardano.BM.Data.Observable
 import           Cardano.BM.Data.Output
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.SubTrace
-import           Cardano.BM.Data.Tracer
+import           Cardano.BM.Output.Switchboard (MockSwitchboard (..))
 #ifdef ENABLE_OBSERVABLES
 import           Cardano.BM.Counters (diffTimeObserved, getMonoClock)
 import           Cardano.BM.Data.Aggregated
@@ -53,11 +53,11 @@ import           Cardano.BM.Data.Counter
 import qualified Cardano.BM.Observer.Monadic as MonadicObserver
 import qualified Cardano.BM.Observer.STM as STMObserver
 #endif
+import           Cardano.BM.Output.Switchboard (traceMock)
 import qualified Cardano.BM.Setup as Setup
 import           Cardano.BM.Trace (Trace, appendName, evalFilters, logDebug,
                      logInfo, logInfoS, logNotice, logWarning, logError,
-                     logCritical, logAlert, logEmergency,
-                     traceInTVarIOConditionally)
+                     logCritical, logAlert, logEmergency)
 
 import           Test.Tasty (TestTree, testGroup)
 import           Test.Tasty.HUnit (Assertion, assertBool, testCase,
@@ -124,15 +124,14 @@ unit_tests = testGroup "Unit tests" [
 \begin{code}
 data TraceConfiguration = TraceConfiguration
     { tcConfig       :: Configuration
-    , tcOutputKind   :: OutputKind Text
+    , tcOutputKind   :: MockSwitchboard Text
     , tcName         :: LoggerName
     , tcSubTrace     :: SubTrace
     }
 
 setupTrace :: TraceConfiguration -> IO (Trace IO Text)
-setupTrace (TraceConfiguration cfg outk name subTr) = do
-    let logTrace = case outk of
-            TVarList tvar -> natTracer liftIO $ traceInTVarIOConditionally tvar cfg
+setupTrace (TraceConfiguration cfg mockSB name subTr) = do
+    let logTrace = traceMock mockSB cfg
 
     setSubTrace cfg name (Just subTr)
     appendName name logTrace
@@ -219,19 +218,19 @@ timingObservableVsUntimed = do
     cfg <- defaultConfigTesting
     msgs1  <- STM.newTVarIO []
     traceObservable <- setupTrace $ TraceConfiguration cfg
-                                    (TVarList msgs1)
+                                    (MockSB msgs1)
                                     "observables"
                                     (ObservableTrace observablesSet)
 
     msgs2  <- STM.newTVarIO []
     traceUntimed <- setupTrace $ TraceConfiguration cfg
-                                    (TVarList msgs2)
+                                    (MockSB msgs2)
                                     "no timing"
                                     UntimedTrace
 
     msgs3  <- STM.newTVarIO []
     traceNoTrace <- setupTrace $ TraceConfiguration cfg
-                                    (TVarList msgs3)
+                                    (MockSB msgs3)
                                     "no trace"
                                     NoTrace
 
@@ -259,11 +258,11 @@ forward traced items to the parent |Trace|.
 A |NoTrace| introduced in this hierarchy will cut off a branch
 from messaging to the root.
 \begin{code}
-unitHierarchy :: Assertion
-unitHierarchy = do
+_unitHierarchy :: Assertion
+_unitHierarchy = do
     cfg <- defaultConfigTesting
     msgs <- STM.newTVarIO []
-    basetrace <- setupTrace $ TraceConfiguration cfg (TVarList msgs) "test" Neutral
+    basetrace <- setupTrace $ TraceConfiguration cfg (MockSB msgs) "test" Neutral
     logInfo basetrace "This should have been displayed!"
 
     -- subtrace of trace which traces nothing
@@ -294,7 +293,7 @@ unitTraceMinSeverity :: Assertion
 unitTraceMinSeverity = do
     cfg <- defaultConfigTesting
     msgs <- STM.newTVarIO []
-    trace <- setupTrace $ TraceConfiguration cfg (TVarList msgs) "test min severity" Neutral
+    trace <- setupTrace $ TraceConfiguration cfg (MockSB msgs) "test min severity" Neutral
     logInfo trace "Message #1"
 
     -- raise the minimum severity to Warning
@@ -336,7 +335,7 @@ unitTraceDuplicate :: Assertion
 unitTraceDuplicate = do
     cfg <- defaultConfigTesting
     msgs <- STM.newTVarIO []
-    basetrace <- setupTrace $ TraceConfiguration cfg (TVarList msgs) "test-duplicate" Neutral
+    basetrace <- setupTrace $ TraceConfiguration cfg (MockSB msgs) "test-duplicate" Neutral
     logInfo basetrace "Message #1"
 
     -- create a subtrace which duplicates all messages
@@ -364,7 +363,7 @@ unitNamedMinSeverity :: Assertion
 unitNamedMinSeverity = do
     cfg <- defaultConfigTesting
     msgs <- STM.newTVarIO []
-    basetrace <- setupTrace $ TraceConfiguration cfg (TVarList msgs) "test-named-severity" Neutral
+    basetrace <- setupTrace $ TraceConfiguration cfg (MockSB msgs) "test-named-severity" Neutral
     trace <- appendName "sev-change" basetrace
     logInfo trace "Message #1"
 
@@ -405,7 +404,7 @@ unitHierarchy' subtraces f = do
     let (t1 : t2 : t3 : _) = cycle subtraces
     msgs <- STM.newTVarIO []
     -- create trace of type 1
-    trace1 <- setupTrace $ TraceConfiguration cfg (TVarList msgs) "test" t1
+    trace1 <- setupTrace $ TraceConfiguration cfg (MockSB msgs) "test" t1
     logInfo trace1 "Message from level 1."
 
     -- subtrace of type 2
@@ -435,7 +434,7 @@ unitTraceInFork :: Assertion
 unitTraceInFork = do
     cfg <- defaultConfigTesting
     msgs <- STM.newTVarIO []
-    trace <- setupTrace $ TraceConfiguration cfg (TVarList msgs) "test" Neutral
+    trace <- setupTrace $ TraceConfiguration cfg (MockSB msgs) "test" Neutral
     trace0 <- appendName "work0" trace
     trace1 <- appendName "work1" trace
     work0 <- work trace0
@@ -469,7 +468,7 @@ stressTraceInFork :: Assertion
 stressTraceInFork = do
     cfg <- defaultConfigTesting
     msgs <- STM.newTVarIO []
-    trace <- setupTrace $ TraceConfiguration cfg (TVarList msgs) "test" Neutral
+    trace <- setupTrace $ TraceConfiguration cfg (MockSB msgs) "test" Neutral
     let names = map (\a -> ("work-" <> pack (show a))) [1..(10::Int)]
     ts <- forM names $ \name -> do
         trace' <- appendName name trace
@@ -499,7 +498,7 @@ unitNoOpeningTrace = do
     cfg <- defaultConfigTesting
     msgs <- STM.newTVarIO []
 #ifdef ENABLE_OBSERVABLES
-    logTrace <- setupTrace $ TraceConfiguration cfg (TVarList msgs) "test" DropOpening
+    logTrace <- setupTrace $ TraceConfiguration cfg (MockSB msgs) "test" DropOpening
     _ <- STMObserver.bracketObserveIO cfg logTrace Debug "setTVar" setVar_
 #endif
     res <- STM.readTVarIO msgs
@@ -517,7 +516,7 @@ unitAppendName :: Assertion
 unitAppendName = do
     cfg <- defaultConfigTesting
     msgs <- STM.newTVarIO []
-    basetrace <- setupTrace $ TraceConfiguration cfg (TVarList msgs) "test" Neutral
+    basetrace <- setupTrace $ TraceConfiguration cfg (MockSB msgs) "test" Neutral
     trace1 <- appendName bigName basetrace
     trace2 <- appendName bigName trace1
     forM_ [basetrace, trace1, trace2] $ (flip logInfo msg)

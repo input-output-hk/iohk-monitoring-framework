@@ -13,7 +13,6 @@ module Cardano.BM.Trace
     , nullTracer
     , traceInTVar
     , traceInTVarIO
-    , traceInTVarIOConditionally
     -- * context naming
     , appendName
     , modifyName
@@ -36,18 +35,15 @@ module Cardano.BM.Trace
 import           Control.Concurrent.MVar (MVar, newMVar, withMVar)
 import qualified Control.Concurrent.STM.TVar as STM
 import           Control.Monad.IO.Class (MonadIO, liftIO)
-import           Control.Monad (when)
 import qualified Control.Monad.STM as STM
 import           Data.Aeson.Text (encodeToLazyText)
 import           Data.Functor.Contravariant (Contravariant (..))
-import           Data.Maybe (fromMaybe)
 import           Data.Monoid ((<>))
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import           Data.Text.Lazy (toStrict)
 import           System.IO.Unsafe (unsafePerformIO)
 
-import qualified Cardano.BM.Configuration as Config
 import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.Trace
@@ -178,42 +174,9 @@ stdoutTrace = Tracer $ \(LogObject logname _ lc) ->
 traceInTVar :: STM.TVar [a] -> Tracer STM.STM a
 traceInTVar tvar = Tracer $ \a -> STM.modifyTVar tvar ((:) a)
 
-traceInTVarIO :: STM.TVar [LogObject a] -> Tracer IO (LogObject a)
-traceInTVarIO tvar = Tracer $ \ln ->
-                         STM.atomically $ STM.modifyTVar tvar ((:) ln)
-
-traceInTVarIOConditionally :: STM.TVar [LogObject a] -> Config.Configuration -> Tracer IO (LogObject a)
-traceInTVarIOConditionally tvar config =
-    Tracer $ \item@(LogObject loggername meta _) -> do
-        globminsev  <- Config.minSeverity config
-        globnamesev <- Config.inspectSeverity config loggername
-        let minsev = max globminsev $ fromMaybe Debug globnamesev
-
-        subTrace <- fromMaybe Neutral <$> Config.findSubTrace config loggername
-        let doOutput = subtraceOutput subTrace item
-
-        when ((severity meta) >= minsev && doOutput) $
-            STM.atomically $ STM.modifyTVar tvar ((:) item)
-
-        case subTrace of
-            TeeTrace secName ->
-                STM.atomically $ STM.modifyTVar tvar ((:) item{ loName = secName })
-            _ -> return ()
-
-subtraceOutput :: SubTrace -> LogObject a -> Bool
-subtraceOutput subTrace (LogObject loname _ loitem) =
-    case subTrace of
-        FilterTrace filters ->
-            case loitem of
-                LogValue name _ ->
-                    evalFilters filters (loname <> "." <> name)
-                _ ->
-                    evalFilters filters loname
-        DropOpening -> case loitem of
-                        ObserveOpen _ -> False
-                        _             -> True
-        NoTrace     -> False
-        _           -> True
+traceInTVarIO :: STM.TVar [a] -> Tracer IO a
+traceInTVarIO tvar = Tracer $ \a ->
+                         STM.atomically $ STM.modifyTVar tvar ((:) a)
 
 \end{code}
 

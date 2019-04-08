@@ -16,6 +16,7 @@ module Cardano.BM.Output.Switchboard
       Switchboard (..)
     , MockSwitchboard (..)
     , mainTraceConditionally
+    , traceMock
     , readLogBuffer
     , effectuate
     , realize
@@ -45,7 +46,7 @@ import           Cardano.BM.Data.MessageCounter (resetCounters, sendAndResetAfte
                      updateMessageCounters)
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.SubTrace (SubTrace (..))
-import           Cardano.BM.Data.Tracer (Tracer (..), ToObject)
+import           Cardano.BM.Data.Tracer (Tracer (..), ToObject, traceWith)
 import qualified Cardano.BM.Output.Log
 import qualified Cardano.BM.Output.LogBuffer
 import           Cardano.BM.Trace (evalFilters)
@@ -100,7 +101,7 @@ mainTrace = Tracer . effectuate
 
 \end{spec}
 
-This function will apply to every message the severity filter as defined in the |Configuration|.
+This |Tracer| will apply to every message the severity filter as defined in the |Configuration|.
 \begin{code}
 mainTraceConditionally :: IsEffectuator eff a => Configuration -> eff a -> Tracer IO (LogObject a)
 mainTraceConditionally config eff = Tracer $ \item@(LogObject loggername meta _) -> do
@@ -382,5 +383,24 @@ newtype MockSwitchboard a = MockSB (TVar [LogObject a])
 instance IsEffectuator MockSwitchboard a where
     effectuate (MockSB tvar) item = atomically $ modifyTVar tvar ((:) item)
     handleOverflow _ = pure ()
+
+\end{code}
+
+\subsubsection{traceMock}\label{code:traceMock}\index{traceMock}
+A |Tracer| which forwards |LogObject|s to |MockSwitchboard| simulating
+functionality of |mainTraceConditionally|.
+
+\begin{code}
+traceMock :: MockSwitchboard a -> Config.Configuration -> Tracer IO (LogObject a)
+traceMock ms config =
+    Tracer $ \item@(LogObject loggername _ _) -> do
+        traceWith mainTrace item
+        subTrace <- fromMaybe Neutral <$> Config.findSubTrace config loggername
+        case subTrace of
+            TeeTrace secName ->
+                traceWith mainTrace item{ loName = secName }
+            _ -> return ()
+  where
+    mainTrace = mainTraceConditionally config ms
 
 \end{code}
