@@ -4,6 +4,12 @@
 In this directory, enter a `nix-shell` to have access to the required tools
 to generate documentation.
 
+## Presentation 2018-12-04
+
+This was the first presentation of `iohk-monitoring-framework`:
+
+[Presentation 2018-12-04](/iohk-monitoring/framework/pres-20181204/html/index.html)
+
 
 ## UML Diagrams
 
