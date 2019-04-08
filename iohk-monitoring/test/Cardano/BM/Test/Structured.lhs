@@ -13,21 +13,12 @@ module Cardano.BM.Test.Structured (
 import           Data.Text (Text)
 
 import           Cardano.BM.Configuration.Static (defaultConfigTesting)
-import           Cardano.BM.Data.LogItem
-import           Cardano.BM.Data.Observable
-import           Cardano.BM.Data.Output
-import           Cardano.BM.Data.Severity
-import           Cardano.BM.Data.SubTrace
-import           Cardano.BM.Data.Tracer
+import           Cardano.BM.Data.Tracer (toLogObject, traceWith)
 import qualified Cardano.BM.Setup as Setup
-import           Cardano.BM.Trace (Trace, appendName, evalFilters, logDebug,
-                     logInfo, logInfoS, logNotice, logWarning, logError,
-                     logCritical, logAlert, logEmergency,
-                     traceInTVarIOConditionally)
+import           Cardano.BM.Trace (Trace)
 
 import           Test.Tasty (TestTree, testGroup)
-import           Test.Tasty.HUnit (Assertion, assertBool, testCase,
-                     testCaseInfo)
+import           Test.Tasty.HUnit (Assertion , assertBool, testCase)
 
 \end{code}
 %endif
@@ -47,8 +38,8 @@ logText :: Assertion
 logText = do
     cfg <- defaultConfigTesting
     baseTrace :: Trace IO Text <- Setup.setupTrace (Right cfg) "logText"
-    
-    let logTrace = toLogObject $ baseTrace  
+
+    let logTrace = toLogObject $ baseTrace
 
     traceWith logTrace "This is a simple message."
     traceWith logTrace ".. and another!"
