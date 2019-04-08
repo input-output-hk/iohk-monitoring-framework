@@ -4,11 +4,20 @@
 In this directory, enter a `nix-shell` to have access to the required tools
 to generate documentation.
 
+# Presentations
+
 ## Presentation 2018-12-04
 
 This was the first presentation of `iohk-monitoring-framework`:
 
-[Presentation 2018-12-04](/iohk-monitoring/framework/pres-20181204/html/index.html)
+[Presentation 2018-12-04](/iohk-monitoring-framework/pres-20181204/html/index.html)
+
+
+# Haddock documentation
+
+`Haddock` automatically generates documentation from source code:
+
+[package contra-tracer](/iohk-monitoring-framework/haddock/contra-tracer/index.html)
 
 
 ## UML Diagrams
