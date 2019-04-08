@@ -94,19 +94,19 @@ dispatching the messages to the selected backends.
 This |Tracer| will forward all messages unconditionally to the |Switchboard|.
 (currently disabled)
 \begin{spec}
-mainTrace :: Switchboard a -> Tracer IO (LogObject a)
-mainTrace sb = Tracer $ effectuate sb
+mainTrace :: IsEffectuator eff a => eff a -> Tracer IO (LogObject a)
+mainTrace = Tracer . effectuate
 
 \end{spec}
 
 This function will apply to every message the severity filter as defined in the |Configuration|.
 \begin{code}
-mainTraceConditionally :: Configuration -> Switchboard a -> Tracer IO (LogObject a)
-mainTraceConditionally config sb = Tracer $ \item@(LogObject loggername meta _) -> do
+mainTraceConditionally :: IsEffectuator eff a => Configuration -> eff a -> Tracer IO (LogObject a)
+mainTraceConditionally config eff = Tracer $ \item@(LogObject loggername meta _) -> do
     passSevFilter <- testSeverity loggername meta
     passSubTrace <- testSubTrace loggername item
     if passSevFilter && passSubTrace
-    then effectuate sb item
+    then effectuate eff item
     else return ()
   where
     testSeverity :: LoggerName -> LOMeta -> IO Bool
