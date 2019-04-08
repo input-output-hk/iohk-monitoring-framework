@@ -7,4 +7,6 @@ package iohk-monitoring
 
 package contra-tracer
   tests: False
+  documentation: True
+  haddock-hyperlink-source: True
 
