@@ -1,5 +1,5 @@
 { pkgs ? import <nixpkgs> {}
-, iohk-overlay ? {}
+, iohk-extras ? {}
 , iohk-module ? {}
 , haskell
 , ...
@@ -9,30 +9,6 @@ let
   # our packages
   stack-pkgs = import ./.stack-pkgs.nix;
 
-  # packages which will require TH and thus
-  # will need -fexternal-interpreter treatment
-  # when cross compiling.
-  # list is derived from
-  # `stack dot --external | grep "template-haskell"`
-  th-packages = [
-          "aeson"
-          "bifunctors"
-          "exceptions"
-          "file-embed"
-          "free"
-          "invariant"
-          "iohk-monitoring"
-          "katip"
-          "lens"
-          "microlens-th"
-          "reflection"
-          "semigroupoids"
-          "tagged"
-          "th-abstraction"
-          "threepenny-gui"
-          "yaml"
-        ];
-
   # Build the packageset with module support.
   # We can essentially override anything in the modules
   # section.
@@ -40,16 +16,14 @@ let
   #  packages.cbors.patches = [ ./one.patch ];
   #  packages.cbors.flags.optimize-gmp = false;
   #
-  compiler = (stack-pkgs.overlay haskell.hackage).compiler.nix-name;
+  compiler = (stack-pkgs.extras haskell.hackage).compiler.nix-name;
   pkgSet = haskell.mkStackPkgSet {
     inherit stack-pkgs;
-    pkg-def-overlays = [
-      iohk-overlay.${compiler}
+    pkg-def-extras = [
+      iohk-extras.${compiler}
     ];
     modules = [
-      (iohk-module { nixpkgs = pkgs;
-                     inherit th-packages; })
-
+      iohk-module
 
       {
         # Packages we wish to ignore version bounds of.

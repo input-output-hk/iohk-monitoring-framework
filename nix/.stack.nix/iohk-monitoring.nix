@@ -126,4 +126,4 @@
           };
         };
       };
-    } // rec { src = (pkgs.lib).mkDefault .././../iohk-monitoring; }
+    } // rec { src = (pkgs.lib).mkDefault ../.././iohk-monitoring; }
