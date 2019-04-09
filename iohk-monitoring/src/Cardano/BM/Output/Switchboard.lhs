@@ -14,7 +14,9 @@
 module Cardano.BM.Output.Switchboard
     (
       Switchboard (..)
+    , MockSwitchboard (..)
     , mainTraceConditionally
+    , traceMock
     , readLogBuffer
     , effectuate
     , realize
@@ -24,7 +26,7 @@ module Cardano.BM.Output.Switchboard
 import qualified Control.Concurrent.Async as Async
 import           Control.Concurrent.MVar (MVar, newEmptyMVar, newMVar,
                      modifyMVar_, putMVar, readMVar, tryTakeMVar, withMVar)
-import           Control.Concurrent.STM (atomically, retry)
+import           Control.Concurrent.STM (TVar, atomically, modifyTVar, retry)
 import qualified Control.Concurrent.STM.TBQueue as TBQ
 import           Control.Exception.Safe (throwM)
 import           Control.Monad (forM, forM_, when, void)
@@ -44,7 +46,7 @@ import           Cardano.BM.Data.MessageCounter (resetCounters, sendAndResetAfte
                      updateMessageCounters)
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.SubTrace (SubTrace (..))
-import           Cardano.BM.Data.Tracer (Tracer (..), ToObject)
+import           Cardano.BM.Data.Tracer (Tracer (..), ToObject, traceWith)
 import qualified Cardano.BM.Output.Log
 import qualified Cardano.BM.Output.LogBuffer
 import           Cardano.BM.Trace (evalFilters)
@@ -94,19 +96,19 @@ dispatching the messages to the selected backends.
 This |Tracer| will forward all messages unconditionally to the |Switchboard|.
 (currently disabled)
 \begin{spec}
-mainTrace :: Switchboard a -> Tracer IO (LogObject a)
-mainTrace sb = Tracer $ effectuate sb
+mainTrace :: IsEffectuator eff a => eff a -> Tracer IO (LogObject a)
+mainTrace = Tracer . effectuate
 
 \end{spec}
 
-This function will apply to every message the severity filter as defined in the |Configuration|.
+This |Tracer| will apply to every message the severity filter as defined in the |Configuration|.
 \begin{code}
-mainTraceConditionally :: Configuration -> Switchboard a -> Tracer IO (LogObject a)
-mainTraceConditionally config sb = Tracer $ \item@(LogObject loggername meta _) -> do
+mainTraceConditionally :: IsEffectuator eff a => Configuration -> eff a -> Tracer IO (LogObject a)
+mainTraceConditionally config eff = Tracer $ \item@(LogObject loggername meta _) -> do
     passSevFilter <- testSeverity loggername meta
     passSubTrace <- testSubTrace loggername item
     if passSevFilter && passSubTrace
-    then effectuate sb item
+    then effectuate eff item
     else return ()
   where
     testSeverity :: LoggerName -> LOMeta -> IO Bool
@@ -368,4 +370,37 @@ setupBackend' KatipBK c _ = do
         , bUnrealize = Cardano.BM.Output.Log.unrealize be
         }
 setupBackend' LogBufferBK _ _ = return Nothing
+
+\end{code}
+
+\subsubsection{MockSwitchboard}\label{code:MockSwitchboard}\index{MockSwitchboard}
+|MockSwitchboard| is useful for tests since it keeps the |LogObject|s
+to be output in a list.
+
+\begin{code}
+newtype MockSwitchboard a = MockSB (TVar [LogObject a])
+
+instance IsEffectuator MockSwitchboard a where
+    effectuate (MockSB tvar) item = atomically $ modifyTVar tvar ((:) item)
+    handleOverflow _ = pure ()
+
+\end{code}
+
+\subsubsection{traceMock}\label{code:traceMock}\index{traceMock}
+A |Tracer| which forwards |LogObject|s to |MockSwitchboard| simulating
+functionality of |mainTraceConditionally|.
+
+\begin{code}
+traceMock :: MockSwitchboard a -> Config.Configuration -> Tracer IO (LogObject a)
+traceMock ms config =
+    Tracer $ \item@(LogObject loggername _ _) -> do
+        traceWith mainTrace item
+        subTrace <- fromMaybe Neutral <$> Config.findSubTrace config loggername
+        case subTrace of
+            TeeTrace secName ->
+                traceWith mainTrace item{ loName = secName }
+            _ -> return ()
+  where
+    mainTrace = mainTraceConditionally config ms
+
 \end{code}

@@ -9,36 +9,25 @@
 
 module Cardano.BM.Data.Output
   (
-    OutputKind (..)
-  , ScribeKind (..)
+    ScribeKind (..)
   , ScribeId
   , ScribePrivacy (..)
   , ScribeDefinition (..)
   )
   where
 
-import qualified Control.Concurrent.STM.TVar as STM
 import           Data.Aeson (FromJSON (..), ToJSON, Value (..), parseJSON, (.:),
                      (.:?))
 import           Data.Aeson.Types (typeMismatch)
 import           Data.Maybe (fromMaybe)
 import           Data.Text (Text)
 
-import           Cardano.BM.Data.LogItem
-import           Cardano.BM.Data.Rotation
+import           Cardano.BM.Data.Rotation (RotationParameters)
 
 import           GHC.Generics (Generic)
 
 \end{code}
 %endif
-
-\subsubsection{OutputKind}\label{code:OutputKind}\index{OutputKind}
-\label{code:TVarList}\index{OutputKind!TVarList}
-\begin{code}
-data OutputKind a = TVarList (STM.TVar [LogObject a])
-                    deriving (Eq)
-
-\end{code}
 
 \subsubsection{ScribeKind}\label{code:ScribeKind}
 \label{code:FileTextSK}\index{ScribeKind!FileTextSK}
