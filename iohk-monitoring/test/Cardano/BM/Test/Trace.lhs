@@ -200,8 +200,8 @@ exampleWithNamedContexts = do
 \subsubsection{Show effect of turning off observables}
 \begin{code}
 #ifdef ENABLE_OBSERVABLES
-runTimedAction :: Configuration -> Trace IO Text -> Int -> IO Measurable
-runTimedAction cfg logTrace reps = do
+runTimedAction :: Configuration -> Trace IO Text -> LoggerName -> Int -> IO Measurable
+runTimedAction cfg logTrace name reps = do
     runid <- newUnique
     t0 <- getMonoClock
     forM_ [(1::Int)..reps] $ const $ observeAction logTrace
@@ -209,41 +209,43 @@ runTimedAction cfg logTrace reps = do
     return $ diffTimeObserved (CounterState runid t0) (CounterState runid t1)
   where
     observeAction trace = do
-        _ <- MonadicObserver.bracketObserveIO cfg trace Debug "" action
+        _ <- MonadicObserver.bracketObserveIO cfg trace Debug name action
         return ()
     action = return $ forM [1::Int ..100] $ \x -> [x] ++ (init $ reverse [1::Int ..10000])
 
 timingObservableVsUntimed :: Assertion
 timingObservableVsUntimed = do
-    cfg <- defaultConfigTesting
-    msgs1  <- STM.newTVarIO []
-    traceObservable <- setupTrace $ TraceConfiguration cfg
+    cfg1 <- defaultConfigTesting
+    msgs1 <- STM.newTVarIO []
+    traceObservable <- setupTrace $ TraceConfiguration cfg1
                                     (MockSB msgs1)
                                     "observables"
                                     (ObservableTrace observablesSet)
-
-    msgs2  <- STM.newTVarIO []
-    traceUntimed <- setupTrace $ TraceConfiguration cfg
+    cfg2 <- defaultConfigTesting
+    msgs2 <- STM.newTVarIO []
+    traceUntimed <- setupTrace $ TraceConfiguration cfg2
                                     (MockSB msgs2)
                                     "no timing"
                                     UntimedTrace
-
-    msgs3  <- STM.newTVarIO []
-    traceNoTrace <- setupTrace $ TraceConfiguration cfg
+    cfg3 <- defaultConfigTesting
+    msgs3 <- STM.newTVarIO []
+    traceNoTrace <- setupTrace $ TraceConfiguration cfg3
                                     (MockSB msgs3)
                                     "no trace"
                                     NoTrace
 
-    t_observable <- runTimedAction cfg traceObservable 100
-    t_untimed    <- runTimedAction cfg traceUntimed 100
-    t_notrace    <- runTimedAction cfg traceNoTrace 100
+    t_observable <- runTimedAction cfg1 traceObservable "observables" 100
+    t_untimed    <- runTimedAction cfg2 traceUntimed    "no timing"   100
+    t_notrace    <- runTimedAction cfg3 traceNoTrace    "no trace"    100
+
+    ms <- STM.readTVarIO msgs1
 
     assertBool
-        ("Untimed consumed more time than ObservableTrace " ++ (show [t_untimed, t_observable]))
-        True
+        ("Untimed consumed more time than ObservableTrace " ++ (show [t_untimed, t_observable]) ++ show ms)
+        (t_observable > t_untimed && not (null ms))
     assertBool
         ("NoTrace consumed more time than ObservableTrace" ++ (show [t_notrace, t_observable]))
-        True
+        (t_observable > t_notrace)
     assertBool
         ("NoTrace consumed more time than Untimed" ++ (show [t_notrace, t_untimed]))
         True
