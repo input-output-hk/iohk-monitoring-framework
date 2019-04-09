@@ -126,7 +126,7 @@ library
                        transformers,
                        unordered-containers,
                        vector,
-                       yaml, libyaml < 0.1.1
+                       yaml, libyaml
   if !flag(disable-ekg)
      build-depends:    ekg,
                        ekg-core
@@ -206,7 +206,7 @@ test-suite tests
                        unordered-containers,
                        vector,
                        void,
-                       yaml, libyaml < 0.1.1
+                       yaml, libyaml
   ghc-options:         -Wall
 
   if !flag(disable-aggregation)

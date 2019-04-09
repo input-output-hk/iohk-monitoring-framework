@@ -8,8 +8,8 @@
         "process" = (((hackage.process)."1.6.5.0").revisions).default;
         "transformers" = (((hackage.transformers)."0.5.6.2").revisions).default;
         } // {
-        contra-tracer = ./.stack.nix/contra-tracer.nix;
-        iohk-monitoring = ./.stack.nix/iohk-monitoring.nix;
+        contra-tracer = ./contra-tracer.nix;
+        iohk-monitoring = ./iohk-monitoring.nix;
         };
       compiler.version = "8.6.4";
       compiler.nix-name = "ghc864";

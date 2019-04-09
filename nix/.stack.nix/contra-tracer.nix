@@ -21,4 +21,4 @@
           ] ++ (pkgs.lib).optional (compiler.isGhc && (compiler.version).lt "8.5") (hsPkgs.contravariant);
         };
       };
-    } // rec { src = (pkgs.lib).mkDefault .././../contra-tracer; }
+    } // rec { src = (pkgs.lib).mkDefault ../.././contra-tracer; }
