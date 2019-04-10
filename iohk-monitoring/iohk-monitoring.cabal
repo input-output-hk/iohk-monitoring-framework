@@ -158,7 +158,7 @@ library
 test-suite tests
   type:                exitcode-stdio-1.0
   hs-source-dirs:      test
-  main-is:             Test.lhs
+  main-is:             Test.hs
 
   default-language:    Haskell2010
   default-extensions:  OverloadedStrings
