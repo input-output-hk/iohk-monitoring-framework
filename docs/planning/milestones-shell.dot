@@ -1,0 +1,371 @@
+strict digraph milestone_plan {
+  graph [rankdir = "TB", splines = "spline", newrank = true];
+  node  [shape = "rectangle", style="filled,bold", fillcolor="white", color=grey];
+
+  subgraph cluster_M1 {
+
+    label = "milestone M1
+Daedalus IPC complete";
+    graph[rankdir = "TB", color=blue];
+
+      T1_0_1 [ label = "task 1.0.1
+dependency wallet BE team" ];
+
+    subgraph cluster_E1_1 {
+      label = "epic E1_1
+IPC implementation";
+      graph[rankdir = "TB", style=dotted];
+
+      T1_1_1 [ label = "task 1.1.1
+Requirements for integration" ];
+      T1_1_2 [ label = "task 1.1.2
+Support for integration" ];
+
+      T1_1_1 -> T1_1_2;
+    }
+
+    subgraph cluster_E1_2 {
+      label = "epic E1_2
+QuickCheck state machine tests";
+      graph[rankdir = "TB", style=dotted];
+
+      T1_2_1 [ label = "task 1.2.1
+QuickCheck state machine tests" ];
+
+    }
+
+    subgraph cluster_E1_3 {
+      label = "epic E1_3
+Documentation";
+      graph[rankdir = "TB", style=dotted];
+
+      T1_3_1 [ label = "task 1.3.1
+Documentation" ];
+
+    }
+
+    T1_0_1 -> T1_1_1;
+    T1_1_2 -> T1_2_1;
+    T1_2_1 -> T1_3_1;
+  }
+
+  subgraph cluster_M2 {
+
+    label = "milestone M2
+Configuration complete for batch mode block validation";
+    graph[rankdir = "TB", color=blue];
+
+    T2_1_1 [ label = "task 2.1.1
+Assist ledger team with integration (#46)" ];
+  }
+
+  subgraph cluster_M3 {
+
+    label = "milestone M3
+Node shell as a library";
+    graph[rankdir = "TB", color=blue];
+
+    T3_1_1 [ label = "task 3.1.1
+requirements gathering: wallet BE, ledger team" ];
+    T3_1_2 [ label = "task 3.1.2
+QuickCheck state machine tests" ];
+    T3_1_3 [ label = "task 3.1.3
+Redesign modules, define API" ];
+    T3_1_4 [ label = "task 3.1.4
+Documentation" ];
+
+    T3_1_1 -> T3_1_2;
+    T3_1_1 -> T3_1_3;
+    T3_1_3 -> T3_1_4;
+  }
+
+  subgraph cluster_M4 {
+
+    label = "milestone M4
+Miminal integration with wallet BE - Wallet BE team & Node Shell";
+    graph[rankdir = "TB", color=blue];
+
+      T4_0_1 [ label = "task 4.0.1
+dependency wallet BE" ];
+
+    subgraph cluster_E4_1 {
+      label = "epic E4_1
+Assist with integration";
+      graph[rankdir = "TB", style=dotted];
+
+      T4_1_1 [ label = "task 4.1.1
+Assist with integration (#78)" ];
+
+    }
+
+    T3_1_4 -> T4_1_1;
+    T4_0_1 -> T4_1_1;
+  }
+
+  subgraph cluster_M5 {
+
+    label = "milestone M5
+Minimal integration with Node - Ledger, Consensus & Node Shell";
+    graph[rankdir = "TB", color=blue];
+
+      T5_0_1 [ label = "task 5.0.1
+dependency wallet BE" ];
+      T2_1_1 -> T5_0_1;
+
+    subgraph cluster_E5_1 {
+      label = "epic E5_1
+Assist with integration";
+      graph[rankdir = "TB", style=dotted];
+
+      T5_1_1 [ label = "task 5.1.1
+Assist with integration" ];
+
+    }
+
+    T3_1_4 -> T5_1_1;
+    T5_0_1 -> T5_1_1;
+  }
+
+  subgraph cluster_M6 {
+
+    label = "milestone M6
+Maximum integration with wallet BE - Wallet BE team & Node Shell";
+    graph[rankdir = "TB", color=blue];
+
+      T6_0_1 [ label = "task 6.0.1
+dependency M4" ];
+      T4_1_1 -> T6_0_1;
+
+    subgraph cluster_E6_1 {
+      label = "epic E6_1
+Requirements";
+      graph[rankdir = "TB", style=dotted];
+
+      T6_1_1 [ label = "task 6.1.1
+Requirements" ];
+
+      T6_0_1 -> T6_1_1;
+    }
+
+    subgraph cluster_E6_2 {
+      label = "epic E6_2
+Integration";
+      graph[rankdir = "TB", style=dotted];
+
+      T6_2_1 [ label = "task 6.2.1
+Integrating required configuration" ];
+      T6_2_2 [ label = "task 6.2.2
+Integrating required launcher functionality" ];
+
+      T6_1_1 -> T6_2_1;
+      T6_1_1 -> T6_2_2;
+    }
+
+    subgraph cluster_E6_3 {
+      label = "epic E6_3
+QA Testing";
+      graph[rankdir = "TB", style=dotted];
+
+      T6_3_1 [ label = "task 6.3.1
+Testing configuration" ];
+      T6_3_2 [ label = "task 6.3.2
+Testing launcher functionality" ];
+
+      T6_2_2 -> T6_3_1;
+      T6_2_2 -> T6_3_2;
+    }
+
+  }
+
+  subgraph cluster_M7 {
+
+    label = "milestone M7
+Maximum integration with Node - Ledger, Consensus & Node Shell";
+    graph[rankdir = "TB", color=blue];
+
+      T7_0_1 [ label = "task 7.0.1
+dependency M5" ];
+      T5_1_1 -> T7_0_1;
+
+    subgraph cluster_E7_1 {
+      label = "epic E7_1
+Requirements";
+      graph[rankdir = "TB", style=dotted];
+
+      T7_1_1 [ label = "task 7.1.1
+Requirements" ];
+
+      T7_0_1 -> T7_1_1;
+    }
+
+    subgraph cluster_E7_2 {
+      label = "epic E7_2
+Integration";
+      graph[rankdir = "TB", style=dotted];
+
+      T7_2_1 [ label = "task 7.2.1
+Integrating required configuration" ];
+      T7_2_2 [ label = "task 7.2.2
+Integrating required launcher functionality" ];
+
+      T7_1_1 -> T7_2_1;
+      T7_1_1 -> T7_2_2;
+    }
+
+    subgraph cluster_E7_3 {
+      label = "epic E7_3
+QA Testing";
+      graph[rankdir = "TB", style=dotted];
+
+      T7_3_1 [ label = "task 7.3.1
+Testing configuration" ];
+      T7_3_2 [ label = "task 7.3.2
+Testing launcher functionality" ];
+
+      T7_2_2 -> T7_3_1;
+      T7_2_2 -> T7_3_2;
+    }
+  }
+
+  subgraph cluster_M8 {
+
+    label = "milestone M8
+Integration with 'Update system'
+with Daedalus, Wallet BE & Node. Launcher
+and update mechansim complete";
+    graph[rankdir = "TB", color=blue];
+
+      T8_0_1 [ label = "task 8.0.1
+dependency M6, M7" ];
+      T6_3_2 -> T8_0_1;
+      T7_3_2 -> T8_0_1;
+
+    subgraph cluster_E8_1 {
+      label = "epic E8_1
+Launcher update system implementation (#50)";
+      graph[rankdir = "TB", style=dotted];
+
+      T8_1_1 [ label = "task 8.1.1
+Requirements" ];
+      T8_1_2 [ label = "task 8.1.2
+Documentation (#57)" ];
+
+      T8_0_1 -> T8_1_1;
+      T8_0_1 -> T8_1_2;
+    }
+
+    subgraph cluster_E8_2 {
+      label = "epic E8_2
+QuickCheck state machine tests";
+      graph[rankdir = "TB", style=dotted];
+
+      T8_2_1 [ label = "task 8.2.1
+QuickCheck state machine tests" ];
+
+      T8_1_1 -> T8_2_1;
+    }
+
+    subgraph cluster_E8_3 {
+      label = "epic E8_3
+Initial implementation";
+      graph[rankdir = "TB", style=dotted];
+
+      T8_3_1 [ label = "task 8.3.1
+Implementation of the update system" ];
+
+      T8_1_1 -> T8_3_1;
+    }
+
+    subgraph cluster_E8_4 {
+      label = "epic E8_4
+Integration launcher, Daedalus";
+      graph[rankdir = "TB", style=dotted];
+
+      T8_4_1 [ label = "task 8.4.1
+Integration of Daedalus and launcher" ];
+
+      T8_3_1 -> T8_4_1;
+    }
+
+    subgraph cluster_E8_5 {
+      label = "epic E8_5
+Integration launcher, wallet BE";
+      graph[rankdir = "TB", style=dotted];
+
+      T8_5_1 [ label = "task 8.5.1
+Integration of Wallet BE and launcher" ];
+
+      T8_3_1 -> T8_4_1;
+      T8_3_1 -> T8_5_1;
+    }
+
+  }
+
+  subgraph cluster_M9 {
+
+    label = "milestone M9
+Formal methods, model verification (TLA+)";
+    graph[rankdir = "TB", color=blue];
+
+      T9_0_1 [ label = "task 9.0.1
+(weak) dependency M8, M3, M1" ];
+      T1_3_1 -> T9_0_1;
+      T3_1_4 -> T9_0_1;
+      T8_5_1 -> T9_0_1;
+
+    subgraph cluster_E9_1 {
+      label = "epic E9_1
+Installation, get familiar";
+      graph[rankdir = "TB", style=dotted];
+
+      T9_1_1 [ label = "task 9.1.1
+setup TLA+ locally, get familiar" ];
+
+      T9_0_1 -> T9_1_1;
+    }
+
+    subgraph cluster_E9_2 {
+      label = "epic E9_2
+TLA+ model of shell";
+      graph[rankdir = "TB", style=dotted];
+
+      T9_2_1 [ label = "task 9.2.1
+find example, adapt to our needs" ];
+      T9_2_2 [ label = "task 9.2.2
+TLA+ model of shell" ];
+
+      T9_1_1 -> T9_2_1;
+      T9_2_1 -> T9_2_2;
+    }
+
+    subgraph cluster_E9_3 {
+      label = "epic E9_3
+TLA+ model of IPC";
+      graph[rankdir = "TB", style=dotted];
+
+      T9_3_1 [ label = "task 9.3.1
+find example, adapt to our needs" ];
+      T9_3_2 [ label = "task 9.3.2
+complete IPC model" ];
+
+      T9_1_1 -> T9_3_1;
+      T9_3_1 -> T9_3_2;
+    }
+
+    subgraph cluster_E9_4 {
+      label = "epic E9_4
+TLA+ model of  launcher update system";
+      graph[rankdir = "TB", style=dotted];
+
+      T9_4_1 [ label = "task 9.4.1
+find example, adapt to our needs" ];
+      T9_4_2 [ label = "task 9.4.2
+complete  launcher update system model" ];
+
+      T9_1_1 -> T9_4_1;
+      T9_4_1 -> T9_4_2;
+    }
+
+  }
+
+}

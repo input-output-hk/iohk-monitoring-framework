@@ -1,7 +1,7 @@
 
-SOURCES = milestones-logging.dot
+SOURCES = milestones-logging.dot milestones-shell.dot
 
-OUTPUTS = milestones-logging.png milestones-logging.pdf
+OUTPUTS = milestones-logging.png milestones-logging.pdf milestones-shell.png milestones-shell.pdf
 
 %.png: %.dot
 	dot -Tpng $< -o$@
