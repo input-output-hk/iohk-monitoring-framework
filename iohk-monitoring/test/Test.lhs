@@ -54,15 +54,15 @@ tests =
   testGroup "iohk-monitoring"
   [
 #ifdef ENABLE_AGGREGATION
-    Cardano.BM.Test.Aggregated.tests
-  ,
+--    Cardano.BM.Test.Aggregated.tests
+--  ,
 #endif
-    Cardano.BM.Test.STM.tests
-  , Cardano.BM.Test.Trace.tests
-  , Cardano.BM.Test.Configuration.tests
-  , Cardano.BM.Test.Rotator.tests
-  , Cardano.BM.Test.Routing.tests
-  , Cardano.BM.Test.Structured.tests
+--    Cardano.BM.Test.STM.tests
+--  , Cardano.BM.Test.Trace.tests
+--  , Cardano.BM.Test.Configuration.tests
+--  , Cardano.BM.Test.Rotator.tests
+--  , Cardano.BM.Test.Routing.tests
+--  , Cardano.BM.Test.Structured.tests
   , Cardano.BM.Test.Tracer.tests
 #ifdef ENABLE_MONITORING
   , Cardano.BM.Test.Monitoring.tests
