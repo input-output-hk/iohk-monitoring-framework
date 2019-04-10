@@ -8,6 +8,7 @@ Module: Control.Tracer.Observe
 
 Functions useful for observing and measuring actions.
 -}
+{-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE LambdaCase        #-}
 
@@ -135,3 +136,66 @@ matchObservations getStart putStart f tr = Tracer $ \case
         traceWith tr $ OEnd e $ fmap ((flip f) e) before
 
 \end{code}
+
+\subsubsection{matchObservationsState}\label{code:matchObservationsState}\index{matchObservationsState}
+Match start and end of observations using a |MonadState|.
+\begin{spec}
+matchObservationsState
+    :: MonadState (Maybe s) m
+    => (s -> e -> d)
+    -> Tracer m (Observable s e d)
+    -> Tracer m (Observable s e d)
+matchObservationsState f tr = Tracer $ \case
+    obs@(OStart s) -> do
+        put $ Just s
+        traceWith tr obs
+    (OEnd e _) -> do
+        before <- get
+        traceWith tr $ OEnd e $ fmap ((flip f) e) before
+
+exampleState :: IO ()
+exampleState = evalStateT exampleS Nothing
+
+exampleS :: StateT (Maybe Time) IO ()
+exampleS = do
+    let -- a Tracer handling the observations
+        trObserve :: Tracer (StateT (Maybe Time) IO) (Observable Time Time Time)
+        trObserve = showTracing stdoutTracer
+        -- a transformer which enriches observations with time measurement
+        transform
+            :: Tracer (StateT (Maybe Time) IO) (Observable Time Time Time)
+            -> Tracer (StateT (Maybe Time) IO) ObserveIndicator
+        transform trace = Tracer $ \observeIndicator -> do
+            now <- liftIO $ getMonotonicTimeNSec
+            case observeIndicator of
+                ObserveBefore -> traceWith trace $ OStart now
+                ObserveAfter  -> traceWith trace $ OEnd   now Nothing
+
+    let trObserve'  = transform $ matchObservationsState (flip (-)) trObserve
+        trObserve'' = transform $ matchObservationsState (flip (-)) trObserve
+
+    -- observe add
+    traceWith trObserve' ObserveBefore
+    _ <- liftIO $ actionAdd tr
+    traceWith trObserve' ObserveAfter
+
+    -- observe sub
+    traceWith trObserve'' ObserveBefore
+    _ <- liftIO $ actionSub tr
+    traceWith trObserve'' ObserveAfter
+
+  where
+    tr :: Tracer IO (AddSub Int)
+    tr = showTracing stdoutTracer
+    actionAdd :: Tracer IO (AddSub Int) -> IO Int
+    actionAdd trace = do
+        let res = 1+2
+        traceWith trace $ Add res
+        return res
+    actionSub :: Tracer IO (AddSub Int) -> IO Int
+    actionSub trace = do
+        let res = 1-2
+        traceWith trace $ Sub res
+        return res
+
+\end{spec}
