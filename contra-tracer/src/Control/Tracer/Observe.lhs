@@ -21,7 +21,7 @@ module Control.Tracer.Observe
     , example
     ) where
 
-import           Control.Concurrent.MVar (MVar, newMVar, modifyMVar_, readMVar)
+import           Control.Concurrent.MVar (newMVar, modifyMVar_, readMVar)
 import           Data.Word (Word64)
 import           GHC.Clock (getMonotonicTimeNSec)
 
@@ -53,11 +53,19 @@ example = do
                 ObserveBefore -> traceWith trace $ OStart now
                 ObserveAfter  -> traceWith trace $ OEnd   now Nothing
 
-    beforeMVarAdd  <- newMVar Nothing
+    beforeMVarAdd <- newMVar Nothing
     beforeMVarSub <- newMVar Nothing
 
-    let trObserve'  = transform $ matchObservations beforeMVarAdd (flip (-)) trObserve
-        trObserve'' = transform $ matchObservations beforeMVarSub (flip (-)) trObserve
+    let trObserve'  = transform $ matchObservations
+                                    (readMVar beforeMVarAdd)
+                                    (\x -> modifyMVar_ beforeMVarAdd (const $ return $ Just x))
+                                    (flip (-))
+                                    trObserve
+        trObserve'' = transform $ matchObservations
+                                    (readMVar beforeMVarSub)
+                                    (\x -> modifyMVar_ beforeMVarSub (const $ return $ Just x))
+                                    (flip (-))
+                                    trObserve
 
     -- observe add
     traceWith trObserve' ObserveBefore
@@ -111,13 +119,19 @@ data Observable s e d = OStart s
 \subsubsection{matchObservations}\label{code:matchObservations}\index{matchObservations}
 Match start and end of observations.
 \begin{code}
-matchObservations :: MVar (Maybe s) -> (s -> e -> d) -> Tracer IO (Observable s e d) -> Tracer IO (Observable s e d)
-matchObservations beforeMVar f tr = Tracer $ \case
+matchObservations
+    :: Monad m
+    => m (Maybe s)
+    -> (s -> m ())
+    -> (s -> e -> d)
+    -> Tracer m (Observable s e d)
+    -> Tracer m (Observable s e d)
+matchObservations getStart putStart f tr = Tracer $ \case
     obs@(OStart s) -> do
-        modifyMVar_ beforeMVar $ const $ return $ Just s
+        putStart s
         traceWith tr obs
     (OEnd e _) -> do
-        before <- readMVar beforeMVar
+        before <- getStart
         traceWith tr $ OEnd e $ fmap ((flip f) e) before
 
 \end{code}
