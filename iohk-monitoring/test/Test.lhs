@@ -63,7 +63,7 @@ tests =
 --  , Cardano.BM.Test.Rotator.tests
 --  , Cardano.BM.Test.Routing.tests
 --  , Cardano.BM.Test.Structured.tests
-  , Cardano.BM.Test.Tracer.tests
+   Cardano.BM.Test.Tracer.tests
 #ifdef ENABLE_MONITORING
   , Cardano.BM.Test.Monitoring.tests
 #endif
