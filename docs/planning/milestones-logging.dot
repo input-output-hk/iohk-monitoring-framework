@@ -4,7 +4,7 @@ strict digraph milestone_plan {
 
   subgraph cluster_M1 {
 
-    label = "milestone M1
+    label = "milestone LOG001
 Trace point API design review - Complete";
     graph[rankdir = "TB", color=blue];
 
@@ -43,7 +43,7 @@ get sign off" ];
 
   subgraph cluster_M2 {
 
-    label = "milestone M2
+    label = "milestone LOG002
 Trace point API integration with network component";
     graph[rankdir = "TB", color=blue];
 
@@ -107,7 +107,7 @@ alerting" ];
 
   subgraph cluster_M3 {
 
-    label = "milestone M3
+    label = "milestone LOG003
 Trace point API integration with ledger component ";
     graph[rankdir = "TB", color=blue];
 
@@ -171,7 +171,7 @@ alerting" ];
 
   subgraph cluster_M4 {
 
-    label = "milestone M4
+    label = "milestone LOG004
 Trace point API integration with wallet BE";
     graph[rankdir = "TB", color=blue];
 
@@ -235,7 +235,7 @@ alerting" ];
 
   subgraph cluster_M5 {
 
-    label = "milestone M5
+    label = "milestone LOG005
 Tracer BE switchboard complete - Performance related";
     graph[rankdir = "TB", color=blue];
 
@@ -247,7 +247,7 @@ bridge Tracer to Switchboard" ];
 
   subgraph cluster_M6 {
 
-    label = "milestone M6
+    label = "milestone LOG006
 Reenable benchmarks on new code";
     graph[rankdir = "TB", color=blue];
 
@@ -319,7 +319,7 @@ re-make R reporting" ];
 
   subgraph cluster_M7 {
 
-    label = "milestone M7
+    label = "milestone LOG007
 First sign off from DevOps
 output is in a form they can consume;
 also address system specific questions apart from log output";
@@ -342,7 +342,7 @@ signoff by Devops" ];
 
   subgraph cluster_M8 {
 
-    label = "milestone M8
+    label = "milestone LOG008
 benchmarking on Shelley";
     graph[rankdir = "TB", color=blue];
 
@@ -402,5 +402,69 @@ re-make R reporting" ];
   }
 
   T6_3_2 -> T8_0_1;
+
+  subgraph cluster_M9 {
+
+    label = "milestone LOG009
+Trace point API integration with consensus";
+    graph[rankdir = "TB", color=blue];
+
+      T9_0_1 [ label = "task 9.0.1
+dependency consensus" ];
+
+    subgraph cluster_E9_1 {
+      label = "epic E9_1
+microbenchmarking";
+      graph[rankdir = "TB", style=dotted];
+
+      T9_1_1 [ label = "task 9.1.1
+define functions to be benchmarked" ];
+      T9_1_2 [ label = "task 9.1.2
+bracket function 'f1' in module 'tbd'" ];
+      T9_1_3 [ label = "task 9.1.3
+bracket function 'f2' in module 'tbd'" ];
+      T9_1_4 [ label = "task 9.1.4
+post-processing of captured observables" ];
+
+      T9_1_1 -> T9_1_2;
+      T9_1_1 -> T9_1_3;
+      T9_1_2 -> T9_1_4;
+      T9_1_3 -> T9_1_4;
+    }
+
+    subgraph cluster_E9_2 {
+      label = "epic E9_2
+structured logging";
+      graph[rankdir = "TB", style=dotted];
+
+      T9_2_1 [ label = "task 9.2.1
+define types to be logged" ];
+      T9_2_2 [ label = "task 9.2.2
+implement 'ToObject' instances" ];
+
+      T9_2_1 -> T9_2_2;
+    }
+
+    subgraph cluster_E9_3 {
+      label = "epic E9_3
+monitoring";
+      graph[rankdir = "TB", style=dotted];
+
+      T9_3_1 [ label = "task 4.3.1
+requirements for monitoring values, display, alerting" ];
+      T9_3_2 [ label = "task 4.3.2
+implement routing, aggregation, monitor, display" ];
+      T9_3_3 [ label = "task 4.3.3
+alerting" ];
+
+      T9_3_1 -> T9_3_2;
+      T9_3_2 -> T9_3_3;
+    }
+
+    T1_2_2 -> T9_1_1;
+    T9_0_1 -> T9_1_1;
+    T9_1_4 -> T9_2_1;
+    T9_1_4 -> T9_3_1;
+  }
 
 }
