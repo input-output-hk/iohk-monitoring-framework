@@ -31,9 +31,9 @@ let
         # does not require any messing with cabal files.
         packages.katip.components.library.doExactConfig = true;
 
-        packages.iohk-monitoring.components.tests.tests.setupTestFlags = [
-          "--show-details=streaming"
-        ];
+#        packages.iohk-monitoring.components.tests.tests.setupTestFlags = [
+#          "--show-details=streaming"
+#        ];
       }
     ];
   };
