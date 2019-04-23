@@ -54,7 +54,8 @@ commonLib.pkgs.lib.mapAttrsRecursiveCond
     jobs.nix-tools.exes.iohk-monitoring.x86_64-linux
 
     # Disabled due to: https://github.com/psibi/download/issues/17:
-    #jobs.nix-tools.exes.x86_64-pc-mingw32-iohk-monitoring.x86_64-linux
+    jobs.nix-tools.exes.x86_64-pc-mingw32-iohk-monitoring.x86_64-linux
+    jobs.nix-tools.tests.x86_64-pc-mingw32-iohk-monitoring.tests.x86_64-linux
 
   ];
 } args)
