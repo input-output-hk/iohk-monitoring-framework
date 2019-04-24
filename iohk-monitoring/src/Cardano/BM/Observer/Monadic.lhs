@@ -151,7 +151,7 @@ name of the passed in |Trace|.
 \begin{code}
 bracketObserveM :: (MonadCatch m, MonadIO m) => Config.Configuration -> Trace m a -> Severity -> Text -> m t -> m t
 bracketObserveM config trace severity name action = do
-    trace' <- liftIO $ appendName name trace
+    trace' <- appendName name trace
     subTrace <- liftIO $ fromMaybe Neutral <$> Config.findSubTrace config name
     bracketObserveM' subTrace severity trace' action
   where
@@ -184,7 +184,8 @@ name of the passed in |Trace|. This observer bracket does not interfere on excep
 bracketObserveX :: (MonadIO m) => Config.Configuration -> Trace m a -> Severity -> Text -> m t -> m t
 bracketObserveX config trace severity name action = do
     subTrace <- liftIO $ fromMaybe Neutral <$> Config.findSubTrace config name
-    bracketObserveX' subTrace severity trace action
+    trace' <- appendName name trace
+    bracketObserveX' subTrace severity trace' action
   where
     bracketObserveX' :: (MonadIO m) => SubTrace -> Severity -> Trace m a -> m t -> m t
     bracketObserveX' NoTrace _ _ act = act
