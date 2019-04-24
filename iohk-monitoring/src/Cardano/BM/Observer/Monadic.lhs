@@ -11,6 +11,7 @@ module Cardano.BM.Observer.Monadic
     (
       bracketObserveIO
     , bracketObserveM
+    , bracketObserveX
       -- * observing functions
     , observeOpen
     , observeClose
@@ -176,10 +177,38 @@ bracketObserveM config trace severity name action = do
 
 \end{code}
 
+\subsubsection{Monadic.bracketObserver}
+Observes a |MonadIO m => m| action and adds a name to the logger
+name of the passed in |Trace|. This observer bracket does not interfere on exceptions.
+\begin{code}
+bracketObserveX :: (MonadIO m) => Config.Configuration -> Trace m a -> Severity -> Text -> m t -> m t
+bracketObserveX config trace severity name action = do
+    subTrace <- liftIO $ fromMaybe Neutral <$> Config.findSubTrace config name
+    bracketObserveX' subTrace severity trace action
+  where
+    bracketObserveX' :: (MonadIO m) => SubTrace -> Severity -> Trace m a -> m t -> m t
+    bracketObserveX' NoTrace _ _ act = act
+    bracketObserveX' subtrace sev logTrace act = do
+        countersid <- observeOpen0 subtrace sev logTrace
+
+        -- run action
+        t <- act
+
+        observeClose0 subtrace sev logTrace countersid []
+
+        pure t
+
+\end{code}
+
 \subsubsection{observerOpen}\label{observeOpen}
 \begin{code}
 observeOpen :: (MonadCatch m, MonadIO m) => SubTrace -> Severity -> Trace m a -> m (Either SomeException CounterState)
 observeOpen subtrace severity logTrace = (do
+    state <- observeOpen0 subtrace severity logTrace
+    return (Right state)) `catch` (return . Left)
+
+observeOpen0 :: (MonadIO m) => SubTrace -> Severity -> Trace m a -> m CounterState
+observeOpen0 subtrace severity logTrace = do
     identifier <- liftIO newUnique
 
     -- take measurement
@@ -191,7 +220,7 @@ observeOpen subtrace severity logTrace = (do
         -- send opening message to Trace
         meta <- mkLOMeta severity Confidential
         traceNamedObject logTrace (meta, ObserveOpen state)
-    return (Right state)) `catch` (return . Left)
+    return state
 
 \end{code}
 
@@ -202,6 +231,13 @@ observeClose
     -> CounterState -> [(LOMeta, LOContent a)]
     -> m (Either SomeException ())
 observeClose subtrace sev logTrace initState logObjects = (do
+    observeClose0 subtrace sev logTrace initState logObjects
+    return (Right ())) `catch` (return . Left)
+
+observeClose0 :: (MonadIO m) => SubTrace -> Severity -> Trace m a
+    -> CounterState -> [(LOMeta, LOContent a)]
+    -> m ()
+observeClose0 subtrace sev logTrace initState logObjects = do
     let identifier = csIdentifier initState
         initialCounters = csCounters initState
 
@@ -219,6 +255,6 @@ observeClose subtrace sev logTrace initState logObjects = (do
             (mle, ObserveDiff (CounterState identifier (diffCounters initialCounters counters)))
     -- trace the messages gathered from inside the action
     forM_ logObjects $ traceNamedObject logTrace
-    return (Right ())) `catch` (return . Left)
+    return ()
 
 \end{code}
