@@ -20,6 +20,7 @@ module Cardano.BM.Data.LogItem
   where
 
 import           Control.Concurrent (myThreadId)
+import           Control.Monad.IO.Class (MonadIO, liftIO)
 import           Data.Aeson (FromJSON, ToJSON, object, toJSON, (.=))
 import           Data.Text (Text, pack)
 import           Data.Time.Clock (UTCTime, getCurrentTime)
@@ -77,10 +78,10 @@ instance ToJSON LOMeta where
                , "privacy"  .= show _priv
                ]
 
-mkLOMeta :: Severity -> PrivacyAnnotation -> IO LOMeta
+mkLOMeta :: MonadIO m => Severity -> PrivacyAnnotation -> m LOMeta
 mkLOMeta sev priv =
-    LOMeta <$> getCurrentTime
-           <*> (pack . show <$> myThreadId)
+    LOMeta <$> (liftIO getCurrentTime)
+           <*> (pack . show <$> (liftIO myThreadId))
            <*> pure sev
            <*> pure priv
 

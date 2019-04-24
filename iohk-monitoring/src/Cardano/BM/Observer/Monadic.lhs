@@ -148,16 +148,16 @@ bracketObserveIO config trace severity name action = do
 Observes a |MonadIO m => m| action and adds a name to the logger
 name of the passed in |Trace|.
 \begin{code}
-bracketObserveM :: (MonadCatch m, MonadIO m) => Config.Configuration -> Trace IO a -> Severity -> Text -> m t -> m t
+bracketObserveM :: (MonadCatch m, MonadIO m) => Config.Configuration -> Trace m a -> Severity -> Text -> m t -> m t
 bracketObserveM config trace severity name action = do
     trace' <- liftIO $ appendName name trace
     subTrace <- liftIO $ fromMaybe Neutral <$> Config.findSubTrace config name
     bracketObserveM' subTrace severity trace' action
   where
-    bracketObserveM' :: (MonadCatch m, MonadIO m) => SubTrace -> Severity -> Trace IO a -> m t -> m t
+    bracketObserveM' :: (MonadCatch m, MonadIO m) => SubTrace -> Severity -> Trace m a -> m t -> m t
     bracketObserveM' NoTrace _ _ act = act
     bracketObserveM' subtrace sev logTrace act = do
-        mCountersid <- liftIO $ observeOpen subtrace sev logTrace
+        mCountersid <- observeOpen subtrace sev logTrace
 
         -- run action; if an exception is caught it will be logged and rethrown.
         t <- act `catch` (\(e :: SomeException) -> liftIO (TIO.hPutStrLn stderr (pack (show e)) >> throwM e))
@@ -168,7 +168,7 @@ bracketObserveM config trace severity name action = do
                 -- however the result of the action is returned
                 liftIO $ TIO.hPutStrLn stderr ("ObserveOpen: " <> pack (show openException))
             Right countersid -> do
-                    res <- liftIO $ observeClose subtrace sev logTrace countersid []
+                    res <- observeClose subtrace sev logTrace countersid []
                     case res of
                         Left ex -> liftIO (TIO.hPutStrLn stderr ("ObserveClose: " <> pack (show ex)))
                         _ -> pure ()
@@ -178,19 +178,19 @@ bracketObserveM config trace severity name action = do
 
 \subsubsection{observerOpen}\label{observeOpen}
 \begin{code}
-observeOpen :: SubTrace -> Severity -> Trace IO a -> IO (Either SomeException CounterState)
+observeOpen :: (MonadCatch m, MonadIO m) => SubTrace -> Severity -> Trace m a -> m (Either SomeException CounterState)
 observeOpen subtrace severity logTrace = (do
-    identifier <- newUnique
+    identifier <- liftIO newUnique
 
     -- take measurement
-    counters <- readCounters subtrace
+    counters <- liftIO $ readCounters subtrace
     let state = CounterState identifier counters
     if counters == []
     then return ()
     else do
         -- send opening message to Trace
-        traceNamedObject logTrace =<<
-            (,) <$> (mkLOMeta severity Confidential) <*> pure (ObserveOpen state)
+        meta <- mkLOMeta severity Confidential
+        traceNamedObject logTrace (meta, ObserveOpen state)
     return (Right state)) `catch` (return . Left)
 
 \end{code}
@@ -198,18 +198,15 @@ observeOpen subtrace severity logTrace = (do
 \subsubsection{observeClose}\label{observeClose}
 \begin{code}
 observeClose
-    :: SubTrace
-    -> Severity
-    -> Trace IO a
-    -> CounterState
-    -> [(LOMeta, LOContent a)]
-    -> IO (Either SomeException ())
+    :: (MonadCatch m, MonadIO m) => SubTrace -> Severity -> Trace m a
+    -> CounterState -> [(LOMeta, LOContent a)]
+    -> m (Either SomeException ())
 observeClose subtrace sev logTrace initState logObjects = (do
     let identifier = csIdentifier initState
         initialCounters = csCounters initState
 
     -- take measurement
-    counters <- readCounters subtrace
+    counters <- liftIO $ readCounters subtrace
     if counters == []
     then return ()
     else do
