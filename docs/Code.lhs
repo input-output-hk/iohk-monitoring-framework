@@ -33,6 +33,8 @@
 \title{Cardano.BM - logging, benchmarking and monitoring}
 \author{Alexander Diemand
   \and
+        Denis Shevchenko
+  \and
         Andreas Triantafyllos}
 \date{April 2019}
 
@@ -44,7 +46,7 @@
 \end{titlepage}
 
 \begin{abstract}
-This is a framework that combines logging, benchmarking and monitoring.
+This framework combines logging, benchmarking and monitoring.
 Complex evaluations of STM or monadic actions can be observed from outside
 while reading operating system counters before and after, and calculating
 their differences, thus relating resource usage to such actions.
@@ -70,21 +72,20 @@ frequency than the original message.
 
 \section{Main concepts}
 
-These are main concepts of the framework:
+The main concepts of the framework:
 
 \begin{enumerate}
-  \item LogObject
-  \item Trace
-  \item Backend
-  \item Configuration
+  \item LogObject - captures the observable information
+  \item Trace - transforms and delivers the observables
+  \item Backend - receives and outputs observables
+  \item Configuration - defines behaviour of traces, routing of observables
 \end{enumerate}
-
-Let's describe each of them.
 
 \subsection{LogObject}
 
-|LogObject| is a message. It contains a logger name, meta information
-(such as timestamp or severity level) and some particular message:
+|LogObject| represents an observation to be logged or otherwise further processed.
+It is annotated with a logger name, meta information
+(timestamp and severity level), and some particular message:
 
 \begin{figure}[ht]
 \centering{
@@ -92,7 +93,7 @@ Let's describe each of them.
 \node[ draw
      , fill=blue!14
      , text depth=1.8cm
-     , minimum width=4.6cm
+     , minimum width=4.8cm
      , minimum height=3.6cm
      ] (logObj)
      {LogObject};
@@ -100,21 +101,21 @@ Let's describe each of them.
      ] (logObj)
      {LogObject};
 \node[ draw
-     , text width=4cm
+     , text width=4.1cm
      , fill=yellow!15
      ] (who)
-     {Who sent message};
+     {Who sent the message};
 \node[ draw
-     , text width=4cm
+     , text width=4.1cm
      , fill=orange!15
      , below=0cm of who
      ] (meta)
-     {Info about message};
+     {Info about the message};
 \node[ draw
-     , text width=4cm
+     , text width=4.1cm
      , fill=green!15
      , below=0cm of meta
-     ] {Message itself};
+     ] {The message itself};
 \end{tikzpicture}
 }
 \end{figure}
@@ -124,8 +125,10 @@ Please see |Cardano.BM.Data.LogItem| for more details.
 \subsection{Trace}
 
 You can think of |Trace| as a pipeline for messages. It is a \textit{consumer} of
-messages from user's point of view and a \textit{source} of messages from framework's
+messages from a user's point of view, but a \textit{source} of messages from the framework's
 point of view.
+A user traces an observable to a |Trace|, which ends in the framework that further
+processes the message.
 
 \tikzstyle{block} = [ rectangle
                     , draw
@@ -161,13 +164,16 @@ point of view.
 \end{center}
 
 Please see the section \ref{contravariantfunctors} for more details about
-ideas behind the |Trace|.
+the ideas behind |Trace|.
 
 \subsection{Backend}
 
-|Backend| is something that can process incoming messages.
+A |Backend| must implement functions to process incoming messages of type |LogObject|.
+It is an instance of |IsEffectuator|. Moreover, a backend is also life-cycle managed.
+The class |IsBackend| ensures that every backend implements the |realize| and |unrealize|
+functions.
 
-The central backend is a |Switchboard|. It sets up other backends and
+The central backend in the framework is the |Switchboard|. It sets up all the other backends and
 redirects incoming messages to these backends according to configuration:
 
 \begin{figure}[ht]
@@ -208,59 +214,61 @@ redirects incoming messages to these backends according to configuration:
 }
 \end{figure}
 
-Please see |Cardano.BM.Data.Backend| and |Cardano.BM.Output.Switchboard| for
-more details.
-
 \subsection{Configuration}
 
-|Configuration| describes how framework parts work together. It can be parsed from
-the YAML-file or can be defined explicitly as a |Configuration|.
+|Configuration| defines how the message flow in the framework is routed and the behaviour of distinct |Trace|s.
+It can be parsed from a file in YAML format, or it can explicitly be defined in code.
 
-Please note that configuration can be changed at the runtime using interactive
-editor, see |Cardano.BM.Configuration.Editor| for more details.
+Please note that |Configuration| can be changed at runtime using the interactive
+editor (see |Cardano.BM.Configuration.Editor| for more details).
 
 \section{Overview}
 
-In figure \ref{fig:overview} we display the relationships among modules
+Figure \ref{fig:overview} displays the relationships among modules
 in |Cardano.BM|.
 
 \subsection{Backends}
 
-As was mentioned earlier, central backend is the |Switchboard| (see |Cardano.BM.Output.Switchboard|)
+As was mentioned above, the central backend is the |Switchboard|
 that redirects incoming log messages to selected backends according to
-|Configuration| (see |Cardano.BM.Configuration.Model|).
+|Configuration|.
 
-The backend |EKGView| (see |Cardano.BM.Output.EKGView|) displays selected values
-in a browser.
+The backend |EKGView| displays runtime counters and user-defined values in a browser.
 
-The |Log| backend (see |Cardano.BM.Output.Log|) is based on \href{http://hackage.haskell.org/package/katip}{katip}
-package and outputs log items in files or in the console. The format can be chosen to be textual or JSON representation.
+The |Log| backend makes use of the \href{http://hackage.haskell.org/package/katip}{katip}
+package to output log items to files or the console. The format can be chosen to be textual or JSON representation.
 
-The |Aggregation| backend (see |Cardano.BM.Output.Aggregation|) computes simple statistics over incoming
-log items (e.g. last, min, max, mean, etc.) (see |Cardano.BM.Data.Aggregated| as well).
+The |Aggregation| backend computes simple statistics over incoming
+log items (e.g. last, min, max, mean) (see |Cardano.BM.Data.Aggregated|).
+Alternatively, |Aggregation| can also estimate the average of the values passed in
+using \emph{EWMA}, the exponentially weighted moving average.
+This works for numerical values, that is if the content of a |LogObject| is a |LogValue|.
 
-The |LogBuffer| backend (see |Cardano.BM.Output.LogBuffer|) collects the latest messages
-from other backends and shows these collected messages via GUI.
+The backend |LogBuffer| keeps the latest message per context name
+and shows these collected messages in the GUI (|Editor|), or outputs them to the switchboard.
 
 Output selection determines which log items of a named context are routed to
 which backend. In the case of the |Log| output, this includes a configured
-output sink (e.g. which file). Items that are aggregated lead to the creation
+output sink, \emph{scribe} in \emph{katip} parlance.
+
+Items that are aggregated lead to the creation
 of an output of their current statistics. To prevent a potential infinite loop
-these aggregation statistics cannot be routed again back into the |Aggregation|.
+these aggregated statistics cannot be routed again back into |Aggregation|.
 
 \subsection{Trace}
 
-The log items are created in the application's context and passed via a hierarchy
-of |Trace|s (see |Cardano.BM.Trace|). Such a hierarchy can be built with the function
-|setSubTrace|. The newly added child |Trace| will add its name to the logging context and
+Log items are created in the application's context and passed in via a hierarchy
+of |Trace|s. Such a hierarchy of named traces can be built with the function
+|appendName|. The newly added child |Trace| will add its name to the logging context and
 behave as configured. Among the different kinds of |Trace|s implemented are:
 
 \begin{enumerate}
   \item |NoTrace| which suppresses all log items,
   \item |FilterTrace| which filters the log items passing through it,
-  \item |ObservableTrace| which allows capturing of operating system counters (see |Cardano.BM.Data.SubTrace|).
+  \item |ObservableTrace| which allows capturing of operating system counters.
 \end{enumerate}
 
+(further behaviour types are implemented in |Cardano.BM.Data.SubTrace|)
 \subsection{Monitoring}
 
 With |Monitoring| we aim to shortcut the logging-analysis cycle and immediately
