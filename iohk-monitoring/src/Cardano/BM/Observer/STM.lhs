@@ -25,7 +25,7 @@ import           Cardano.BM.Data.LogItem (LOContent, LOMeta)
 import           Cardano.BM.Data.SubTrace
 import           Cardano.BM.Data.Severity (Severity)
 import           Cardano.BM.Observer.Monadic (observeClose, observeOpen)
-import           Cardano.BM.Trace (Trace)
+import           Cardano.BM.Trace (Trace, appendName)
 
 \end{code}
 %endif
@@ -42,8 +42,9 @@ and run the passed |STM| action on it.
 \begin{code}
 bracketObserveIO :: Config.Configuration -> Trace IO a -> Severity -> Text -> STM.STM t -> IO t
 bracketObserveIO config trace severity name action = do
+    trace' <- appendName name trace
     subTrace <- fromMaybe Neutral <$> Config.findSubTrace config name
-    bracketObserveIO' subTrace severity trace action
+    bracketObserveIO' subTrace severity trace' action
   where
     bracketObserveIO' :: SubTrace -> Severity -> Trace IO a -> STM.STM t -> IO t
     bracketObserveIO' NoTrace _ _ act =
@@ -74,8 +75,9 @@ Otherwise, this function behaves the same as |bracketObserveIO|.
 \begin{code}
 bracketObserveLogIO :: Config.Configuration -> Trace IO a -> Severity -> Text -> STM.STM (t,[(LOMeta, LOContent a)]) -> IO t
 bracketObserveLogIO config trace severity name action = do
+    trace' <- appendName name trace
     subTrace <- fromMaybe Neutral <$> Config.findSubTrace config name
-    bracketObserveLogIO' subTrace severity trace action
+    bracketObserveLogIO' subTrace severity trace' action
   where
     bracketObserveLogIO' :: SubTrace -> Severity -> Trace IO a -> STM.STM (t,[(LOMeta, LOContent a)]) -> IO t
     bracketObserveLogIO' NoTrace _ _ act = do

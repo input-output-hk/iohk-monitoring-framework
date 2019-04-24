@@ -32,14 +32,14 @@ import           Cardano.BM.Data.Severity (Severity)
 import qualified Cardano.BM.Configuration as Config
 import           Cardano.BM.Counters (readCounters)
 import           Cardano.BM.Data.SubTrace (SubTrace (Neutral, NoTrace))
-import           Cardano.BM.Trace (Trace, traceNamedObject)
+import           Cardano.BM.Trace (Trace, appendName, traceNamedObject)
 \end{code}
 %endif
 
 \subsubsection{Monadic.bracketObserverIO}
 Observes an |IO| action and adds a name to the logger
-name of the passed in |Trace|. An empty |Text| leaves
-the logger name untouched.
+name of the passed in |Trace|. The subtrace type is found in the 
+configuration with the passed-in name.
 \newline
 \par\noindent
 Microbenchmarking steps:
@@ -95,7 +95,7 @@ in a configuration file (YAML) means
 \begin{spec}
         CM.setSubTrace
             config
-            "demo-playground.submit-tx"
+            "submit-tx"
             (Just $ ObservableTrace observablesSet)
           where
             observablesSet = [MonotonicClock, MemoryStats]
@@ -118,8 +118,9 @@ in a configuration file (YAML) means
 \begin{code}
 bracketObserveIO :: Config.Configuration -> Trace IO a -> Severity -> Text -> IO t -> IO t
 bracketObserveIO config trace severity name action = do
+    trace' <- appendName name trace
     subTrace <- fromMaybe Neutral <$> Config.findSubTrace config name
-    bracketObserveIO' subTrace severity trace action
+    bracketObserveIO' subTrace severity trace' action
   where
     bracketObserveIO' :: SubTrace -> Severity -> Trace IO a -> IO t -> IO t
     bracketObserveIO' NoTrace _ _ act = act
@@ -145,13 +146,13 @@ bracketObserveIO config trace severity name action = do
 
 \subsubsection{Monadic.bracketObserverM}
 Observes a |MonadIO m => m| action and adds a name to the logger
-name of the passed in |Trace|. An empty |Text| leaves
-the logger name untouched.
+name of the passed in |Trace|.
 \begin{code}
 bracketObserveM :: (MonadCatch m, MonadIO m) => Config.Configuration -> Trace IO a -> Severity -> Text -> m t -> m t
 bracketObserveM config trace severity name action = do
+    trace' <- liftIO $ appendName name trace
     subTrace <- liftIO $ fromMaybe Neutral <$> Config.findSubTrace config name
-    bracketObserveM' subTrace severity trace action
+    bracketObserveM' subTrace severity trace' action
   where
     bracketObserveM' :: (MonadCatch m, MonadIO m) => SubTrace -> Severity -> Trace IO a -> m t -> m t
     bracketObserveM' NoTrace _ _ act = act
