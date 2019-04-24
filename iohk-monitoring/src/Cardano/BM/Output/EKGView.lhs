@@ -177,7 +177,7 @@ instance ToObject a => IsBackend EKGView a where
         ekghdl <- getLabel "iohk-monitoring version" ehdl
         Label.set ekghdl $ pack (showVersion version)
         ekgtrace <- ekgTrace ekgview config
-        queue <- atomically $ TBQ.newTBQueue 512
+        queue <- atomically $ TBQ.newTBQueue 25120
         dispatcher <- spawnDispatcher queue sbtrace ekgtrace
         -- link the given Async to the current thread, such that if the Async
         -- raises an exception, that exception will be re-thrown in the current
