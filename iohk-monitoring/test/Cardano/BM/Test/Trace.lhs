@@ -417,7 +417,7 @@ unitHierarchy' subtraces f = do
     -- subsubtrace of type 3
     setSubTrace cfg "test.inner.innermost" (Just t3)
 #ifdef ENABLE_OBSERVABLES
-    _ <- STMObserver.bracketObserveIO cfg trace2 Debug "test.inner.innermost" setVar_
+    _ <- STMObserver.bracketObserveIO cfg trace2 Debug "innermost" setVar_
 #endif
     logInfo trace2 "Message from level 3."
     -- acquire the traced objects
