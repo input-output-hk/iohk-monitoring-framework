@@ -4,14 +4,12 @@
 
 %if style == newcode
 \begin{code}
-{-# LANGUAGE RankNTypes        #-}
-
 module Cardano.BM.Data.Trace
   ( Trace
   )
   where
 
-import           Cardano.BM.Data.LogItem
+import           Cardano.BM.Data.LogItem (LogObject)
 import           Cardano.BM.Data.Tracer (Tracer)
 
 \end{code}
