@@ -29,8 +29,6 @@ import qualified Data.Text.IO as TIO
 import           Data.Time (getCurrentTime)
 import           Data.Version (showVersion)
 
-import           Cardano.BM.Data.MessageCounter (resetCounters, sendAndResetAfter,
-                     updateMessageCounters)
 import           System.IO (stderr)
 import qualified System.Metrics.Label as Label
 import           System.Remote.Monitoring (Server, forkServer,
@@ -38,10 +36,13 @@ import           System.Remote.Monitoring (Server, forkServer,
 
 import           Paths_iohk_monitoring (version)
 
-import           Cardano.BM.Configuration (Configuration, getEKGport)
+import           Cardano.BM.Configuration (Configuration, getEKGport,
+                     testSubTrace)
 import           Cardano.BM.Data.Aggregated
 import           Cardano.BM.Data.Backend
 import           Cardano.BM.Data.LogItem
+import           Cardano.BM.Data.MessageCounter (resetCounters,
+                     sendAndResetAfter, updateMessageCounters)
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.Trace
 import           Cardano.BM.Data.Tracer (Tracer (..), ToObject (..))
@@ -178,7 +179,7 @@ instance ToObject a => IsBackend EKGView a where
         Label.set ekghdl $ pack (showVersion version)
         ekgtrace <- ekgTrace ekgview config
         queue <- atomically $ TBQ.newTBQueue 25120
-        dispatcher <- spawnDispatcher queue sbtrace ekgtrace
+        dispatcher <- spawnDispatcher config queue sbtrace ekgtrace
         -- link the given Async to the current thread, such that if the Async
         -- raises an exception, that exception will be re-thrown in the current
         -- thread, wrapped in ExceptionInLinkedThread.
@@ -198,11 +199,12 @@ instance ToObject a => IsBackend EKGView a where
 
 \subsubsection{Asynchronously reading log items from the queue and their processing}
 \begin{code}
-spawnDispatcher :: TBQ.TBQueue (Maybe (LogObject a))
+spawnDispatcher :: Configuration
+                -> TBQ.TBQueue (Maybe (LogObject a))
                 -> Trace.Trace IO a
                 -> Trace.Trace IO a
                 -> IO (Async.Async ())
-spawnDispatcher evqueue sbtrace basetrace = do
+spawnDispatcher config evqueue sbtrace ekgtrace = do
     now <- getCurrentTime
     let messageCounters = resetCounters now
     countersMVar <- newMVar messageCounters
@@ -219,10 +221,14 @@ spawnDispatcher evqueue sbtrace basetrace = do
         maybeItem <- atomically $ TBQ.readTBQueue evqueue
         case maybeItem of
             Just obj@(LogObject logname meta content) -> do
-                trace <- Trace.appendName logname basetrace
-                Trace.traceNamedObject trace (meta, content)
-                -- increase the counter for the type of message
-                modifyMVar_ counters $ \cnt -> return $ updateMessageCounters cnt obj
+                p <- testSubTrace config ("#ekgview." <> logname) obj
+                if p
+                then do
+                  trace <- Trace.appendName logname ekgtrace
+                  Trace.traceNamedObject trace (meta, content)
+                  -- increase the counter for the type of message
+                  modifyMVar_ counters $ \cnt -> return $ updateMessageCounters cnt obj
+                else pure ()
                 qProc counters
             Nothing -> return ()  -- stop here
 

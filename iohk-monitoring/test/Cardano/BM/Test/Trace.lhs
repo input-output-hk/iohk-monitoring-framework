@@ -33,8 +33,8 @@ import           System.Directory (getTemporaryDirectory, removeFile)
 import           System.Mem (performMajorGC)
 import           System.FilePath ((</>))
 
-import           Cardano.BM.Configuration (Configuration, inspectSeverity,
-                     minSeverity, setMinSeverity, setSeverity)
+import           Cardano.BM.Configuration (Configuration, evalFilters,
+                     inspectSeverity, minSeverity, setMinSeverity, setSeverity)
 import           Cardano.BM.Configuration.Model (empty, setDefaultBackends,
                      setDefaultScribes, setSubTrace, setSetupBackends,
                      setSetupScribes)
@@ -55,9 +55,9 @@ import qualified Cardano.BM.Observer.STM as STMObserver
 #endif
 import           Cardano.BM.Output.Switchboard (traceMock)
 import qualified Cardano.BM.Setup as Setup
-import           Cardano.BM.Trace (Trace, appendName, evalFilters, logDebug,
-                     logInfo, logInfoS, logNotice, logWarning, logError,
-                     logCritical, logAlert, logEmergency)
+import           Cardano.BM.Trace (Trace, appendName, logDebug, logInfo,
+                     logInfoS, logNotice, logWarning, logError, logCritical,
+                     logAlert, logEmergency)
 
 import           Test.Tasty (TestTree, testGroup)
 import           Test.Tasty.HUnit (Assertion, assertBool, testCase,

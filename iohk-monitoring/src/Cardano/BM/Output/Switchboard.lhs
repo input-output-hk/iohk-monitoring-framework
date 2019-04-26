@@ -49,7 +49,6 @@ import           Cardano.BM.Data.SubTrace (SubTrace (..))
 import           Cardano.BM.Data.Tracer (Tracer (..), ToObject, traceWith)
 import qualified Cardano.BM.Output.Log
 import qualified Cardano.BM.Output.LogBuffer
-import           Cardano.BM.Trace (evalFilters)
 
 #ifdef ENABLE_AGGREGATION
 import qualified Cardano.BM.Output.Aggregation
@@ -106,7 +105,7 @@ This |Tracer| will apply to every message the severity filter as defined in the 
 mainTraceConditionally :: IsEffectuator eff a => Configuration -> eff a -> Tracer IO (LogObject a)
 mainTraceConditionally config eff = Tracer $ \item@(LogObject loggername meta _) -> do
     passSevFilter <- testSeverity loggername meta
-    passSubTrace <- testSubTrace loggername item
+    passSubTrace <- Config.testSubTrace config loggername item
     if passSevFilter && passSubTrace
     then effectuate eff item
     else return ()
@@ -117,16 +116,6 @@ mainTraceConditionally config eff = Tracer $ \item@(LogObject loggername meta _)
         globnamesev <- liftIO $ Config.inspectSeverity config loggername
         let minsev = max globminsev $ fromMaybe Debug globnamesev
         return $ (severity meta) >= minsev
-    testSubTrace :: LoggerName -> LogObject a -> IO Bool
-    testSubTrace loggername lo = do
-        subtrace <- fromMaybe Neutral <$> Config.findSubTrace config loggername
-        return $ testSubTrace' lo subtrace
-    testSubTrace' :: LogObject a -> SubTrace -> Bool
-    testSubTrace' _ NoTrace = False
-    testSubTrace' (LogObject _ _ (ObserveOpen _)) DropOpening = False
-    testSubTrace' (LogObject loname _ (LogValue vname _)) (FilterTrace filters) = evalFilters filters (loname <> "." <> vname)
-    testSubTrace' (LogObject loname _ _) (FilterTrace filters) = evalFilters filters loname
-    testSubTrace' _ _ = True    -- fallback: all pass
 
 \end{code}
 
