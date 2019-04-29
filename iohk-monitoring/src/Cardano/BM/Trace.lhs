@@ -18,7 +18,6 @@ module Cardano.BM.Trace
     , modifyName
     -- * utils
     , natTrace
-    , evalFilters
     -- * log functions
     , traceNamedObject
     , traceNamedItem
@@ -47,7 +46,6 @@ import           System.IO.Unsafe (unsafePerformIO)
 import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.Trace
-import           Cardano.BM.Data.SubTrace
 import           Cardano.BM.Data.Tracer (Tracer (..), natTracer, nullTracer,
                      traceWith)
 
@@ -111,29 +109,6 @@ traceNamedObject
 traceNamedObject logTrace lo =
     traceWith (named logTrace) lo
 
-\end{code}
-
-\subsubsection{Evaluation of |FilterTrace|}\label{code:evalFilters}\index{evalFilters}
-
-A filter consists of a |DropName| and a list of |UnhideNames|. If the context name matches
-the |DropName| filter, then at least one of the |UnhideNames| must match the name to have
-the evaluation of the filters return |True|.
-
-\begin{code}
-evalFilters :: [(DropName, UnhideNames)] -> LoggerName -> Bool
-evalFilters fs nm =
-    all (\(no, yes) -> if (dropFilter nm no) then (unhideFilter nm yes) else True) fs
-  where
-    dropFilter :: LoggerName -> DropName -> Bool
-    dropFilter name (Drop sel) = {-not-} (matchName name sel)
-    unhideFilter :: LoggerName -> UnhideNames -> Bool
-    unhideFilter _ (Unhide []) = False
-    unhideFilter name (Unhide us) = any (\sel -> matchName name sel) us
-    matchName :: LoggerName -> NameSelector -> Bool
-    matchName name (Exact name') = name == name'
-    matchName name (StartsWith prefix) = T.isPrefixOf prefix name
-    matchName name (EndsWith postfix) = T.isSuffixOf postfix name
-    matchName name (Contains name') = T.isInfixOf name' name
 \end{code}
 
 \subsubsection{Concrete Trace on stdout}\label{code:stdoutTrace}\index{stdoutTrace}

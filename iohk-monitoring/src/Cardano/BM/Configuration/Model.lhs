@@ -330,7 +330,14 @@ The function |appendName| will look up the |SubTrace| for the context's name.
 findSubTrace :: Configuration -> Text -> IO (Maybe SubTrace)
 findSubTrace configuration name = do
     cg <- readMVar $ getCG configuration
-    return $ HM.lookup name (cgMapSubtrace cg)
+    let mapsubtrace = cgMapSubtrace cg
+    let find_s lname = case HM.lookup lname mapsubtrace of
+            Nothing ->
+                case dropToDot lname of
+                    Nothing     -> Nothing
+                    Just lname' -> find_s lname'
+            Just st -> Just st
+    return $ find_s name
 
 setSubTrace :: Configuration -> Text -> Maybe SubTrace -> IO ()
 setSubTrace configuration name trafo =

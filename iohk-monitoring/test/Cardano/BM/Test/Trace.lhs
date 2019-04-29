@@ -33,8 +33,8 @@ import           System.Directory (getTemporaryDirectory, removeFile)
 import           System.Mem (performMajorGC)
 import           System.FilePath ((</>))
 
-import           Cardano.BM.Configuration (Configuration, inspectSeverity,
-                     minSeverity, setMinSeverity, setSeverity)
+import           Cardano.BM.Configuration (Configuration, evalFilters,
+                     inspectSeverity, minSeverity, setMinSeverity, setSeverity)
 import           Cardano.BM.Configuration.Model (empty, setDefaultBackends,
                      setDefaultScribes, setSubTrace, setSetupBackends,
                      setSetupScribes)
@@ -55,9 +55,9 @@ import qualified Cardano.BM.Observer.STM as STMObserver
 #endif
 import           Cardano.BM.Output.Switchboard (traceMock)
 import qualified Cardano.BM.Setup as Setup
-import           Cardano.BM.Trace (Trace, appendName, evalFilters, logDebug,
-                     logInfo, logInfoS, logNotice, logWarning, logError,
-                     logCritical, logAlert, logEmergency)
+import           Cardano.BM.Trace (Trace, appendName, logDebug, logInfo,
+                     logInfoS, logNotice, logWarning, logError, logCritical,
+                     logAlert, logEmergency)
 
 import           Test.Tasty (TestTree, testGroup)
 import           Test.Tasty.HUnit (Assertion, assertBool, testCase,
@@ -571,11 +571,22 @@ unitNameFiltering = do
                      Unhide [(Exact "test.sub.1")]) ]
     assertBool ("Dropping all and unhiding a specific name should the context name allow passing the filter")
                (True == evalFilters filter5 contextName)
-    let filter6 = [ (Drop (StartsWith "test."),
-                     Unhide [(EndsWith ".sum"),
-                             (EndsWith ".other")]) ]
+    let filter6a = [ (Drop (StartsWith "test."),
+                      Unhide [(EndsWith ".sum"),
+                              (EndsWith ".other")]) ]
     assertBool ("Dropping all and unhiding some names, the LogObject should pass the filter")
-               (True == evalFilters filter6 (contextName <> "." <> loname))
+               (True == evalFilters filter6a (contextName <> "." <> loname))
+    assertBool ("Dropping all and unhiding some names, another LogObject should not pass the filter")
+               (False == evalFilters filter6a (contextName <> ".value"))
+    let filter6b = [ (Drop (Contains "test."),
+                      Unhide [(Contains ".sum"),
+                              (Contains ".other")]) ]
+    assertBool ("Dropping all and unhiding some names, the LogObject should pass the filter")
+               (True == evalFilters filter6b (contextName <> "." <> loname))
+    assertBool ("Dropping all and unhiding some names, another LogObject should not pass the filter")
+               (False == evalFilters filter6b (contextName <> ".value"))
+    assertBool ("Dropping others and unhiding some names, something different should still pass the filter")
+               (True == evalFilters filter6b "some.other.value")
     let filter7 = [ (Drop (StartsWith "test."),
                      Unhide [(EndsWith ".product")]) ]
     assertBool ("Dropping all and unhiding an inexistant named value, the LogObject should not pass the filter")
