@@ -106,7 +106,7 @@ instance ToObject a => IsEffectuator Log a where
         modifyMVar_ logMVar $ \li -> return $
             li{ msgCounters = updateMessageCounters (msgCounters li) item }
         -- reset message counters afer 60 sec = 1 min
-        resetMessageCounters logMVar 60 Warning selscribesFiltered
+        resetMessageCounters logMVar c 60 Warning selscribesFiltered
       where
         removePublicScribes allScribes = filter $ \sc ->
             let (_, nameD) = T.breakOn "::" sc
@@ -116,27 +116,31 @@ instance ToObject a => IsEffectuator Log a where
             case find (\x -> scName x == name) allScribes of
                 Nothing     -> False
                 Just scribe -> scPrivacy scribe == ScPrivate
-        resetMessageCounters logMVar interval sev scribes = do
+        resetMessageCounters logMVar cfg interval sev scribes = do
             counters <- msgCounters <$> readMVar logMVar
             let start = mcStart counters
                 now = case item of
                         LogObject _ meta _ -> tstamp meta
                 diffTime = round $ diffUTCTime now start
             when (diffTime > interval) $ do
+                let counterName = "#messagecounters.katip"
                 countersObjects <- forM (HM.toList $ mcCountersMap counters) $ \(key, count) ->
                         LogObject
-                            <$> pure "#messagecounters.katip"
+                            <$> pure counterName
                             <*> (mkLOMeta sev Confidential)
                             <*> pure (LogValue key (PureI $ toInteger count))
                 intervalObject <-
                     LogObject
-                        <$> pure "#messagecounters.katip"
+                        <$> pure counterName
                         <*> (mkLOMeta sev Confidential)
                         <*> pure (LogValue "time_interval_(s)" (PureI diffTime))
                 let namedCounters = countersObjects ++ [intervalObject]
-                forM_ scribes $ \sc ->
-                    forM_ namedCounters $ \namedCounter ->
-                        passN sc katip namedCounter
+                passSevFilter <- Config.testSeverity cfg counterName $ loMeta intervalObject
+                passSubTrace  <- Config.testSubTrace cfg counterName intervalObject
+                when (passSevFilter && passSubTrace) $
+                    forM_ scribes $ \sc ->
+                        forM_ namedCounters $ \namedCounter ->
+                            passN sc katip namedCounter
                 modifyMVar_ logMVar $ \li -> return $
                     li{ msgCounters = resetCounters now }
 
