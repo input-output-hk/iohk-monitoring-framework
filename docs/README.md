@@ -10,6 +10,7 @@ to generate documentation. Then, simply run `make`.
 
 A short summary of [logging](Logging_one-pager.pdf) on a single page.
 
+A single-page description of [benchmarking](Benchmarking_one-pager.pdf).
 
 # Presentations
 
