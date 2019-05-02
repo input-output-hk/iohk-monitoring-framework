@@ -328,16 +328,8 @@ A new context may contain a different type of |Trace|.
 The function |appendName| will look up the |SubTrace| for the context's name.
 \begin{code}
 findSubTrace :: Configuration -> Text -> IO (Maybe SubTrace)
-findSubTrace configuration name = do
-    cg <- readMVar $ getCG configuration
-    let mapsubtrace = cgMapSubtrace cg
-    let find_s lname = case HM.lookup lname mapsubtrace of
-            Nothing ->
-                case dropToDot lname of
-                    Nothing     -> Nothing
-                    Just lname' -> find_s lname'
-            Just st -> Just st
-    return $ find_s name
+findSubTrace configuration name =
+    HM.lookup name <$> cgMapSubtrace <$> (readMVar $ getCG configuration)
 
 setSubTrace :: Configuration -> Text -> Maybe SubTrace -> IO ()
 setSubTrace configuration name trafo =
