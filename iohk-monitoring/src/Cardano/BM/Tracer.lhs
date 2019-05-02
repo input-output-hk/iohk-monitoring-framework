@@ -72,6 +72,10 @@ instance Applicative m => Decidable (Tracer m) where
 \end{code}
 
 \subsubsection{bracketObserve}\label{code:bracketObserve}\index{bracketObserve}
+Indicates the beginning and the end of an action.
+|matchObservations| can be used if we want a |Tracer| which
+produces the difference between the starting and the ending
+observations of the action.
 \begin{code}
 bracketObserve :: forall m s e b d . Monad m
                => (m s, m e, Tracer m (Observable s e d))
