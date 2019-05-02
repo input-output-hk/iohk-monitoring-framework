@@ -125,6 +125,8 @@ prepare_configuration = do
     CM.setBackends c "complex.observeDownload" (Just [KatipBK])
     CM.setScribes c "complex.observeDownload" (Just ["StdoutSK::stdout", "FileJsonSK::logs/downloading.json"])
 #endif
+    CM.setSubTrace c "#messagecounters.switchboard" $ Just NoTrace
+    CM.setSubTrace c "#messagecounters.katip"       $ Just NoTrace
     CM.setSubTrace c "complex.random" (Just $ TeeTrace "ewma")
     CM.setSubTrace c "#ekgview"
       (Just $ FilterTrace [ (Drop (StartsWith "#ekgview.#aggregation.complex.random"),
@@ -138,6 +140,7 @@ prepare_configuration = do
                             (Drop (StartsWith "#ekgview.#aggregation.complex.message"),
                              Unhide [(Contains ".timed.m")])
                           ])
+    CM.setSubTrace c "#messagecounters.ekgview" $ Just NoTrace
 #ifdef ENABLE_OBSERVABLES
     CM.setSubTrace c "complex.observeIO" (Just $ ObservableTrace [GhcRtsStats,MemoryStats])
     forM_ [(1::Int)..10] $ \x ->
@@ -152,6 +155,7 @@ prepare_configuration = do
     CM.setBackends c "complex.random" (Just [AggregationBK, KatipBK])
     CM.setBackends c "complex.random.ewma" (Just [AggregationBK, KatipBK])
     CM.setBackends c "complex.observeIO" (Just [AggregationBK])
+    CM.setSubTrace c "#messagecounters.aggregation" $ Just NoTrace
 #endif
     forM_ [(1::Int)..10] $ \x -> do
 #ifdef ENABLE_AGGREGATION
@@ -173,6 +177,7 @@ prepare_configuration = do
 #endif
 
 #ifdef ENABLE_EKG
+    CM.setSubTrace c "#messagecounters.monitoring" $ Just NoTrace
     CM.setBackends c "#aggregation.complex.message" (Just [EKGViewBK])
     CM.setBackends c "#aggregation.complex.observeIO" (Just [EKGViewBK])
     CM.setEKGport c 12789
