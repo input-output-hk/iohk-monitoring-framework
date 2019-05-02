@@ -157,6 +157,10 @@ exampleWithChoose = do
         traceWith tr $ Sub res
         return res
 
+instance Show (ObservableS Time) where
+  show (OStart time)     = "OStart " ++ show time
+  show (OEnd time mTime) = "OEnd "   ++ show time ++ ", ODiff " ++ show mTime
+
 instance Show (ObservableS (AddSub Time)) where
   show (OStart a)   = "OStart " ++ show a
   show (OEnd   a b) = "OEnd "   ++ show a ++ ", ODiff "  ++ show b

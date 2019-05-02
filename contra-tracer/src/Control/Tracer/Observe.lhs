@@ -8,8 +8,6 @@ Module: Control.Tracer.Observe
 
 Functions useful for observing and measuring actions.
 -}
-{-# LANGUAGE FlexibleContexts  #-}
-{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE LambdaCase        #-}
 
 module Control.Tracer.Observe
@@ -18,15 +16,9 @@ module Control.Tracer.Observe
       ObserveIndicator (..)
     , Observable (..)
     , matchObservations
-    -- * example
-    , example
     ) where
 
-import           Control.Concurrent.MVar (newMVar, modifyMVar_, readMVar)
-import           Data.Word (Word64)
-import           GHC.Clock (getMonotonicTimeNSec)
-
-import           Control.Tracer (Tracer (..), showTracing, stdoutTracer, traceWith)
+import           Control.Tracer (Tracer (..), traceWith)
 
 \end{code}
 %endif
@@ -34,7 +26,7 @@ import           Control.Tracer (Tracer (..), showTracing, stdoutTracer, traceWi
 \subsection{Examples}
 Observe the duration of an action using the timedBracketObserve:
 
-\begin{code}
+\begin{spec}
 data AddSub a = Add a
               | Sub a
               deriving Show
@@ -96,7 +88,7 @@ instance Show (Observable Time Time Time) where
   show (OStart time)     = "OStart " ++ show time
   show (OEnd time mTime) = "OEnd "   ++ show time ++ ", ODiff " ++ show mTime
 
-\end{code}
+\end{spec}
 
 \subsection{Observe}
 \subsubsection{ObserveIndicator}\label{code:ObserveIndicator}\index{ObserveIndicator}
