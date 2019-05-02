@@ -165,11 +165,14 @@ instance ToObject a => IsBackend Switchboard a where
                 let messageCounters = resetCounters now
                 countersMVar <- newMVar messageCounters
                 let traceInQueue q =
-                        Tracer $ \lognamed -> do
-                            nocapacity <- atomically $ TBQ.isFullTBQueue q
-                            if nocapacity
-                            then putStrLn "Error: Switchboard's queue full, dropping log items!"
-                            else atomically $ TBQ.writeTBQueue q lognamed
+                        Tracer $ \lognamed@(LogObject loggername meta _) -> do
+                            passSevFilter <- Config.testSeverity cfg loggername meta
+                            passSubTrace  <- Config.testSubTrace cfg loggername lognamed
+                            when (passSevFilter && passSubTrace) $ do
+                                nocapacity <- atomically $ TBQ.isFullTBQueue q
+                                if nocapacity
+                                then putStrLn "Error: Switchboard's queue full, dropping log items!"
+                                else atomically $ TBQ.writeTBQueue q lognamed
                 _timer <- Async.async $ sendAndResetAfter
                                             (traceInQueue queue)
                                             "#messagecounters.switchboard"
