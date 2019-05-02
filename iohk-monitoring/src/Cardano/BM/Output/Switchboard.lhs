@@ -30,7 +30,6 @@ import           Control.Concurrent.STM (TVar, atomically, modifyTVar, retry)
 import qualified Control.Concurrent.STM.TBQueue as TBQ
 import           Control.Exception.Safe (throwM)
 import           Control.Monad (forM, forM_, when, void)
-import           Control.Monad.IO.Class (liftIO)
 import           Data.Maybe (catMaybes, fromMaybe)
 import qualified Data.Text.IO as TIO
 import           Data.Time.Clock (getCurrentTime)
@@ -104,18 +103,10 @@ This |Tracer| will apply to every message the severity filter as defined in the 
 \begin{code}
 mainTraceConditionally :: IsEffectuator eff a => Configuration -> eff a -> Tracer IO (LogObject a)
 mainTraceConditionally config eff = Tracer $ \item@(LogObject loggername meta _) -> do
-    passSevFilter <- testSeverity loggername meta
-    passSubTrace <- Config.testSubTrace config loggername item
-    if passSevFilter && passSubTrace
-    then effectuate eff item
-    else return ()
-  where
-    testSeverity :: LoggerName -> LOMeta -> IO Bool
-    testSeverity loggername meta = do
-        globminsev  <- liftIO $ Config.minSeverity config
-        globnamesev <- liftIO $ Config.inspectSeverity config loggername
-        let minsev = max globminsev $ fromMaybe Debug globnamesev
-        return $ (severity meta) >= minsev
+    passSevFilter <- Config.testSeverity config loggername meta
+    passSubTrace  <- Config.testSubTrace config loggername item
+    when (passSevFilter && passSubTrace) $
+        effectuate eff item
 
 \end{code}
 

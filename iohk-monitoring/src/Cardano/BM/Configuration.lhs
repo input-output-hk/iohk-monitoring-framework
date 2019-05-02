@@ -22,6 +22,7 @@ module Cardano.BM.Configuration
     , getOptionOrDefault
     , evalFilters
     , testSubTrace
+    , testSeverity
     ) where
 
 import           Data.Maybe (fromMaybe)
@@ -31,6 +32,8 @@ import qualified Data.Text as T
 import qualified Cardano.BM.Configuration.Model as CM
 import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.SubTrace
+import           Cardano.BM.Data.Severity (Severity (..))
+
 \end{code}
 %endif
 
@@ -80,5 +83,18 @@ evalFilters fs nm =
     matchName name (StartsWith prefix) = T.isPrefixOf prefix name
     matchName name (EndsWith postfix) = T.isSuffixOf postfix name
     matchName name (Contains name') = T.isInfixOf name' name
+
 \end{code}
 
+\subsubsection{Test severities}\label{code:testSeverity}\index{testSeverity}
+Test severity of the given |LOMeta| to be greater or equal to those of the specific |LoggerName|.
+
+\begin{code}
+testSeverity :: CM.Configuration -> LoggerName -> LOMeta -> IO Bool
+testSeverity config loggername meta = do
+    globminsev  <- CM.minSeverity config
+    globnamesev <- CM.inspectSeverity config loggername
+    let minsev = max globminsev $ fromMaybe Debug globnamesev
+    return $ (severity meta) >= minsev
+
+\end{code}
