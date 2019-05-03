@@ -339,12 +339,13 @@ mkTextFileScribeH :: Handle -> Bool -> IO K.Scribe
 mkTextFileScribeH handler color = do
     mkFileScribeH handler formatter color
   where
-    formatter h colorize verbosity item =
-        TIO.hPutStrLn h $! toLazyText $ formatItem colorize verbosity item
+    formatter h r =
+        let (_, msg) = renderTextMsg r
+        in TIO.hPutStrLn h $! msg
 
 mkFileScribeH
     :: Handle
-    -> (forall a . K.LogItem a => Handle -> Bool -> K.Verbosity -> K.Item a -> IO ())
+    -> (forall a . K.LogItem a => Handle -> Rendering a -> IO ())
     -> Bool
     -> IO K.Scribe
 mkFileScribeH h formatter colorize = do
@@ -352,47 +353,63 @@ mkFileScribeH h formatter colorize = do
     locklocal <- newMVar ()
     let logger :: forall a. K.LogItem a =>  K.Item a -> IO ()
         logger item = withMVar locklocal $ \_ ->
-                        formatter h colorize K.V0 item
+                        formatter h (Rendering colorize K.V0 item)
     pure $ K.Scribe logger (hClose h)
+
+data Rendering a = Rendering { colorize  :: Bool
+                             , verbosity :: K.Verbosity
+                             , logitem   :: K.Item a
+                             }
+
+renderTextMsg :: (K.LogItem a) => Rendering a -> (Int, TL.Text)
+renderTextMsg r =
+    let m = toLazyText $ formatItem (colorize r) (verbosity r) (logitem r)
+    in (fromIntegral $ TL.length m, m)
+
+renderJsonMsg :: (K.LogItem a) => Rendering a -> (Int, TL.Text)
+renderJsonMsg r =
+    let li = logitem r
+        m  = case KC._itemMessage li of
+                -- if a message is contained in item then only the
+                -- message is printed and not the data
+                K.LogStr ""  -> K.itemJson (verbosity r) li
+                K.LogStr msg -> K.itemJson (verbosity r) $
+                                    li   { KC._itemMessage = K.logStr (""::Text)
+                                         , KC._itemPayload = TL.toStrict $ toLazyText msg
+                                         -- do we need the severity from meta?
+                                         }
+        m' = encodeToLazyText m
+    in (fromIntegral $ TL.length m', m')
 
 mkTextFileScribe :: Maybe RotationParameters -> FileDescription -> Bool -> IO K.Scribe
 mkTextFileScribe rotParams fdesc colorize = do
     mkFileScribe rotParams fdesc formatter colorize
   where
-    formatter :: Handle -> Bool -> K.Verbosity -> K.Item a -> IO Int
-    formatter hdl colorize' v' item =
-        case KC._itemMessage item of
+    formatter :: (K.LogItem a) => Handle -> Rendering a -> IO Int
+    formatter hdl r =
+        case KC._itemMessage (logitem r) of
                 K.LogStr ""  ->
                     -- if message is empty do not output it
                     return 0
                 _ -> do
-                    let tmsg = toLazyText $ formatItem colorize' v' item
+                    let (mlen, tmsg) = renderTextMsg r
                     TIO.hPutStrLn hdl tmsg
-                    return $ fromIntegral $ TL.length tmsg
+                    return mlen
 
 mkJsonFileScribe :: Maybe RotationParameters -> FileDescription -> Bool -> IO K.Scribe
 mkJsonFileScribe rotParams fdesc colorize = do
     mkFileScribe rotParams fdesc formatter colorize
   where
-    formatter :: (K.LogItem a) => Handle -> Bool -> K.Verbosity -> K.Item a -> IO Int
-    formatter h _ verbosity item = do
-        let jmsg = case KC._itemMessage item of
-                -- if a message is contained in item then only the
-                -- message is printed and not the data
-                K.LogStr ""  -> K.itemJson verbosity item
-                K.LogStr msg -> K.itemJson verbosity $
-                                    item { KC._itemMessage = K.logStr (""::Text)
-                                         , KC._itemPayload = TL.toStrict $ toLazyText msg
-                                         -- do we need the severity from meta?
-                                         }
-            tmsg = encodeToLazyText jmsg
+    formatter :: (K.LogItem a) => Handle -> Rendering a -> IO Int
+    formatter h r = do
+        let (mlen, tmsg) = renderJsonMsg r
         TIO.hPutStrLn h tmsg
-        return $ fromIntegral $ TL.length tmsg
+        return mlen
 
 mkFileScribe
     :: Maybe RotationParameters
     -> FileDescription
-    -> (forall a . K.LogItem a => Handle -> Bool -> K.Verbosity -> K.Item a -> IO Int)
+    -> (forall a . K.LogItem a => Handle -> Rendering a -> IO Int)
     -> Bool
     -> IO K.Scribe
 mkFileScribe (Just rotParams) fdesc formatter colorize = do
@@ -413,7 +430,7 @@ mkFileScribe (Just rotParams) fdesc formatter colorize = do
     let logger :: forall a. K.LogItem a => K.Item a -> IO ()
         logger item =
             modifyMVar_ scribestate $ \(h, bytes, rottime) -> do
-                byteswritten <- formatter h colorize K.V0 item
+                byteswritten <- formatter h (Rendering colorize K.V0 item)
                 -- remove old files
                 cleanup
                 -- detect log file rotation
@@ -445,7 +462,7 @@ mkFileScribe Nothing fdesc formatter colorize = do
     let logger :: forall a. K.LogItem a => K.Item a -> IO ()
         logger item =
             withMVar scribestate $ \handler ->
-                void $ formatter handler colorize K.V0 item
+                void $ formatter handler (Rendering colorize K.V0 item)
     return $ K.Scribe logger finalizer
 
 \end{code}

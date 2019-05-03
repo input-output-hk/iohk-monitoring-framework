@@ -41,6 +41,10 @@ data ScribeKind = FileTextSK
                 | FileJsonSK
                 | StdoutSK
                 | StderrSK
+                -- | StdoutTextSK
+                -- | StderrTextSK
+                -- | StdoutJsonSK
+                -- | StderrJsonSK
                 | DevNullSK
                 deriving (Generic, Eq, Ord, Show, Read, FromJSON, ToJSON)
 
