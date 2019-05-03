@@ -71,6 +71,7 @@ library
                        Cardano.BM.Rotator
                        Cardano.BM.Setup
                        Cardano.BM.Trace
+                       Cardano.BM.Tracer
 
   if !flag(disable-aggregation)
     exposed-modules:   Cardano.BM.Output.Aggregation
