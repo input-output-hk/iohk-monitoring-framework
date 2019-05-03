@@ -36,7 +36,7 @@ import           Data.Aeson.Text (encodeToLazyText)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Map as Map
 import           Data.List (find)
-import           Data.Maybe (isNothing)
+import           Data.Maybe (catMaybes, isNothing)
 import           Data.String (fromString)
 import           Data.Text (Text, isPrefixOf, pack, unpack)
 import qualified Data.Text as T
@@ -135,12 +135,18 @@ instance ToObject a => IsEffectuator Log a where
                         <*> (mkLOMeta sev Confidential)
                         <*> pure (LogValue "time_interval_(s)" (PureI diffTime))
                 let namedCounters = countersObjects ++ [intervalObject]
-                passSevFilter <- Config.testSeverity cfg counterName $ loMeta intervalObject
-                passSubTrace  <- Config.testSubTrace cfg counterName intervalObject
-                when (passSevFilter && passSubTrace) $
-                    forM_ scribes $ \sc ->
-                        forM_ namedCounters $ \namedCounter ->
-                            passN sc katip namedCounter
+                namedCountersFiltered <- catMaybes <$> (forM namedCounters $ \obj -> do
+                    mayObj <- Config.testSubTrace cfg counterName obj
+                    case mayObj of
+                        Just o -> do
+                            passSevFilter <- Config.testSeverity cfg counterName $ loMeta o
+                            if passSevFilter
+                            then return $ Just o
+                            else return Nothing
+                        Nothing -> return Nothing)
+                forM_ scribes $ \sc ->
+                    forM_ namedCountersFiltered $ \namedCounter ->
+                        passN sc katip namedCounter
                 modifyMVar_ logMVar $ \li -> return $
                     li{ msgCounters = resetCounters now }
 

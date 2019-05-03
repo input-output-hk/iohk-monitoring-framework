@@ -264,6 +264,7 @@ behave as configured. Among the different kinds of |Trace|s implemented are:
 
 \begin{enumerate}
   \item |NoTrace| which suppresses all log items,
+  \item |SetSeverity| which sets a specific severity to all log items,
   \item |FilterTrace| which filters the log items passing through it,
   \item |ObservableTrace| which allows capturing of operating system counters.
 \end{enumerate}

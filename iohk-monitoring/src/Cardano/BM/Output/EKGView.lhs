@@ -220,15 +220,15 @@ spawnDispatcher config evqueue sbtrace ekgtrace = do
     qProc counters = do
         maybeItem <- atomically $ TBQ.readTBQueue evqueue
         case maybeItem of
-            Just obj@(LogObject logname meta content) -> do
-                p <- testSubTrace config ("#ekgview." <> logname) obj
-                if p
-                then do
-                  trace <- Trace.appendName logname ekgtrace
-                  Trace.traceNamedObject trace (meta, content)
-                  -- increase the counter for the type of message
-                  modifyMVar_ counters $ \cnt -> return $ updateMessageCounters cnt obj
-                else pure ()
+            Just obj@(LogObject logname _ _) -> do
+                obj' <- testSubTrace config ("#ekgview." <> logname) obj
+                case obj' of
+                    Just lo@(LogObject logname' meta content) -> do
+                        trace <- Trace.appendName logname' ekgtrace
+                        Trace.traceNamedObject trace (meta, content)
+                        -- increase the counter for the type of message
+                        modifyMVar_ counters $ \cnt -> return $ updateMessageCounters cnt lo
+                    Nothing -> pure ()
                 qProc counters
             Nothing -> return ()  -- stop here
 

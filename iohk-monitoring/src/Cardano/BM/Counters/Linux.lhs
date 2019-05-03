@@ -46,6 +46,7 @@ readCounters (TeeTrace _)        = return []
 readCounters (FilterTrace _)     = return []
 readCounters UntimedTrace        = return []
 readCounters DropOpening         = return []
+readCounters (SetSeverity _)     = return []
 #ifdef ENABLE_OBSERVABLES
 readCounters (ObservableTrace tts) = do
     pid <- getProcessID
@@ -490,7 +491,7 @@ readProcNet pid = do
     readinfo :: [String] -> [(String, String)]
     readinfo []            = []
     readinfo (_:[])        = []
-    readinfo (l1 : l2 : r) = 
+    readinfo (l1 : l2 : r) =
        let col0 = words l1
            cols = tail col0
            vals = tail $ words l2
