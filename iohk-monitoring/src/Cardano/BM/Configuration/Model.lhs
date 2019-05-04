@@ -42,6 +42,8 @@ module Cardano.BM.Configuration.Model
     , setEKGport
     , getGUIport
     , setGUIport
+    , testSubTrace
+    , evalFilters
     ) where
 
 import           Control.Applicative (Alternative ((<|>)))
@@ -51,7 +53,7 @@ import           Control.Monad (when)
 import           Data.Aeson ((.:))
 import           Data.Aeson.Types (parseMaybe)
 import qualified Data.HashMap.Strict as HM
-import           Data.Maybe (catMaybes)
+import           Data.Maybe (maybe, catMaybes, fromMaybe)
 import qualified Data.Text as T
 import           Data.Text (Text, pack, unpack)
 import qualified Data.Vector as Vector
@@ -60,7 +62,7 @@ import           Data.Yaml as Yaml
 import           Cardano.BM.Data.AggregatedKind (AggregatedKind(..))
 import           Cardano.BM.Data.BackendKind
 import qualified Cardano.BM.Data.Configuration as R
-import           Cardano.BM.Data.LogItem (LoggerName)
+import           Cardano.BM.Data.LogItem (LogObject (..), LoggerName, LOContent (..))
 import           Cardano.BM.Data.MonitoringEval (MEvAction, MEvExpr)
 import           Cardano.BM.Data.Output (ScribeDefinition (..), ScribeId,
                      ScribeKind (..))
@@ -561,4 +563,62 @@ exportConfiguration cfg file = do
     representation <- toRepresentation cfg
     Yaml.encodeFile file representation
 
+\end{code}
+
+\subsubsection{Evaluation of |FilterTrace|}\label{code:evalFilters}\index{evalFilters}\label{code:testSubTrace}\index{testSubTrace}
+
+A filter consists of a |DropName| and a list of |UnhideNames|. If the context name matches
+the |DropName| filter, then at least one of the |UnhideNames| must match the name to have
+the evaluation of the filters return |True|.
+
+\begin{code}
+testSubTrace :: Configuration -> LoggerName -> LogObject a -> IO Bool
+testSubTrace config loggername lo = do
+    let ekgViewPrefix = "#ekgview" -- SubTraces for EKGView is always under this prefix.
+        loggername' = if ekgViewPrefix `T.isPrefixOf` loggername then ekgViewPrefix else loggername
+    subtrace <- fromMaybe Neutral <$> findSubTrace config loggername'
+    return $ testSubTrace' lo subtrace
+  where
+    testSubTrace' :: LogObject a -> SubTrace -> Bool
+    testSubTrace' _                                       NoTrace               = False
+    testSubTrace' (LogObject _      _ (ObserveOpen _))    DropOpening           = False
+    testSubTrace' (LogObject loname _ (LogValue vname _)) (FilterTrace filters) = evalFilters filters (loname <> "." <> vname)
+    testSubTrace' (LogObject loname _ _)                  (FilterTrace filters) = evalFilters filters loname
+    testSubTrace' _                                       _                     = True    -- fallback: all pass
+
+dropToDotFromBegin :: Text -> Maybe Text
+dropToDotFromBegin ts = dropToDot' (T.breakOn "." ts)
+  where
+    dropToDot' (_,   "") = Nothing
+    dropToDot' (_,name') = Just $ T.dropWhile (=='.') name'
+
+evalFilters :: [(DropName, UnhideNames)] -> LoggerName -> Bool
+evalFilters fs nm =
+    all (\(no, yes) -> if (dropFilter nm no) then (unhideFilter nm yes) else True) fs
+  where
+    dropFilter :: LoggerName -> DropName -> Bool
+    dropFilter name dn@(Drop sel) =
+        if matchName name sel
+            then True -- Match, item with this name should be dropped.
+            else
+                -- Don't match, but we should drop to dot and try again.
+                case dropNameToDot dn of
+                    Nothing      -> False -- Definitely don't match.
+                    Just dropped -> dropFilter name dropped
+
+    dropNameToDot :: DropName -> Maybe DropName
+    dropNameToDot (Drop (Exact n))         = maybe Nothing (Just . Drop . Exact)      $ dropToDotFromBegin n
+    dropNameToDot (Drop (StartsWith pref)) = maybe Nothing (Just . Drop . StartsWith) $ dropToDotFromBegin pref
+    dropNameToDot (Drop (EndsWith post))   = maybe Nothing (Just . Drop . EndsWith)   $ dropToDotFromBegin post
+    dropNameToDot (Drop (Contains n))      = maybe Nothing (Just . Drop . Contains)   $ dropToDotFromBegin n
+
+    unhideFilter :: LoggerName -> UnhideNames -> Bool
+    unhideFilter _    (Unhide []) = False
+    unhideFilter name (Unhide us) = any (\sel -> matchName name sel) us
+
+    matchName :: LoggerName -> NameSelector -> Bool
+    matchName name (Exact name')       = name == name'
+    matchName name (StartsWith prefix) = T.isPrefixOf prefix  name
+    matchName name (EndsWith postfix)  = T.isSuffixOf postfix name
+    matchName name (Contains name')    = T.isInfixOf  name'   name
 \end{code}
