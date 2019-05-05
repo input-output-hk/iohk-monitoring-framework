@@ -21,6 +21,7 @@ import           Data.Text (Text)
 
 import           Cardano.BM.Data.LogItem (LoggerName)
 import           Cardano.BM.Data.Observable
+import           Cardano.BM.Data.Severity (Severity (..))
 
 import           GHC.Generics (Generic)
 
@@ -35,6 +36,7 @@ import           GHC.Generics (Generic)
 \label{code:FilterTrace}\index{SubTrace!FilterTrace}
 \label{code:DropOpening}\index{SubTrace!DropOpening}
 \label{code:ObservableTrace}\index{SubTrace!ObservableTrace}
+\label{code:SetSeverity}\index{SubTrace!SetSeverity}
 \label{code:NameOperator}\index{SubTrace!FilterTrace!NameOperator}
 \label{code:NameSelector}\index{SubTrace!FilterTrace!NameSelector}
 \begin{code}
@@ -52,6 +54,7 @@ data SubTrace = Neutral
               | FilterTrace [(DropName, UnhideNames)]
               | DropOpening
               | ObservableTrace [ObservableInstance]
+              | SetSeverity Severity
                 deriving (Generic, Show, Read, Eq)
 
 instance FromJSON SubTrace where
@@ -65,6 +68,7 @@ instance FromJSON SubTrace where
                         "FilterTrace"     -> FilterTrace     <$> o .: "contents"
                         "DropOpening"     -> return $ DropOpening
                         "ObservableTrace" -> ObservableTrace <$> o .: "contents"
+                        "SetSeverity"     -> SetSeverity     <$> o .: "contents"
                         _                 -> error "cannot parse such an expression!"
 
 instance ToJSON SubTrace where
@@ -75,5 +79,6 @@ instance ToJSON SubTrace where
     toJSON (FilterTrace dus)    = object ["subtrace" .= String "FilterTrace"     , "contents" .= toJSON dus ]
     toJSON DropOpening          = object ["subtrace" .= String "DropOpening"     ]
     toJSON (ObservableTrace os) = object ["subtrace" .= String "ObservableTrace" , "contents" .= toJSON os  ]
+    toJSON (SetSeverity sev)    = object ["subtrace" .= String "SetSeverity"     , "contents" .= toJSON sev ]
 
 \end{code}

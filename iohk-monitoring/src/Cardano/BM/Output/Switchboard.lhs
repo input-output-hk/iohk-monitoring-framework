@@ -30,7 +30,6 @@ import           Control.Concurrent.STM (TVar, atomically, modifyTVar, retry)
 import qualified Control.Concurrent.STM.TBQueue as TBQ
 import           Control.Exception.Safe (throwM)
 import           Control.Monad (forM, forM_, when, void)
-import           Control.Monad.IO.Class (liftIO)
 import           Data.Maybe (catMaybes, fromMaybe)
 import qualified Data.Text.IO as TIO
 import           Data.Time.Clock (getCurrentTime)
@@ -103,19 +102,14 @@ mainTrace = Tracer . effectuate
 This |Tracer| will apply to every message the severity filter as defined in the |Configuration|.
 \begin{code}
 mainTraceConditionally :: IsEffectuator eff a => Configuration -> eff a -> Tracer IO (LogObject a)
-mainTraceConditionally config eff = Tracer $ \item@(LogObject loggername meta _) -> do
-    passSevFilter <- testSeverity loggername meta
-    passSubTrace <- Config.testSubTrace config loggername item
-    if passSevFilter && passSubTrace
-    then effectuate eff item
-    else return ()
-  where
-    testSeverity :: LoggerName -> LOMeta -> IO Bool
-    testSeverity loggername meta = do
-        globminsev  <- liftIO $ Config.minSeverity config
-        globnamesev <- liftIO $ Config.inspectSeverity config loggername
-        let minsev = max globminsev $ fromMaybe Debug globnamesev
-        return $ (severity meta) >= minsev
+mainTraceConditionally config eff = Tracer $ \item -> do
+    mayItem <- Config.testSubTrace config (loName item) item
+    case mayItem of
+        Just itemF@(LogObject loggername meta _) -> do
+            passSevFilter <- Config.testSeverity config loggername meta
+            when passSevFilter $
+                effectuate eff itemF
+        Nothing -> pure ()
 
 \end{code}
 
@@ -175,10 +169,16 @@ instance ToObject a => IsBackend Switchboard a where
                 countersMVar <- newMVar messageCounters
                 let traceInQueue q =
                         Tracer $ \lognamed -> do
-                            nocapacity <- atomically $ TBQ.isFullTBQueue q
-                            if nocapacity
-                            then putStrLn "Error: Switchboard's queue full, dropping log items!"
-                            else atomically $ TBQ.writeTBQueue q lognamed
+                            item' <- Config.testSubTrace cfg (loName lognamed) lognamed
+                            case item' of
+                                Just obj@(LogObject loggername meta _) -> do
+                                    passSevFilter <- Config.testSeverity cfg loggername meta
+                                    when passSevFilter $ do
+                                        nocapacity <- atomically $ TBQ.isFullTBQueue q
+                                        if nocapacity
+                                        then putStrLn "Error: Switchboard's queue full, dropping log items!"
+                                        else atomically $ TBQ.writeTBQueue q obj
+                                Nothing -> pure ()
                 _timer <- Async.async $ sendAndResetAfter
                                             (traceInQueue queue)
                                             "#messagecounters.switchboard"
