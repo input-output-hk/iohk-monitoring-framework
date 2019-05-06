@@ -592,7 +592,9 @@ dropToDotFromBegin :: Text -> Maybe Text
 dropToDotFromBegin ts = dropToDot' (T.breakOn "." ts)
   where
     dropToDot' (_,   "") = Nothing
-    dropToDot' (_,name') = Just $ T.dropWhile (=='.') name'
+    dropToDot' (_,name') = case T.dropWhile (=='.') name' of
+                               "" -> Nothing
+                               r  -> Just r
 
 evalFilters :: [(DropName, UnhideNames)] -> LoggerName -> Bool
 evalFilters fs nm =
