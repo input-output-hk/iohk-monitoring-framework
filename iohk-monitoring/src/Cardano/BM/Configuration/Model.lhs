@@ -62,7 +62,7 @@ import           Data.Yaml as Yaml
 import           Cardano.BM.Data.AggregatedKind (AggregatedKind(..))
 import           Cardano.BM.Data.BackendKind
 import qualified Cardano.BM.Data.Configuration as R
-import           Cardano.BM.Data.LogItem (LogObject (..), LoggerName, LOContent (..))
+import           Cardano.BM.Data.LogItem (LogObject (..), LoggerName, LOContent (..), severity)
 import           Cardano.BM.Data.MonitoringEval (MEvAction, MEvExpr)
 import           Cardano.BM.Data.Output (ScribeDefinition (..), ScribeId,
                      ScribeKind (..))
@@ -572,19 +572,21 @@ the |DropName| filter, then at least one of the |UnhideNames| must match the nam
 the evaluation of the filters return |True|.
 
 \begin{code}
-testSubTrace :: Configuration -> LoggerName -> LogObject a -> IO Bool
+testSubTrace :: Configuration -> LoggerName -> LogObject a -> IO (Maybe (LogObject a))
 testSubTrace config loggername lo = do
-    let ekgViewPrefix = "#ekgview" -- SubTraces for EKGView is always under this prefix.
-        loggername' = if ekgViewPrefix `T.isPrefixOf` loggername then ekgViewPrefix else loggername
-    subtrace <- fromMaybe Neutral <$> findSubTrace config loggername'
+    subtrace <- fromMaybe Neutral <$> findSubTrace config loggername
     return $ testSubTrace' lo subtrace
   where
-    testSubTrace' :: LogObject a -> SubTrace -> Bool
-    testSubTrace' _                                       NoTrace               = False
-    testSubTrace' (LogObject _      _ (ObserveOpen _))    DropOpening           = False
-    testSubTrace' (LogObject loname _ (LogValue vname _)) (FilterTrace filters) = evalFilters filters (loname <> "." <> vname)
-    testSubTrace' (LogObject loname _ _)                  (FilterTrace filters) = evalFilters filters loname
-    testSubTrace' _                                       _                     = True    -- fallback: all pass
+    testSubTrace' o@(LogObject loname _ (LogValue vname _)) (FilterTrace filters) =
+        if evalFilters filters (loname <> "." <> vname)
+        then Just o
+        else Nothing
+    testSubTrace' o (FilterTrace filters) =
+        if evalFilters filters (loName o)
+        then Just o
+        else Nothing
+    testSubTrace' o (SetSeverity sev) = Just $ o{ loMeta = (loMeta o){ severity = sev } }
+    testSubTrace' o _ = Just o -- fallback: all pass
 
 dropToDotFromBegin :: Text -> Maybe Text
 dropToDotFromBegin ts = dropToDot' (T.breakOn "." ts)

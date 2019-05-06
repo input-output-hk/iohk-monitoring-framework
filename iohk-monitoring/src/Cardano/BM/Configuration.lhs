@@ -26,10 +26,10 @@ module Cardano.BM.Configuration
     ) where
 
 import           Data.Text (Text)
+import           Data.Maybe (fromMaybe)
 
 import qualified Cardano.BM.Configuration.Model as CM
 import           Cardano.BM.Data.LogItem
-import           Cardano.BM.Data.SubTrace
 import           Cardano.BM.Data.Severity (Severity (..))
 
 \end{code}
