@@ -31,6 +31,7 @@ defaultConfigStdout = do
     CM.setDefaultBackends c [KatipBK]
     CM.setSetupScribes c [ ScribeDefinition {
                               scName = "stdout"
+                            , scFormat = ScText
                             , scKind = StdoutSK
                             , scPrivacy = ScPublic
                             , scRotation = Nothing
@@ -56,6 +57,7 @@ defaultConfigTesting = do
 #endif
     CM.setSetupScribes c [ ScribeDefinition {
                               scName = "nooutput"
+                            , scFormat = ScText
                             , scKind = DevNullSK
                             , scPrivacy = ScPublic
                             , scRotation = Nothing

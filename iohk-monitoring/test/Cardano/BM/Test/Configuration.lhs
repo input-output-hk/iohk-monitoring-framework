@@ -181,6 +181,7 @@ unitConfigurationStaticRepresentation =
             , setupScribes =
                 [ ScribeDefinition { scName = "stdout"
                                    , scKind = StdoutSK
+                                   , scFormat   = ScText
                                    , scPrivacy = ScPublic
                                    , scRotation = Nothing }
                 ]
@@ -218,6 +219,7 @@ unitConfigurationStaticRepresentation =
             , "- scName: stdout"
             , "  scRotation: null"
             , "  scKind: StdoutSK"
+            , "  scFormat: ScText"
             , "  scPrivacy: ScPublic"
             , "hasEKG: 18321"
             , "minSeverity: Info"
@@ -275,8 +277,8 @@ unitConfigurationParsedRepresentation = do
             , "  mapScribes:"
             , "    iohk.interesting.value:"
             , "    - StdoutSK::stdout"
-            , "    - FileTextSK::testlog"
-            , "    iohk.background.process: FileTextSK::testlog"
+            , "    - FileSK::testlog"
+            , "    iohk.background.process: FileSK::testlog"
             , "  mapBackends:"
             , "    iohk.interesting.value:"
             , "    - EKGViewBK"
@@ -287,11 +289,13 @@ unitConfigurationParsedRepresentation = do
             , "    rpLogLimitBytes: 25000000"
             , "    rpKeepFilesNum: 3"
             , "    rpMaxAgeHours: 24"
-            , "  scKind: FileTextSK"
+            , "  scKind: FileSK"
+            , "  scFormat: ScText"
             , "  scPrivacy: ScPrivate"
             , "- scName: stdout"
             , "  scRotation: null"
             , "  scKind: StdoutSK"
+            , "  scFormat: ScText"
             , "  scPrivacy: ScPublic"
             , "hasEKG: 12789"
             , "minSeverity: Info"
@@ -346,8 +350,8 @@ unitConfigurationParsed = do
             , ("cfokey",HM.fromList [("value",String "Release-1.0.0")])
             , ("mapScribes", HM.fromList [("iohk.interesting.value",
                                             Array $ V.fromList [String "StdoutSK::stdout"
-                                                               ,String "FileTextSK::testlog"])
-                                         ,("iohk.background.process",String "FileTextSK::testlog")])
+                                                               ,String "FileSK::testlog"])
+                                         ,("iohk.background.process",String "FileSK::testlog")])
             , ("mapBackends", HM.fromList [("iohk.interesting.value",
                                                 Array $ V.fromList [String "EKGViewBK"
                                                                    ,String "AggregationBK"
@@ -366,16 +370,17 @@ unitConfigurationParsed = do
                                   EKGViewBK
                                 , KatipBK]
         , cgMapScribe         = HM.fromList [ ("iohk.interesting.value",
-                                                    ["StdoutSK::stdout","FileTextSK::testlog"])
-                                            , ("iohk.background.process", ["FileTextSK::testlog"])
+                                                    ["StdoutSK::stdout","FileSK::testlog"])
+                                            , ("iohk.background.process", ["FileSK::testlog"])
                                             ]
         , cgMapScribeCache    = HM.fromList [ ("iohk.interesting.value",
-                                                    ["StdoutSK::stdout","FileTextSK::testlog"])
-                                            , ("iohk.background.process", ["FileTextSK::testlog"])
+                                                    ["StdoutSK::stdout","FileSK::testlog"])
+                                            , ("iohk.background.process", ["FileSK::testlog"])
                                             ]
         , cgDefScribes        = ["StdoutSK::stdout"]
         , cgSetupScribes      = [ ScribeDefinition
-                                    { scKind     = FileTextSK
+                                    { scKind     = FileSK
+                                    , scFormat   = ScText
                                     , scName     = "testlog"
                                     , scPrivacy  = ScPrivate
                                     , scRotation = Just $ RotationParameters
@@ -386,6 +391,7 @@ unitConfigurationParsed = do
                                     }
                                 , ScribeDefinition
                                     { scKind = StdoutSK
+                                    , scFormat = ScText
                                     , scName = "stdout"
                                     , scPrivacy = ScPublic
                                     , scRotation = Nothing
@@ -430,10 +436,10 @@ unitConfigurationCheckScribeCache :: Assertion
 unitConfigurationCheckScribeCache = do
     configuration <- empty
 
-    let defScribes = ["FileTextSK::node.log"]
+    let defScribes = ["FileSK::node.log"]
     setDefaultScribes configuration defScribes
 
-    let scribes12 = ["StdoutSK::stdout", "FileTextSK::out.txt"]
+    let scribes12 = ["StdoutSK::stdout", "FileSK::out.txt"]
     setScribes configuration "name1.name2" $ Just scribes12
 
     scribes1234 <- getScribes configuration "name1.name2.name3.name4"

@@ -167,10 +167,11 @@ instance ToObject a => IsBackend Log a where
             register [] le = return le
             register (defsc : dscs) le = do
                 let kind      = scKind     defsc
+                    sctype    = scFormat   defsc
                     name      = scName     defsc
                     rotParams = scRotation defsc
                     name'     = pack (show kind) <> "::" <> name
-                scr <- createScribe kind name rotParams
+                scr <- createScribe kind sctype name rotParams
                 register dscs =<< K.registerScribe name' scr scribeSettings le
             mockVersion :: Version
             mockVersion = Version [0,1,0,0] []
@@ -179,17 +180,17 @@ instance ToObject a => IsBackend Log a where
                 let bufferSize = 5000  -- size of the queue (in log items)
                 in
                 KC.ScribeSettings bufferSize
-            createScribe FileTextSK name rotParams = mkTextFileScribe
-                                                        rotParams
-                                                        (FileDescription $ unpack name)
-                                                        False
-            createScribe FileJsonSK name rotParams = mkJsonFileScribe
-                                                        rotParams
-                                                        (FileDescription $ unpack name)
-                                                        False
-            createScribe StdoutSK _ _ = mkStdoutScribe
-            createScribe StderrSK _ _ = mkStderrScribe
-            createScribe DevNullSK _ _ = mkDevNullScribe
+            createScribe FileSK ScText name rotParams = mkTextFileScribe
+                                                            rotParams
+                                                            (FileDescription $ unpack name)
+                                                            False
+            createScribe FileSK ScJson name rotParams = mkJsonFileScribe
+                                                            rotParams
+                                                            (FileDescription $ unpack name)
+                                                            False
+            createScribe StdoutSK sctype _ _ = mkStdoutScribe sctype
+            createScribe StderrSK sctype _ _ = mkStderrScribe sctype
+            createScribe DevNullSK _ _ _ = mkDevNullScribe
 
         cfoKey <- Config.getOptionOrDefault config (pack "cfokey") (pack "<unknown>")
         le0 <- K.initLogEnv
@@ -316,15 +317,15 @@ passN backend katip (LogObject loname lometa loitem) = do
 
 \subsubsection{Scribes}
 \begin{code}
-mkStdoutScribe :: IO K.Scribe
-mkStdoutScribe = do
+mkStdoutScribe :: ScribeFormat -> IO K.Scribe
+mkStdoutScribe fmt = do
     -- duplicate stdout so that Katip's closing
     -- action will not close the real stdout
     stdout' <- hDuplicate stdout
     mkTextFileScribeH stdout' True
 
-mkStderrScribe :: IO K.Scribe
-mkStderrScribe = do
+mkStderrScribe :: ScribeFormat -> IO K.Scribe
+mkStderrScribe fmt = do
     -- duplicate stderr so that Katip's closing
     -- action will not close the real stderr
     stderr' <- hDuplicate stderr

@@ -673,17 +673,19 @@ unitLoggingPrivate = do
     conf <- empty
     setDefaultBackends conf [KatipBK]
     setSetupBackends conf [KatipBK]
-    setDefaultScribes conf [ "FileTextSK::" <> pack privateFile
-                           , "FileTextSK::" <> pack publicFile
+    setDefaultScribes conf [ "FileSK::" <> pack privateFile
+                           , "FileSK::" <> pack publicFile
                            ]
     setSetupScribes conf [ ScribeDefinition
-                            { scKind     = FileTextSK
+                            { scKind     = FileSK
+                            , scFormat   = ScText
                             , scName     = pack privateFile
                             , scPrivacy  = ScPrivate
                             , scRotation = Nothing
                             }
                          , ScribeDefinition
-                            { scKind     = FileTextSK
+                            { scKind     = FileSK
+                            , scFormat   = ScText
                             , scName     = pack publicFile
                             , scPrivacy  = ScPublic
                             , scRotation = Nothing
