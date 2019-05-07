@@ -36,8 +36,8 @@ import           System.Remote.Monitoring (Server, forkServer,
 
 import           Paths_iohk_monitoring (version)
 
-import           Cardano.BM.Configuration (Configuration, getEKGport)
-import           Cardano.BM.Configuration.Model (testSubTrace)
+import           Cardano.BM.Configuration (Configuration, getEKGport,
+                     testSubTrace)
 import           Cardano.BM.Data.Aggregated
 import           Cardano.BM.Data.Backend
 import           Cardano.BM.Data.LogItem
