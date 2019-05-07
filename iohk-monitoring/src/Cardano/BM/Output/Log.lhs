@@ -265,7 +265,10 @@ passN backend katip (LogObject loname lometa loitem) = do
                 then do
                     let (sev, msg, payload) = case loitem of
                                 (LogMessage logItem) ->
-                                     (severity lometa, TL.toStrict (encodeToLazyText (toObject logItem)), Nothing)
+                                     let text = TL.toStrict (encodeToLazyText (toObject loitem))
+                                     in
+                                     (severity lometa, text, Just loitem)
+                                    --  (severity lometa, TL.toStrict (encodeToLazyText (toObject logItem)), Nothing)
                                 (ObserveDiff _) ->
                                      let text = TL.toStrict (encodeToLazyText (toObject loitem))
                                      in
@@ -316,20 +319,25 @@ passN backend katip (LogObject loname lometa loitem) = do
 \end{code}
 
 \subsubsection{Scribes}
+The handles to \emph{stdout} and \emph{stderr} will be duplicated
+because on exit \emph{katip} will close them otherwise.
+
 \begin{code}
 mkStdoutScribe :: ScribeFormat -> IO K.Scribe
-mkStdoutScribe fmt = do
-    -- duplicate stdout so that Katip's closing
-    -- action will not close the real stdout
+mkStdoutScribe ScText = do
     stdout' <- hDuplicate stdout
     mkTextFileScribeH stdout' True
+mkStdoutScribe ScJson = do
+    stdout' <- hDuplicate stdout
+    mkJsonFileScribeH stdout' True
 
 mkStderrScribe :: ScribeFormat -> IO K.Scribe
-mkStderrScribe fmt = do
-    -- duplicate stderr so that Katip's closing
-    -- action will not close the real stderr
+mkStderrScribe ScText = do
     stderr' <- hDuplicate stderr
     mkTextFileScribeH stderr' True
+mkStderrScribe ScJson = do
+    stderr' <- hDuplicate stderr
+    mkJsonFileScribeH stderr' True
 
 mkDevNullScribe :: IO K.Scribe
 mkDevNullScribe = do
@@ -342,6 +350,13 @@ mkTextFileScribeH handler color = do
   where
     formatter h r =
         let (_, msg) = renderTextMsg r
+        in TIO.hPutStrLn h $! msg
+mkJsonFileScribeH :: Handle -> Bool -> IO K.Scribe
+mkJsonFileScribeH handler color = do
+    mkFileScribeH handler formatter color
+  where
+    formatter h r =
+        let (_, msg) = renderJsonMsg r
         in TIO.hPutStrLn h $! msg
 
 mkFileScribeH

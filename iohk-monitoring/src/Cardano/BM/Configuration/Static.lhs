@@ -30,14 +30,21 @@ defaultConfigStdout = do
     CM.setSetupBackends c [KatipBK]
     CM.setDefaultBackends c [KatipBK]
     CM.setSetupScribes c [ ScribeDefinition {
-                              scName = "stdout"
+                              scName = "text"
                             , scFormat = ScText
                             , scKind = StdoutSK
                             , scPrivacy = ScPublic
                             , scRotation = Nothing
                             }
-                      ]
-    CM.setDefaultScribes c ["StdoutSK::stdout"]
+                         ,  ScribeDefinition {
+                              scName = "json"
+                            , scFormat = ScJson
+                            , scKind = StdoutSK
+                            , scPrivacy = ScPublic
+                            , scRotation = Nothing
+                            }
+                         ]
+    CM.setDefaultScribes c ["StdoutSK::text"]
     return c
 
 \end{code}
