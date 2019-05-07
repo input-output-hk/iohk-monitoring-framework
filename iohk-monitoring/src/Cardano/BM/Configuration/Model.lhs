@@ -4,6 +4,7 @@
 
 %if style == newcode
 \begin{code}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 module Cardano.BM.Configuration.Model
@@ -572,60 +573,49 @@ the |DropName| filter, then at least one of the |UnhideNames| must match the nam
 the evaluation of the filters return |True|.
 
 \begin{code}
+findRootSubTrace :: Configuration -> LoggerName -> IO (Maybe SubTrace)
+findRootSubTrace config loggername = do
+    -- Try to find SubTrace by provided name.
+    findSubTrace config loggername >>= \case
+        Just subtrace -> return $ Just subtrace -- Ok, found, provide it as it is.
+        Nothing ->
+            -- We didn't find it, so drop the child (from the right side)
+            -- and try to find it again.
+            case dropToDot loggername of
+                Nothing -> return Nothing -- Didn't find.
+                Just parentName -> findRootSubTrace config parentName
+
 testSubTrace :: Configuration -> LoggerName -> LogObject a -> IO (Maybe (LogObject a))
 testSubTrace config loggername lo = do
-    subtrace <- fromMaybe Neutral <$> findSubTrace config loggername
+    subtrace <- fromMaybe Neutral <$> findRootSubTrace config loggername
     return $ testSubTrace' lo subtrace
   where
     testSubTrace' :: LogObject a -> SubTrace -> Maybe (LogObject a)
     testSubTrace' _ NoTrace = Nothing
     testSubTrace' (LogObject _ _ (ObserveOpen _)) DropOpening = Nothing
-    testSubTrace' o@(LogObject loname _ (LogValue vname _)) (FilterTrace filters) =
-        if evalFilters filters (loname <> "." <> vname)
+    testSubTrace' o@(LogObject _ _ (LogValue vname _)) (FilterTrace filters) =
+        if evalFilters filters (loggername <> "." <> vname)
         then Just o
         else Nothing
     testSubTrace' o (FilterTrace filters) =
-        if evalFilters filters (loName o)
+        if evalFilters filters loggername
         then Just o
         else Nothing
     testSubTrace' o (SetSeverity sev) = Just $ o{ loMeta = (loMeta o){ severity = sev } }
     testSubTrace' o _ = Just o -- fallback: all pass
-
-dropToDotFromBegin :: Text -> Maybe Text
-dropToDotFromBegin ts = dropToDot' (T.breakOn "." ts)
-  where
-    dropToDot' (_,   "") = Nothing
-    dropToDot' (_,name') = case T.dropWhile (=='.') name' of
-                               "" -> Nothing
-                               r  -> Just r
 
 evalFilters :: [(DropName, UnhideNames)] -> LoggerName -> Bool
 evalFilters fs nm =
     all (\(no, yes) -> if (dropFilter nm no) then (unhideFilter nm yes) else True) fs
   where
     dropFilter :: LoggerName -> DropName -> Bool
-    dropFilter name dn@(Drop sel) =
-        if matchName name sel
-            then True -- Match, item with this name should be dropped.
-            else
-                -- Don't match, but we should drop to dot and try again.
-                case dropNameToDot dn of
-                    Nothing      -> False -- Definitely don't match.
-                    Just dropped -> dropFilter name dropped
-
-    dropNameToDot :: DropName -> Maybe DropName
-    dropNameToDot (Drop (Exact n))         = maybe Nothing (Just . Drop . Exact)      $ dropToDotFromBegin n
-    dropNameToDot (Drop (StartsWith pref)) = maybe Nothing (Just . Drop . StartsWith) $ dropToDotFromBegin pref
-    dropNameToDot (Drop (EndsWith post))   = maybe Nothing (Just . Drop . EndsWith)   $ dropToDotFromBegin post
-    dropNameToDot (Drop (Contains n))      = maybe Nothing (Just . Drop . Contains)   $ dropToDotFromBegin n
-
+    dropFilter name (Drop sel) = {-not-} (matchName name sel)
     unhideFilter :: LoggerName -> UnhideNames -> Bool
-    unhideFilter _    (Unhide []) = False
+    unhideFilter _ (Unhide []) = False
     unhideFilter name (Unhide us) = any (\sel -> matchName name sel) us
-
     matchName :: LoggerName -> NameSelector -> Bool
-    matchName name (Exact name')       = name == name'
-    matchName name (StartsWith prefix) = T.isPrefixOf prefix  name
-    matchName name (EndsWith postfix)  = T.isSuffixOf postfix name
-    matchName name (Contains name')    = T.isInfixOf  name'   name
+    matchName name (Exact name') = name == name'
+    matchName name (StartsWith prefix) = T.isPrefixOf prefix name
+    matchName name (EndsWith postfix) = T.isSuffixOf postfix name
+    matchName name (Contains name') = T.isInfixOf name' name
 \end{code}

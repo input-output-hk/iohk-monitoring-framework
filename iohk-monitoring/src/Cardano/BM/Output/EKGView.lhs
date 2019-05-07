@@ -220,9 +220,8 @@ spawnDispatcher config evqueue sbtrace ekgtrace = do
     qProc counters = do
         maybeItem <- atomically $ TBQ.readTBQueue evqueue
         case maybeItem of
-            Just obj -> do
-                -- SubTrace for EKGView is always under this prefix.
-                obj' <- testSubTrace config "#ekgview" obj
+            Just obj@(LogObject logname _ _) -> do
+                obj' <- testSubTrace config ("#ekgview." <> logname) obj
                 case obj' of
                     Just lo@(LogObject logname' meta content) -> do
                         trace <- Trace.appendName logname' ekgtrace
