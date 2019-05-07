@@ -577,6 +577,9 @@ testSubTrace config loggername lo = do
     subtrace <- fromMaybe Neutral <$> findSubTrace config loggername
     return $ testSubTrace' lo subtrace
   where
+    testSubTrace' :: LogObject a -> SubTrace -> Maybe (LogObject a)
+    testSubTrace' _ NoTrace = Nothing
+    testSubTrace' (LogObject _ _ (ObserveOpen _)) DropOpening = Nothing
     testSubTrace' o@(LogObject loname _ (LogValue vname _)) (FilterTrace filters) =
         if evalFilters filters (loname <> "." <> vname)
         then Just o
