@@ -35,7 +35,7 @@ main = do
     args <- getArgs
     let filepath = case args of
                        (fp : _)  -> fp
-                       otherwise -> defaultfp
+                       _         -> defaultfp
     cursor <- cursorFile filepath
     let scores  = cursor $// findRows &| (T.concat . extractScores)
     let modules = cursor $// findRows &| (T.concat . extractModules)
