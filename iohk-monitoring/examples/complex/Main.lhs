@@ -77,30 +77,35 @@ prepare_configuration = do
     CM.setSetupScribes c [ ScribeDefinition {
                               scName = "stdout"
                             , scKind = StdoutSK
+                            , scFormat = ScText
                             , scPrivacy = ScPublic
                             , scRotation = Nothing
                             }
                          , ScribeDefinition {
                               scName = "logs/out.odd.json"
-                            , scKind = FileJsonSK
+                            , scKind = FileSK
+                            , scFormat = ScJson
                             , scPrivacy = ScPublic
                             , scRotation = Nothing
                             }
                          , ScribeDefinition {
                               scName = "logs/out.even.json"
-                            , scKind = FileJsonSK
+                            , scKind = FileSK
+                            , scFormat = ScJson
                             , scPrivacy = ScPublic
                             , scRotation = Nothing
                             }
                          , ScribeDefinition {
                               scName = "logs/downloading.json"
-                            , scKind = FileJsonSK
+                            , scKind = FileSK
+                            , scFormat = ScJson
                             , scPrivacy = ScPublic
                             , scRotation = Nothing
                             }
                          , ScribeDefinition {
                               scName = "logs/out.txt"
-                            , scKind = FileTextSK
+                            , scKind = FileSK
+                            , scFormat = ScText
                             , scPrivacy = ScPublic
                             , scRotation = Just $ RotationParameters
                                               { rpLogLimitBytes = 5000 -- 5kB
@@ -110,20 +115,20 @@ prepare_configuration = do
                             }
                          ]
     CM.setDefaultScribes c ["StdoutSK::stdout"]
-    CM.setScribes c "complex.random" (Just ["StdoutSK::stdout", "FileTextSK::logs/out.txt"])
+    CM.setScribes c "complex.random" (Just ["StdoutSK::stdout", "FileSK::logs/out.txt"])
     forM_ [(1::Int)..10] $ \x ->
       if odd x
       then
-        CM.setScribes c ("#aggregation.complex.observeSTM." <> (pack $ show x)) $ Just [ "FileJsonSK::logs/out.odd.json" ]
+        CM.setScribes c ("#aggregation.complex.observeSTM." <> (pack $ show x)) $ Just [ "FileSK::logs/out.odd.json" ]
       else
-        CM.setScribes c ("#aggregation.complex.observeSTM." <> (pack $ show x)) $ Just [ "FileJsonSK::logs/out.even.json" ]
+        CM.setScribes c ("#aggregation.complex.observeSTM." <> (pack $ show x)) $ Just [ "FileSK::logs/out.even.json" ]
 
 #ifdef LINUX
 #ifdef ENABLE_OBSERVABLES
     CM.setSubTrace c "complex.observeDownload" (Just $ ObservableTrace [IOStats,NetStats])
 #endif
     CM.setBackends c "complex.observeDownload" (Just [KatipBK])
-    CM.setScribes c "complex.observeDownload" (Just ["StdoutSK::stdout", "FileJsonSK::logs/downloading.json"])
+    CM.setScribes c "complex.observeDownload" (Just ["StdoutSK::stdout", "FileSK::logs/downloading.json"])
 #endif
     CM.setSubTrace c "#messagecounters.switchboard" $ Just NoTrace
     CM.setSubTrace c "#messagecounters.katip"       $ Just NoTrace

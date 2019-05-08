@@ -41,7 +41,7 @@ unit_tests = testGroup "Unit tests" [
             unit_generic_scribe_backend
                 [KatipBK]
                 []
-                ["FileTextSK::out-test.txt"]
+                ["FileSK::out-test.txt"]
                 []
                 5
       , testCase
@@ -49,7 +49,7 @@ unit_tests = testGroup "Unit tests" [
             unit_generic_scribe_backend
                 []
                 [("test.one.alpha", Just [KatipBK])]
-                ["FileTextSK::out-test.txt"]
+                ["FileSK::out-test.txt"]
                 []
                 1
       , testCase
@@ -58,7 +58,7 @@ unit_tests = testGroup "Unit tests" [
                 [KatipBK]
                 []
                 []
-                [("test.one.alpha", Just ["FileTextSK::out-test.txt"])]
+                [("test.one.alpha", Just ["FileSK::out-test.txt"])]
                 1
       , testCase
             "set_scribe_with_wrong_filename_must_not_log" $
@@ -66,7 +66,7 @@ unit_tests = testGroup "Unit tests" [
                 [KatipBK]
                 []
                 []
-                [("test.one.alpha", Just ["FileTextSK::out-te.txt"])]
+                [("test.one.alpha", Just ["FileSK::out-te.txt"])]
                 0
       , testCase
             "no_scribe_must_not_log" $
@@ -105,7 +105,8 @@ unit_generic_scribe_backend defaultBackends setBackends defaultScribes setScribe
     CM.setSetupBackends c [KatipBK]
     CM.setSetupScribes c [ ScribeDefinition {
                               scName = "out-test.txt"
-                            , scKind = FileTextSK
+                            , scKind = FileSK
+                            , scFormat = ScText
                             , scPrivacy = ScPublic
                             , scRotation = Nothing
                             }
@@ -141,9 +142,9 @@ unit_generic_scribe_backend defaultBackends setBackends defaultScribes setScribe
 
     assertBool
         ("defaultBackends: " ++ show defaultBackends ++
-            "setBackends: " ++ show setBackends ++
-            "defaultScribe: " ++ show defaultScribes ++
-            "setScribes: " ++ show setScribes)
+         "setBackends: " ++ show setBackends ++
+         "defaultScribe: " ++ show defaultScribes ++
+         "setScribes: " ++ show setScribes)
         (numMsgs == expectedLines)
 
 \end{code}

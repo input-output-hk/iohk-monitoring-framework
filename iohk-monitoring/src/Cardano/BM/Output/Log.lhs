@@ -31,7 +31,7 @@ import           Control.Concurrent.MVar (MVar, modifyMVar_, readMVar,
 import           Control.Exception.Safe (catchIO)
 import           Control.Monad (forM, forM_, void, when)
 import           Control.Lens ((^.))
-import           Data.Aeson (ToJSON)
+import           Data.Aeson (ToJSON, Value (..))
 import           Data.Aeson.Text (encodeToLazyText)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Map as Map
@@ -46,13 +46,15 @@ import qualified Data.Text.Lazy.IO as TIO
 import           Data.Time (diffUTCTime)
 import           Data.Time.Clock (UTCTime, getCurrentTime)
 import           Data.Time.Format (defaultTimeLocale, formatTime)
-import           Data.Version (Version (..), showVersion)
+import           Data.Version (showVersion)
 import           GHC.Conc (atomically)
 import           GHC.IO.Handle (hDuplicate)
 import           System.Directory (createDirectoryIfMissing)
 import           System.FilePath (takeDirectory)
 import           System.IO (BufferMode (LineBuffering), Handle, hClose,
                      hSetBuffering, stderr, stdout, openFile, IOMode (WriteMode))
+
+import           Paths_iohk_monitoring (version)
 
 import qualified Katip as K
 import qualified Katip.Core as KC
@@ -167,34 +169,33 @@ instance ToObject a => IsBackend Log a where
             register [] le = return le
             register (defsc : dscs) le = do
                 let kind      = scKind     defsc
+                    sctype    = scFormat   defsc
                     name      = scName     defsc
                     rotParams = scRotation defsc
                     name'     = pack (show kind) <> "::" <> name
-                scr <- createScribe kind name rotParams
+                scr <- createScribe kind sctype name rotParams
                 register dscs =<< K.registerScribe name' scr scribeSettings le
-            mockVersion :: Version
-            mockVersion = Version [0,1,0,0] []
             scribeSettings :: KC.ScribeSettings
             scribeSettings =
                 let bufferSize = 5000  -- size of the queue (in log items)
                 in
                 KC.ScribeSettings bufferSize
-            createScribe FileTextSK name rotParams = mkTextFileScribe
-                                                        rotParams
-                                                        (FileDescription $ unpack name)
-                                                        False
-            createScribe FileJsonSK name rotParams = mkJsonFileScribe
-                                                        rotParams
-                                                        (FileDescription $ unpack name)
-                                                        False
-            createScribe StdoutSK _ _ = mkStdoutScribe
-            createScribe StderrSK _ _ = mkStderrScribe
-            createScribe DevNullSK _ _ = mkDevNullScribe
+            createScribe FileSK ScText name rotParams = mkTextFileScribe
+                                                            rotParams
+                                                            (FileDescription $ unpack name)
+                                                            False
+            createScribe FileSK ScJson name rotParams = mkJsonFileScribe
+                                                            rotParams
+                                                            (FileDescription $ unpack name)
+                                                            False
+            createScribe StdoutSK sctype _ _ = mkStdoutScribe sctype
+            createScribe StderrSK sctype _ _ = mkStderrScribe sctype
+            createScribe DevNullSK _ _ _ = mkDevNullScribe
 
         cfoKey <- Config.getOptionOrDefault config (pack "cfokey") (pack "<unknown>")
         le0 <- K.initLogEnv
                     (K.Namespace ["iohk"])
-                    (fromString $ (unpack cfoKey) <> ":" <> showVersion mockVersion)
+                    (fromString $ (unpack cfoKey) <> ":" <> showVersion version)
         -- request a new time 'getCurrentTime' at most 100 times a second
         timer <- mkAutoUpdate defaultUpdateSettings { updateAction = getCurrentTime, updateFreq = 10000 }
         let le1 = updateEnv le0 timer
@@ -264,7 +265,13 @@ passN backend katip (LogObject loname lometa loitem) = do
                 then do
                     let (sev, msg, payload) = case loitem of
                                 (LogMessage logItem) ->
-                                     (severity lometa, TL.toStrict (encodeToLazyText (toObject logItem)), Nothing)
+                                     let loobj = toObject logItem
+                                         (text,maylo) = case (HM.lookup "string" loobj) of
+                                            Just (String m)  -> (m, Nothing)
+                                            Just m           -> (TL.toStrict $ encodeToLazyText m, Nothing)
+                                            Nothing          -> ("", Just loitem)
+                                     in
+                                     (severity lometa, text, maylo)
                                 (ObserveDiff _) ->
                                      let text = TL.toStrict (encodeToLazyText (toObject loitem))
                                      in
@@ -297,6 +304,7 @@ passN backend katip (LogObject loname lometa loitem) = do
                     else do
                         let threadIdText = KC.ThreadIdText $ tid lometa
                         let itemTime = tstamp lometa
+                        let localname = T.split (== '.') loname
                         let itemKatip = K.Item {
                                   _itemApp       = env ^. KC.logEnvApp
                                 , _itemEnv       = env ^. KC.logEnvEnv
@@ -307,7 +315,7 @@ passN backend katip (LogObject loname lometa loitem) = do
                                 , _itemPayload   = payload
                                 , _itemMessage   = K.logStr msg
                                 , _itemTime      = itemTime
-                                , _itemNamespace = (env ^. KC.logEnvApp) <> (K.Namespace [loname])
+                                , _itemNamespace = (env ^. KC.logEnvApp) <> (K.Namespace localname)
                                 , _itemLoc       = Nothing
                                 }
                         void $ atomically $ KC.tryWriteTBQueue shChan (KC.NewItem itemKatip)
@@ -315,20 +323,25 @@ passN backend katip (LogObject loname lometa loitem) = do
 \end{code}
 
 \subsubsection{Scribes}
+The handles to \emph{stdout} and \emph{stderr} will be duplicated
+because on exit \emph{katip} will close them otherwise.
+
 \begin{code}
-mkStdoutScribe :: IO K.Scribe
-mkStdoutScribe = do
-    -- duplicate stdout so that Katip's closing
-    -- action will not close the real stdout
+mkStdoutScribe :: ScribeFormat -> IO K.Scribe
+mkStdoutScribe ScText = do
     stdout' <- hDuplicate stdout
     mkTextFileScribeH stdout' True
+mkStdoutScribe ScJson = do
+    stdout' <- hDuplicate stdout
+    mkJsonFileScribeH stdout' True
 
-mkStderrScribe :: IO K.Scribe
-mkStderrScribe = do
-    -- duplicate stderr so that Katip's closing
-    -- action will not close the real stderr
+mkStderrScribe :: ScribeFormat -> IO K.Scribe
+mkStderrScribe ScText = do
     stderr' <- hDuplicate stderr
     mkTextFileScribeH stderr' True
+mkStderrScribe ScJson = do
+    stderr' <- hDuplicate stderr
+    mkJsonFileScribeH stderr' True
 
 mkDevNullScribe :: IO K.Scribe
 mkDevNullScribe = do
@@ -339,12 +352,20 @@ mkTextFileScribeH :: Handle -> Bool -> IO K.Scribe
 mkTextFileScribeH handler color = do
     mkFileScribeH handler formatter color
   where
-    formatter h colorize verbosity item =
-        TIO.hPutStrLn h $! toLazyText $ formatItem colorize verbosity item
+    formatter h r =
+        let (_, msg) = renderTextMsg r
+        in TIO.hPutStrLn h $! msg
+mkJsonFileScribeH :: Handle -> Bool -> IO K.Scribe
+mkJsonFileScribeH handler color = do
+    mkFileScribeH handler formatter color
+  where
+    formatter h r =
+        let (_, msg) = renderJsonMsg r
+        in TIO.hPutStrLn h $! msg
 
 mkFileScribeH
     :: Handle
-    -> (forall a . K.LogItem a => Handle -> Bool -> K.Verbosity -> K.Item a -> IO ())
+    -> (forall a . K.LogItem a => Handle -> Rendering a -> IO ())
     -> Bool
     -> IO K.Scribe
 mkFileScribeH h formatter colorize = do
@@ -352,47 +373,53 @@ mkFileScribeH h formatter colorize = do
     locklocal <- newMVar ()
     let logger :: forall a. K.LogItem a =>  K.Item a -> IO ()
         logger item = withMVar locklocal $ \_ ->
-                        formatter h colorize K.V0 item
+                        formatter h (Rendering colorize K.V0 item)
     pure $ K.Scribe logger (hClose h)
+
+data Rendering a = Rendering { colorize  :: Bool
+                             , verbosity :: K.Verbosity
+                             , logitem   :: K.Item a
+                             }
+
+renderTextMsg :: (K.LogItem a) => Rendering a -> (Int, TL.Text)
+renderTextMsg r =
+    let m = toLazyText $ formatItem (colorize r) (verbosity r) (logitem r)
+    in (fromIntegral $ TL.length m, m)
+
+renderJsonMsg :: (K.LogItem a) => Rendering a -> (Int, TL.Text)
+renderJsonMsg r =
+    let m' = encodeToLazyText $ K.itemJson (verbosity r) (logitem r)
+    in (fromIntegral $ TL.length m', m')
 
 mkTextFileScribe :: Maybe RotationParameters -> FileDescription -> Bool -> IO K.Scribe
 mkTextFileScribe rotParams fdesc colorize = do
     mkFileScribe rotParams fdesc formatter colorize
   where
-    formatter :: Handle -> Bool -> K.Verbosity -> K.Item a -> IO Int
-    formatter hdl colorize' v' item =
-        case KC._itemMessage item of
+    formatter :: (K.LogItem a) => Handle -> Rendering a -> IO Int
+    formatter hdl r =
+        case KC._itemMessage (logitem r) of
                 K.LogStr ""  ->
                     -- if message is empty do not output it
                     return 0
                 _ -> do
-                    let tmsg = toLazyText $ formatItem colorize' v' item
+                    let (mlen, tmsg) = renderTextMsg r
                     TIO.hPutStrLn hdl tmsg
-                    return $ fromIntegral $ TL.length tmsg
+                    return mlen
 
 mkJsonFileScribe :: Maybe RotationParameters -> FileDescription -> Bool -> IO K.Scribe
 mkJsonFileScribe rotParams fdesc colorize = do
     mkFileScribe rotParams fdesc formatter colorize
   where
-    formatter :: (K.LogItem a) => Handle -> Bool -> K.Verbosity -> K.Item a -> IO Int
-    formatter h _ verbosity item = do
-        let jmsg = case KC._itemMessage item of
-                -- if a message is contained in item then only the
-                -- message is printed and not the data
-                K.LogStr ""  -> K.itemJson verbosity item
-                K.LogStr msg -> K.itemJson verbosity $
-                                    item { KC._itemMessage = K.logStr (""::Text)
-                                         , KC._itemPayload = TL.toStrict $ toLazyText msg
-                                         -- do we need the severity from meta?
-                                         }
-            tmsg = encodeToLazyText jmsg
+    formatter :: (K.LogItem a) => Handle -> Rendering a -> IO Int
+    formatter h r = do
+        let (mlen, tmsg) = renderJsonMsg r
         TIO.hPutStrLn h tmsg
-        return $ fromIntegral $ TL.length tmsg
+        return mlen
 
 mkFileScribe
     :: Maybe RotationParameters
     -> FileDescription
-    -> (forall a . K.LogItem a => Handle -> Bool -> K.Verbosity -> K.Item a -> IO Int)
+    -> (forall a . K.LogItem a => Handle -> Rendering a -> IO Int)
     -> Bool
     -> IO K.Scribe
 mkFileScribe (Just rotParams) fdesc formatter colorize = do
@@ -413,7 +440,7 @@ mkFileScribe (Just rotParams) fdesc formatter colorize = do
     let logger :: forall a. K.LogItem a => K.Item a -> IO ()
         logger item =
             modifyMVar_ scribestate $ \(h, bytes, rottime) -> do
-                byteswritten <- formatter h colorize K.V0 item
+                byteswritten <- formatter h (Rendering colorize K.V0 item)
                 -- remove old files
                 cleanup
                 -- detect log file rotation
@@ -445,7 +472,7 @@ mkFileScribe Nothing fdesc formatter colorize = do
     let logger :: forall a. K.LogItem a => K.Item a -> IO ()
         logger item =
             withMVar scribestate $ \handler ->
-                void $ formatter handler colorize K.V0 item
+                void $ formatter handler (Rendering colorize K.V0 item)
     return $ K.Scribe logger finalizer
 
 \end{code}
