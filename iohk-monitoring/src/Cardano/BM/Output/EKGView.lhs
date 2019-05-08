@@ -4,6 +4,7 @@
 
 %if style == newcode
 \begin{code}
+{-# LANGUAGE CPP                   #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -46,6 +47,9 @@ import           Cardano.BM.Data.MessageCounter (resetCounters,
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.Trace
 import           Cardano.BM.Data.Tracer (Tracer (..), ToObject (..))
+#ifdef ENABLE_PROMETHEUS
+import           Cardano.BM.Output.Prometheus (spawnPrometheus)
+#endif
 import qualified Cardano.BM.Trace as Trace
 
 \end{code}
@@ -184,6 +188,10 @@ instance ToObject a => IsBackend EKGView a where
         -- raises an exception, that exception will be re-thrown in the current
         -- thread, wrapped in ExceptionInLinkedThread.
         Async.link dispatcher
+#ifdef ENABLE_PROMETHEUS
+        prometheusDispatcher <- spawnPrometheus ehdl
+        Async.link prometheusDispatcher
+#endif
         putMVar evref $ EKGViewInternal
                         { evLabels = HM.empty
                         , evServer = ehdl
