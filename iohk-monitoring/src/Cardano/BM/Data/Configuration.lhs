@@ -46,6 +46,7 @@ data Representation = Representation
     , setupBackends   :: [BackendKind]
     , defaultBackends :: [BackendKind]
     , hasEKG          :: Maybe Port
+    , hasPrometheus   :: Maybe Port
     , hasGUI          :: Maybe Port
     , options         :: HM.HashMap Text Object
     }

@@ -38,7 +38,7 @@ import           System.Remote.Monitoring (Server, forkServer,
 import           Paths_iohk_monitoring (version)
 
 import           Cardano.BM.Configuration (Configuration, getEKGport,
-                     testSubTrace)
+                     getPrometheusPort, testSubTrace)
 import           Cardano.BM.Data.Aggregated
 import           Cardano.BM.Data.Backend
 import           Cardano.BM.Data.LogItem
@@ -189,7 +189,8 @@ instance ToObject a => IsBackend EKGView a where
         -- thread, wrapped in ExceptionInLinkedThread.
         Async.link dispatcher
 #ifdef ENABLE_PROMETHEUS
-        prometheusDispatcher <- spawnPrometheus ehdl
+        prometheusPort <- getPrometheusPort config
+        prometheusDispatcher <- spawnPrometheus ehdl prometheusPort
         Async.link prometheusDispatcher
 #endif
         putMVar evref $ EKGViewInternal

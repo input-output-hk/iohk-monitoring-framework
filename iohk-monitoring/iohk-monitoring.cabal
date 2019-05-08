@@ -141,7 +141,8 @@ library
                        ekg-core
   if !flag(disable-ekg) && !flag(disable-prometheus)
      build-depends:    ekg-prometheus-adapter,
-                       prometheus
+                       prometheus,
+                       warp
   if !flag(disable-gui)
      build-depends:    threepenny-gui
   if os(windows)
