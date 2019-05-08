@@ -22,8 +22,8 @@ main = do
     trText <- appendName "text" tr
     trJson <- appendName "json" tr
 
-    logDebug   trText "this is a debug message"
-    logDebug   trJson "this is a debug message"
+    logDebug   trText "this is a debug message\nwith a second line"
+    logDebug   trJson "this is a debug message\nwith a second line"
     logInfo    trText "this is an information."
     logInfo    trJson "this is an information."
     logNotice  trText "this is a notice!"

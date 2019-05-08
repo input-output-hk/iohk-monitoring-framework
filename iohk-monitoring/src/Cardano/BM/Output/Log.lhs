@@ -31,7 +31,7 @@ import           Control.Concurrent.MVar (MVar, modifyMVar_, readMVar,
 import           Control.Exception.Safe (catchIO)
 import           Control.Monad (forM, forM_, void, when)
 import           Control.Lens ((^.))
-import           Data.Aeson (ToJSON)
+import           Data.Aeson (ToJSON, Value (..))
 import           Data.Aeson.Text (encodeToLazyText)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Map as Map
@@ -46,13 +46,15 @@ import qualified Data.Text.Lazy.IO as TIO
 import           Data.Time (diffUTCTime)
 import           Data.Time.Clock (UTCTime, getCurrentTime)
 import           Data.Time.Format (defaultTimeLocale, formatTime)
-import           Data.Version (Version (..), showVersion)
+import           Data.Version (showVersion)
 import           GHC.Conc (atomically)
 import           GHC.IO.Handle (hDuplicate)
 import           System.Directory (createDirectoryIfMissing)
 import           System.FilePath (takeDirectory)
 import           System.IO (BufferMode (LineBuffering), Handle, hClose,
                      hSetBuffering, stderr, stdout, openFile, IOMode (WriteMode))
+
+import           Paths_iohk_monitoring (version)
 
 import qualified Katip as K
 import qualified Katip.Core as KC
@@ -173,8 +175,6 @@ instance ToObject a => IsBackend Log a where
                     name'     = pack (show kind) <> "::" <> name
                 scr <- createScribe kind sctype name rotParams
                 register dscs =<< K.registerScribe name' scr scribeSettings le
-            mockVersion :: Version
-            mockVersion = Version [0,1,0,0] []
             scribeSettings :: KC.ScribeSettings
             scribeSettings =
                 let bufferSize = 5000  -- size of the queue (in log items)
@@ -195,7 +195,7 @@ instance ToObject a => IsBackend Log a where
         cfoKey <- Config.getOptionOrDefault config (pack "cfokey") (pack "<unknown>")
         le0 <- K.initLogEnv
                     (K.Namespace ["iohk"])
-                    (fromString $ (unpack cfoKey) <> ":" <> showVersion mockVersion)
+                    (fromString $ (unpack cfoKey) <> ":" <> showVersion version)
         -- request a new time 'getCurrentTime' at most 100 times a second
         timer <- mkAutoUpdate defaultUpdateSettings { updateAction = getCurrentTime, updateFreq = 10000 }
         let le1 = updateEnv le0 timer
@@ -265,10 +265,13 @@ passN backend katip (LogObject loname lometa loitem) = do
                 then do
                     let (sev, msg, payload) = case loitem of
                                 (LogMessage logItem) ->
-                                     let text = TL.toStrict (encodeToLazyText (toObject loitem))
+                                     let loobj = toObject logItem
+                                         (text,maylo) = case (HM.lookup "string" loobj) of
+                                            Just (String m)  -> (m, Nothing)
+                                            Just m           -> (TL.toStrict $ encodeToLazyText m, Nothing)
+                                            Nothing          -> ("", Just loitem)
                                      in
-                                     (severity lometa, text, Just loitem)
-                                    --  (severity lometa, TL.toStrict (encodeToLazyText (toObject logItem)), Nothing)
+                                     (severity lometa, text, maylo)
                                 (ObserveDiff _) ->
                                      let text = TL.toStrict (encodeToLazyText (toObject loitem))
                                      in
@@ -301,6 +304,7 @@ passN backend katip (LogObject loname lometa loitem) = do
                     else do
                         let threadIdText = KC.ThreadIdText $ tid lometa
                         let itemTime = tstamp lometa
+                        let localname = T.split (== '.') loname
                         let itemKatip = K.Item {
                                   _itemApp       = env ^. KC.logEnvApp
                                 , _itemEnv       = env ^. KC.logEnvEnv
@@ -311,7 +315,7 @@ passN backend katip (LogObject loname lometa loitem) = do
                                 , _itemPayload   = payload
                                 , _itemMessage   = K.logStr msg
                                 , _itemTime      = itemTime
-                                , _itemNamespace = (env ^. KC.logEnvApp) <> (K.Namespace [loname])
+                                , _itemNamespace = (env ^. KC.logEnvApp) <> (K.Namespace localname)
                                 , _itemLoc       = Nothing
                                 }
                         void $ atomically $ KC.tryWriteTBQueue shChan (KC.NewItem itemKatip)
@@ -384,17 +388,7 @@ renderTextMsg r =
 
 renderJsonMsg :: (K.LogItem a) => Rendering a -> (Int, TL.Text)
 renderJsonMsg r =
-    let li = logitem r
-        m  = case KC._itemMessage li of
-                -- if a message is contained in item then only the
-                -- message is printed and not the data
-                K.LogStr ""  -> K.itemJson (verbosity r) li
-                K.LogStr msg -> K.itemJson (verbosity r) $
-                                    li   { KC._itemMessage = K.logStr (""::Text)
-                                         , KC._itemPayload = TL.toStrict $ toLazyText msg
-                                         -- do we need the severity from meta?
-                                         }
-        m' = encodeToLazyText m
+    let m' = encodeToLazyText $ K.itemJson (verbosity r) (logitem r)
     in (fromIntegral $ TL.length m', m')
 
 mkTextFileScribe :: Maybe RotationParameters -> FileDescription -> Bool -> IO K.Scribe
