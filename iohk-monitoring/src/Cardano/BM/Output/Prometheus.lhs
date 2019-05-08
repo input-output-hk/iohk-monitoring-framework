@@ -18,7 +18,7 @@ import           System.Metrics.Prometheus.Http.Scrape (serveHttpTextMetrics)
 import           System.Metrics.Prometheus.Registry (sample)
 import           System.Metrics.Prometheus.RegistryT (execRegistryT)
 import qualified System.Remote.Monitoring as EKG
-import           System.Remote.Monitoring.Prometheus (registerEKGStore, defaultOptions)
+import           System.Remote.Monitoring.Prometheus (registerEKGStore, AdapterOptions (..))
 
 \end{code}
 %endif
@@ -32,8 +32,8 @@ spawnPrometheus s p = Async.async $ passToPrometheus s p
 passToPrometheus :: EKG.Server -> Port -> IO ()
 passToPrometheus server port = do
     let store = EKG.serverMetricStore server
-    reg <- execRegistryT $ registerEKGStore store $ defaultOptions mempty
+    let reg = execRegistryT $ registerEKGStore store $ AdapterOptions mempty Nothing 1
 
-    serveHttpTextMetrics port ["metrics"] (sample reg) -- http://localhost:{port}/metrics server
+    serveHttpTextMetrics port ["metrics"] (reg >>= sample) -- http://localhost:{port}/metrics server
 
 \end{code}
