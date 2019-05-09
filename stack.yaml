@@ -9,3 +9,7 @@ extra-deps:
 - ekg-json-0.1.0.6
 - process-1.6.5.0
 - transformers-0.5.6.2
+
+flags:
+  iohk-monitoring:
+    disable-prometheus: true

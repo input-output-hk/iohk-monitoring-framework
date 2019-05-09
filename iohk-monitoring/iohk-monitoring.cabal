@@ -24,7 +24,7 @@ flag disable-ekg
 
 flag disable-prometheus
   description:         Turn off Prometheus.
-  default:             False
+  default:             True
   manual:              True
 
 flag disable-gui
