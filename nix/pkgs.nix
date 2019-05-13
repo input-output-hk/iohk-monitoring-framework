@@ -7,7 +7,7 @@
 let
 
   # our packages
-  stack-pkgs = import ./.stack-pkgs.nix;
+  stack-pkgs = import ./.stack.nix;
 
   # Build the packageset with module support.
   # We can essentially override anything in the modules
