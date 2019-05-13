@@ -190,6 +190,7 @@ unitConfigurationStaticRepresentation =
             , defaultBackends = [ KatipBK ]
             , hasGUI = Just 12789
             , hasEKG = Just 18321
+            , hasPrometheus = Just 9090
             , options =
                 HM.fromList [ ("test1", (HM.singleton "value" "object1"))
                             , ("test2", (HM.singleton "value" "object2")) ]
@@ -206,6 +207,7 @@ unitConfigurationStaticRepresentation =
             , "setupBackends:"
             , "- EKGViewBK"
             , "- KatipBK"
+            , "hasPrometheus: 9090"
             , "hasGUI: 12789"
             , "defaultScribes:"
             , "- - StdoutSK"
@@ -242,6 +244,7 @@ unitConfigurationParsedRepresentation = do
             , "- AggregationBK"
             , "- EKGViewBK"
             , "- KatipBK"
+            , "hasPrometheus: null"
             , "hasGUI: null"
             , "defaultScribes:"
             , "- - StdoutSK"
@@ -412,6 +415,7 @@ unitConfigurationParsed = do
                                               )
                                             ]
         , cgPortEKG           = 12789
+        , cgPortPrometheus    = 9090 -- the default value
         , cgPortGUI           = 0
         }
 

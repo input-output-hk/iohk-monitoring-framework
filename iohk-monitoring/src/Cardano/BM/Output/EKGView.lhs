@@ -4,6 +4,7 @@
 
 %if style == newcode
 \begin{code}
+{-# LANGUAGE CPP                   #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -24,20 +25,22 @@ import           Control.Concurrent.STM (atomically)
 import qualified Control.Concurrent.STM.TBQueue as TBQ
 import           Control.Monad.IO.Class (liftIO)
 import qualified Data.HashMap.Strict as HM
+import           Data.Int (Int64)
 import           Data.Text (Text, pack, stripPrefix)
 import qualified Data.Text.IO as TIO
 import           Data.Time (getCurrentTime)
 import           Data.Version (showVersion)
 
 import           System.IO (stderr)
+import qualified System.Metrics.Gauge as Gauge
 import qualified System.Metrics.Label as Label
 import           System.Remote.Monitoring (Server, forkServer,
-                     getLabel, serverThreadId)
+                     getGauge, getLabel, serverThreadId)
 
 import           Paths_iohk_monitoring (version)
 
 import           Cardano.BM.Configuration (Configuration, getEKGport,
-                     testSubTrace)
+                     getPrometheusPort, testSubTrace)
 import           Cardano.BM.Data.Aggregated
 import           Cardano.BM.Data.Backend
 import           Cardano.BM.Data.LogItem
@@ -46,6 +49,9 @@ import           Cardano.BM.Data.MessageCounter (resetCounters,
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.Trace
 import           Cardano.BM.Data.Tracer (Tracer (..), ToObject (..))
+#ifdef ENABLE_PROMETHEUS
+import           Cardano.BM.Output.Prometheus (spawnPrometheus)
+#endif
 import qualified Cardano.BM.Trace as Trace
 
 \end{code}
@@ -59,7 +65,8 @@ newtype EKGView a = EKGView
 
 data EKGViewInternal a = EKGViewInternal
     { evQueue   :: TBQ.TBQueue (Maybe (LogObject a))
-    , evLabels  :: EKGViewMap
+    , evLabels  :: EKGViewMap Label.Label
+    , evGauges  :: EKGViewMap Gauge.Gauge
     , evServer  :: Server
     }
 
@@ -68,7 +75,7 @@ data EKGViewInternal a = EKGViewInternal
 \subsubsection{Relation from variable name to label handler}
 We keep the label handlers for later update in a |HashMap|.
 \begin{code}
-type EKGViewMap = HM.HashMap Text Label.Label
+type EKGViewMap a = HM.HashMap Text a
 
 \end{code}
 
@@ -83,8 +90,8 @@ ekgTrace ekg _c = do
   where
     ekgTrace' :: ToObject a => EKGView a -> Tracer IO (LogObject a)
     ekgTrace' ekgview = Tracer $ \lo@(LogObject loname _ _) -> do
-        let setlabel :: Text -> Text -> EKGViewInternal a -> IO (Maybe (EKGViewInternal a))
-            setlabel name label ekg_i@(EKGViewInternal _ labels server) =
+        let setLabel :: Text -> Text -> EKGViewInternal a -> IO (Maybe (EKGViewInternal a))
+            setLabel name label ekg_i@(EKGViewInternal _ labels _ server) =
                 case HM.lookup name labels of
                     Nothing -> do
                         ekghdl <- getLabel name server
@@ -93,14 +100,31 @@ ekgTrace ekg _c = do
                     Just ekghdl -> do
                         Label.set ekghdl label
                         return Nothing
+            setGauge :: Text -> Int64 -> EKGViewInternal a -> IO (Maybe (EKGViewInternal a))
+            setGauge name value ekg_i@(EKGViewInternal _ _ gauges server) =
+                case HM.lookup name gauges of
+                    Nothing -> do
+                        ekghdl <- getGauge name server
+                        Gauge.set ekghdl value
+                        return $ Just $ ekg_i { evGauges = HM.insert name ekghdl gauges}
+                    Just ekghdl -> do
+                        Gauge.set ekghdl value
+                        return Nothing
 
             update :: ToObject a => LogObject a -> EKGViewInternal a -> IO (Maybe (EKGViewInternal a))
             update (LogObject logname _ (LogMessage logitem)) ekg_i =
-                setlabel logname (pack $ show $ toObject logitem) ekg_i
+                setLabel logname (pack $ show $ toObject logitem) ekg_i
             update (LogObject logname _ (LogValue iname value)) ekg_i =
                 let logname' = logname <> "." <> iname
                 in
-                setlabel logname' (pack $ show value) ekg_i
+                case value of
+                    (Microseconds x) -> setGauge (logname' <> "_us") (fromIntegral x) ekg_i
+                    (Nanoseconds  x) -> setGauge (logname' <> "_ns") (fromIntegral x) ekg_i
+                    (Seconds      x) -> setGauge (logname' <> "_s")  (fromIntegral x) ekg_i
+                    (Bytes        x) -> setGauge (logname' <> "_B")  (fromIntegral x) ekg_i
+                    (PureI        x) -> setGauge logname' (fromIntegral x) ekg_i
+                    (PureD        _) -> setLabel logname' (pack $ show value) ekg_i
+                    (Severity     _) -> setLabel logname' (pack $ show value) ekg_i
 
             update _ _ = return Nothing
 
@@ -184,8 +208,14 @@ instance ToObject a => IsBackend EKGView a where
         -- raises an exception, that exception will be re-thrown in the current
         -- thread, wrapped in ExceptionInLinkedThread.
         Async.link dispatcher
+#ifdef ENABLE_PROMETHEUS
+        prometheusPort <- getPrometheusPort config
+        prometheusDispatcher <- spawnPrometheus ehdl prometheusPort
+        Async.link prometheusDispatcher
+#endif
         putMVar evref $ EKGViewInternal
                         { evLabels = HM.empty
+                        , evGauges = HM.empty
                         , evServer = ehdl
                         , evQueue = queue
                         }

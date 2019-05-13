@@ -41,6 +41,8 @@ module Cardano.BM.Configuration.Model
     , getMonitors
     , getEKGport
     , setEKGport
+    , getPrometheusPort
+    , setPrometheusPort
     , getGUIport
     , setGUIport
     , testSubTrace
@@ -125,6 +127,8 @@ data ConfigurationInternal = ConfigurationInternal
     , cgMonitors          :: HM.HashMap LoggerName (MEvExpr, [MEvAction])
     , cgPortEKG           :: Int
     -- port for EKG server
+    , cgPortPrometheus    :: Int
+    -- port for Prometheus server
     , cgPortGUI           :: Int
     -- port for changes at runtime
     } deriving (Show, Eq)
@@ -266,7 +270,7 @@ setAggregatedKind configuration name ak =
 
 \end{code}
 
-\subsubsection{Access port numbers of EKG, GUI}
+\subsubsection{Access port numbers of EKG, Prometheus, GUI}
 \begin{code}
 getEKGport :: Configuration -> IO Int
 getEKGport configuration =
@@ -276,6 +280,15 @@ setEKGport :: Configuration -> Int -> IO ()
 setEKGport configuration port =
     modifyMVar_ (getCG configuration) $ \cg ->
         return cg { cgPortEKG = port }
+
+getPrometheusPort :: Configuration -> IO Int
+getPrometheusPort configuration =
+    cgPortPrometheus <$> (readMVar $ getCG configuration)
+
+setPrometheusPort :: Configuration -> Int -> IO ()
+setPrometheusPort configuration port =
+    modifyMVar_ (getCG configuration) $ \cg ->
+        return cg { cgPortPrometheus = port }
 
 getGUIport :: Configuration -> IO Int
 getGUIport configuration =
@@ -413,6 +426,7 @@ setupFromRepresentation r = do
         , cgDefAggregatedKind = StatsAK
         , cgMonitors          = parseMonitors mapmonitors
         , cgPortEKG           = r_hasEKG r
+        , cgPortPrometheus    = r_hasPrometheus r
         , cgPortGUI           = r_hasGUI r
         }
     return $ Configuration cgref
@@ -460,6 +474,9 @@ setupFromRepresentation r = do
     r_hasEKG repr = case (R.hasEKG repr) of
                        Nothing -> 0
                        Just p  -> p
+    r_hasPrometheus repr = case (R.hasPrometheus repr) of
+                       Nothing -> 9090 -- default port for Prometheus
+                       Just p  -> p
     r_hasGUI repr = case (R.hasGUI repr) of
                        Nothing -> 0
                        Just p  -> p
@@ -496,6 +513,7 @@ empty = do
                            , cgDefAggregatedKind = StatsAK
                            , cgMonitors          = HM.empty
                            , cgPortEKG           = 0
+                           , cgPortPrometheus    = 9090
                            , cgPortGUI           = 0
                            }
     return $ Configuration cgref
@@ -508,6 +526,7 @@ toRepresentation :: Configuration -> IO R.Representation
 toRepresentation (Configuration c) = do
     cfg <- readMVar c
     let portEKG = cgPortEKG cfg
+        portPrometheus = cgPortPrometheus cfg
         portGUI = cgPortGUI cfg
         otherOptions = cgOptions cfg
         defScribes = cgDefScribes cfg
@@ -543,6 +562,7 @@ toRepresentation (Configuration c) = do
             , R.setupBackends   = cgSetupBackends cfg
             , R.defaultBackends = cgDefBackendKs cfg
             , R.hasEKG          = if portEKG == 0 then Nothing else Just portEKG
+            , R.hasPrometheus   = if portPrometheus == 0 then Nothing else Just portPrometheus
             , R.hasGUI          = if portGUI == 0 then Nothing else Just portGUI
             , R.options         = mapSeverities `HM.union`
                                   mapBackends   `HM.union`

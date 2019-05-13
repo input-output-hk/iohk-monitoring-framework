@@ -6,10 +6,8 @@
 
 %if style == newcode
 \begin{code}
-{-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE OverloadedStrings     #-}
 
 module Cardano.BM.Output.Monitoring
     (

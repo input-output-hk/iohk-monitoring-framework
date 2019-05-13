@@ -3,6 +3,7 @@
     flags = {
       disable-aggregation = false;
       disable-ekg = false;
+      disable-prometheus = false;
       disable-gui = false;
       disable-monitoring = false;
       disable-observables = false;
@@ -22,7 +23,7 @@
       };
     components = {
       "library" = {
-        depends = (([
+        depends = ((([
           (hsPkgs.base)
           (hsPkgs.contra-tracer)
           (hsPkgs.aeson)
@@ -56,6 +57,10 @@
           ] ++ (pkgs.lib).optionals (!flags.disable-ekg) [
           (hsPkgs.ekg)
           (hsPkgs.ekg-core)
+          ]) ++ (pkgs.lib).optionals (!flags.disable-ekg && !flags.disable-prometheus) [
+          (hsPkgs.ekg-prometheus-adapter)
+          (hsPkgs.prometheus)
+          (hsPkgs.warp)
           ]) ++ (pkgs.lib).optional (!flags.disable-gui) (hsPkgs.threepenny-gui)) ++ (if system.isWindows
           then [ (hsPkgs.Win32) ]
           else [ (hsPkgs.unix) ]);

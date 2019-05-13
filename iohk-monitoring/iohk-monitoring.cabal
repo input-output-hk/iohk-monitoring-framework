@@ -22,6 +22,11 @@ flag disable-ekg
   default:             False
   manual:              True
 
+flag disable-prometheus
+  description:         Turn off Prometheus.
+  default:             False
+  manual:              True
+
 flag disable-gui
   description:         Turn off configuration editor GUI.
   default:             False
@@ -79,6 +84,9 @@ library
   if !flag(disable-ekg)
     exposed-modules:   Cardano.BM.Output.EKGView
 
+  if !flag(disable-ekg) && !flag(disable-prometheus)
+    exposed-modules:   Cardano.BM.Output.Prometheus
+
   if !flag(disable-gui)
     exposed-modules:   Cardano.BM.Output.Editor
 
@@ -131,6 +139,10 @@ library
   if !flag(disable-ekg)
      build-depends:    ekg,
                        ekg-core
+  if !flag(disable-ekg) && !flag(disable-prometheus)
+     build-depends:    ekg-prometheus-adapter,
+                       prometheus,
+                       warp
   if !flag(disable-gui)
      build-depends:    threepenny-gui
   if os(windows)
@@ -143,6 +155,9 @@ library
 
   if !flag(disable-ekg)
     cpp-options:       -DENABLE_EKG
+
+  if !flag(disable-ekg) && !flag(disable-prometheus)
+    cpp-options:       -DENABLE_PROMETHEUS
 
   if !flag(disable-gui)
     cpp-options:       -DENABLE_GUI
@@ -216,6 +231,9 @@ test-suite tests
   if !flag(disable-ekg)
     cpp-options:       -DENABLE_EKG
 
+  if !flag(disable-ekg) && !flag(disable-prometheus)
+    cpp-options:       -DENABLE_PROMETHEUS
+
   if !flag(disable-gui)
     cpp-options:       -DENABLE_GUI
 
@@ -269,6 +287,9 @@ executable example-complex
 
   if !flag(disable-ekg)
     cpp-options:       -DENABLE_EKG
+
+  if !flag(disable-ekg) && !flag(disable-prometheus)
+    cpp-options:       -DENABLE_PROMETHEUS
 
   if !flag(disable-gui)
     cpp-options:       -DENABLE_GUI
