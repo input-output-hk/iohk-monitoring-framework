@@ -9,3 +9,5 @@ extra-deps:
 - ekg-json-0.1.0.6
 - process-1.6.5.0
 - transformers-0.5.6.2
+nix:
+  shell-file: scripts/nix/stack-shell.nix
