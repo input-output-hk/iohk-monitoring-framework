@@ -13,7 +13,7 @@ import           Turtle
 -- | Run build and upload coverage information when successful
 main :: IO ()
 main = do
-  buildResult <- buildStep (Just ["--scenario=ContinuousIntegration"])
+  buildResult <- buildStep
 
   when (buildResult == ExitSuccess) coverageUploadStep
 
@@ -21,8 +21,8 @@ main = do
 
 
 -- | Build and test all packages using stack
-buildStep :: Maybe [Text] -> IO ExitCode
-buildStep testArgs = do
+buildStep :: IO ExitCode
+buildStep = do
   echo "+++ Build and test"
   run "stack" $ cfg ++ ["build", "--fast"] ++ buildArgs
  where
@@ -36,8 +36,6 @@ buildStep testArgs = do
       , "--test"
       , "--coverage"
       ]
-      ++ maybe [] ("--ta" :) testArgs
-
 
 -- | Upload coverage information to coveralls
 coverageUploadStep :: IO ()
