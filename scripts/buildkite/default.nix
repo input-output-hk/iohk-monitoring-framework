@@ -1,4 +1,4 @@
-with import ../../nix/iohk-common.nix;
+with import ../../lib.nix;
 with pkgs;
 
 let

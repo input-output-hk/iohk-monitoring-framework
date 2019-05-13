@@ -11,8 +11,8 @@ steps:
       - "rm -rf /build/iohk-monitoring"
       - "cp -R . /build/iohk-monitoring"
       - "cd /build/iohk-monitoring"
-      - "nix-build scripts/buildkite -o stack-rebuild"
-      - "./stack-rebuild"
+      - "nix-build --show-trace scripts/buildkite -o stack-rebuild"
+      - "./stack-rebuild --show-trace"
     agents:
       system: x86_64-linux
 
