@@ -1,4 +1,22 @@
 steps:
+  - label: "code coverage (stack)"
+    env:
+      AWS_REGION: us-west-1
+      S3_BUCKET: appveyor-ci-cache
+      CACHE_S3_MAX_SIZE: 2500MB
+      STACK_ROOT: "/build/iohk-monitoring.stack"
+    command:
+      # cache-s3 needs a build directory that is the same across all buildkite agents.
+      # so copy the source into /build/iohk-monitoring
+      - "rm -rf /build/iohk-monitoring"
+      - "cp -R . /build/iohk-monitoring"
+      - "cd /build/iohk-monitoring"
+      - "nix-build --show-trace scripts/buildkite -o stack-rebuild"
+      - "./stack-rebuild --show-trace"
+    agents:
+      system: x86_64-linux
+    branches: "develop master"
+
   - label: "make TeX documentation"
     command: "cd docs; nix-shell --run make"
     agents:
@@ -12,11 +30,12 @@ steps:
       system: x86_64-linux
     artifact_paths: "dist/test/iohk-monitoring-*-tests.log"
     timeout: 15
-    
+
   - label: 'check-hydra'
     command: 'ci/check-hydra.sh'
     agents:
       system: x86_64-linux
+
   - label: 'stack2nix'
     command: 'ci/check-stack2nix.sh'
     agents:
