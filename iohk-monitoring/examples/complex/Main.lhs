@@ -187,7 +187,7 @@ prepare_configuration = do
     CM.setBackends c "#aggregation.complex.observeIO" (Just [EKGViewBK])
     CM.setEKGport c 12789
 #ifdef ENABLE_PROMETHEUS
-    CM.setPrometheusPort c 9090
+    CM.setPrometheusPort c 12799
 #endif
 #endif
 #ifdef ENABLE_GUI

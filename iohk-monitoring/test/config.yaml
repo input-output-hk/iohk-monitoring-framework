@@ -26,7 +26,7 @@ defaultBackends:
 hasEKG: 12789
 
 # if wanted, the Prometheus interface is using this port:
-# hasPrometheus: 9090
+# hasPrometheus: 12799
 
 # here we set up outputs of logging in 'katip':
 setupScribes:
