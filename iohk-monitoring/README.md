@@ -1,6 +1,5 @@
 # iohk-monitoring-framework
 
-[![Release version](https://img.shields.io/github/release-pre/input-output-hk/iohk-monitoring-framework.svg)](https://github.com/input-output-hk/iohk-monitoring-framework/releases)
 [![Build status](https://badge.buildkite.com/1cc7939a1fed4972c15b8f87d510e0404b0eb65d73cfd1e30b.svg?branch=develop)](https://buildkite.com/input-output-hk/iohk-monitoring-framework)
 [![Coverage Status](https://coveralls.io/repos/github/input-output-hk/iohk-monitoring-framework/badge.svg?branch=develop)](https://coveralls.io/github/input-output-hk/iohk-monitoring-framework?branch=develop)
 
