@@ -475,7 +475,7 @@ setupFromRepresentation r = do
                        Nothing -> 0
                        Just p  -> p
     r_hasPrometheus repr = case (R.hasPrometheus repr) of
-                       Nothing -> 9090 -- default port for Prometheus
+                       Nothing -> 12799 -- default port for Prometheus
                        Just p  -> p
     r_hasGUI repr = case (R.hasGUI repr) of
                        Nothing -> 0
@@ -513,7 +513,7 @@ empty = do
                            , cgDefAggregatedKind = StatsAK
                            , cgMonitors          = HM.empty
                            , cgPortEKG           = 0
-                           , cgPortPrometheus    = 9090
+                           , cgPortPrometheus    = 12799
                            , cgPortGUI           = 0
                            }
     return $ Configuration cgref
