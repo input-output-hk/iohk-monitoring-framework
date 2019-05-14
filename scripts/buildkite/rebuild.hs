@@ -29,13 +29,10 @@ buildStep = do
   cfg = ["--dump-logs", "--color", "always"]
   buildArgs =
     [ "--bench"
-      , "--no-run-benchmarks"
-    --   , "--haddock"
-    --   , "--haddock-internal"
-      , "--no-haddock-deps"
-      , "--test"
-      , "--coverage"
-      ]
+    , "--no-run-benchmarks"
+    , "--test"
+    , "--coverage"
+    ]
 
 -- | Upload coverage information to coveralls
 coverageUploadStep :: IO ()
