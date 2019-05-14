@@ -9,6 +9,7 @@
         "ekg-prometheus-adapter" = (((hackage.ekg-prometheus-adapter)."0.1.0.4").revisions).default;
         "process" = (((hackage.process)."1.6.5.0").revisions).default;
         "transformers" = (((hackage.transformers)."0.5.6.2").revisions).default;
+        "containers" = (((hackage.containers)."0.5.11.0").revisions).default;
         } // {
         contra-tracer = ./contra-tracer.nix;
         iohk-monitoring = ./iohk-monitoring.nix;
