@@ -1,6 +1,7 @@
 # iohk-monitoring-framework
 
 [![Build status](https://badge.buildkite.com/1cc7939a1fed4972c15b8f87d510e0404b0eb65d73cfd1e30b.svg?branch=develop)](https://buildkite.com/input-output-hk/iohk-monitoring-framework)
+[![Coverage Status](https://coveralls.io/repos/github/input-output-hk/iohk-monitoring-framework/badge.svg?branch=andreas/268-CI-coverage)](https://coveralls.io/github/input-output-hk/iohk-monitoring-framework?branch=andreas/268-CI-coverage)
 
 This framework provides logging, benchmarking and monitoring.
 
