@@ -13,6 +13,7 @@ or filtering them based on evaluating predicates.
 -}
 module Control.Tracer
     ( Tracer (..)
+    , Contravariant(..)
     -- * tracing
     , traceWith
     -- * tracers
@@ -150,7 +151,7 @@ traceWith = runTracer
 \subsection{Transformers}
 \subsubsection{Applying |show| on a |Tracer|'s messages}
 The Tracer transformer exploiting Show.
- 
+
 %if style == newcode
 \begin{code}
 -- | transform a traced value to a showable instance.
