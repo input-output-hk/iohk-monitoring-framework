@@ -44,7 +44,7 @@ import           Cardano.BM.Configuration (Configuration, getEKGport,
 import           Cardano.BM.Data.Aggregated
 import           Cardano.BM.Data.Backend
 import           Cardano.BM.Data.LogItem
-import           Cardano.BM.Data.MessageCounter (resetCounters,
+import           Cardano.BM.Data.MessageCounter (MessageCounter, resetCounters,
                      sendAndResetAfter, updateMessageCounters)
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.Trace
@@ -202,7 +202,7 @@ instance ToObject a => IsBackend EKGView a where
         ekghdl <- getLabel "iohk-monitoring version" ehdl
         Label.set ekghdl $ pack (showVersion version)
         ekgtrace <- ekgTrace ekgview config
-        queue <- atomically $ TBQ.newTBQueue 25120
+        queue <- atomically $ TBQ.newTBQueue 5120
         dispatcher <- spawnDispatcher config queue sbtrace ekgtrace
         -- link the given Async to the current thread, such that if the Async
         -- raises an exception, that exception will be re-thrown in the current
@@ -247,6 +247,7 @@ spawnDispatcher config evqueue sbtrace ekgtrace = do
 
     Async.async $ qProc countersMVar
   where
+    qProc :: MVar MessageCounter -> IO ()
     qProc counters = do
         maybeItem <- atomically $ TBQ.readTBQueue evqueue
         case maybeItem of
@@ -264,14 +265,3 @@ spawnDispatcher config evqueue sbtrace ekgtrace = do
 
 \end{code}
 
-\subsubsection{Interactive testing |EKGView|}
-\begin{spec}
-test :: IO ()
-test = do
-    c <- Cardano.BM.Setup.setupTrace (Left "test/config.yaml") "ekg"
-    ev <- Cardano.BM.Output.EKGView.realize c
-    meta <- mkLOMeta Info Public
-
-    effectuate ev $ LogObject "test.questions" meta (LogValue "answer" 42)
-    effectuate ev $ LogObject "test.monitor023" meta (LogMessage (LogItem Public Warning "!!!! ALARM !!!!"))
-\end{spec}
