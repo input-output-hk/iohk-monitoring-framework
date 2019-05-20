@@ -404,14 +404,19 @@ unitConfigurationParsed = do
                                             , ("iohk.background.process", StatsAK)
                                             ]
         , cgDefAggregatedKind = StatsAK
-        , cgMonitors          = HM.fromList [ ("chain.creation.block", ((OR (Compare "time" (GT, (Agg.Seconds 23))) (Compare "time" (LT, (Agg.Seconds 17))))
-                                                                       , ["AlterMinSeverity \"chain.creation\" Debug"]
-                                                                       )
+        , cgMonitors          = HM.fromList [ ( "chain.creation.block"
+                                              , ( Nothing
+                                                , (OR (Compare "time" (GT, (Agg.Seconds 23))) (Compare "time" (LT, (Agg.Seconds 17))))
+                                                , ["AlterMinSeverity \"chain.creation\" Debug"]
+                                                )
                                               )
-                                            , ("#aggregation.critproc.observable", (Compare "mean" (GE, (Agg.PureI 42))
-                                                                                   , ["CreateMessage \"exceeded\" \"the observable has been too long too high!\""
-                                                                                   , "AlterGlobalMinSeverity Info"]
-                                                                                   )
+                                            , ( "#aggregation.critproc.observable"
+                                              , ( Nothing
+                                                , Compare "mean" (GE, (Agg.PureI 42))
+                                                , [ "CreateMessage \"exceeded\" \"the observable has been too long too high!\""
+                                                  , "AlterGlobalMinSeverity Info"
+                                                  ]
+                                                )
                                               )
                                             ]
         , cgPortEKG           = 12789

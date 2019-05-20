@@ -9,6 +9,7 @@
 
 module Cardano.BM.Data.MonitoringEval
   ( MEvExpr (..)
+  , MEvPreCond
   , Operator (..)
   , MEvAction
   , VarName
@@ -77,6 +78,10 @@ data MEvExpr = Compare VarName (Operator, Measurable)
 
             -- parsing: "(some >= (2000 µs))"  =>  Compare "some" (GE, (Microseconds 2000))
             -- parser "((lastreported >= (5 s)) Or ((other >= (0 s)) And (some > (1500 µs))))"
+
+-- Precondition for monitoring is the same logical expression,
+-- but it is an optional expression.
+type MEvPreCond = Maybe MEvExpr
 
 instance Eq MEvExpr where
     (==) (Compare vn1 p1) (Compare vn2 p2) = (vn1 == vn2) && (p1 == p2)
