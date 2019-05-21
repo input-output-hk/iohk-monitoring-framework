@@ -13,7 +13,7 @@
 {-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE RecordWildCards       #-}
 {-# LANGUAGE StandaloneDeriving    #-}
-
+{-# LANGUAGE ScopedTypeVariables   #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module Cardano.BM.Output.Log
@@ -31,7 +31,7 @@ import           Control.Concurrent.MVar (MVar, modifyMVar_, readMVar,
 import           Control.Exception.Safe (catchIO)
 import           Control.Monad (forM, forM_, void, when)
 import           Control.Lens ((^.))
-import           Data.Aeson (ToJSON, Value (..))
+import           Data.Aeson (fromJSON, ToJSON, Result (Success), Value (..))
 import           Data.Aeson.Text (encodeToLazyText)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Map as Map
@@ -388,8 +388,24 @@ renderTextMsg r =
 
 renderJsonMsg :: (K.LogItem a) => Rendering a -> (Int, TL.Text)
 renderJsonMsg r =
-    let m' = encodeToLazyText $ K.itemJson (verbosity r) (logitem r)
+    let m' = encodeToLazyText $ trimTime $ K.itemJson (verbosity r) (logitem r)
     in (fromIntegral $ TL.length m', m')
+
+-- keep only two digits for the fraction of seconds
+trimTime :: Value -> Value
+trimTime (Object o) = Object $ HM.adjust
+                                keep2Decimals
+                                "at"
+                                o
+  where
+    keep2Decimals :: Value -> Value
+    keep2Decimals v = case fromJSON v of
+                        Success (utct :: UTCTime) ->
+                            String $ pack $ formatTime defaultTimeLocale jformat utct
+                        _ -> v
+    jformat :: String
+    jformat = "%FT%T%2QZ"
+trimTime v = v
 
 mkTextFileScribe :: Maybe RotationParameters -> FileDescription -> Bool -> IO K.Scribe
 mkTextFileScribe rotParams fdesc colorize = do
