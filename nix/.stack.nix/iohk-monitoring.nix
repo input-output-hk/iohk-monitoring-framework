@@ -39,6 +39,7 @@
           (hsPkgs.directory)
           (hsPkgs.filepath)
           (hsPkgs.katip)
+          (hsPkgs.katip-libsystemd-journal)
           (hsPkgs.lens)
           (hsPkgs.mtl)
           (hsPkgs.safe)

@@ -34,12 +34,14 @@ import           GHC.Generics (Generic)
 \label{code:FileSK}\index{ScribeKind!FileSK}
 \label{code:StdoutSK}\index{ScribeKind!StdoutSK}
 \label{code:StderrSK}\index{ScribeKind!StderrSK}
+\label{code:JournalSK}\index{ScribeKind!JournalSK}
 \label{code:DevNullSK}\index{ScribeKind!DevNullSK}
 This identifies katip's scribes by type.
 \begin{code}
 data ScribeKind = FileSK
                 | StdoutSK
                 | StderrSK
+                | JournalSK
                 | DevNullSK
                 deriving (Generic, Eq, Ord, Show, Read, FromJSON, ToJSON)
 

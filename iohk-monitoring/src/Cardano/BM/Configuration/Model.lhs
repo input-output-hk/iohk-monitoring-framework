@@ -440,11 +440,11 @@ setupFromRepresentation r = do
 
     fillRotationParams :: Maybe RotationParameters -> [ScribeDefinition] -> [ScribeDefinition]
     fillRotationParams defaultRotation = map $ \sd ->
-        if (scKind sd /= StdoutSK) && (scKind sd /= StderrSK)
+        if (scKind sd /= StdoutSK) && (scKind sd /= StderrSK) && (scKind sd /= JournalSK)
         then
             sd { scRotation = maybe defaultRotation Just (scRotation sd) }
         else
-            -- stdout and stderr cannot be rotated
+            -- stdout, stderr and systemd cannot be rotated
             sd { scRotation = Nothing }
 
     parseBackendMap Nothing = HM.empty

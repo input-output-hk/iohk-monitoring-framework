@@ -13,6 +13,8 @@
         } // {
         contra-tracer = ./contra-tracer.nix;
         iohk-monitoring = ./iohk-monitoring.nix;
+        katip-libsystemd-journal = ./katip-libsystemd-journal.nix;
+        libsystemd-journal = ./libsystemd-journal.nix;
         };
       compiler.version = "8.6.4";
       compiler.nix-name = "ghc864";

@@ -59,6 +59,7 @@ import           Paths_iohk_monitoring (version)
 import qualified Katip as K
 import qualified Katip.Core as KC
 import           Katip.Scribes.Handle (brackets)
+import           Katip.Scribes.Journal (journalScribe)
 
 import qualified Cardano.BM.Configuration as Config
 import           Cardano.BM.Configuration.Model (getScribes, getSetupScribes)
@@ -188,6 +189,7 @@ instance ToObject a => IsBackend Log a where
                                                             rotParams
                                                             (FileDescription $ unpack name)
                                                             False
+            createScribe JournalSK _ _ _ = mkJournalScribe
             createScribe StdoutSK sctype _ _ = mkStdoutScribe sctype
             createScribe StderrSK sctype _ _ = mkStderrScribe sctype
             createScribe DevNullSK _ _ _ = mkDevNullScribe
@@ -490,6 +492,12 @@ mkFileScribe Nothing fdesc formatter colorize = do
             withMVar scribestate $ \handler ->
                 void $ formatter handler (Rendering colorize K.V0 item)
     return $ K.Scribe logger finalizer
+
+\end{code}
+
+\begin{code}
+mkJournalScribe :: IO K.Scribe
+mkJournalScribe = return $ journalScribe Nothing (sev2klog Debug) K.V3
 
 \end{code}
 
