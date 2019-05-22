@@ -57,7 +57,7 @@ instance ToJSON Microsecond where
 \subsubsection{Names of counters}\label{code:nameCounter}\index{nameCounter}
 \begin{code}
 nameCounter :: Counter -> Text
-nameCounter (Counter MonotonicClockTime _ _) = "Time-interval"
+nameCounter (Counter MonotonicClockTime _ _) = "Clock"
 nameCounter (Counter MemoryCounter      _ _) = "Mem"
 nameCounter (Counter StatInfo           _ _) = "Stat"
 nameCounter (Counter IOCounter          _ _) = "IO"

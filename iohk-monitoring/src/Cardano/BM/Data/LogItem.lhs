@@ -6,10 +6,12 @@
 \begin{code}
 {-# LANGUAGE DeriveAnyClass     #-}
 {-# LANGUAGE DeriveGeneric      #-}
+{-# LANGUAGE LambdaCase         #-}
 {-# LANGUAGE StandaloneDeriving #-}
 
 module Cardano.BM.Data.LogItem
   ( LogObject (..)
+  , loType
   , LOMeta (..), mkLOMeta
   , LOContent (..)
   , CommandValue (..)
@@ -108,6 +110,18 @@ data LOContent a = LogMessage a
                  | Command CommandValue
                  | KillPill
                    deriving (Generic, Show, ToJSON)
+
+loType :: LogObject a -> Text
+loType = \case
+    LogObject _ _ (LogMessage _)        -> "LogMessage"
+    LogObject _ _ (LogValue _ _)        -> "LogValue"
+    LogObject _ _ (ObserveOpen _)       -> "ObserveOpen"
+    LogObject _ _ (ObserveDiff _)       -> "ObserveDiff"
+    LogObject _ _ (ObserveClose _)      -> "ObserveClose"
+    LogObject _ _ (AggregatedMessage _) -> "AggregatedMessage"
+    LogObject _ _ (MonitoringEffect _)  -> "MonitoringEffect"
+    LogObject _ _ (Command _)           -> "Command"
+    LogObject _ _ KillPill              -> "KillPill"
 
 \end{code}
 

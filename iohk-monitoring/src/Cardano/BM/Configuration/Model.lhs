@@ -602,7 +602,7 @@ findRootSubTrace config loggername = do
             -- We didn't find it, so drop the child (from the right side)
             -- and try to find it again.
             case dropToDot loggername of
-                Nothing -> return Nothing -- Didn't find.
+                Nothing -> return Nothing -- was at root
                 Just parentName -> findRootSubTrace config parentName
 
 testSubTrace :: Configuration -> LoggerName -> LogObject a -> IO (Maybe (LogObject a))
@@ -629,7 +629,7 @@ evalFilters fs nm =
     all (\(no, yes) -> if (dropFilter nm no) then (unhideFilter nm yes) else True) fs
   where
     dropFilter :: LoggerName -> DropName -> Bool
-    dropFilter name (Drop sel) = {-not-} (matchName name sel)
+    dropFilter name (Drop sel) = (matchName name sel)
     unhideFilter :: LoggerName -> UnhideNames -> Bool
     unhideFilter _ (Unhide []) = False
     unhideFilter name (Unhide us) = any (\sel -> matchName name sel) us
