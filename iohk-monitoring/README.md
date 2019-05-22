@@ -9,7 +9,7 @@ This framework provides logging, benchmarking and monitoring.
 
 Documentation of the [source code and tests](docs/IOHK-Monitoring.pdf) in PDF format. Please, download the PDF file and open in external viewer. It contains links that make it easy to navigate in the source code. Those links are not active in the online viewer.
 
-View our first presentation (2018-12-04) on this subject in [html](https://input-output-hk.github.io/iohk-monitoring-framework/pres-20181204/html/index.html)
+Presentations and more documentation is available from our [docs](https://input-output-hk.github.io/iohk-monitoring-framework/) section.
 
 ## module dependencies
 
@@ -36,3 +36,4 @@ These showcase the usage of this framework in an application. The *complex* exam
 
 * `cabal new-build` and `cabal new-test`
 * `ghcid -c "cabal new-repl"` watches for file changes and recompiles them immediately
+* `liquid --ghc-option=-XOverloadedStrings --prune-unsorted src/Cardano/BM/*.lhs` verify top modules in iohk-monitoring using LiquidHaskell

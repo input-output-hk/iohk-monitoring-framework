@@ -22,6 +22,7 @@ cabal.project.local~
 .HTF/
 .ghc.environment.*
 .DS_Store
+.liquid/
 
 docs/IOHK-Monitoring-code.idx
 docs/IOHK-Monitoring-code.ilg
