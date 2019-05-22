@@ -97,7 +97,7 @@ library
   if !flag(disable-monitoring)
     exposed-modules:   Cardano.BM.Output.Monitoring
 
-  if os(Linux)
+  if os(linux)
     exposed-modules:   Cardano.BM.Counters.Linux
   else
     exposed-modules:   Cardano.BM.Counters.Dummy
@@ -122,7 +122,6 @@ library
                        directory,
                        filepath,
                        katip < 0.8,
-                       katip-libsystemd-journal,
                        lens,
                        mtl,
                        safe,
@@ -150,6 +149,9 @@ library
      build-depends:    Win32
   else
      build-depends:    unix
+
+  if os(linux)
+     build-depends:    katip-libsystemd-journal
 
   if !flag(disable-aggregation)
     cpp-options:       -DENABLE_AGGREGATION
