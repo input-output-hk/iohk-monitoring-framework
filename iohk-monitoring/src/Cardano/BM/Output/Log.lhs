@@ -4,6 +4,7 @@
 
 %if style == newcode
 \begin{code}
+{-# LANGUAGE CPP                   #-}
 {-# LANGUAGE DeriveAnyClass        #-}
 {-# LANGUAGE DeriveGeneric         #-}
 {-# LANGUAGE FlexibleInstances     #-}
@@ -15,6 +16,10 @@
 {-# LANGUAGE StandaloneDeriving    #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
+
+#if defined(linux_HOST_OS)
+#define LINUX
+#endif
 
 module Cardano.BM.Output.Log
     (
@@ -59,6 +64,9 @@ import           Paths_iohk_monitoring (version)
 import qualified Katip as K
 import qualified Katip.Core as KC
 import           Katip.Scribes.Handle (brackets)
+#ifdef LINUX
+import           Katip.Scribes.Journal (journalScribe)
+#endif
 
 import qualified Cardano.BM.Configuration as Config
 import           Cardano.BM.Configuration.Model (getScribes, getSetupScribes)
@@ -188,6 +196,9 @@ instance ToObject a => IsBackend Log a where
                                                             rotParams
                                                             (FileDescription $ unpack name)
                                                             False
+#ifdef LINUX
+            createScribe JournalSK _ _ _ = mkJournalScribe
+#endif
             createScribe StdoutSK sctype _ _ = mkStdoutScribe sctype
             createScribe StderrSK sctype _ _ = mkStderrScribe sctype
             createScribe DevNullSK _ _ _ = mkDevNullScribe
@@ -490,6 +501,14 @@ mkFileScribe Nothing fdesc formatter colorize = do
             withMVar scribestate $ \handler ->
                 void $ formatter handler (Rendering colorize K.V0 item)
     return $ K.Scribe logger finalizer
+
+\end{code}
+
+\begin{code}
+#ifdef LINUX
+mkJournalScribe :: IO K.Scribe
+mkJournalScribe = return $ journalScribe Nothing (sev2klog Debug) K.V3
+#endif
 
 \end{code}
 

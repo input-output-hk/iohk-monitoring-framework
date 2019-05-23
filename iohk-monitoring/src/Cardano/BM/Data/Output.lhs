@@ -4,8 +4,13 @@
 
 %if style == newcode
 \begin{code}
+{-# LANGUAGE CPP            #-}
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric  #-}
+
+#if defined(linux_HOST_OS)
+#define LINUX
+#endif
 
 module Cardano.BM.Data.Output
   (
@@ -34,12 +39,16 @@ import           GHC.Generics (Generic)
 \label{code:FileSK}\index{ScribeKind!FileSK}
 \label{code:StdoutSK}\index{ScribeKind!StdoutSK}
 \label{code:StderrSK}\index{ScribeKind!StderrSK}
+\label{code:JournalSK}\index{ScribeKind!JournalSK}
 \label{code:DevNullSK}\index{ScribeKind!DevNullSK}
 This identifies katip's scribes by type.
 \begin{code}
 data ScribeKind = FileSK
                 | StdoutSK
                 | StderrSK
+#ifdef LINUX
+                | JournalSK
+#endif
                 | DevNullSK
                 deriving (Generic, Eq, Ord, Show, Read, FromJSON, ToJSON)
 

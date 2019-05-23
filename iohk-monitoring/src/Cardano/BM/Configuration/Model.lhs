@@ -4,8 +4,13 @@
 
 %if style == newcode
 \begin{code}
-{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE CPP               #-}
+{-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
+
+#if defined(linux_HOST_OS)
+#define LINUX
+#endif
 
 module Cardano.BM.Configuration.Model
     ( Configuration (..)
@@ -448,10 +453,13 @@ setupFromRepresentation r = do
     fillRotationParams :: Maybe RotationParameters -> [ScribeDefinition] -> [ScribeDefinition]
     fillRotationParams defaultRotation = map $ \sd ->
         if (scKind sd /= StdoutSK) && (scKind sd /= StderrSK)
+#ifdef LINUX
+            && (scKind sd /= JournalSK)
+#endif
         then
             sd { scRotation = maybe defaultRotation Just (scRotation sd) }
         else
-            -- stdout and stderr cannot be rotated
+            -- stdout, stderr and systemd cannot be rotated
             sd { scRotation = Nothing }
 
     parseBackendMap Nothing = HM.empty
