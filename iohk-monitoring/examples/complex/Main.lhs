@@ -13,6 +13,7 @@
 #define RUN_ProcObseverSTM
 #define RUN_ProcObseveDownload
 #define RUN_ProcRandom
+#undef RUN_ProcMonitoring
 #undef RUN_ProcBufferDump
 
 module Main
@@ -27,10 +28,10 @@ import           Control.Monad (forM)
 import           GHC.Conc.Sync (atomically, STM, TVar, newTVar, readTVar, writeTVar)
 #ifdef LINUX
 import qualified Data.ByteString.Char8 as BS8
-import qualified Data.HashMap.Strict as HM
 import           Network.Download (openURI)
 #endif
 #endif
+import qualified Data.HashMap.Strict as HM
 import           Data.Text (Text, pack)
 import           System.Random
 
@@ -161,7 +162,7 @@ prepare_configuration = do
 
 #ifdef ENABLE_AGGREGATION
     CM.setBackends c "complex.message" (Just [AggregationBK, KatipBK])
-    CM.setBackends c "complex.random" (Just [KatipBK])
+    CM.setBackends c "complex.random" (Just [KatipBK, EKGViewBK])
     CM.setBackends c "complex.random.ewma" (Just [KatipBK])
     CM.setBackends c "complex.observeIO" (Just [AggregationBK])
     CM.setSubTrace c "#messagecounters.aggregation" $ Just NoTrace
@@ -258,6 +259,7 @@ randomThr trace = do
 
 \subsubsection{Thread that outputs a random number to monitoring |Trace|}
 \begin{code}
+#ifdef RUN_ProcMonitoring
 monitoringThr :: Trace IO Text -> IO (Async.Async ())
 monitoringThr trace = do
   logInfo trace "starting numbers for monitoring..."
@@ -271,6 +273,7 @@ monitoringThr trace = do
         lo <- (,) <$> (mkLOMeta Warning Public) <*> pure (LogValue "monitMe" (PureD num))
         traceNamedObject tr lo
         loop tr
+#endif
 \end{code}
 
 \subsubsection{Thread that observes an |IO| action}
@@ -384,7 +387,9 @@ main = do
        to a trace which aggregates them into a statistics (sent to EKG) -}
     procRandom <- randomThr tr
 #endif
+#ifdef RUN_ProcMonitoring
     procMonitoring <- monitoringThr tr
+#endif
 #ifdef RUN_ProcObserveIO
     -- start thread endlessly reversing lists of random length
 #ifdef ENABLE_OBSERVABLES
@@ -437,7 +442,9 @@ main = do
     -- wait for random thread to finish, ignoring any exception
     _ <- Async.waitCatch procRandom
 #endif
+#ifdef RUN_ProcMonitoring
     _ <- Async.waitCatch procMonitoring
+#endif
 #ifdef RUN_ProcBufferDump
     _ <- Async.waitCatch procDump
 #endif
