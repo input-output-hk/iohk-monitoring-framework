@@ -27,6 +27,7 @@ import           Control.Monad (forM)
 import           GHC.Conc.Sync (atomically, STM, TVar, newTVar, readTVar, writeTVar)
 #ifdef LINUX
 import qualified Data.ByteString.Char8 as BS8
+import qualified Data.HashMap.Strict as HM
 import           Network.Download (openURI)
 #endif
 #endif
@@ -39,6 +40,7 @@ import           Cardano.BM.Data.Aggregated (Measurable (..))
 import           Cardano.BM.Data.AggregatedKind
 import           Cardano.BM.Data.BackendKind
 import           Cardano.BM.Data.LogItem
+import           Cardano.BM.Data.MonitoringEval
 import           Cardano.BM.Data.Output
 import           Cardano.BM.Data.Rotation
 import           Cardano.BM.Data.Severity
@@ -72,6 +74,7 @@ prepare_configuration = do
 #ifdef ENABLE_GUI
                           , EditorBK
 #endif
+                          , MonitoringBK
                           ]
     CM.setDefaultBackends c [KatipBK]
     CM.setSetupScribes c [ ScribeDefinition {
@@ -114,6 +117,7 @@ prepare_configuration = do
                                               }
                             }
                          ]
+
     CM.setDefaultScribes c ["StdoutSK::stdout"]
     CM.setScribes c "complex.random" (Just ["StdoutSK::stdout", "FileSK::logs/out.txt"])
     forM_ [(1::Int)..10] $ \x ->
@@ -157,8 +161,8 @@ prepare_configuration = do
 
 #ifdef ENABLE_AGGREGATION
     CM.setBackends c "complex.message" (Just [AggregationBK, KatipBK])
-    CM.setBackends c "complex.random" (Just [AggregationBK, KatipBK])
-    CM.setBackends c "complex.random.ewma" (Just [AggregationBK, KatipBK])
+    CM.setBackends c "complex.random" (Just [KatipBK])
+    CM.setBackends c "complex.random.ewma" (Just [KatipBK])
     CM.setBackends c "complex.observeIO" (Just [AggregationBK])
     CM.setSubTrace c "#messagecounters.aggregation" $ Just NoTrace
 #endif
@@ -182,8 +186,13 @@ prepare_configuration = do
 #endif
 
 #ifdef ENABLE_EKG
-    CM.setSubTrace c "#messagecounters.monitoring" $ Just NoTrace
-    CM.setBackends c "#aggregation.complex.message" (Just [EKGViewBK])
+    CM.setSubTrace c "#messagecounters.monitoring" $ (Just $ ObservableTrace [GhcRtsStats,MemoryStats])
+    ------------------------------------------------------------------
+    ------------------------------------------------------------------
+    CM.setBackends c "#aggregation.complex.message" (Just [EKGViewBK, MonitoringBK])
+    CM.setBackends c "#aggregation.complex.monitoring" (Just [MonitoringBK])
+    ------------------------------------------------------------------
+    ------------------------------------------------------------------
     CM.setBackends c "#aggregation.complex.observeIO" (Just [EKGViewBK])
     CM.setEKGport c 12789
 #ifdef ENABLE_PROMETHEUS
@@ -193,6 +202,21 @@ prepare_configuration = do
 #ifdef ENABLE_GUI
     CM.setGUIport c 13789
 #endif
+    CM.setMonitors c $ HM.fromList
+        [ ( "complex.monitoring"
+          , ( Just (Compare "monitMe" (GE, 10))
+            , Compare "monitMe" (GE, 42)
+            , ["SOME_ACTION_1"]
+            )
+          )
+        , ( "#aggregation.complex.monitoring"
+          , ( Just (Compare "monitMe.fcount" (GE, 8))
+            , Compare "monitMe.mean" (GE, 25)
+            , ["SOME_ACTION_2"]
+            )
+          )
+        ]
+    CM.setBackends c "complex.monitoring" (Just [AggregationBK, KatipBK, MonitoringBK])
     return c
 
 \end{code}
@@ -230,6 +254,23 @@ randomThr trace = do
         traceNamedObject tr lo
         loop tr
 
+\end{code}
+
+\subsubsection{Thread that outputs a random number to monitoring |Trace|}
+\begin{code}
+monitoringThr :: Trace IO Text -> IO (Async.Async ())
+monitoringThr trace = do
+  logInfo trace "starting numbers for monitoring..."
+  trace' <- appendName "monitoring" trace
+  proc <- Async.async (loop trace')
+  return proc
+  where
+    loop tr = do
+        threadDelay 500000  -- 0.5 second
+        num <- randomRIO (42-42, 42+42) :: IO Double
+        lo <- (,) <$> (mkLOMeta Warning Public) <*> pure (LogValue "monitMe" (PureD num))
+        traceNamedObject tr lo
+        loop tr
 \end{code}
 
 \subsubsection{Thread that observes an |IO| action}
@@ -343,6 +384,7 @@ main = do
        to a trace which aggregates them into a statistics (sent to EKG) -}
     procRandom <- randomThr tr
 #endif
+    procMonitoring <- monitoringThr tr
 #ifdef RUN_ProcObserveIO
     -- start thread endlessly reversing lists of random length
 #ifdef ENABLE_OBSERVABLES
@@ -395,6 +437,7 @@ main = do
     -- wait for random thread to finish, ignoring any exception
     _ <- Async.waitCatch procRandom
 #endif
+    _ <- Async.waitCatch procMonitoring
 #ifdef RUN_ProcBufferDump
     _ <- Async.waitCatch procDump
 #endif

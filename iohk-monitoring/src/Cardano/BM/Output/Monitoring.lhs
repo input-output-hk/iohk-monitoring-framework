@@ -59,10 +59,11 @@ data MonitorInternal a = MonitorInternal
 We remember the state of each monitored context name.
 \begin{code}
 data MonitorState = MonitorState {
-      _expression  :: MEvExpr
-    , _actions     :: [MEvAction]
-    , _environment :: Environment
-    }
+      _preCondition :: MEvPreCond
+    , _expression   :: MEvExpr
+    , _actions      :: [MEvAction]
+    , _environment  :: Environment
+    } deriving Show
 type MonitorMap = HM.HashMap LoggerName MonitorState
 
 \end{code}
@@ -140,7 +141,8 @@ spawnDispatcher mqueue config sbtrace = do
             Nothing -> return ()  -- stop here
     initMap = do
         ls <- getMonitors config
-        return $ HM.fromList $ map (\(n, (e,as)) -> (n, MonitorState e as HM.empty)) $ HM.toList ls
+        return $ HM.fromList $ map (\(n, (precond,e,as)) -> (n, MonitorState precond e as HM.empty))
+                                   $ HM.toList ls
 \end{code}
 
 \subsubsection{Evaluation of monitoring action}\label{code:evalMonitoringAction}
@@ -151,10 +153,15 @@ evalMonitoringAction :: MonitorMap -> LogObject a -> IO MonitorMap
 evalMonitoringAction mmap logObj@(LogObject logname _ _) =
     case HM.lookup logname mmap of
         Nothing -> return mmap
-        Just mon@(MonitorState expr acts env0) -> do
+        Just mon@(MonitorState precond expr acts env0) -> do
             let env' = updateEnv env0 logObj
-            if evaluate env' expr
-            then do
+            let doMonitor = case precond of
+                    -- There's no precondition, do monitor as usual.
+                    Nothing -> True
+                    -- Precondition is defined, do monitor only if it is True.
+                    Just preCondExpr -> evaluate env' preCondExpr
+            let thresholdIsReached = evaluate env' expr
+            if doMonitor && thresholdIsReached then do
                 now <- getMonotonicTimeNSec
                 let env'' = HM.insert "lastalert" (Nanoseconds now) env'
                 TIO.putStrLn $ "alert! " <> logname <> " " <> (pack $ show acts) <> " " <> (pack $ show env'')

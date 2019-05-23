@@ -39,6 +39,7 @@ module Cardano.BM.Configuration.Model
     , findSubTrace
     , setSubTrace
     , getMonitors
+    , setMonitors
     , getEKGport
     , setEKGport
     , getPrometheusPort
@@ -66,7 +67,7 @@ import           Cardano.BM.Data.AggregatedKind (AggregatedKind(..))
 import           Cardano.BM.Data.BackendKind
 import qualified Cardano.BM.Data.Configuration as R
 import           Cardano.BM.Data.LogItem (LogObject (..), LoggerName, LOContent (..), severity)
-import           Cardano.BM.Data.MonitoringEval (MEvAction, MEvExpr)
+import           Cardano.BM.Data.MonitoringEval (MEvAction, MEvExpr, MEvPreCond)
 import           Cardano.BM.Data.Output (ScribeDefinition (..), ScribeId,
                      ScribeKind (..))
 import           Cardano.BM.Data.Rotation (RotationParameters (..))
@@ -124,7 +125,7 @@ data ConfigurationInternal = ConfigurationInternal
     , cgDefAggregatedKind :: AggregatedKind
     -- kind of Aggregated that will be used if a set of scribes for the
     -- specific loggername is not set
-    , cgMonitors          :: HM.HashMap LoggerName (MEvExpr, [MEvAction])
+    , cgMonitors          :: HM.HashMap LoggerName (MEvPreCond, MEvExpr, [MEvAction])
     , cgPortEKG           :: Int
     -- port for EKG server
     , cgPortPrometheus    :: Int
@@ -371,10 +372,15 @@ Just (
 \end{spec}
 
 \begin{code}
-getMonitors :: Configuration -> IO (HM.HashMap LoggerName (MEvExpr, [MEvAction]))
+getMonitors :: Configuration -> IO (HM.HashMap LoggerName (MEvPreCond, MEvExpr, [MEvAction]))
 getMonitors configuration = do
     cg <- readMVar $ getCG configuration
     return (cgMonitors cg)
+
+setMonitors :: Configuration -> HM.HashMap LoggerName (MEvPreCond, MEvExpr, [MEvAction]) -> IO ()
+setMonitors configuration monitors =
+    modifyMVar_ (getCG configuration) $ \cg ->
+        return cg { cgMonitors = monitors }
 \end{code}
 
 \subsubsection{Parse configuration from file}
@@ -386,15 +392,16 @@ setup fp = do
     r <- R.parseRepresentation fp
     setupFromRepresentation r
 
-parseMonitors :: Maybe (HM.HashMap Text Value) -> HM.HashMap LoggerName (MEvExpr, [MEvAction])
+parseMonitors :: Maybe (HM.HashMap Text Value) -> HM.HashMap LoggerName (MEvPreCond, MEvExpr, [MEvAction])
 parseMonitors Nothing = HM.empty
 parseMonitors (Just hmv) = HM.mapMaybe mkMonitor hmv
     where
-    mkMonitor :: Value -> Maybe (MEvExpr, [MEvAction])
+    mkMonitor :: Value -> Maybe (MEvPreCond, MEvExpr, [MEvAction])
     mkMonitor = parseMaybe $ \v ->
                     (withObject "" $ \o ->
-                        (,) <$> o .: "monitor"
-                            <*> o .: "actions") v
+                        (,,) <$> o .:? "monitor-if"
+                             <*> o .:  "monitor"
+                             <*> o .:  "actions") v
                     <|> parseJSON v
 
 setupFromRepresentation :: R.Representation -> IO Configuration
@@ -541,8 +548,16 @@ toRepresentation (Configuration c) = do
                                       else HM.singleton name $ HM.map f hashmap
         toString :: Show a => a -> Value
         toString = String . pack . show
-        toObject :: (MEvExpr, [MEvAction]) -> Value
-        toObject (expr, actions) = object ["monitor" .= expr, "actions" .= actions]
+        toObject :: (MEvPreCond, MEvExpr, [MEvAction]) -> Value
+        toObject (Nothing, expr, actions) =
+            object [ "monitor" .= expr
+                   , "actions" .= actions
+                   ]
+        toObject (Just precond, expr, actions) =
+            object [ "monitor-if" .= precond
+                   , "monitor"    .= expr
+                   , "actions"    .= actions
+                   ]
         toJSON' :: [ScribeId] -> Value
         toJSON' [sid] = toJSON sid
         toJSON' ss    = toJSON ss

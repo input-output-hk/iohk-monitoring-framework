@@ -273,7 +273,8 @@ executable example-complex
                        bytestring,
                        mtl,
                        random,
-                       text
+                       text,
+                       unordered-containers
   if os(windows)
      build-depends:    Win32
   else
