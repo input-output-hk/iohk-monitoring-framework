@@ -41,7 +41,7 @@ readCounters (ObservableTrace tts) = foldrM (\(sel, fun) a ->
     else return a) [] selectors
   where
     selectors = [ (MonotonicClock, getMonoClock)
-                   , (GhcRtsStats, readRTSStats)
+                , (GhcRtsStats   , readRTSStats)
                 ]
 #else
 readCounters (ObservableTrace _)   = return []
