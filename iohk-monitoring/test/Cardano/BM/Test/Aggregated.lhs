@@ -73,11 +73,13 @@ lometa = unsafePerformIO $ mkLOMeta Debug Public
 
 prop_Aggregation_comm :: Integer -> Integer -> Aggregated -> Property
 prop_Aggregation_comm v1 v2 ag =
-    let AggregatedStats stats1 = updateAggregation (PureI v1) (updateAggregation (PureI v2) ag lometa Nothing) lometa Nothing
-        AggregatedStats stats2 = updateAggregation (PureI v2) (updateAggregation (PureI v1) ag lometa Nothing) lometa Nothing
+    let Right agg2 = updateAggregation (PureI v2) ag lometa Nothing
+        Right agg1 = updateAggregation (PureI v1) ag lometa Nothing
+        Right (AggregatedStats stats21) = updateAggregation (PureI v1) agg2 lometa Nothing
+        Right (AggregatedStats stats12) = updateAggregation (PureI v2) agg1 lometa Nothing
     in
-    fbasic stats1 === fbasic stats2 .&&.
-    (v1 == v2) `implies` (flast stats1 === flast stats2)
+    fbasic stats21 === fbasic stats12 .&&.
+    (v1 == v2) `implies` (flast stats21 === flast stats12)
 
 -- implication: if p1 is true, then return p2; otherwise true
 implies :: Bool -> Property -> Property
@@ -90,28 +92,29 @@ implies p1 p2 = property (not p1) .||. p2
 
 unitAggregationInitialMinus1 :: Assertion
 unitAggregationInitialMinus1 = do
-    let AggregatedStats stats1 = updateAggregation (-1) firstStateAggregatedStats lometa Nothing
+    let Right (AggregatedStats stats1) = updateAggregation (-1) firstStateAggregatedStats lometa Nothing
     flast stats1 @?= (-1)
     (fbasic stats1) @?= BaseStats (-1) 0 2 (-0.5) 0.5
     (fdelta stats1) @?= BaseStats 0 0 1 0 0
         -- AggregatedStats (Stats (-1) 0 (BaseStats (-1) 0 2 (-0.5) 0.5) (BaseStats 0 0 1 0 0) (BaseStats 0 0 1 0 0))
 unitAggregationInitialPlus1 :: Assertion
 unitAggregationInitialPlus1 = do
-    let AggregatedStats stats1 = updateAggregation 1 firstStateAggregatedStats lometa Nothing
+    let Right (AggregatedStats stats1) = updateAggregation 1 firstStateAggregatedStats lometa Nothing
     flast stats1 @?= 1
     (fbasic stats1) @?= BaseStats 0 1 2 0.5 0.5
     (fdelta stats1) @?= BaseStats 0 0 1 0 0
         -- AggregatedStats (Stats 1 0 (BaseStats 0 1 2 0.5 0.5) (BaseStats 0 0 1 0 0) (BaseStats 0 0 1 0 0))
 unitAggregationInitialZero :: Assertion
 unitAggregationInitialZero = do
-    let AggregatedStats stats1 = updateAggregation 0 firstStateAggregatedStats lometa Nothing
+    let Right (AggregatedStats stats1) = updateAggregation 0 firstStateAggregatedStats lometa Nothing
     flast stats1 @?= 0
     (fbasic stats1) @?= BaseStats 0 0 2 0 0
     (fdelta stats1) @?= BaseStats 0 0 1 0 0
         -- AggregatedStats (Stats 0 0 (BaseStats 0 0 2 0 0) (BaseStats 0 0 1 0 0) (BaseStats 0 0 1 0 0))
 unitAggregationInitialPlus1Minus1 :: Assertion
 unitAggregationInitialPlus1Minus1 = do
-    let AggregatedStats stats1 = updateAggregation (PureI (-1)) (updateAggregation (PureI 1) firstStateAggregatedStats lometa Nothing) lometa Nothing
+    let Right agg1 = updateAggregation (PureI 1) firstStateAggregatedStats lometa Nothing
+        Right (AggregatedStats stats1) = updateAggregation (PureI (-1)) agg1 lometa Nothing
     (fbasic stats1) @?= BaseStats (PureI (-1)) (PureI 1) 3   0.0  2.0
     (fdelta stats1) @?= BaseStats (PureI (-2)) (PureI 0) 2 (-1.0) 2.0
 
@@ -121,24 +124,24 @@ unitAggregationStepwise = do
     -- putStrLn (show stats0)
     threadDelay 50000   -- 0.05 s
     t1 <- mkLOMeta Debug Public
-    stats1 <- pure $ updateAggregation (Bytes 5000) stats0 t1 Nothing
+    Right stats1 <- pure $ updateAggregation (Bytes 5000) stats0 t1 Nothing
     -- putStrLn (show stats1)
     -- showTimedMean stats1
     threadDelay 50000   -- 0.05 s
     t2 <- mkLOMeta Debug Public
-    stats2 <- pure $ updateAggregation (Bytes 1000) stats1 t2 Nothing
+    Right stats2 <- pure $ updateAggregation (Bytes 1000) stats1 t2 Nothing
     -- putStrLn (show stats2)
     -- showTimedMean stats2
     checkTimedMean stats2
     threadDelay 50000   -- 0.05 s
     t3 <- mkLOMeta Debug Public
-    stats3 <- pure $ updateAggregation (Bytes 3000) stats2 t3 Nothing
+    Right stats3 <- pure $ updateAggregation (Bytes 3000) stats2 t3 Nothing
     -- putStrLn (show stats3)
     -- showTimedMean stats3
     checkTimedMean stats3
     threadDelay 50000   -- 0.05 s
     t4 <- mkLOMeta Debug Public
-    stats4 <- pure $ updateAggregation (Bytes 1000) stats3 t4 Nothing
+    Right stats4 <- pure $ updateAggregation (Bytes 1000) stats3 t4 Nothing
     -- putStrLn (show stats4)
     -- showTimedMean stats4
     checkTimedMean stats4

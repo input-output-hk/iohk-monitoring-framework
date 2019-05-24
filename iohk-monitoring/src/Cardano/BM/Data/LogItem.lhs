@@ -109,6 +109,7 @@ data MonitorAction = MonitorAlert Text
 Payload of a |LogObject|:
 \begin{code}
 data LOContent a = LogMessage a
+                --  | LogError Text
                  | LogValue Text Measurable
                  | ObserveOpen CounterState
                  | ObserveDiff CounterState
