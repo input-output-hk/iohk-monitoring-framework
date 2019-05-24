@@ -72,7 +72,7 @@ import           Cardano.BM.Data.AggregatedKind (AggregatedKind(..))
 import           Cardano.BM.Data.BackendKind
 import qualified Cardano.BM.Data.Configuration as R
 import           Cardano.BM.Data.LogItem (LogObject (..), LoggerName, LOContent (..), severity)
-import           Cardano.BM.Data.MonitoringEval (MEvAction, MEvExpr, MEvPreCond)
+import           Cardano.BM.Data.MonitoringEval (MEvExpr, MEvPreCond, MEvAction)
 import           Cardano.BM.Data.Output (ScribeDefinition (..), ScribeId,
                      ScribeKind (..))
 import           Cardano.BM.Data.Rotation (RotationParameters (..))
