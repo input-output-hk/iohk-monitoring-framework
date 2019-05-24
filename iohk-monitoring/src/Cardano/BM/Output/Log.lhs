@@ -294,6 +294,8 @@ passN backend katip (LogObject loname lometa loitem) = do
                                             Nothing          -> ("", Just loitem)
                                      in
                                      (severity lometa, text, maylo)
+                                (LogError text) ->
+                                     (severity lometa, text, Nothing)
                                 (ObserveDiff _) ->
                                      let text = TL.toStrict (encodeToLazyText (toObject loitem))
                                      in

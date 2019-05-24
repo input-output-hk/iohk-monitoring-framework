@@ -108,7 +108,7 @@ instance IsEffectuator Aggregation a where
 instance IsBackend Aggregation a where
     typeof _ = AggregationBK
 
-    realize _ = error "Aggregation cannot be instantiated by 'realize'"
+    realize _ = fail "Aggregation cannot be instantiated by 'realize'"
 
     realizefrom config trace _ = do
         aggref <- newEmptyMVar
@@ -203,8 +203,10 @@ spawnDispatcher conf aggMap aggregationQueue basetrace = do
                     updatedMap = HM.alter (const $ Just $ aggregatedX) fullname agmap
                 return (updatedMap, namedAggregated)
             Left w -> do
-                -- trace' <- appendName "update" trace
-                -- logWarning trace' w
+                trace' <- Trace.appendName "update" trace
+                Trace.traceNamedObject trace' =<<
+                    (,) <$> liftIO (mkLOMeta Warning Public)
+                        <*> pure (LogError w)
                 return (agmap, [])
 
     update (LogObject logname lme (ObserveDiff counterState)) agmap trace =
@@ -230,8 +232,10 @@ spawnDispatcher conf aggMap aggregationQueue basetrace = do
                     updatedMap = HM.alter (const $ Just $ aggregatedX) fullname agmap
                 return (updatedMap, namedAggregated)
             Left w -> do
-                -- trace' <- appendName "update" trace
-                -- logWarning trace' w
+                trace' <- Trace.appendName "update" trace
+                Trace.traceNamedObject trace' =<<
+                    (,) <$> liftIO (mkLOMeta Warning Public)
+                        <*> pure (LogError w)
                 return (agmap, [])
 
     -- everything else
@@ -263,8 +267,10 @@ spawnDispatcher conf aggMap aggregationQueue basetrace = do
                     updatedMap = HM.alter (const $ Just $ aggregatedX) fullname aggrMap
                 updateCounters cs lme (logname, msgname) updatedMap (namedAggregated : aggs) trace
             Left w -> do
-                -- trace' <- appendName "update" trace
-                -- logWarning trace' w
+                trace' <- Trace.appendName "updateCounters" trace
+                Trace.traceNamedObject trace' =<<
+                    (,) <$> liftIO (mkLOMeta Warning Public)
+                        <*> pure (LogError w)
                 updateCounters cs lme (logname, msgname) aggrMap aggs trace
 
     sendAggregated :: Trace.Trace IO a -> LogObject a -> IO ()

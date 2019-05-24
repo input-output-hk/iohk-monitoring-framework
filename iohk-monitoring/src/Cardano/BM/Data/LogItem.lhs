@@ -12,6 +12,7 @@
 module Cardano.BM.Data.LogItem
   ( LogObject (..)
   , loType
+  , loType2Name
   , LOMeta (..), mkLOMeta
   , LOContent (..)
   , CommandValue (..)
@@ -98,6 +99,7 @@ data MonitorAction = MonitorAlert Text
 \end{code}
 
 \label{code:LogMessage}\index{LogMessage}
+\label{code:LogError}\index{LogError}
 \label{code:LogValue}\index{LogValue}
 \label{code:ObserveOpen}\index{ObserveOpen}
 \label{code:ObserveDiff}\index{ObserveDiff}
@@ -109,7 +111,7 @@ data MonitorAction = MonitorAlert Text
 Payload of a |LogObject|:
 \begin{code}
 data LOContent a = LogMessage a
-                --  | LogError Text
+                 | LogError Text
                  | LogValue Text Measurable
                  | ObserveOpen CounterState
                  | ObserveDiff CounterState
@@ -121,16 +123,24 @@ data LOContent a = LogMessage a
                    deriving (Generic, Show, ToJSON)
 
 loType :: LogObject a -> Text
-loType = \case
-    LogObject _ _ (LogMessage _)        -> "LogMessage"
-    LogObject _ _ (LogValue _ _)        -> "LogValue"
-    LogObject _ _ (ObserveOpen _)       -> "ObserveOpen"
-    LogObject _ _ (ObserveDiff _)       -> "ObserveDiff"
-    LogObject _ _ (ObserveClose _)      -> "ObserveClose"
-    LogObject _ _ (AggregatedMessage _) -> "AggregatedMessage"
-    LogObject _ _ (MonitoringEffect _)  -> "MonitoringEffect"
-    LogObject _ _ (Command _)           -> "Command"
-    LogObject _ _ KillPill              -> "KillPill"
+loType (LogObject _ _ content) = loType2Name content
+
+\end{code}
+
+Name of a message content type
+\begin{code}
+loType2Name :: LOContent a -> Text
+loType2Name = \case
+    LogMessage _        -> "LogMessage"
+    LogError _          -> "LogError"
+    LogValue _ _        -> "LogValue"
+    ObserveOpen _       -> "ObserveOpen"
+    ObserveDiff _       -> "ObserveDiff"
+    ObserveClose _      -> "ObserveClose"
+    AggregatedMessage _ -> "AggregatedMessage"
+    MonitoringEffect _  -> "MonitoringEffect"
+    Command _           -> "Command"
+    KillPill            -> "KillPill"
 
 \end{code}
 

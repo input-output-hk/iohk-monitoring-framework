@@ -5,7 +5,6 @@
 %if style == newcode
 \begin{code}
 {-# LANGUAGE DeriveAnyClass    #-}
-{-# LANGUAGE LambdaCase        #-}
 
 module Cardano.BM.Data.MessageCounter
   ( MessageCounter (..)
@@ -27,7 +26,7 @@ import           Data.Word (Word64)
 import           Cardano.BM.Data.Aggregated (Measurable (PureI))
 import           Cardano.BM.Data.LogItem (LoggerName, LOContent (..),
                     LOMeta(..), LogObject(..), PrivacyAnnotation(Confidential),
-                    mkLOMeta)
+                    loType2Name, mkLOMeta)
 import           Cardano.BM.Data.Severity (Severity (..))
 import           Cardano.BM.Data.Trace
 import qualified Cardano.BM.Trace as Trace
@@ -51,7 +50,7 @@ Update counter for specific severity and type of message.
 updateMessageCounters :: MessageCounter -> LogObject a -> MessageCounter
 updateMessageCounters mc (LogObject _ meta content) =
     let sev = pack $ show $ severity meta
-        messageType = lotype2name content
+        messageType = loType2Name content
         increasedCounter key cmap =
             case HM.lookup key cmap of
                 Nothing -> 1 :: Word64
@@ -63,22 +62,6 @@ updateMessageCounters mc (LogObject _ meta content) =
             HM.insert messageType typeCounter $
                 HM.insert sev sevCounter $ mcCountersMap mc
         }
-
-\end{code}
-
-Name of a message content type
-\begin{code}
-lotype2name :: LOContent a -> Text
-lotype2name = \case 
-    LogMessage _        -> "LogMessage"
-    LogValue _ _        -> "LogValue"
-    ObserveOpen _       -> "ObserveOpen"
-    ObserveDiff _       -> "ObserveDiff"
-    ObserveClose _      -> "ObserveClose"
-    AggregatedMessage _ -> "AggregatedMessage"
-    MonitoringEffect _  -> "MonitoringEffect"
-    Command _           -> "Command"
-    KillPill            -> "KillPill"
 
 \end{code}
 
