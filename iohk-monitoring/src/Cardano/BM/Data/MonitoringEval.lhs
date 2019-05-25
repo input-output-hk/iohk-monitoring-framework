@@ -170,6 +170,7 @@ parseEitherAction t =
 An expression is enclosed in parentheses. Either it is a negation, starting with 'Not',
 or a binary operand like 'And', 'Or', or a comparison of a named variable.
 \begin{code}
+{-@ lazy parseExpr @-}
 parseExpr :: P.Parser MEvExpr
 parseExpr = do
     openPar
