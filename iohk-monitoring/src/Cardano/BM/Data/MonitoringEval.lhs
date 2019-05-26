@@ -11,12 +11,11 @@ module Cardano.BM.Data.MonitoringEval
   ( MEvExpr (..)
   , MEvPreCond
   , Operator (..)
-  , MEvAction
+  , MEvAction (..)
   , VarName
   , Environment
-  , evaluate
-  , parseEither
   , parseMaybe
+  , evaluate
   )
   where
 
@@ -112,8 +111,21 @@ instance Show MEvExpr where
 If evaluation of a monitoring expression is |True|, then a set of actions are
 executed for alerting.
 \begin{code}
-type MEvAction = Text
+data MEvAction = CreateMessage Severity Text
+    deriving (Eq)
 
+instance FromJSON MEvAction where
+    parseJSON (String s) =
+        case parseEitherAction s of
+            Left e     -> error e
+            Right expr -> pure expr
+    parseJSON _ = error "cannot parse such an action!"
+
+instance ToJSON MEvAction where
+    toJSON = String . pack . show
+
+instance Show MEvAction where
+    show (CreateMessage sev msg) = "(CreateMessage" ++ " " ++ show sev ++ " " ++ show msg ++ ")"
 \end{code}
 
 \subsubsection{Parsing an expression from textual representation}\label{code:parseEither}\label{code:parseMaybe}
@@ -138,6 +150,16 @@ token s = void $ P.string s
 
 \end{code}
 
+\subsubsection{Parsing an action from textual representation}\label{code:parseEitherAction}
+\begin{code}
+parseEitherAction :: Text -> Either String MEvAction
+parseEitherAction t =
+    let r = P.parse parseAction t
+    in
+    P.eitherResult r
+
+\end{code}
+
 \label{code:parseExpr}
 An expression is enclosed in parentheses. Either it is a negation, starting with 'Not',
 or a binary operand like 'And', 'Or', or a comparison of a named variable.
@@ -153,6 +175,37 @@ parseExpr = do
     P.skipSpace
     closePar
     return e
+
+\end{code}
+
+\label{code:parseAction}
+An action is enclosed in parentheses. Currently only 'CreateMessage' is supported.
+\begin{code}
+parseAction :: P.Parser MEvAction
+parseAction = do
+    openPar
+    P.skipSpace
+    void $ P.string "CreateMessage"
+    P.skipSpace
+    severity <- parsePureSeverity
+    P.skipSpace
+    void $ P.char '\"'
+    alertMessage <- P.takeWhile1 (/='\"')
+    void $ P.char '\"'
+    P.skipSpace
+    closePar
+    return $ CreateMessage severity alertMessage
+
+parsePureSeverity :: P.Parser Severity
+parsePureSeverity =
+        (P.string "Debug"     >> return Debug)
+    <|> (P.string "Info"      >> return Info)
+    <|> (P.string "Notice"    >> return Notice)
+    <|> (P.string "Warning"   >> return Warning)
+    <|> (P.string "Error"     >> return Error)
+    <|> (P.string "Critical"  >> return Critical)
+    <|> (P.string "Alert"     >> return Alert)
+    <|> (P.string "Emergency" >> return Emergency)
 
 \end{code}
 

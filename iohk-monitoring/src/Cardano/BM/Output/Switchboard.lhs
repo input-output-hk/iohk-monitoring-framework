@@ -216,8 +216,8 @@ instance ToObject a => IsBackend Switchboard a where
                                     (AggregatedMessage _) -> do
                                         sendMessage nli (filter (/= AggregationBK))
                                         return True
-                                    (MonitoringEffect inner) -> do
-                                        sendMessage (inner {loName = loname}) (filter (/= MonitoringBK))
+                                    (MonitoringEffect _) -> do
+                                        sendMessage nli (filter (/= MonitoringBK))
                                         return True
                                     (Command (DumpBufferedTo bk)) -> do
                                         msgs <- Cardano.BM.Output.LogBuffer.readBuffer logbuf

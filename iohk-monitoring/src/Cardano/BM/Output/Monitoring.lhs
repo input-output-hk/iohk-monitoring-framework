@@ -134,7 +134,7 @@ spawnDispatcher mqueue config sbtrace = do
         maybeItem <- atomically $ TBQ.readTBQueue mqueue
         case maybeItem of
             Just (logvalue@(LogObject _ _ _)) -> do
-                state' <- evalMonitoringAction state logvalue
+                state' <- evalMonitoringAction sbtrace state logvalue
                 -- increase the counter for the type of message
                 modifyMVar_ counters $ \cnt -> return $ updateMessageCounters cnt logvalue
                 qProc counters state'
@@ -149,8 +149,11 @@ spawnDispatcher mqueue config sbtrace = do
 Inspect the log message and match it against configured thresholds. If positive,
 then run the action on the current state and return the updated state.
 \begin{code}
-evalMonitoringAction :: MonitorMap -> LogObject a -> IO MonitorMap
-evalMonitoringAction mmap logObj@(LogObject logname _ _) =
+evalMonitoringAction :: Trace.Trace IO a
+                     -> MonitorMap
+                     -> LogObject a
+                     -> IO MonitorMap
+evalMonitoringAction sbtrace mmap logObj@(LogObject logname _ _) =
     case HM.lookup logname mmap of
         Nothing -> return mmap
         Just mon@(MonitorState precond expr acts env0) -> do
@@ -165,6 +168,7 @@ evalMonitoringAction mmap logObj@(LogObject logname _ _) =
                 now <- getMonotonicTimeNSec
                 let env'' = HM.insert "lastalert" (Nanoseconds now) env'
                 TIO.putStrLn $ "alert! " <> logname <> " " <> (pack $ show acts) <> " " <> (pack $ show env'')
+                mapM_ performAction acts
                 return $ HM.insert logname mon{_environment=env''} mmap
             else return mmap
   where
@@ -208,4 +212,9 @@ evalMonitoringAction mmap logObj@(LogObject logname _ _) =
             : acc
     -- catch all
     updateEnv env _ = env
+
+    performAction (CreateMessage sev alertMessage) = do
+        lometa <- mkLOMeta sev Public
+        Trace.traceNamedObject sbtrace (lometa, MonitoringEffect (MonitorAlert alertMessage))
+
 \end{code}
