@@ -16,7 +16,6 @@ module Cardano.BM.Counters.Dummy
     ) where
 
 #ifdef ENABLE_OBSERVABLES
-import           Data.Foldable (foldrM)
 import           Cardano.BM.Counters.Common (getMonoClock, readRTSStats)
 import           Cardano.BM.Data.Observable
 #endif
@@ -34,15 +33,15 @@ readCounters (TeeTrace _)          = return []
 readCounters (FilterTrace _)       = return []
 readCounters UntimedTrace          = return []
 readCounters DropOpening           = return []
+readCounters (SetSeverity _)       = return []
 #ifdef ENABLE_OBSERVABLES
-readCounters (ObservableTrace tts) = foldrM (\(sel, fun) a ->
-    if any (== sel) tts
-    then (fun >>= \xs -> return $ a ++ xs)
-    else return a) [] selectors
-  where
-    selectors = [ (MonotonicClock, getMonoClock)
-                , (GhcRtsStats   , readRTSStats)
-                ]
+readCounters (ObservableTrace tts) = readCounters' tts []
+
+readCounters' :: [ObservableInstance] -> [Counter] -> IO [Counter]
+readCounters' [] acc = return acc
+readCounters' (MonotonicClock : r) acc = getMonoClock >>= \xs -> readCounters' r $ acc ++ xs
+readCounters' (GhcRtsStats    : r) acc = readRTSStats >>= \xs -> readCounters' r $ acc ++ xs
+readCounters' (_              : r) acc = readCounters' r acc
 #else
 readCounters (ObservableTrace _)   = return []
 #endif
