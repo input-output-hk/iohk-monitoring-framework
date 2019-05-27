@@ -21,12 +21,12 @@ import qualified Control.Concurrent.Async as Async
 import           Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar, readMVar, withMVar)
 import           Control.Exception.Safe (SomeException, catch)
 import           Control.Monad  (void, when, forM_)
-import           Data.Aeson.Text (encodeToLazyText)
+import           Data.Aeson (encode)
+import qualified Data.ByteString.Lazy.Char8 as BS8
 import qualified Data.HashMap.Strict as HM
 import           Data.List (delete)
 import           Data.Text (pack, unpack)
 import qualified Data.Text.IO as TIO
-import qualified Data.Text.Lazy as TL
 import           Data.Time (getCurrentTime)
 import           Data.Time.Format (defaultTimeLocale, formatTime)
 import           Safe (readMay)
@@ -73,7 +73,7 @@ type EditorMVar a = MVar (EditorInternal a)
 newtype Editor a = Editor
     { getEd :: EditorMVar a }
 
-data ToObject a => EditorInternal a = EditorInternal
+data {-ToObject a =>-} EditorInternal a = EditorInternal
     { edSBtrace :: Trace IO a
     , edThread  :: Async.Async ()
     , edBuffer  :: LogBuffer a
@@ -88,13 +88,13 @@ data ToObject a => EditorInternal a = EditorInternal
 instance ToObject a => IsBackend Editor a where
     typeof _ = EditorBK
 
-    realize _ = error "Editor cannot be instantiated by 'realize'"
+    realize _ = fail "Editor cannot be instantiated by 'realize'"
 
     realizefrom config sbtrace _ = do
         gref <- newEmptyMVar
         let gui = Editor gref
         port <- getGUIport config
-        when (port <= 0) $ error "cannot create GUI"
+        when (port <= 0) $ fail "cannot create GUI"
 
         -- local |LogBuffer|
         logbuf :: Cardano.BM.Output.LogBuffer.LogBuffer a <- Cardano.BM.Output.LogBuffer.realize config
@@ -211,7 +211,7 @@ prepare editor config window = void $ do
     let mkSimpleRow :: ToObject a => LoggerName -> LogObject a -> UI Element
         mkSimpleRow n lo@(LogObject _lonm _lometa _lov) = UI.tr #. "itemrow" #+
             [ UI.td #+ [ string (unpack n) ]
-            , UI.td #+ [ string $ unpack $ TL.toStrict (encodeToLazyText (toObject lo)) ]
+            , UI.td #+ [ string $ BS8.unpack $ {-TL.toStrict-} encode (toObject lo) ]
             ]
     let mkTableRow :: Show t => Cmd -> LoggerName -> t -> UI Element
         mkTableRow cmd n v = UI.tr #. "itemrow" #+
