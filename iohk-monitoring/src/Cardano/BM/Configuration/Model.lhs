@@ -8,6 +8,8 @@
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
 
+{-@ LIQUID "--max-case-expand=4" @-}
+
 #if defined(linux_HOST_OS)
 #define LINUX
 #endif
@@ -193,28 +195,20 @@ getScribes configuration name = do
     (updateCache, scribes) <- do
         let defs = cgDefScribes cg
         let mapscribes = cgMapScribe cg
-        let find_s lname = case HM.lookup lname mapscribes of
-                Nothing ->
-                    case dropToDot lname of
-                        Nothing     -> defs
-                        Just lname' -> find_s lname'
+        let find_s [] = defs
+            find_s lnames = case HM.lookup (T.intercalate "." lnames) mapscribes of
+                Nothing -> find_s (init lnames)
                 Just os -> os
         let outs = HM.lookup name (cgMapScribeCache cg)
         -- look if scribes are already cached
         return $ case outs of
             -- if no cached scribes found; search the appropriate scribes that
             -- they must inherit and update the cached map
-            Nothing -> (True, find_s name)
+            Nothing -> (True, find_s $ T.split (=='.') name)
             Just os -> (False, os)
 
     when updateCache $ setCachedScribes configuration name $ Just scribes
     return scribes
-
-dropToDot :: Text -> Maybe Text
-dropToDot ts = dropToDot' (T.breakOnEnd "." ts)
-  where
-    dropToDot' (_,"")    = Nothing
-    dropToDot' (name',_) = Just $ T.dropWhileEnd (=='.') name'
 
 getCachedScribes :: Configuration -> LoggerName -> IO (Maybe [ScribeId])
 getCachedScribes configuration name = do
@@ -617,16 +611,14 @@ the evaluation of the filters return |True|.
 
 \begin{code}
 findRootSubTrace :: Configuration -> LoggerName -> IO (Maybe SubTrace)
-findRootSubTrace config loggername = do
+findRootSubTrace config loggername =
     -- Try to find SubTrace by provided name.
-    findSubTrace config loggername >>= \case
-        Just subtrace -> return $ Just subtrace -- Ok, found, provide it as it is.
-        Nothing ->
-            -- We didn't find it, so drop the child (from the right side)
-            -- and try to find it again.
-            case dropToDot loggername of
-                Nothing -> return Nothing -- was at root
-                Just parentName -> findRootSubTrace config parentName
+    let find_s :: [Text] -> IO (Maybe SubTrace)
+        find_s [] = return Nothing
+        find_s lnames = findSubTrace config (T.intercalate "." lnames) >>= \case
+                Just subtrace -> return $ Just subtrace
+                Nothing -> find_s (init lnames)
+    in find_s $ T.split (=='.') loggername
 
 testSubTrace :: Configuration -> LoggerName -> LogObject a -> IO (Maybe (LogObject a))
 testSubTrace config loggername lo = do
