@@ -205,7 +205,7 @@ A |Stats| statistics is strictly computed.
 data BaseStats = BaseStats {
     fmin   :: !Measurable,
     fmax   :: !Measurable,
-    fcount :: {-# UNPACK #-} !Int,
+    fcount :: {-# UNPACK #-} !Word64,
     fsum_A :: {-# UNPACK #-} !Double,
     fsum_B :: {-# UNPACK #-} !Double
     } deriving (Generic, ToJSON, Show)
@@ -337,13 +337,13 @@ singletonStats a =
                       , fdelta = BaseStats
                                  { fmin   = 0
                                  , fmax   = 0
-                                 , fcount = 0
+                                 , fcount = 1
                                  , fsum_A = 0
                                  , fsum_B = 0 }
                       , ftimed = BaseStats
-                                 { fmin   = Nanoseconds 999999999999
+                                 { fmin   = Nanoseconds 0
                                  , fmax   = Nanoseconds 0
-                                 , fcount = (-1)
+                                 , fcount = 1
                                  , fsum_A = 0
                                  , fsum_B = 0 }
                       }

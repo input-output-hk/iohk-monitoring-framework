@@ -95,28 +95,28 @@ unitAggregationInitialMinus1 = do
     let Right (AggregatedStats stats1) = updateAggregation (-1) firstStateAggregatedStats lometa Nothing
     flast stats1 @?= (-1)
     (fbasic stats1) @?= BaseStats (-1) 0 2 (-0.5) 0.5
-    (fdelta stats1) @?= BaseStats 0 0 1 0 0
-        -- AggregatedStats (Stats (-1) 0 (BaseStats (-1) 0 2 (-0.5) 0.5) (BaseStats 0 0 1 0 0) (BaseStats 0 0 1 0 0))
+    (fdelta stats1) @?= BaseStats (-1) (-1) 2 (-1) 0
+        -- AggregatedStats (Stats (-1) x (BaseStats (-1) 0 2 (-0.5) 0.5) (BaseStats (-1) (-1) 2 (-1) 0) (BaseStats x x 2 x 0))
 unitAggregationInitialPlus1 :: Assertion
 unitAggregationInitialPlus1 = do
     let Right (AggregatedStats stats1) = updateAggregation 1 firstStateAggregatedStats lometa Nothing
     flast stats1 @?= 1
     (fbasic stats1) @?= BaseStats 0 1 2 0.5 0.5
-    (fdelta stats1) @?= BaseStats 0 0 1 0 0
-        -- AggregatedStats (Stats 1 0 (BaseStats 0 1 2 0.5 0.5) (BaseStats 0 0 1 0 0) (BaseStats 0 0 1 0 0))
+    (fdelta stats1) @?= BaseStats 1 1 2 1 0
+        -- AggregatedStats (Stats 1 x (BaseStats 0 1 2 0.5 0.5) (BaseStats 1 1 2 1 0) (BaseStats x x 2 x 0))
 unitAggregationInitialZero :: Assertion
 unitAggregationInitialZero = do
     let Right (AggregatedStats stats1) = updateAggregation 0 firstStateAggregatedStats lometa Nothing
     flast stats1 @?= 0
     (fbasic stats1) @?= BaseStats 0 0 2 0 0
-    (fdelta stats1) @?= BaseStats 0 0 1 0 0
-        -- AggregatedStats (Stats 0 0 (BaseStats 0 0 2 0 0) (BaseStats 0 0 1 0 0) (BaseStats 0 0 1 0 0))
+    (fdelta stats1) @?= BaseStats 0 0 2 0 0
+        -- AggregatedStats (Stats 0 x (BaseStats 0 0 2 0 0) (BaseStats 0 0 2 0 0) (BaseStats x x 2 x 0))
 unitAggregationInitialPlus1Minus1 :: Assertion
 unitAggregationInitialPlus1Minus1 = do
     let Right agg1 = updateAggregation (PureI 1) firstStateAggregatedStats lometa Nothing
         Right (AggregatedStats stats1) = updateAggregation (PureI (-1)) agg1 lometa Nothing
     (fbasic stats1) @?= BaseStats (PureI (-1)) (PureI 1) 3   0.0  2.0
-    (fdelta stats1) @?= BaseStats (PureI (-2)) (PureI 0) 2 (-1.0) 2.0
+    (fdelta stats1) @?= BaseStats (PureI (-2)) (PureI 1) 3 (-0.5) 4.5
 
 unitAggregationStepwise :: Assertion
 unitAggregationStepwise = do
@@ -162,9 +162,10 @@ commented out:
 
 \begin{code}
 firstStateAggregatedStats :: Aggregated
-firstStateAggregatedStats = AggregatedStats (Stats z z (BaseStats z z 1 0 0) (BaseStats z z 0 0 0) (BaseStats z z 0 0 0))
+firstStateAggregatedStats = AggregatedStats (Stats z z' (BaseStats z z 1 0 0) (BaseStats z z 1 0 0) (BaseStats z' z' 1 0 0))
   where
     z = PureI 0
+    z' = Nanoseconds 0
 
 \end{code}
 

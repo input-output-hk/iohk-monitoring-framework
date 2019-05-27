@@ -79,7 +79,7 @@ type Timestamp = Word64
 
 data AggregatedExpanded = AggregatedExpanded
                             { aeAggregated :: !Aggregated
-                            , aeResetAfter :: !(Maybe Int)
+                            , aeResetAfter :: !(Maybe Word64)
                             , aeLastSent   :: {-# UNPACK #-} !Timestamp
                             }
 
@@ -159,6 +159,7 @@ spawnDispatcher conf aggMap aggregationQueue basetrace = do
 
     Async.async $ qProc trace countersMVar aggMap
   where
+    {-@ lazy qProc @-}
     qProc trace counters aggregatedMap = do
         maybeItem <- atomically $ TBQ.readTBQueue aggregationQueue
         case maybeItem of
@@ -290,7 +291,7 @@ We use Welford's online algorithm to update the estimation of mean and variance 
 (see \url{https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford's_Online_algorithm})
 
 \begin{code}
-updateAggregation :: Measurable -> Aggregated -> LOMeta -> Maybe Int -> Either Text Aggregated
+updateAggregation :: Measurable -> Aggregated -> LOMeta -> Maybe Word64 -> Either Text Aggregated
 updateAggregation v (AggregatedStats s) lme resetAfter =
     let count = fcount (fbasic s)
         reset = maybe False (count >=) resetAfter
@@ -300,11 +301,11 @@ updateAggregation v (AggregatedStats s) lme resetAfter =
         Right $ singletonStats v
     else
         Right $ AggregatedStats $! Stats { flast  = v
-                                        , fold = mkTimestamp
-                                        , fbasic = updateBaseStats (count >= 1) v (fbasic s)
-                                        , fdelta = updateBaseStats (count >= 2) (v - flast s) (fdelta s)
-                                        , ftimed = updateBaseStats (count >= 2) (mkTimestamp - fold s) (ftimed s)
-                                        }
+                                         , fold = mkTimestamp
+                                         , fbasic = updateBaseStats 1 v (fbasic s)
+                                         , fdelta = updateBaseStats 2 (v - flast s) (fdelta s)
+                                         , ftimed = updateBaseStats 2 (mkTimestamp - fold s) (ftimed s)
+                                         }
   where
     mkTimestamp = utc2ns (tstamp lme)
     utc2ns (UTCTime days secs) =
@@ -322,21 +323,28 @@ updateAggregation v (AggregatedEWMA e) _ _ =
     in
         AggregatedEWMA <$> eitherAvg
 
-updateBaseStats :: Bool -> Measurable -> BaseStats -> BaseStats
-updateBaseStats False _ s = s {fcount = fcount s + 1}
-updateBaseStats True v s =
-    let newcount = fcount s + 1
-        newvalue = getDouble v
-        delta = newvalue - fsum_A s
-        dincr = (delta / fromIntegral newcount)
-        delta2 = newvalue - fsum_A s - dincr
-    in
-    BaseStats { fmin   = min (fmin s) v
-              , fmax   = max v (fmax s)
-              , fcount = newcount
-              , fsum_A = fsum_A s + dincr
-              , fsum_B = fsum_B s + (delta * delta2)
-              }
+updateBaseStats :: Word64 -> Measurable -> BaseStats -> BaseStats
+updateBaseStats startAt v s =
+    let newcount = fcount s + 1 in
+    if (startAt > newcount)
+    then s {fcount = fcount s + 1}
+    else
+        let newcountRel = newcount - startAt + 1
+            newvalue = getDouble v
+            delta = newvalue - fsum_A s
+            dincr = (delta / fromIntegral newcountRel)
+            delta2 = newvalue - fsum_A s - dincr
+            (minim, maxim) =
+                if startAt == newcount
+                then (v, v)
+                else (min v (fmin s), max v (fmax s))
+        in
+        BaseStats { fmin   = minim
+                  , fmax   = maxim
+                  , fcount = newcount
+                  , fsum_A = fsum_A s + dincr
+                  , fsum_B = fsum_B s + (delta * delta2)
+                  }
 
 \end{code}
 
