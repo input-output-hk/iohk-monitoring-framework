@@ -45,8 +45,8 @@ data Measurable = Microseconds {-# UNPACK #-} !Word64
                 | Nanoseconds  {-# UNPACK #-} !Word64
                 | Seconds      {-# UNPACK #-} !Word64
                 | Bytes        {-# UNPACK #-} !Word64
-                | PureD        Double
-                | PureI        Integer
+                | PureD        !Double
+                | PureI        !Integer
                 | Severity     S.Severity
                 deriving (Eq, Read, Generic, ToJSON)
 
@@ -58,12 +58,12 @@ instance Ord Measurable where
     compare (Seconds a) (Seconds b)              = compare a b
     compare (Microseconds a) (Microseconds b)    = compare a b
     compare (Nanoseconds a) (Nanoseconds b)      = compare a b
-    compare (Seconds a) (Microseconds b)         = compare (a * 1000000) b
+    compare (Seconds a) (Microseconds b)         = compare (a * 1000 * 1000) b
     compare (Nanoseconds a) (Microseconds b)     = compare a (b * 1000)
-    compare (Seconds a) (Nanoseconds b)          = compare (a * 1000000000) b
+    compare (Seconds a) (Nanoseconds b)          = compare (a * 1000* 1000 * 1000) b
     compare (Microseconds a) (Nanoseconds b)     = compare (a * 1000) b
-    compare (Microseconds a) (Seconds b)         = compare a (b * 1000000)
-    compare (Nanoseconds a) (Seconds b)          = compare a (b * 1000000000)
+    compare (Microseconds a) (Seconds b)         = compare a (b * 1000 * 1000)
+    compare (Nanoseconds a) (Seconds b)          = compare a (b * 1000 * 1000 * 1000)
     compare (Bytes a) (Bytes b)                  = compare a b
     compare (PureD a) (PureD b)                  = compare a b
     compare (PureI a) (PureI b)                  = compare a b
@@ -78,7 +78,7 @@ instance Ord Measurable where
     compare (Bytes a)        (PureI b)  | b >= 0 = compare (toInteger a) b
     compare a@(PureD _) (PureI b)                = compare (getInteger a) b
     compare (PureI a) b@(PureD _)                = compare a (getInteger b)
-    compare a  b                                 = error $ "cannot compare " ++ (showType a) ++ " " ++ (show a) ++ " against this value: " ++ (showType b) ++ " " ++ (show b)
+    compare _a  _b                               = LT
 
 \end{code}
 
@@ -118,7 +118,7 @@ instance Num Measurable where
     (+) (Bytes a)        (Bytes b)        = Bytes        (a+b)
     (+) (PureI a)        (PureI b)        = PureI        (a+b)
     (+) (PureD a)        (PureD b)        = PureD        (a+b)
-    (+)  _                _               = error "Trying to add values with different units"
+    (+) a                _               = a
 
     (*) (Microseconds a) (Microseconds b) = Microseconds (a*b)
     (*) (Nanoseconds a)  (Nanoseconds b)  = Nanoseconds  (a*b)
@@ -126,7 +126,7 @@ instance Num Measurable where
     (*) (Bytes a)        (Bytes b)        = Bytes        (a*b)
     (*) (PureI a)        (PureI b)        = PureI        (a*b)
     (*) (PureD a)        (PureD b)        = PureD        (a*b)
-    (*)  _                _               = error "Trying to multiply values with different units"
+    (*) a                _                = a
 
     abs (Microseconds a) = Microseconds (abs a)
     abs (Nanoseconds a)  = Nanoseconds  (abs a)
@@ -134,7 +134,7 @@ instance Num Measurable where
     abs (Bytes a)        = Bytes        (abs a)
     abs (PureI a)        = PureI        (abs a)
     abs (PureD a)        = PureD        (abs a)
-    abs (Severity _)     = error "cannot compute absolute value for Severity"
+    abs a                = a
 
     signum (Microseconds a) = Microseconds (signum a)
     signum (Nanoseconds a)  = Nanoseconds  (signum a)
@@ -142,7 +142,7 @@ instance Num Measurable where
     signum (Bytes a)        = Bytes        (signum a)
     signum (PureI a)        = PureI        (signum a)
     signum (PureD a)        = PureD        (signum a)
-    signum (Severity _)     = error "cannot compute sign of Severity"
+    signum a                = a
 
     negate (Microseconds a) = Microseconds (negate a)
     negate (Nanoseconds a)  = Nanoseconds  (negate a)
@@ -150,7 +150,7 @@ instance Num Measurable where
     negate (Bytes a)        = Bytes        (negate a)
     negate (PureI a)        = PureI        (negate a)
     negate (PureD a)        = PureD        (negate a)
-    negate (Severity _)     = error "cannot negate Severity"
+    negate a                = a
 
     fromInteger = PureI
 
@@ -176,20 +176,11 @@ showUnits (PureI _)        = ""
 showUnits (PureD _)        = ""
 showUnits (Severity _)     = ""
 
-showType :: Measurable -> String
-showType (Microseconds _) = "Microseconds"
-showType (Nanoseconds _)  = "Nanoseconds"
-showType (Seconds _)      = "Seconds"
-showType (Bytes _)        = "Bytes"
-showType (PureI _)        = "PureI"
-showType (PureD _)        = "PureD"
-showType (Severity _)     = "Severity"
-
 -- show in S.I. units
 showSI :: Measurable -> String
-showSI (Microseconds a) = show (fromFloatDigits ((fromIntegral a) / (1000000::Float))) ++
+showSI (Microseconds a) = show (fromFloatDigits ((fromIntegral a) / (1000::Float) / (1000::Float))) ++
                           showUnits (Seconds a)
-showSI (Nanoseconds a)  = show (fromFloatDigits ((fromIntegral a) / (1000000000::Float))) ++
+showSI (Nanoseconds a)  = show (fromFloatDigits ((fromIntegral a) / (1000::Float) / (1000::Float) / (1000::Float))) ++
                           showUnits (Seconds a)
 showSI v@(Seconds a)    = show a ++ showUnits v
 showSI v@(Bytes a)      = show a ++ showUnits v
@@ -235,9 +226,13 @@ meanOfStats = fsum_A
 \begin{code}
 stdevOfStats :: BaseStats -> Double
 stdevOfStats s =
-    if fcount s < 2
-    then 0
-    else sqrt $ (fsum_B s) / (fromInteger $ fromIntegral (fcount s) - 1)
+    calculate (fcount s)
+  where
+    calculate :: Word64 -> Double
+    calculate n =
+        if n >= 2
+        then sqrt $ (fsum_B s) / (fromInteger $ fromIntegral (n - 1))
+        else 0
 
 \end{code}
 
@@ -318,7 +313,7 @@ data Aggregated = AggregatedStats Stats
 instance Semigroup Aggregated where
     (<>) (AggregatedStats a) (AggregatedStats b) =
         AggregatedStats (a <> b)
-    (<>) _ _ = error "Cannot combine different objects"
+    (<>) a _ = a
 
 \end{spec}
 
