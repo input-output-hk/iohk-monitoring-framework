@@ -8,6 +8,8 @@
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 
+{-@ embed GHC.Natural.Natural as int @-}
+
 module Cardano.BM.Output.Aggregation
     (
       Aggregation
@@ -29,7 +31,7 @@ import qualified Data.HashMap.Strict as HM
 import           Data.Text (Text, pack)
 import qualified Data.Text.IO as TIO
 import           Data.Time.Calendar (toModifiedJulianDay)
-import           Data.Time.Clock (UTCTime (..), getCurrentTime)
+import           Data.Time.Clock (UTCTime (..), diffTimeToPicoseconds, getCurrentTime)
 import           Data.Word (Word64)
 import           GHC.Clock (getMonotonicTimeNSec)
 import           System.IO (stderr)
@@ -37,7 +39,7 @@ import           System.IO (stderr)
 import           Cardano.BM.Configuration.Model (Configuration, getAggregatedKind)
 import           Cardano.BM.Data.Aggregated (Aggregated (..), BaseStats (..),
                      EWMA (..), Measurable (..), Stats (..), getDouble,
-                     singletonStats)
+                     getInteger, singletonStats, subtractMeasurable)
 import           Cardano.BM.Data.AggregatedKind (AggregatedKind (..))
 import           Cardano.BM.Data.Backend
 import           Cardano.BM.Data.Counter (Counter (..), CounterState (..),
@@ -303,20 +305,22 @@ updateAggregation v (AggregatedStats s) lme resetAfter =
         Right $ AggregatedStats $! Stats { flast  = v
                                          , fold = mkTimestamp
                                          , fbasic = updateBaseStats 1 v (fbasic s)
-                                         , fdelta = updateBaseStats 2 (v - flast s) (fdelta s)
-                                         , ftimed = updateBaseStats 2 (mkTimestamp - fold s) (ftimed s)
+                                         , fdelta = updateBaseStats 2 deltav (fdelta s)
+                                         , ftimed = updateBaseStats 2 timediff (ftimed s)
                                          }
   where
+    deltav = subtractMeasurable v (flast s)
     mkTimestamp = utc2ns (tstamp lme)
+    timediff = Nanoseconds $ fromInteger $ (getInteger mkTimestamp) - (getInteger $ fold s)
     utc2ns (UTCTime days secs) =
-        let yearsecs :: Rational
-            yearsecs = 365 * 24 * 3600
-            rdays,rsecs :: Rational
-            rdays = toRational $ toModifiedJulianDay days
-            rsecs = toRational secs
-            s2ns = 1000000000
+        let daysecs = 24 * 3600
+            rdays,rsecs :: Integer
+            rdays = toModifiedJulianDay days
+            rsecs = diffTimeToPicoseconds secs `div` 1000
+            s2ns = 1000*1000*1000
+            ns = rsecs + s2ns * rdays * daysecs
         in
-        Nanoseconds $ round $ (fromRational $ s2ns * rsecs + rdays * yearsecs :: Double)
+        Nanoseconds $ fromInteger ns
 
 updateAggregation v (AggregatedEWMA e) _ _ =
     let !eitherAvg = ewma e v

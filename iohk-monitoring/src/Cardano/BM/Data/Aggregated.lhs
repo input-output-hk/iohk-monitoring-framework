@@ -18,6 +18,7 @@ module Cardano.BM.Data.Aggregated
   , showUnits
   , getInteger
   , getDouble
+  , subtractMeasurable
   , meanOfStats
   , stdevOfStats
   , stats2Text
@@ -118,7 +119,7 @@ instance Num Measurable where
     (+) (Bytes a)        (Bytes b)        = Bytes        (a+b)
     (+) (PureI a)        (PureI b)        = PureI        (a+b)
     (+) (PureD a)        (PureD b)        = PureD        (a+b)
-    (+) a                _               = a
+    (+) a                _                = a
 
     (*) (Microseconds a) (Microseconds b) = Microseconds (a*b)
     (*) (Nanoseconds a)  (Nanoseconds b)  = Nanoseconds  (a*b)
@@ -154,6 +155,14 @@ instance Num Measurable where
 
     fromInteger = PureI
 
+subtractMeasurable :: Measurable -> Measurable -> Measurable
+subtractMeasurable (Microseconds a) (Microseconds b) = Microseconds (a-b)
+subtractMeasurable (Nanoseconds a)  (Nanoseconds b)  = Nanoseconds  (a-b)
+subtractMeasurable (Seconds a)      (Seconds b)      = Seconds      (a-b)
+subtractMeasurable (Bytes a)        (Bytes b)        = Bytes        (a-b)
+subtractMeasurable (PureI a)        (PureI b)        = PureI        (a-b)
+subtractMeasurable (PureD a)        (PureD b)        = PureD        (a-b)
+subtractMeasurable a                _                = a
 \end{code}
 
 Pretty printing of |Measurable|. \index{Measurable!instance of Show}
