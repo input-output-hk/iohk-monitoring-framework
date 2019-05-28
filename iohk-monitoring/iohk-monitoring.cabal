@@ -152,7 +152,8 @@ library
      build-depends:    unix
 
   if os(linux)
-     build-depends:    katip-libsystemd-journal
+     build-depends:    hsyslog,
+                       libsystemd-journal
 
   if !flag(disable-aggregation)
     cpp-options:       -DENABLE_AGGREGATION

@@ -9,8 +9,3 @@ package contra-tracer
   tests: False
   documentation: True
   haddock-hyperlink-source: True
-
-source-repository-package
-  type: git
-  location: https://github.com/365andreas/katip-libsystemd-journal
-  tag: 5f8d074c617fd67e3bce377a06d22b908b8ab8d7

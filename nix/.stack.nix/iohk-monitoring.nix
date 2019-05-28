@@ -63,9 +63,10 @@
           (hsPkgs.warp)
           ]) ++ (pkgs.lib).optional (!flags.disable-gui) (hsPkgs.threepenny-gui)) ++ (if system.isWindows
           then [ (hsPkgs.Win32) ]
-          else [
-            (hsPkgs.unix)
-            ])) ++ (pkgs.lib).optional (system.isLinux) (hsPkgs.katip-libsystemd-journal);
+          else [ (hsPkgs.unix) ])) ++ (pkgs.lib).optionals (system.isLinux) [
+          (hsPkgs.hsyslog)
+          (hsPkgs.libsystemd-journal)
+          ];
         };
       exes = {
         "example-simple" = {
