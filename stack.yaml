@@ -12,10 +12,7 @@ extra-deps:
 - process-1.6.5.0
 - transformers-0.5.6.2
 - containers-0.5.11.0
-- git: https://github.com/365andreas/katip-libsystemd-journal
-  commit: 5f8d074c617fd67e3bce377a06d22b908b8ab8d7
-- git: https://github.com/ocharles/libsystemd-journal
-  commit: 16696812d6bf882fd348a54be9b573e9e115d2e3
+- libsystemd-journal-1.4.4
 
 nix:
   shell-file: scripts/nix/stack-shell.nix
