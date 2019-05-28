@@ -7,6 +7,8 @@
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
+{-@ LIQUID "--prune-unsorted" @-}
+
 module Cardano.BM.Observer.Monadic
     (
       bracketObserveIO
