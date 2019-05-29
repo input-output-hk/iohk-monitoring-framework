@@ -289,7 +289,7 @@ setupBackends bes c sb = setupBackendsAcc bes []
             Just be -> setupBackendsAcc r ((bk,be) : acc)
 
 setupBackend' :: ToObject a => BackendKind -> Configuration -> Switchboard a -> IO (Maybe (Backend a))
-setupBackend' SwitchboardBK _ _ = return Nothing -- error "cannot instantiate a further Switchboard"
+setupBackend' SwitchboardBK _ _ = fail "cannot instantiate a further Switchboard"
 #ifdef ENABLE_MONITORING
 setupBackend' MonitoringBK c sb = do
     let basetrace = mainTraceConditionally c sb
