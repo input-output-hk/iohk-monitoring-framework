@@ -92,7 +92,7 @@ instance Eq MEvExpr where
     (==) _                _                = False
 
 instance FromJSON MEvExpr where
-    parseJSON o@(String s) =
+    parseJSON (String s) =
         case parseEither s of
             Left e     -> fail e
             Right expr -> pure expr
