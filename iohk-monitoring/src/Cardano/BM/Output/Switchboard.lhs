@@ -38,7 +38,7 @@ import           System.IO (stderr)
 import           Cardano.BM.Configuration (Configuration)
 import qualified Cardano.BM.Configuration as Config
 import           Cardano.BM.Configuration.Model (getBackends,
-                     getSetupBackends)
+                     getSetupBackends, setSeverity, setMinSeverity)
 import           Cardano.BM.Data.Backend
 import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.MessageCounter (resetCounters, sendAndResetAfter,
@@ -216,8 +216,14 @@ instance ToObject a => IsBackend Switchboard a where
                                     (AggregatedMessage _) -> do
                                         sendMessage nli (filter (/= AggregationBK))
                                         return True
-                                    (MonitoringEffect _) -> do
+                                    (MonitoringEffect (MonitorAlert _)) -> do
                                         sendMessage nli (filter (/= MonitoringBK))
+                                        return True
+                                    (MonitoringEffect (MonitorAlterGlobalSeverity sev)) -> do
+                                        setMinSeverity cfg sev
+                                        return True
+                                    (MonitoringEffect (MonitorAlterSeverity loggerName sev)) -> do
+                                        setSeverity cfg loggerName (Just sev)
                                         return True
                                     (Command (DumpBufferedTo bk)) -> do
                                         msgs <- Cardano.BM.Output.LogBuffer.readBuffer logbuf

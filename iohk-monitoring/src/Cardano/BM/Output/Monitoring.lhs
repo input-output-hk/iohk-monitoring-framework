@@ -30,8 +30,7 @@ import           Data.Time.Clock (UTCTime (..), getCurrentTime)
 import           GHC.Clock (getMonotonicTimeNSec)
 import           System.IO (stderr)
 
-import           Cardano.BM.Configuration.Model (Configuration, getMonitors,
-                     setMinSeverity, setSeverity)
+import           Cardano.BM.Configuration.Model (Configuration, getMonitors)
 import           Cardano.BM.Data.Aggregated
 import           Cardano.BM.Data.Backend
 import           Cardano.BM.Data.LogItem
@@ -128,14 +127,14 @@ spawnDispatcher mqueue config sbtrace = do
                                 countersMVar
                                 60000   -- 60000 ms = 1 min
                                 Warning -- Debug
-
     Async.async (initMap >>= qProc countersMVar)
   where
     qProc counters state = do
         maybeItem <- atomically $ TBQ.readTBQueue mqueue
         case maybeItem of
             Just (logvalue@(LogObject _ _ _)) -> do
-                state' <- evalMonitoringAction config sbtrace state logvalue
+                sbtraceWithMonitoring <- Trace.appendName "#monitoring" sbtrace
+                state' <- evalMonitoringAction sbtraceWithMonitoring state logvalue
                 -- increase the counter for the type of message
                 modifyMVar_ counters $ \cnt -> return $ updateMessageCounters cnt logvalue
                 qProc counters state'
@@ -150,12 +149,11 @@ spawnDispatcher mqueue config sbtrace = do
 Inspect the log message and match it against configured thresholds. If positive,
 then run the action on the current state and return the updated state.
 \begin{code}
-evalMonitoringAction :: Configuration
-                     -> Trace.Trace IO a
+evalMonitoringAction :: Trace.Trace IO a
                      -> MonitorMap
                      -> LogObject a
                      -> IO MonitorMap
-evalMonitoringAction config sbtrace mmap logObj@(LogObject logname _ _) =
+evalMonitoringAction sbtrace mmap logObj@(LogObject logname _ _) =
     case HM.lookup logname mmap of
         Nothing -> return mmap
         Just mon@(MonitorState precond expr acts env0) -> do
@@ -170,7 +168,7 @@ evalMonitoringAction config sbtrace mmap logObj@(LogObject logname _ _) =
                 now <- getMonotonicTimeNSec
                 let env'' = HM.insert "lastalert" (Nanoseconds now) env'
                 TIO.putStrLn $ "alert! " <> logname <> " " <> (pack $ show acts) <> " " <> (pack $ show env'')
-                mapM_ performAction acts
+                mapM_ (evaluateAction env' expr) acts
                 return $ HM.insert logname mon{_environment=env''} mmap
             else return mmap
   where
@@ -214,13 +212,18 @@ evalMonitoringAction config sbtrace mmap logObj@(LogObject logname _ _) =
             : acc
     -- catch all
     updateEnv env _ = env
-
-    performAction (CreateMessage sev alertMessage) = do
+ 
+    evaluateAction env expr (CreateMessage sev alertMessage) = do
         lometa <- mkLOMeta sev Public
-        Trace.traceNamedObject sbtrace (lometa, MonitoringEffect (MonitorAlert alertMessage))
-    performAction (SetGlobalMinimalSeverity sev) =
-        setMinSeverity config sev
-    performAction (AlterSeverity loggerName sev) =
-        setSeverity config loggerName (Just sev)
+        let fullMessage = alertMessage
+                          <> "; environment is: " <> pack (show env)
+                          <> "; threshold expression is: " <> pack (show expr)
+        Trace.traceNamedObject sbtrace (lometa, MonitoringEffect (MonitorAlert fullMessage))
+    evaluateAction _ _ (SetGlobalMinimalSeverity sev) = do
+        lometa <- mkLOMeta sev Public
+        Trace.traceNamedObject sbtrace (lometa, MonitoringEffect (MonitorAlterGlobalSeverity sev))
+    evaluateAction _ _ (AlterSeverity loggerName sev) = do
+        lometa <- mkLOMeta sev Public
+        Trace.traceNamedObject sbtrace (lometa, MonitoringEffect (MonitorAlterSeverity loggerName sev))
 
 \end{code}

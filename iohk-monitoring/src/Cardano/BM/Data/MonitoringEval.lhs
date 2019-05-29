@@ -24,6 +24,7 @@ import Prelude hiding (Ordering (..))
 import           Control.Applicative ((<|>))
 import           Control.Monad (void)
 import           Data.Aeson (FromJSON (..), ToJSON (..), Value (..))
+import           Data.Aeson.Types (typeMismatch)
 import qualified Data.Attoparsec.Text as P
 import           Data.Char (isSpace)
 import qualified Data.HashMap.Strict as HM
@@ -93,9 +94,9 @@ instance Eq MEvExpr where
 instance FromJSON MEvExpr where
     parseJSON (String s) =
         case parseEither s of
-            Left e     -> error e
+            Left e     -> fail e
             Right expr -> pure expr
-    parseJSON _ = error "cannot parse such an expression!"
+    parseJSON o = typeMismatch "String" o
 
 instance ToJSON MEvExpr where
     toJSON expr = String $ pack $ show expr
@@ -120,17 +121,17 @@ data MEvAction = CreateMessage Severity Text
 instance FromJSON MEvAction where
     parseJSON (String s) =
         case parseEitherAction s of
-            Left e     -> error e
+            Left e     -> fail e
             Right expr -> pure expr
-    parseJSON _ = error "cannot parse such an action!"
+    parseJSON o = typeMismatch "String" o
 
 instance ToJSON MEvAction where
     toJSON = String . pack . show
 
 instance Show MEvAction where
-    show (CreateMessage sev msg)        = "(CreateMessage" ++ " " ++ show sev ++ " " ++ show msg ++ ")"
-    show (SetGlobalMinimalSeverity sev) = "(SetGlobalMinimalSeverity" ++ " " ++ show sev ++ ")"
-    show (AlterSeverity loggerName sev) = "(AlterSeverity" ++ " " ++ show loggerName ++ " " ++ show sev ++ ")"
+    show (CreateMessage sev msg)        = "CreateMessage " ++ show sev ++ " " ++ show msg
+    show (SetGlobalMinimalSeverity sev) = "SetGlobalMinimalSeverity " ++ show sev
+    show (AlterSeverity loggerName sev) = "AlterSeverity " ++ show loggerName ++ " " ++ show sev
 \end{code}
 
 \subsubsection{Parsing an expression from textual representation}\label{code:parseEither}\label{code:parseMaybe}
@@ -184,38 +185,31 @@ parseExpr = do
 \end{code}
 
 \label{code:parseAction}
-An action is enclosed in parentheses. Currently only 'CreateMessage' is supported.
+An action is enclosed in parentheses.
 \begin{code}
 parseAction :: P.Parser MEvAction
-parseAction = do
-    openPar
-    P.skipSpace
-    a <- do
-            (nextIsChar 'C' >> parseActionCreateMessage)
-        <|> (nextIsChar 'S' >> parseActionSetMinSeverity)
-        <|> (nextIsChar 'A' >> parseActionAlterSeverity)
-    P.skipSpace
-    closePar
-    return a
+parseAction =
+        (nextIsChar 'C' >> parseActionCreateMessage)
+    <|> (nextIsChar 'S' >> parseActionSetMinSeverity)
+    <|> (nextIsChar 'A' >> parseActionAlterSeverity)
 
 parseActionCreateMessage :: P.Parser MEvAction
 parseActionCreateMessage = do
     void $ P.string "CreateMessage"
     P.skipSpace
-    severity <- parsePureSeverity
+    sev <- parsePureSeverity
     P.skipSpace
     void $ P.char '\"'
     alertMessage <- P.takeWhile1 (/='\"')
     void $ P.char '\"'
-    return $ CreateMessage severity alertMessage
+    return $ CreateMessage sev alertMessage
 
 parseActionSetMinSeverity :: P.Parser MEvAction
 parseActionSetMinSeverity = do
     void $ P.string "SetGlobalMinimalSeverity"
     P.skipSpace
-    severity <- parsePureSeverity
-    P.skipSpace
-    return $ SetGlobalMinimalSeverity severity
+    sev <- parsePureSeverity
+    return $ SetGlobalMinimalSeverity sev
 
 parseActionAlterSeverity :: P.Parser MEvAction
 parseActionAlterSeverity = do
@@ -225,9 +219,8 @@ parseActionAlterSeverity = do
     loggerName <- P.takeWhile1 (/='\"')
     void $ P.char '\"'
     P.skipSpace
-    severity <- parsePureSeverity
-    P.skipSpace
-    return $ AlterSeverity loggerName severity
+    sev <- parsePureSeverity
+    return $ AlterSeverity loggerName sev
 
 parsePureSeverity :: P.Parser Severity
 parsePureSeverity =

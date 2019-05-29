@@ -270,13 +270,13 @@ unitConfigurationParsedRepresentation = do
             , "  mapMonitors:"
             , "    chain.creation.block:"
             , "      actions:"
-            , "      - (CreateMessage Warning \"chain.creation\")"
-            , "      - (AlterSeverity \"chain.creation\" Debug)"
+            , "      - CreateMessage Warning \"chain.creation\""
+            , "      - AlterSeverity \"chain.creation\" Debug"
             , "      monitor: ((time > (23 s)) Or (time < (17 s)))"
             , "    '#aggregation.critproc.observable':"
             , "      actions:"
-            , "      - (CreateMessage Warning \"the observable has been too long too high!\")"
-            , "      - (SetGlobalMinimalSeverity Info)"
+            , "      - CreateMessage Warning \"the observable has been too long too high!\""
+            , "      - SetGlobalMinimalSeverity Info"
             , "      monitor: (mean >= (42))"
             , "  mapScribes:"
             , "    iohk.interesting.value:"
@@ -338,14 +338,14 @@ unitConfigurationParsed = do
             , ("mapMonitors", HM.fromList [("chain.creation.block",Object (HM.fromList
                                             [("monitor",String "((time > (23 s)) Or (time < (17 s)))")
                                             ,("actions",Array $ V.fromList
-                                                [ String "(CreateMessage Warning \"chain.creation\")"
-                                                , String "(AlterSeverity \"chain.creation\" Debug)"
+                                                [ String "CreateMessage Warning \"chain.creation\""
+                                                , String "AlterSeverity \"chain.creation\" Debug"
                                                 ])]))
                                           ,("#aggregation.critproc.observable",Object (HM.fromList
                                             [("monitor",String "(mean >= (42))")
                                             ,("actions",Array $ V.fromList
-                                                [ String "(CreateMessage Warning \"the observable has been too long too high!\")"
-                                                , String "(SetGlobalMinimalSeverity Info)"
+                                                [ String "CreateMessage Warning \"the observable has been too long too high!\""
+                                                , String "SetGlobalMinimalSeverity Info"
                                                 ])]))])
             , ("mapSeverity", HM.fromList [("iohk.startup",String "Debug")
                                           ,("iohk.background.process",String "Error")

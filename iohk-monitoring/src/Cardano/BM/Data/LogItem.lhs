@@ -92,7 +92,9 @@ mkLOMeta sev priv =
 
 \begin{code}
 data MonitorAction = MonitorAlert Text
-    deriving (Generic, Show, ToJSON)
+                   | MonitorAlterGlobalSeverity Severity
+                   | MonitorAlterSeverity LoggerName Severity
+                   deriving (Generic, Show, ToJSON)
 \end{code}
 
 \label{code:LogMessage}\index{LogMessage}

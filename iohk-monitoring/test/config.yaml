@@ -55,13 +55,13 @@ options:
     '#aggregation.critproc.observable':
         monitor: (mean >= (42))
         actions:
-          - (CreateMessage Warning "the observable has been too long too high!")
-          - (SetGlobalMinimalSeverity Info)
+          - CreateMessage Warning "the observable has been too long too high!"
+          - SetGlobalMinimalSeverity Info
     chain.creation.block:
         monitor: ((time > (23 s)) Or (time < (17 s)))
         actions:
-          - (CreateMessage Warning "chain.creation")
-          - (AlterSeverity "chain.creation" Debug)
+          - CreateMessage Warning "chain.creation"
+          - AlterSeverity "chain.creation" Debug
   mapSeverity:
     iohk.startup: Debug
     iohk.background.process: Error
