@@ -31,7 +31,7 @@ import           GHC.Clock (getMonotonicTimeNSec)
 import           System.IO (stderr)
 
 import           Cardano.BM.Configuration.Model (Configuration, getMonitors,
-                     setMinSeverity)
+                     setMinSeverity, setSeverity)
 import           Cardano.BM.Data.Aggregated
 import           Cardano.BM.Data.Backend
 import           Cardano.BM.Data.LogItem
@@ -220,5 +220,7 @@ evalMonitoringAction config sbtrace mmap logObj@(LogObject logname _ _) =
         Trace.traceNamedObject sbtrace (lometa, MonitoringEffect (MonitorAlert alertMessage))
     performAction (SetGlobalMinimalSeverity sev) =
         setMinSeverity config sev
+    performAction (AlterSeverity loggerName sev) =
+        setSeverity config loggerName (Just sev)
 
 \end{code}

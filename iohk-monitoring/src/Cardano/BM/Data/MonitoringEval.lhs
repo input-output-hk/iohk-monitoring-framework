@@ -31,6 +31,7 @@ import           Data.Text (Text, pack, unpack)
 import           Data.Word (Word64)
 
 import           Cardano.BM.Data.Aggregated
+import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.Severity
 
 \end{code}
@@ -113,6 +114,7 @@ executed for alerting.
 \begin{code}
 data MEvAction = CreateMessage Severity Text
                | SetGlobalMinimalSeverity Severity
+               | AlterSeverity LoggerName Severity
                deriving (Eq)
 
 instance FromJSON MEvAction where
@@ -128,6 +130,7 @@ instance ToJSON MEvAction where
 instance Show MEvAction where
     show (CreateMessage sev msg)        = "(CreateMessage" ++ " " ++ show sev ++ " " ++ show msg ++ ")"
     show (SetGlobalMinimalSeverity sev) = "(SetGlobalMinimalSeverity" ++ " " ++ show sev ++ ")"
+    show (AlterSeverity loggerName sev) = "(AlterSeverity" ++ " " ++ show loggerName ++ " " ++ show sev ++ ")"
 \end{code}
 
 \subsubsection{Parsing an expression from textual representation}\label{code:parseEither}\label{code:parseMaybe}
@@ -190,6 +193,7 @@ parseAction = do
     a <- do
             (nextIsChar 'C' >> parseActionCreateMessage)
         <|> (nextIsChar 'S' >> parseActionSetMinSeverity)
+        <|> (nextIsChar 'A' >> parseActionAlterSeverity)
     P.skipSpace
     closePar
     return a
@@ -212,6 +216,18 @@ parseActionSetMinSeverity = do
     severity <- parsePureSeverity
     P.skipSpace
     return $ SetGlobalMinimalSeverity severity
+
+parseActionAlterSeverity :: P.Parser MEvAction
+parseActionAlterSeverity = do
+    void $ P.string "AlterSeverity"
+    P.skipSpace
+    void $ P.char '\"'
+    loggerName <- P.takeWhile1 (/='\"')
+    void $ P.char '\"'
+    P.skipSpace
+    severity <- parsePureSeverity
+    P.skipSpace
+    return $ AlterSeverity loggerName severity
 
 parsePureSeverity :: P.Parser Severity
 parsePureSeverity =
