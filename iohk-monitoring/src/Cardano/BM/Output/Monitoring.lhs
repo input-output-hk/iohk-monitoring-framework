@@ -153,7 +153,8 @@ evalMonitoringAction :: Trace.Trace IO a
                      -> MonitorMap
                      -> LogObject a
                      -> IO MonitorMap
-evalMonitoringAction sbtrace mmap logObj@(LogObject logname _ _) =
+evalMonitoringAction sbtrace mmap logObj@(LogObject logname _ _) = do
+    sbtrace' <- Trace.appendName logname sbtrace
     case HM.lookup logname mmap of
         Nothing -> return mmap
         Just mon@(MonitorState precond expr acts env0) -> do
@@ -168,7 +169,7 @@ evalMonitoringAction sbtrace mmap logObj@(LogObject logname _ _) =
                 now <- getMonotonicTimeNSec
                 let env'' = HM.insert "lastalert" (Nanoseconds now) env'
                 TIO.putStrLn $ "alert! " <> logname <> " " <> (pack $ show acts) <> " " <> (pack $ show env'')
-                mapM_ (evaluateAction env' expr) acts
+                mapM_ (evaluateAction sbtrace' env' expr) acts
                 return $ HM.insert logname mon{_environment=env''} mmap
             else return mmap
   where
@@ -212,18 +213,18 @@ evalMonitoringAction sbtrace mmap logObj@(LogObject logname _ _) =
             : acc
     -- catch all
     updateEnv env _ = env
- 
-    evaluateAction env expr (CreateMessage sev alertMessage) = do
+
+    evaluateAction sbtrace' env expr (CreateMessage sev alertMessage) = do
         lometa <- mkLOMeta sev Public
         let fullMessage = alertMessage
                           <> "; environment is: " <> pack (show env)
                           <> "; threshold expression is: " <> pack (show expr)
-        Trace.traceNamedObject sbtrace (lometa, MonitoringEffect (MonitorAlert fullMessage))
-    evaluateAction _ _ (SetGlobalMinimalSeverity sev) = do
+        Trace.traceNamedObject sbtrace' (lometa, MonitoringEffect (MonitorAlert fullMessage))
+    evaluateAction sbtrace' _ _ (SetGlobalMinimalSeverity sev) = do
         lometa <- mkLOMeta sev Public
-        Trace.traceNamedObject sbtrace (lometa, MonitoringEffect (MonitorAlterGlobalSeverity sev))
-    evaluateAction _ _ (AlterSeverity loggerName sev) = do
+        Trace.traceNamedObject sbtrace' (lometa, MonitoringEffect (MonitorAlterGlobalSeverity sev))
+    evaluateAction sbtrace' _ _ (AlterSeverity loggerName sev) = do
         lometa <- mkLOMeta sev Public
-        Trace.traceNamedObject sbtrace (lometa, MonitoringEffect (MonitorAlterSeverity loggerName sev))
+        Trace.traceNamedObject sbtrace' (lometa, MonitoringEffect (MonitorAlterSeverity loggerName sev))
 
 \end{code}
