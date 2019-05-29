@@ -11,12 +11,11 @@ module Cardano.BM.Data.MonitoringEval
   ( MEvExpr (..)
   , MEvPreCond
   , Operator (..)
-  , MEvAction
+  , MEvAction (..)
   , VarName
   , Environment
-  , evaluate
-  , parseEither
   , parseMaybe
+  , evaluate
   )
   where
 
@@ -25,6 +24,7 @@ import Prelude hiding (Ordering (..))
 import           Control.Applicative ((<|>))
 import           Control.Monad (void)
 import           Data.Aeson (FromJSON (..), ToJSON (..), Value (..))
+import           Data.Aeson.Types (typeMismatch)
 import qualified Data.Attoparsec.Text as P
 import           Data.Char (isSpace)
 import qualified Data.HashMap.Strict as HM
@@ -32,6 +32,7 @@ import           Data.Text (Text, pack, unpack)
 import           Data.Word (Word64)
 
 import           Cardano.BM.Data.Aggregated
+import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.Severity
 
 \end{code}
@@ -93,9 +94,9 @@ instance Eq MEvExpr where
 instance FromJSON MEvExpr where
     parseJSON (String s) =
         case parseEither s of
-            Left e     -> error e
+            Left e     -> fail e
             Right expr -> pure expr
-    parseJSON _ = error "cannot parse such an expression!"
+    parseJSON o = typeMismatch "String" o
 
 instance ToJSON MEvExpr where
     toJSON expr = String $ pack $ show expr
@@ -112,8 +113,25 @@ instance Show MEvExpr where
 If evaluation of a monitoring expression is |True|, then a set of actions are
 executed for alerting.
 \begin{code}
-type MEvAction = Text
+data MEvAction = CreateMessage Severity Text
+               | SetGlobalMinimalSeverity Severity
+               | AlterSeverity LoggerName Severity
+               deriving (Eq)
 
+instance FromJSON MEvAction where
+    parseJSON (String s) =
+        case parseEitherAction s of
+            Left e     -> fail e
+            Right expr -> pure expr
+    parseJSON o = typeMismatch "String" o
+
+instance ToJSON MEvAction where
+    toJSON = String . pack . show
+
+instance Show MEvAction where
+    show (CreateMessage sev msg)        = "CreateMessage " ++ show sev ++ " " ++ show msg
+    show (SetGlobalMinimalSeverity sev) = "SetGlobalMinimalSeverity " ++ show sev
+    show (AlterSeverity loggerName sev) = "AlterSeverity " ++ show loggerName ++ " " ++ show sev
 \end{code}
 
 \subsubsection{Parsing an expression from textual representation}\label{code:parseEither}\label{code:parseMaybe}
@@ -138,6 +156,16 @@ token s = void $ P.string s
 
 \end{code}
 
+\subsubsection{Parsing an action from textual representation}\label{code:parseEitherAction}
+\begin{code}
+parseEitherAction :: Text -> Either String MEvAction
+parseEitherAction t =
+    let r = P.parse parseAction t
+    in
+    P.eitherResult r
+
+\end{code}
+
 \label{code:parseExpr}
 An expression is enclosed in parentheses. Either it is a negation, starting with 'Not',
 or a binary operand like 'And', 'Or', or a comparison of a named variable.
@@ -153,6 +181,57 @@ parseExpr = do
     P.skipSpace
     closePar
     return e
+
+\end{code}
+
+\label{code:parseAction}
+An action is enclosed in parentheses.
+\begin{code}
+parseAction :: P.Parser MEvAction
+parseAction =
+        (nextIsChar 'C' >> parseActionCreateMessage)
+    <|> (nextIsChar 'S' >> parseActionSetMinSeverity)
+    <|> (nextIsChar 'A' >> parseActionAlterSeverity)
+
+parseActionCreateMessage :: P.Parser MEvAction
+parseActionCreateMessage = do
+    void $ P.string "CreateMessage"
+    P.skipSpace
+    sev <- parsePureSeverity
+    P.skipSpace
+    void $ P.char '\"'
+    alertMessage <- P.takeWhile1 (/='\"')
+    void $ P.char '\"'
+    return $ CreateMessage sev alertMessage
+
+parseActionSetMinSeverity :: P.Parser MEvAction
+parseActionSetMinSeverity = do
+    void $ P.string "SetGlobalMinimalSeverity"
+    P.skipSpace
+    sev <- parsePureSeverity
+    return $ SetGlobalMinimalSeverity sev
+
+parseActionAlterSeverity :: P.Parser MEvAction
+parseActionAlterSeverity = do
+    void $ P.string "AlterSeverity"
+    P.skipSpace
+    void $ P.char '\"'
+    loggerName <- P.takeWhile1 (/='\"')
+    void $ P.char '\"'
+    P.skipSpace
+    sev <- parsePureSeverity
+    return $ AlterSeverity loggerName sev
+
+parsePureSeverity :: P.Parser Severity
+parsePureSeverity =
+        (P.string "Debug"     >> return Debug)
+    <|> (P.string "Info"      >> return Info)
+    <|> (P.string "Notice"    >> return Notice)
+    <|> (P.string "Warning"   >> return Warning)
+    <|> (P.string "Error"     >> return Error)
+    <|> (P.string "Critical"  >> return Critical)
+    <|> (P.string "Alert"     >> return Alert)
+    <|> (P.string "Emergency" >> return Emergency)
 
 \end{code}
 

@@ -313,8 +313,8 @@ passN backend katip (LogObject loname lometa loitem) = do
                                     (severity lometa, text, Nothing)
                                 (LogValue name value) ->
                                     (severity lometa, name <> " = " <> pack (showSI value), Nothing)
-                                (MonitoringEffect logitem) ->
-                                     let text = TL.toStrict (encodeToLazyText (toObject logitem))
+                                (MonitoringEffect _) ->
+                                     let text = TL.toStrict (encodeToLazyText (toObject loitem))
                                      in
                                      (severity lometa, text, Just loitem)
                                 KillPill ->

@@ -13,7 +13,7 @@
 #define RUN_ProcObseverSTM
 #define RUN_ProcObseveDownload
 #define RUN_ProcRandom
-#undef RUN_ProcMonitoring
+#define RUN_ProcMonitoring
 #undef RUN_ProcBufferDump
 
 module Main
@@ -207,13 +207,13 @@ prepare_configuration = do
         [ ( "complex.monitoring"
           , ( Just (Compare "monitMe" (GE, 10))
             , Compare "monitMe" (GE, 42)
-            , ["SOME_ACTION_1"]
+            , [CreateMessage Warning "MonitMe is greater than 42!"]
             )
           )
         , ( "#aggregation.complex.monitoring"
           , ( Just (Compare "monitMe.fcount" (GE, 8))
             , Compare "monitMe.mean" (GE, 25)
-            , ["SOME_ACTION_2"]
+            , [CreateMessage Warning "MonitMe.mean is greater than 25!"]
             )
           )
         ]

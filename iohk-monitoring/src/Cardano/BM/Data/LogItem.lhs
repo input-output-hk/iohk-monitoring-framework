@@ -16,6 +16,7 @@ module Cardano.BM.Data.LogItem
   , LOContent (..)
   , CommandValue (..)
   , LoggerName
+  , MonitorAction (..)
   , PrivacyAnnotation (..)
   , PrivacyAndSeverityAnnotated (..)
   )
@@ -89,6 +90,13 @@ mkLOMeta sev priv =
 
 \end{code}
 
+\begin{code}
+data MonitorAction = MonitorAlert Text
+                   | MonitorAlterGlobalSeverity Severity
+                   | MonitorAlterSeverity LoggerName Severity
+                   deriving (Generic, Show, ToJSON)
+\end{code}
+
 \label{code:LogMessage}\index{LogMessage}
 \label{code:LogValue}\index{LogValue}
 \label{code:ObserveOpen}\index{ObserveOpen}
@@ -106,7 +114,7 @@ data LOContent a = LogMessage a
                  | ObserveDiff CounterState
                  | ObserveClose CounterState
                  | AggregatedMessage [(Text, Aggregated)]
-                 | MonitoringEffect (LogObject a)
+                 | MonitoringEffect MonitorAction
                  | Command CommandValue
                  | KillPill
                    deriving (Generic, Show, ToJSON)

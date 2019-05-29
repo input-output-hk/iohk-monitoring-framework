@@ -270,12 +270,13 @@ unitConfigurationParsedRepresentation = do
             , "  mapMonitors:"
             , "    chain.creation.block:"
             , "      actions:"
-            , "      - AlterMinSeverity \"chain.creation\" Debug"
+            , "      - CreateMessage Warning \"chain.creation\""
+            , "      - AlterSeverity \"chain.creation\" Debug"
             , "      monitor: ((time > (23 s)) Or (time < (17 s)))"
             , "    '#aggregation.critproc.observable':"
             , "      actions:"
-            , "      - CreateMessage \"exceeded\" \"the observable has been too long too high!\""
-            , "      - AlterGlobalMinSeverity Info"
+            , "      - CreateMessage Warning \"the observable has been too long too high!\""
+            , "      - SetGlobalMinimalSeverity Info"
             , "      monitor: (mean >= (42))"
             , "  mapScribes:"
             , "    iohk.interesting.value:"
@@ -337,12 +338,15 @@ unitConfigurationParsed = do
             , ("mapMonitors", HM.fromList [("chain.creation.block",Object (HM.fromList
                                             [("monitor",String "((time > (23 s)) Or (time < (17 s)))")
                                             ,("actions",Array $ V.fromList
-                                                [String "AlterMinSeverity \"chain.creation\" Debug"])]))
+                                                [ String "CreateMessage Warning \"chain.creation\""
+                                                , String "AlterSeverity \"chain.creation\" Debug"
+                                                ])]))
                                           ,("#aggregation.critproc.observable",Object (HM.fromList
                                             [("monitor",String "(mean >= (42))")
                                             ,("actions",Array $ V.fromList
-                                                [String "CreateMessage \"exceeded\" \"the observable has been too long too high!\""
-                                                ,String "AlterGlobalMinSeverity Info"])]))])
+                                                [ String "CreateMessage Warning \"the observable has been too long too high!\""
+                                                , String "SetGlobalMinimalSeverity Info"
+                                                ])]))])
             , ("mapSeverity", HM.fromList [("iohk.startup",String "Debug")
                                           ,("iohk.background.process",String "Error")
                                           ,("iohk.testing.uncritical",String "Warning")])
@@ -407,14 +411,16 @@ unitConfigurationParsed = do
         , cgMonitors          = HM.fromList [ ( "chain.creation.block"
                                               , ( Nothing
                                                 , (OR (Compare "time" (GT, (Agg.Seconds 23))) (Compare "time" (LT, (Agg.Seconds 17))))
-                                                , ["AlterMinSeverity \"chain.creation\" Debug"]
+                                                , [ CreateMessage Warning "chain.creation"
+                                                  , AlterSeverity "chain.creation" Debug
+                                                  ]
                                                 )
                                               )
                                             , ( "#aggregation.critproc.observable"
                                               , ( Nothing
                                                 , Compare "mean" (GE, (Agg.PureI 42))
-                                                , [ "CreateMessage \"exceeded\" \"the observable has been too long too high!\""
-                                                  , "AlterGlobalMinSeverity Info"
+                                                , [ CreateMessage Warning "the observable has been too long too high!"
+                                                  , SetGlobalMinimalSeverity Info
                                                   ]
                                                 )
                                               )
