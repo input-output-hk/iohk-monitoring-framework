@@ -30,7 +30,8 @@ import           Data.Time.Clock (UTCTime (..), getCurrentTime)
 import           GHC.Clock (getMonotonicTimeNSec)
 import           System.IO (stderr)
 
-import           Cardano.BM.Configuration.Model (Configuration, getMonitors)
+import           Cardano.BM.Configuration.Model (Configuration, getMonitors,
+                     setMinSeverity)
 import           Cardano.BM.Data.Aggregated
 import           Cardano.BM.Data.Backend
 import           Cardano.BM.Data.LogItem
@@ -134,7 +135,7 @@ spawnDispatcher mqueue config sbtrace = do
         maybeItem <- atomically $ TBQ.readTBQueue mqueue
         case maybeItem of
             Just (logvalue@(LogObject _ _ _)) -> do
-                state' <- evalMonitoringAction sbtrace state logvalue
+                state' <- evalMonitoringAction config sbtrace state logvalue
                 -- increase the counter for the type of message
                 modifyMVar_ counters $ \cnt -> return $ updateMessageCounters cnt logvalue
                 qProc counters state'
@@ -149,11 +150,12 @@ spawnDispatcher mqueue config sbtrace = do
 Inspect the log message and match it against configured thresholds. If positive,
 then run the action on the current state and return the updated state.
 \begin{code}
-evalMonitoringAction :: Trace.Trace IO a
+evalMonitoringAction :: Configuration
+                     -> Trace.Trace IO a
                      -> MonitorMap
                      -> LogObject a
                      -> IO MonitorMap
-evalMonitoringAction sbtrace mmap logObj@(LogObject logname _ _) =
+evalMonitoringAction config sbtrace mmap logObj@(LogObject logname _ _) =
     case HM.lookup logname mmap of
         Nothing -> return mmap
         Just mon@(MonitorState precond expr acts env0) -> do
@@ -216,5 +218,7 @@ evalMonitoringAction sbtrace mmap logObj@(LogObject logname _ _) =
     performAction (CreateMessage sev alertMessage) = do
         lometa <- mkLOMeta sev Public
         Trace.traceNamedObject sbtrace (lometa, MonitoringEffect (MonitorAlert alertMessage))
+    performAction (SetGlobalMinimalSeverity sev) =
+        setMinSeverity config sev
 
 \end{code}

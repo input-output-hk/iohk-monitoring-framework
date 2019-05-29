@@ -112,7 +112,8 @@ If evaluation of a monitoring expression is |True|, then a set of actions are
 executed for alerting.
 \begin{code}
 data MEvAction = CreateMessage Severity Text
-    deriving (Eq)
+               | SetGlobalMinimalSeverity Severity
+               deriving (Eq)
 
 instance FromJSON MEvAction where
     parseJSON (String s) =
@@ -125,7 +126,8 @@ instance ToJSON MEvAction where
     toJSON = String . pack . show
 
 instance Show MEvAction where
-    show (CreateMessage sev msg) = "(CreateMessage" ++ " " ++ show sev ++ " " ++ show msg ++ ")"
+    show (CreateMessage sev msg)        = "(CreateMessage" ++ " " ++ show sev ++ " " ++ show msg ++ ")"
+    show (SetGlobalMinimalSeverity sev) = "(SetGlobalMinimalSeverity" ++ " " ++ show sev ++ ")"
 \end{code}
 
 \subsubsection{Parsing an expression from textual representation}\label{code:parseEither}\label{code:parseMaybe}
@@ -185,6 +187,15 @@ parseAction :: P.Parser MEvAction
 parseAction = do
     openPar
     P.skipSpace
+    a <- do
+            (nextIsChar 'C' >> parseActionCreateMessage)
+        <|> (nextIsChar 'S' >> parseActionSetMinSeverity)
+    P.skipSpace
+    closePar
+    return a
+
+parseActionCreateMessage :: P.Parser MEvAction
+parseActionCreateMessage = do
     void $ P.string "CreateMessage"
     P.skipSpace
     severity <- parsePureSeverity
@@ -192,9 +203,15 @@ parseAction = do
     void $ P.char '\"'
     alertMessage <- P.takeWhile1 (/='\"')
     void $ P.char '\"'
-    P.skipSpace
-    closePar
     return $ CreateMessage severity alertMessage
+
+parseActionSetMinSeverity :: P.Parser MEvAction
+parseActionSetMinSeverity = do
+    void $ P.string "SetGlobalMinimalSeverity"
+    P.skipSpace
+    severity <- parsePureSeverity
+    P.skipSpace
+    return $ SetGlobalMinimalSeverity severity
 
 parsePureSeverity :: P.Parser Severity
 parsePureSeverity =

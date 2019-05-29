@@ -271,6 +271,7 @@ unitConfigurationParsedRepresentation = do
             , "    chain.creation.block:"
             , "      actions:"
             , "      - (CreateMessage Warning \"chain.creation\")"
+            , "      - (SetGlobalMinimalSeverity Info)"
             , "      monitor: ((time > (23 s)) Or (time < (17 s)))"
             , "    '#aggregation.critproc.observable':"
             , "      actions:"
@@ -336,7 +337,9 @@ unitConfigurationParsed = do
             , ("mapMonitors", HM.fromList [("chain.creation.block",Object (HM.fromList
                                             [("monitor",String "((time > (23 s)) Or (time < (17 s)))")
                                             ,("actions",Array $ V.fromList
-                                                [String "(CreateMessage Warning \"chain.creation\")"])]))
+                                                [ String "(CreateMessage Warning \"chain.creation\")"
+                                                , String "(SetGlobalMinimalSeverity Info)"
+                                                ])]))
                                           ,("#aggregation.critproc.observable",Object (HM.fromList
                                             [("monitor",String "(mean >= (42))")
                                             ,("actions",Array $ V.fromList
@@ -405,7 +408,9 @@ unitConfigurationParsed = do
         , cgMonitors          = HM.fromList [ ( "chain.creation.block"
                                               , ( Nothing
                                                 , (OR (Compare "time" (GT, (Agg.Seconds 23))) (Compare "time" (LT, (Agg.Seconds 17))))
-                                                , [CreateMessage Warning "chain.creation"]
+                                                , [ CreateMessage Warning "chain.creation"
+                                                  , SetGlobalMinimalSeverity Info
+                                                  ]
                                                 )
                                               )
                                             , ( "#aggregation.critproc.observable"

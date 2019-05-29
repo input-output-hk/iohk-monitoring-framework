@@ -60,6 +60,7 @@ options:
         monitor: ((time > (23 s)) Or (time < (17 s)))
         actions:
           - (CreateMessage Warning "chain.creation")
+          - (SetGlobalMinimalSeverity Info)
   mapSeverity:
     iohk.startup: Debug
     iohk.background.process: Error
