@@ -157,14 +157,21 @@ unitAggregationStepwise = do
 commented out:
 \begin{spec}
     showTimedMean (AggregatedEWMA _) = return ()
-    showTimedMean (AggregatedStats s) = putStrLn $ "mean = " ++ show (meanOfStats (ftimed s)) ++ showUnits (fmin (ftimed s))
+    showTimedMean (AggregatedStats s) = putStrLn $ "mean = " ++ show (meanOfStats (ftimed s))
+                                                             ++ showUnits (fmin (ftimed s))
 \end{spec}
 
 \begin{code}
 firstStateAggregatedStats :: Aggregated
-firstStateAggregatedStats = AggregatedStats (Stats z z' (BaseStats z z 1 0 0) (BaseStats z z 1 0 0) (BaseStats z' z' 1 0 0))
+firstStateAggregatedStats = AggregatedStats $
+                                Stats
+                                    z
+                                    z'
+                                    (BaseStats z  z  1 0 0)
+                                    (BaseStats z  z  1 0 0)
+                                    (BaseStats z' z' 1 0 0)
   where
-    z = PureI 0
+    z  = PureI 0
     z' = Nanoseconds 0
 
 \end{code}

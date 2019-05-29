@@ -199,9 +199,9 @@ spawnDispatcher conf aggMap aggregationQueue basetrace = do
                 now <- getMonotonicTimeNSec
                 let aggregatedX = AggregatedExpanded {
                                     aeAggregated = aggregated
-                                , aeResetAfter = Nothing
-                                , aeLastSent = now
-                                }
+                                  , aeResetAfter = Nothing
+                                  , aeLastSent = now
+                                  }
                     namedAggregated = [(iname, aeAggregated aggregatedX)]
                     updatedMap = HM.alter (const $ Just $ aggregatedX) fullname agmap
                 return (updatedMap, namedAggregated)
