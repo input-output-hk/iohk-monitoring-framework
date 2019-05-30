@@ -6,7 +6,7 @@ let
   compiler = (stack-pkgs.extras {}).compiler.nix-name;
 
 in haskell.lib.buildStackProject {
-  name = "cardano-ledger-env";
+  name = "iohk-monitoring-env";
   buildInputs = [ zlib openssl git systemd ];
   ghc = haskell.packages.${compiler}.ghc;
 }
