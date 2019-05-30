@@ -11,6 +11,7 @@ module Cardano.BM.Data.MonitoringEval
   ( MEvExpr (..)
   , MEvPreCond
   , Operator (..)
+  , Operand (..)
   , MEvAction (..)
   , VarName
   , Environment
@@ -26,7 +27,7 @@ import           Control.Monad (void)
 import           Data.Aeson (FromJSON (..), ToJSON (..), Value (..))
 import           Data.Aeson.Types (typeMismatch)
 import qualified Data.Attoparsec.Text as P
-import           Data.Char (isSpace)
+import           Data.Char (isDigit, isLower, isUpper, isSpace)
 import qualified Data.HashMap.Strict as HM
 import           Data.Text (Text, pack, unpack)
 import           Data.Word (Word64)
@@ -68,11 +69,30 @@ fromOperator GT = (>)
 
 \end{code}
 
+\begin{code}
+data Operand = OpMeasurable Measurable
+             | OpPlusVnM    VarName    Measurable
+             | OpPlusMnV    Measurable VarName
+             | OpMinusVnM   VarName    Measurable
+             | OpMinusMnV   Measurable VarName
+             deriving Eq
+
+instance Show Operand where
+    show (OpMeasurable m)     = show m
+    show (OpPlusVnM    vn m)  = unpack vn ++ " + " ++ show m
+    show (OpPlusMnV    m  vn) = show m    ++ " + " ++ unpack vn
+    show (OpMinusVnM   vn m)  = unpack vn ++ " - " ++ show m
+    show (OpMinusMnV   m  vn) = show m    ++ " - " ++ unpack vn
+
+data Algebra = Plus | Minus
+\end{code}
+
 \subsubsection{Expressions}\label{code:MEvExpr}
 Evaluation in monitoring will evaluate expressions
 \begin{code}
 type VarName = Text
-data MEvExpr = Compare VarName (Operator, Measurable)
+--data MEvExpr = Compare VarName (Operator, Operand)
+data MEvExpr = Compare VarName (Operator, Operand)
              | AND MEvExpr MEvExpr
              | OR  MEvExpr MEvExpr
              | NOT MEvExpr
@@ -245,6 +265,13 @@ nextIsChar c = do
     then return ()
     else fail $ "cannot parse char: " ++ [c]
 
+nextChar :: (Char -> Bool) -> P.Parser ()
+nextChar predicate = do
+    c <- P.peekChar'
+    if predicate c
+    then return ()
+    else fail $ "next char doesn't satisfy to a predicate: " ++ [c]
+
 parseBi :: P.Parser MEvExpr
 parseBi = do
     e1 <- parseExpr
@@ -267,17 +294,18 @@ parseComp :: P.Parser MEvExpr
 parseComp = do
     vn <- parseVname
     P.skipSpace
-    op <- parseOp
+    op <- parseOperator
     P.skipSpace
-    m <- parseMeasurable
-    return $ Compare vn (op, m)
+    operand <- parseOperand
+    -- m <- parseMeasurable
+    return $ Compare vn (op, operand)
 
 parseVname :: P.Parser VarName
 parseVname = do
     P.takeTill (isSpace)
 
-parseOp :: P.Parser Operator
-parseOp = do
+parseOperator :: P.Parser Operator
+parseOperator = do
         (P.string ">=" >> return GE)
     <|> (P.string "==" >> return EQ)
     <|> (P.string "/=" >> return NE)
@@ -287,13 +315,70 @@ parseOp = do
     <|> (P.string "<"  >> return LT)
     <|> (P.string ">"  >> return GT)
 
-parseMeasurable :: P.Parser Measurable
-parseMeasurable = do
+parseOpMeasurable :: P.Parser Operand
+parseOpMeasurable =
+    OpMeasurable <$> parseMeasurable
+
+-- VarName and Measurable, examples:
+-- 1. stats.mean + (2 seconds)
+-- 2. stats.mean - (10)
+parseOpAlgebraVnM :: P.Parser Operand
+parseOpAlgebraVnM = do
+    varName <- P.takeWhile1 (not . isSpace)
+    P.skipSpace
+    act <- do
+            (P.string "+" >> return Plus)
+        <|> (P.string "-" >> return Minus)
+    P.skipSpace
     openPar
     P.skipSpace
-    m <- parseMeasurable'
+    m <- parseMeasurable
     P.skipSpace
     closePar
+    return $ case act of
+                 Plus  -> OpPlusVnM  varName m
+                 Minus -> OpMinusVnM varName m
+
+-- Measurable and VarName, examples:
+-- 1. (2 seconds) + stats.mean
+-- 2. (10) - stats.mean
+parseOpAlgebraMnV :: P.Parser Operand
+parseOpAlgebraMnV = do
+    openPar
+    P.skipSpace
+    m <- parseMeasurable
+    P.skipSpace
+    closePar
+    P.skipSpace
+    act <- do
+            (P.string "+" >> return Plus)
+        <|> (P.string "-" >> return Minus)
+    varName <- P.takeWhile1 $ \c -> (not . isSpace $ c) && c /= ')'
+    P.skipSpace
+    return $ case act of
+                 Plus  -> OpPlusMnV  m varName
+                 Minus -> OpMinusMnV m varName
+
+parseOperand :: P.Parser Operand
+parseOperand = do
+    openPar
+    P.skipSpace
+    operand <- do
+            (nextChar isDigit >> parseOpMeasurable)
+        <|> (nextChar isUpper >> parseOpMeasurable) -- This is for Severity.
+        <|> (nextChar isLower >> parseOpAlgebraVnM)
+        <|> (nextIsChar '('   >> parseOpAlgebraMnV)
+    P.skipSpace
+    closePar
+    return operand
+
+parseMeasurable :: P.Parser Measurable
+parseMeasurable = do
+    --openPar
+    --P.skipSpace
+    m <- parseMeasurable'
+    --P.skipSpace
+    --closePar
     return m
 parseMeasurable' :: P.Parser Measurable
 parseMeasurable' =
@@ -353,21 +438,28 @@ if the expression is valid in the |Environment|,
 otherwise returns |False|.
 \begin{code}
 evaluate :: Environment -> MEvExpr -> Bool
-evaluate ev expr =
-    case expr of
-        Compare vn (op, m2) ->
-                     case getMeasurable ev vn of
-                        Nothing -> False
-                        Just m1 -> (fromOperator op) m1 m2
-        AND e1 e2 -> (evaluate ev e1) && (evaluate ev e2)
-        OR e1 e2  -> (evaluate ev e1) || (evaluate ev e2)
-        NOT e     -> not (evaluate ev e)
-
-\end{code}
-
-Helper functions to extract named values from the |Environment|.
-\begin{code}
-getMeasurable :: Environment -> VarName -> Maybe Measurable
-getMeasurable ev vn = HM.lookup vn ev
+evaluate ev expr = case expr of
+    -- Examples:
+    --   monitMe.fcount > (10)
+    --   ewma.avg > stats.mean + (2 seconds)
+    -- In this case:
+    --   'vn'       - 'monitMe.fcount' or 'ewma.avg'
+    --   'operator' - (>)
+    --   'm1'       - value of 'vn' (taken from 'ev')
+    --   'operand'  - '(10)' or 'stats.mean + (2 seconds)'
+    --   'opvn'     - 'stats.mean'
+    --   'opm'      - '(2 seconds)'
+    --   'm2'       - value of 'opvn' (taken from 'ev')
+    Compare vn (operator, operand) -> case HM.lookup vn ev of
+        Nothing -> False
+        Just m1 -> case operand of
+            OpMeasurable m2        -> (fromOperator operator) m1 m2
+            OpPlusVnM    opvn opm  -> maybe False (\m2 -> (fromOperator operator) m1 (opm + m2)) $ HM.lookup opvn ev
+            OpPlusMnV    opm  opvn -> maybe False (\m2 -> (fromOperator operator) m1 (m2 + opm)) $ HM.lookup opvn ev
+            OpMinusVnM   opvn opm  -> maybe False (\m2 -> (fromOperator operator) m1 (opm - m2)) $ HM.lookup opvn ev
+            OpMinusMnV   opm  opvn -> maybe False (\m2 -> (fromOperator operator) m1 (m2 - opm)) $ HM.lookup opvn ev
+    AND e1 e2 -> (evaluate ev e1) && (evaluate ev e2)
+    OR e1 e2  -> (evaluate ev e1) || (evaluate ev e2)
+    NOT e     -> not (evaluate ev e)
 
 \end{code}

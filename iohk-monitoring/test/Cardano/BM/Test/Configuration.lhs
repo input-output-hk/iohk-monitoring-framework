@@ -410,7 +410,7 @@ unitConfigurationParsed = do
         , cgDefAggregatedKind = StatsAK
         , cgMonitors          = HM.fromList [ ( "chain.creation.block"
                                               , ( Nothing
-                                                , (OR (Compare "time" (GT, (Agg.Seconds 23))) (Compare "time" (LT, (Agg.Seconds 17))))
+                                                , (OR (Compare "time" (GT, (OpMeasurable (Agg.Seconds 23)))) (Compare "time" (LT, (OpMeasurable (Agg.Seconds 17)))))
                                                 , [ CreateMessage Warning "chain.creation"
                                                   , AlterSeverity "chain.creation" Debug
                                                   ]
@@ -418,7 +418,7 @@ unitConfigurationParsed = do
                                               )
                                             , ( "#aggregation.critproc.observable"
                                               , ( Nothing
-                                                , Compare "mean" (GE, (Agg.PureI 42))
+                                                , Compare "mean" (GE, (OpMeasurable (Agg.PureI 42)))
                                                 , [ CreateMessage Warning "the observable has been too long too high!"
                                                   , SetGlobalMinimalSeverity Info
                                                   ]
