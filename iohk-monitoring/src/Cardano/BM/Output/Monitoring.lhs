@@ -9,6 +9,9 @@
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 
+{-@ embed Ratio * as int             @-}
+{-@ embed GHC.Natural.Natural as int @-}
+
 module Cardano.BM.Output.Monitoring
     (
       Monitor
@@ -26,7 +29,7 @@ import qualified Data.HashMap.Strict as HM
 import           Data.Text (pack)
 import qualified Data.Text.IO as TIO
 import           Data.Time.Calendar (toModifiedJulianDay)
-import           Data.Time.Clock (UTCTime (..), getCurrentTime)
+import           Data.Time.Clock (UTCTime (..), diffTimeToPicoseconds, getCurrentTime)
 import           GHC.Clock (getMonotonicTimeNSec)
 import           System.IO (stderr)
 
@@ -90,7 +93,7 @@ instance IsEffectuator Monitor a where
 instance IsBackend Monitor a where
     typeof _ = MonitoringBK
 
-    realize _ = error "Monitoring cannot be instantiated by 'realize'"
+    realize _ = fail "Monitoring cannot be instantiated by 'realize'"
 
     realizefrom config sbtrace _ = do
         monref <- newEmptyMVar
@@ -129,6 +132,7 @@ spawnDispatcher mqueue config sbtrace = do
                                 Warning -- Debug
     Async.async (initMap >>= qProc countersMVar)
   where
+    {-@ lazy qProc @-}
     qProc counters state = do
         maybeItem <- atomically $ TBQ.readTBQueue mqueue
         case maybeItem of
@@ -174,14 +178,14 @@ evalMonitoringAction sbtrace mmap logObj@(LogObject logname _ _) = do
             else return mmap
   where
     utc2ns (UTCTime days secs) =
-        let yearsecs :: Rational
-            yearsecs = 365 * 24 * 3600
-            rdays,rsecs :: Rational
-            rdays = toRational $ toModifiedJulianDay days
-            rsecs = toRational secs
-            s2ns = 1000000000
+        let daysecs = 24 * 3600
+            rdays,rsecs :: Integer
+            rdays = toModifiedJulianDay days
+            rsecs = diffTimeToPicoseconds secs `div` 1000
+            s2ns = 1000*1000*1000
+            ns = rsecs + s2ns * rdays * daysecs
         in
-        Nanoseconds $ round $ (fromRational $ s2ns * rsecs + rdays * yearsecs :: Double)
+        Nanoseconds $ fromInteger ns
     updateEnv env (LogObject _ _ (ObserveOpen _)) = env
     updateEnv env (LogObject _ _ (ObserveDiff _)) = env
     updateEnv env (LogObject _ _ (ObserveClose _)) = env

@@ -47,7 +47,7 @@ import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.SubTrace
 import           Cardano.BM.Output.Switchboard (MockSwitchboard (..))
 #ifdef ENABLE_OBSERVABLES
-import           Cardano.BM.Counters (diffTimeObserved, getMonoClock)
+import           Cardano.BM.Counters (getMonoClock)
 import           Cardano.BM.Data.Aggregated
 import           Cardano.BM.Data.Counter
 import qualified Cardano.BM.Observer.Monadic as MonadicObserver
@@ -212,6 +212,20 @@ runTimedAction cfg logTrace name reps = do
         _ <- MonadicObserver.bracketObserveIO cfg trace Debug name action
         return ()
     action = return $ forM [1::Int ..100] $ \x -> [x] ++ (init $ reverse [1::Int ..10000])
+    diffTimeObserved :: CounterState -> CounterState -> Measurable
+    diffTimeObserved (CounterState id0 startCounters) (CounterState id1 endCounters) =
+        let
+            startTime = getMonotonicTime startCounters
+            endTime   = getMonotonicTime endCounters
+        in
+        if (id0 == id1)
+        then endTime - startTime
+        else error "these clocks are not from the same experiment"
+    getMonotonicTime counters = case (filter isMonotonicClockCounter counters) of
+        [(Counter MonotonicClockTime _ mus)] -> mus
+        _                                    -> error "A time measurement is missing!"
+    isMonotonicClockCounter :: Counter -> Bool
+    isMonotonicClockCounter = (MonotonicClockTime ==) . cType
 
 timingObservableVsUntimed :: Assertion
 timingObservableVsUntimed = do

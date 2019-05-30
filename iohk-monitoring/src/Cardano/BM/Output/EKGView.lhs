@@ -192,7 +192,7 @@ instance IsEffectuator EKGView a where
 instance ToObject a => IsBackend EKGView a where
     typeof _ = EKGViewBK
 
-    realize _ = error "EKGView cannot be instantiated by 'realize'"
+    realize _ = fail "EKGView cannot be instantiated by 'realize'"
 
     realizefrom config sbtrace _ = do
         evref <- newEmptyMVar
@@ -247,6 +247,7 @@ spawnDispatcher config evqueue sbtrace ekgtrace = do
 
     Async.async $ qProc countersMVar
   where
+    {-@ lazy qProc @-}
     qProc :: MVar MessageCounter -> IO ()
     qProc counters = do
         maybeItem <- atomically $ TBQ.readTBQueue evqueue

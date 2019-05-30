@@ -10,6 +10,8 @@
 {-# LANGUAGE FlexibleInstances    #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
+{-@ LIQUID "--prune-unsorted" @-}
+
 module Cardano.BM.Tracer
     (
       Tracer (..)

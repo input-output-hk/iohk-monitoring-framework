@@ -29,8 +29,8 @@ import           Control.Concurrent.MVar (MVar, newEmptyMVar, newMVar,
 import           Control.Concurrent.STM (TVar, atomically, modifyTVar, retry)
 import qualified Control.Concurrent.STM.TBQueue as TBQ
 import           Control.Exception.Safe (throwM)
-import           Control.Monad (forM, forM_, when, void)
-import           Data.Maybe (catMaybes, fromMaybe)
+import           Control.Monad (forM_, when, void)
+import           Data.Maybe (fromMaybe)
 import qualified Data.Text.IO as TIO
 import           Data.Time.Clock (getCurrentTime)
 import           System.IO (stderr)
@@ -136,18 +136,6 @@ instance IsEffectuator Switchboard a where
     handleOverflow _ = TIO.hPutStrLn stderr "Error: Switchboard's queue full, dropping log items!"
 
 \end{code}
-
-\begin{spec}
-instead of 'writequeue ...':
-        evalMonitoringAction config item >>=
-            mapM_ (writequeue (sbQueue sb))
-
-evalMonitoringAction :: Configuration -> LogObject a -> m [LogObject a]
-evalMonitoringAction c item = return [item]
-    -- let action = LogObject { loName=(loName item) <> ".action", loContent=LogMessage ... }
-    -- return (action : item)
-
-\end{spec}
 
 \subsubsection{|Switchboard| implements |Backend| functions}\index{Switchboard!instance of IsBackend}
 
@@ -292,12 +280,16 @@ setupBackends :: ToObject a
               -> Configuration
               -> Switchboard a
               -> IO [(BackendKind, Backend a)]
-setupBackends bes c sb = catMaybes <$>
-                         forM bes (\bk -> do { setupBackend' bk c sb >>= \case Nothing -> return Nothing
-                                                                               Just be -> return $ Just (bk, be) })
+setupBackends bes c sb = setupBackendsAcc bes []
+  where
+    setupBackendsAcc [] acc = return acc
+    setupBackendsAcc (bk : r) acc = do
+        setupBackend' bk c sb >>= \case
+            Nothing -> setupBackendsAcc r acc
+            Just be -> setupBackendsAcc r ((bk,be) : acc)
 
 setupBackend' :: ToObject a => BackendKind -> Configuration -> Switchboard a -> IO (Maybe (Backend a))
-setupBackend' SwitchboardBK _ _ = error "cannot instantiate a further Switchboard"
+setupBackend' SwitchboardBK _ _ = fail "cannot instantiate a further Switchboard"
 #ifdef ENABLE_MONITORING
 setupBackend' MonitoringBK c sb = do
     let basetrace = mainTraceConditionally c sb

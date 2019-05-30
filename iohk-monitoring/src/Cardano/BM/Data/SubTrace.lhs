@@ -17,7 +17,7 @@ module Cardano.BM.Data.SubTrace
   where
 
 import           Data.Aeson (FromJSON (..), ToJSON (..), Value (..), (.:), (.=), object, withObject)
-import           Data.Text (Text)
+import           Data.Text (Text, unpack)
 
 import           Cardano.BM.Data.LogItem (LoggerName)
 import           Cardano.BM.Data.Observable
@@ -69,7 +69,7 @@ instance FromJSON SubTrace where
                         "DropOpening"     -> return $ DropOpening
                         "ObservableTrace" -> ObservableTrace <$> o .: "contents"
                         "SetSeverity"     -> SetSeverity     <$> o .: "contents"
-                        _                 -> error "cannot parse such an expression!"
+                        other             -> fail $ "unexpected subtrace: " ++ (unpack other)
 
 instance ToJSON SubTrace where
     toJSON Neutral              = object ["subtrace" .= String "Neutral"         ]
