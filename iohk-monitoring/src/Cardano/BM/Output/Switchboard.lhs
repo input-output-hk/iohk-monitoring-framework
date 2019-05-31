@@ -175,7 +175,11 @@ instance ToObject a => IsBackend Switchboard a where
                                             Warning -- Debug
 
                 let sendMessage nli befilter = do
-                        selectedBackends <- getBackends cfg (loName nli)
+                        let name = case nli of
+                                LogObject loname _ (LogValue valueName _) ->
+                                    loname <> "." <> valueName
+                                LogObject loname _ _ -> loname
+                        selectedBackends <- getBackends cfg name
                         let selBEs = befilter selectedBackends
                         forM_ backends $ \(bek, be) ->
                             when (bek `elem` selBEs) (bEffectuate be nli)

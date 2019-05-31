@@ -118,13 +118,13 @@ ekgTrace ekg _c = do
                 let logname' = logname <> "." <> iname
                 in
                 case value of
-                    (Microseconds x) -> setGauge (logname' <> "_us") (fromIntegral x) ekg_i
-                    (Nanoseconds  x) -> setGauge (logname' <> "_ns") (fromIntegral x) ekg_i
-                    (Seconds      x) -> setGauge (logname' <> "_s")  (fromIntegral x) ekg_i
-                    (Bytes        x) -> setGauge (logname' <> "_B")  (fromIntegral x) ekg_i
-                    (PureI        x) -> setGauge logname' (fromIntegral x) ekg_i
-                    (PureD        _) -> setLabel logname' (pack $ show value) ekg_i
-                    (Severity     _) -> setLabel logname' (pack $ show value) ekg_i
+                    (Microseconds x) -> setGauge ("us:"   <> logname') (fromIntegral x) ekg_i
+                    (Nanoseconds  x) -> setGauge ("ns:"   <> logname') (fromIntegral x) ekg_i
+                    (Seconds      x) -> setGauge ("s:"    <> logname')  (fromIntegral x) ekg_i
+                    (Bytes        x) -> setGauge ("B:"    <> logname')  (fromIntegral x) ekg_i
+                    (PureI        x) -> setGauge ("int:"  <> logname') (fromIntegral x) ekg_i
+                    (PureD        _) -> setLabel ("real:" <> logname') (pack $ show value) ekg_i
+                    (Severity     _) -> setLabel ("sev:"  <> logname') (pack $ show value) ekg_i
 
             update _ _ = return Nothing
 
@@ -179,7 +179,7 @@ instance IsEffectuator EKGView a where
                 traceAgg ags
             (LogObject _ _ (LogMessage _)) -> enqueue item
             (LogObject _ _ (LogValue _ _)) -> enqueue item
-            _                            -> return ()
+            _                              -> return ()
 
     handleOverflow _ = TIO.hPutStrLn stderr "Notice: EKGViews's queue full, dropping log items!"
 
@@ -265,4 +265,3 @@ spawnDispatcher config evqueue sbtrace ekgtrace = do
             Nothing -> return ()  -- stop here
 
 \end{code}
-
