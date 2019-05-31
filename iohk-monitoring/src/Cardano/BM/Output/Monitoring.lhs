@@ -168,6 +168,7 @@ evalMonitoringAction sbtrace mmap logObj@(LogObject logname _ _) = do
                     Nothing -> True
                     -- Precondition is defined, do monitor only if it is True.
                     Just preCondExpr -> evaluate env' preCondExpr
+            -- In this place env' already must contain opvn..
             let thresholdIsReached = evaluate env' expr
             if doMonitor && thresholdIsReached then do
                 now <- getMonotonicTimeNSec

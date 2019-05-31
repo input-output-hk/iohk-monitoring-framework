@@ -6,6 +6,7 @@
 
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes        #-}
+{-# LANGUAGE ViewPatterns #-}
 
 module Cardano.BM.Data.MonitoringEval
   ( MEvExpr (..)
@@ -29,6 +30,7 @@ import           Data.Aeson.Types (typeMismatch)
 import qualified Data.Attoparsec.Text as P
 import           Data.Char (isDigit, isLower, isUpper, isSpace)
 import qualified Data.HashMap.Strict as HM
+import           Data.Maybe (catMaybes)
 import           Data.Text (Text, pack, unpack)
 import           Data.Word (Word64)
 
@@ -70,21 +72,36 @@ fromOperator GT = (>)
 \end{code}
 
 \begin{code}
+data AlgOp = Plus
+           | Minus
+           deriving Eq
+
+instance Show AlgOp where
+    show Plus  = "+"
+    show Minus = "-"
+
+fromAlgOp :: AlgOp -> (Measurable -> Measurable -> Measurable)
+fromAlgOp Plus  = (+)
+fromAlgOp Minus = (-)
+
+data AlgOperand = AlgM Measurable
+                | AlgV VarName
+                deriving Eq
+
+instance Show AlgOperand where
+    show (AlgM m)  = show m
+    show (AlgV vn) = unpack vn
+
 data Operand = OpMeasurable Measurable
-             | OpPlusVnM    VarName    Measurable
-             | OpPlusMnV    Measurable VarName
-             | OpMinusVnM   VarName    Measurable
-             | OpMinusMnV   Measurable VarName
+             | OpVarName    VarName
+             | Operation    AlgOp AlgOperand AlgOperand
              deriving Eq
 
 instance Show Operand where
-    show (OpMeasurable m)     = show m
-    show (OpPlusVnM    vn m)  = unpack vn ++ " + " ++ show m
-    show (OpPlusMnV    m  vn) = show m    ++ " + " ++ unpack vn
-    show (OpMinusVnM   vn m)  = unpack vn ++ " - " ++ show m
-    show (OpMinusMnV   m  vn) = show m    ++ " - " ++ unpack vn
+    show (OpMeasurable m)  = show m
+    show (OpVarName    vn) = unpack vn
+    show (Operation    algOp op1 op2) = "(" ++ show op1 ++ " " ++ show algOp ++ " " ++ show op2 ++ ")"
 
-data Algebra = Plus | Minus
 \end{code}
 
 \subsubsection{Expressions}\label{code:MEvExpr}
@@ -326,7 +343,7 @@ parseOpAlgebraVnM :: P.Parser Operand
 parseOpAlgebraVnM = do
     varName <- P.takeWhile1 (not . isSpace)
     P.skipSpace
-    act <- do
+    algOp <- do
             (P.string "+" >> return Plus)
         <|> (P.string "-" >> return Minus)
     P.skipSpace
@@ -335,9 +352,7 @@ parseOpAlgebraVnM = do
     m <- parseMeasurable
     P.skipSpace
     closePar
-    return $ case act of
-                 Plus  -> OpPlusVnM  varName m
-                 Minus -> OpMinusVnM varName m
+    return $ Operation algOp (AlgV varName) (AlgM m)
 
 -- Measurable and VarName, examples:
 -- 1. (2 seconds) + stats.mean
@@ -350,14 +365,12 @@ parseOpAlgebraMnV = do
     P.skipSpace
     closePar
     P.skipSpace
-    act <- do
+    algOp <- do
             (P.string "+" >> return Plus)
         <|> (P.string "-" >> return Minus)
     varName <- P.takeWhile1 $ \c -> (not . isSpace $ c) && c /= ')'
     P.skipSpace
-    return $ case act of
-                 Plus  -> OpPlusMnV  m varName
-                 Minus -> OpMinusMnV m varName
+    return $ Operation algOp (AlgM m) (AlgV varName)
 
 parseOperand :: P.Parser Operand
 parseOperand = do
@@ -439,27 +452,27 @@ otherwise returns |False|.
 \begin{code}
 evaluate :: Environment -> MEvExpr -> Bool
 evaluate ev expr = case expr of
-    -- Examples:
-    --   monitMe.fcount > (10)
-    --   ewma.avg > stats.mean + (2 seconds)
-    -- In this case:
-    --   'vn'       - 'monitMe.fcount' or 'ewma.avg'
-    --   'operator' - (>)
-    --   'm1'       - value of 'vn' (taken from 'ev')
-    --   'operand'  - '(10)' or 'stats.mean + (2 seconds)'
-    --   'opvn'     - 'stats.mean'
-    --   'opm'      - '(2 seconds)'
-    --   'm2'       - value of 'opvn' (taken from 'ev')
-    Compare vn (operator, operand) -> case HM.lookup vn ev of
+    Compare vn ((fromOperator -> compOp), operand) -> case getValueOf vn of
         Nothing -> False
         Just m1 -> case operand of
-            OpMeasurable m2        -> (fromOperator operator) m1 m2
-            OpPlusVnM    opvn opm  -> maybe False (\m2 -> (fromOperator operator) m1 (opm + m2)) $ HM.lookup opvn ev
-            OpPlusMnV    opm  opvn -> maybe False (\m2 -> (fromOperator operator) m1 (m2 + opm)) $ HM.lookup opvn ev
-            OpMinusVnM   opvn opm  -> maybe False (\m2 -> (fromOperator operator) m1 (opm - m2)) $ HM.lookup opvn ev
-            OpMinusMnV   opm  opvn -> maybe False (\m2 -> (fromOperator operator) m1 (m2 - opm)) $ HM.lookup opvn ev
+            OpMeasurable m2 ->
+                m1 `compOp` m2
+            OpVarName opvn ->
+                maybe False (\m2 -> m1 `compOp` m2) $ getValueOf opvn
+            Operation (fromAlgOp -> algOp) (AlgM m1') (AlgM m2') ->
+                m1 `compOp` (m1' `algOp` m2')
+            Operation (fromAlgOp -> algOp) (AlgM m) (AlgV opvn) ->
+                maybe False (\m2 -> m1 `compOp` (m `algOp` m2)) $ getValueOf opvn
+            Operation (fromAlgOp -> algOp) (AlgV opvn) (AlgM m) ->
+                maybe False (\m2 -> m1 `compOp` (m2 `algOp` m)) $ getValueOf opvn
+            Operation (fromAlgOp -> algOp) (AlgV opvn1) (AlgV opvn2) ->
+                case catMaybes [getValueOf opvn1, getValueOf opvn2] of
+                    [opm1, opm2] -> m1 `compOp` (opm1 `algOp` opm2)
+                    _ -> False
     AND e1 e2 -> (evaluate ev e1) && (evaluate ev e2)
     OR e1 e2  -> (evaluate ev e1) || (evaluate ev e2)
     NOT e     -> not (evaluate ev e)
+  where
+    getValueOf = flip HM.lookup ev
 
 \end{code}
