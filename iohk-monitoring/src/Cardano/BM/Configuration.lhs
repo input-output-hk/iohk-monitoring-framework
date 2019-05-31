@@ -4,6 +4,8 @@
 
 %if style == newcode
 \begin{code}
+{-# LANGUAGE CPP #-}
+
 module Cardano.BM.Configuration
     (
       CM.Configuration
@@ -16,8 +18,12 @@ module Cardano.BM.Configuration
     , CM.getOption
     , CM.findSubTrace
     , CM.setSubTrace
+#ifdef ENABLE_EKG
     , CM.getEKGport
+#endif
+#ifdef ENABLE_PROMETHEUS
     , CM.getPrometheusPort
+#endif
     , CM.getGUIport
     , CM.getMonitors
     , getOptionOrDefault

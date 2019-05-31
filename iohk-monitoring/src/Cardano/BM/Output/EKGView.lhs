@@ -40,7 +40,7 @@ import           System.Remote.Monitoring (Server, forkServer,
 import           Paths_iohk_monitoring (version)
 
 import           Cardano.BM.Configuration (Configuration, getEKGport,
-                     getPrometheusPort, testSubTrace)
+                     testSubTrace)
 import           Cardano.BM.Data.Aggregated
 import           Cardano.BM.Data.Backend
 import           Cardano.BM.Data.LogItem
@@ -50,6 +50,7 @@ import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.Trace
 import           Cardano.BM.Data.Tracer (Tracer (..), ToObject (..))
 #ifdef ENABLE_PROMETHEUS
+import           Cardano.BM.Configuration (getPrometheusPort)
 import           Cardano.BM.Output.Prometheus (spawnPrometheus)
 #endif
 import qualified Cardano.BM.Trace as Trace
