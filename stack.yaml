@@ -3,6 +3,12 @@ compiler: ghc-8.6.4
 packages:
 - contra-tracer
 - iohk-monitoring
+- location:
+    git: https://github.com/ucsd-progsys/liquidhaskell
+    commit: 46f11e8faef006e70d39572d08419283b1280b88
+- location:
+    git: https://github.com/ucsd-progsys/liquid-fixpoint
+    commit: 42c027ab9ae47907c588a2f1f9c05a5e0aa881e9
 extra-deps:
 - time-units-1.0.0
 - ekg-0.4.0.15
@@ -16,6 +22,8 @@ extra-deps:
   commit: 5f8d074c617fd67e3bce377a06d22b908b8ab8d7
 - git: https://github.com/ocharles/libsystemd-journal
   commit: 16696812d6bf882fd348a54be9b573e9e115d2e3
+- fgl-visualize-0.1.0.1
+- located-base-0.1.1.1
 
 nix:
   shell-file: scripts/nix/stack-shell.nix

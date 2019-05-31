@@ -1,2 +1,4 @@
 https://github.com/365andreas/katip-libsystemd-journal 5f8d074c617fd67e3bce377a06d22b908b8ab8d7 . 0sim2ag8ildz73bbrmm76qgdn6jr1r9ksdvkrlym95r0k36ra766 katip-libsystemd-journal katip-libsystemd-journal.nix
 https://github.com/ocharles/libsystemd-journal 16696812d6bf882fd348a54be9b573e9e115d2e3 . 09dyhy8cd22gyzw589jchpg0ixwr6iy4wl4jmm095rswga2ddrjf libsystemd-journal libsystemd-journal.nix
+https://github.com/ucsd-progsys/liquidhaskell 46f11e8faef006e70d39572d08419283b1280b88 . 1vk2b451md14x7z40lqzxsfyc6lzmnz0i02n807al82gcah8ln4q liquidhaskell liquidhaskell.nix
+https://github.com/ucsd-progsys/liquid-fixpoint 42c027ab9ae47907c588a2f1f9c05a5e0aa881e9 . 17qmzq1vx7h04yd38drr6sh6hys3q2rz62qh3pna9kbxlcnikkqf liquid-fixpoint liquid-fixpoint.nix

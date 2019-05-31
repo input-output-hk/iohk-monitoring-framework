@@ -34,6 +34,17 @@ let
         # https://github.com/bitnomial/prometheus/commit/61bb7ec834279d6274c9d13b0edcfff3cc42c856
         packages.prometheus.components.library.doExactConfig = true;
       }
+
+      {
+        packages.liquidhaskell = {
+          components.exes.liquid.build-tools = [ pkgs.makeWrapper ];
+          postInstall = ''
+            if [ -f "$out/bin/liquid" ]; then
+              wrapProgram "$out/bin/liquid" --prefix PATH : "${pkgs.lib.makeBinPath [pkgs.z3]}"
+            fi
+          '';
+        };
+      }
     ];
   };
 

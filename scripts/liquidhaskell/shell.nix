@@ -1,31 +1,6 @@
-let
-  inherit (import <nixpkgs> { }) fetchFromGitHub;
+with (import ../../default.nix {});
 
-  nixpkgs = fetchFromGitHub {
-    owner = "NixOS";
-
-    repo = "nixpkgs";
-
-    rev = "1715436b75696d9885b345dd8159e12244d0f7f5";
-    sha256 = "18qp76cppm1yxmzdaak9kcllbypvv22c9g7iaycq2wz0qkka6rx5";
-  };
-
-#   pkgs = import nixpkgs { };
-  pkgs = import nixpkgs { };
-
-  liquid =
-    pkgs.runCommand "liquidhaskell" { buildInputs = [ pkgs.makeWrapper ]; } ''
-      mkdir -p $out/bin
-      ln -s ${pkgs.haskellPackages.liquidhaskell}/bin/liquid $out/bin
-      wrapProgram $out/bin/liquid --prefix PATH : ${pkgs.z3}/bin
-    '';
-
-  ghc = pkgs.haskellPackages.ghcWithPackages (ps: with ps; [
-          vector
-        ]);
-in
-  pkgs.stdenv.mkDerivation {
-    name = "my-haskell-env-0";
-    buildInputs = [ ghc liquid ];
-    shellHook = "eval $(egrep ^export ${ghc}/bin/ghc)";
-  }
+nix-tools._raw.shellFor {
+  packages = ps: with ps; [ iohk-monitoring ];
+  buildInputs = [ nix-tools.exes.liquidhaskell ];
+}

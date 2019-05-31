@@ -1,0 +1,3 @@
+clear && liquid --ghc-option=-XOverloadedStrings --ghc-option="-package-db=$(ghc-pkg list | head -n 1)" --ghc-option=-v --prune-unsorted -v -i ./iohk-monitoring/src  --cabaldir iohk-monitoring/src/Cardano/BM/Output/Aggregation.lhs
+
+clear && liquid --ghc-option=-XOverloadedStrings --ghc-option=-v --prune-unsorted -v -i ./iohk-monitoring/src  --cabaldir iohk-monitoring/src/Cardano/BM/Output/Aggregation.lhs
