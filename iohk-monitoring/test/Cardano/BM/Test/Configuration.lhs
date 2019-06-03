@@ -19,9 +19,11 @@ import           Data.ByteString (intercalate)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Vector as V
 import           Data.Yaml
-import           System.FilePath ((</>))
-import           System.IO.Temp (withSystemTempFile)
+#ifdef ENABLE_EKG
 import           System.Directory (getTemporaryDirectory)
+import           System.FilePath ((</>))
+#endif
+import           System.IO.Temp (withSystemTempFile)
 
 import           Cardano.BM.Data.Configuration
 import           Cardano.BM.Configuration.Model (Configuration (..),
