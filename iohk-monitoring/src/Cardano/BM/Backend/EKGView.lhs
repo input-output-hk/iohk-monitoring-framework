@@ -1,6 +1,6 @@
 
-\subsection{Cardano.BM.Output.EKGView}
-\label{code:Cardano.BM.Output.EKGView}
+\subsection{Cardano.BM.Backend.EKGView}
+\label{code:Cardano.BM.Backend.EKGView}
 
 %if style == newcode
 \begin{code}
@@ -9,7 +9,7 @@
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 
-module Cardano.BM.Output.EKGView
+module Cardano.BM.Backend.EKGView
     (
       EKGView
     , effectuate
@@ -51,7 +51,7 @@ import           Cardano.BM.Data.Trace
 import           Cardano.BM.Data.Tracer (Tracer (..), ToObject (..))
 #ifdef ENABLE_PROMETHEUS
 import           Cardano.BM.Configuration (getPrometheusPort)
-import           Cardano.BM.Output.Prometheus (spawnPrometheus)
+import           Cardano.BM.Backend.Prometheus (spawnPrometheus)
 #endif
 import qualified Cardano.BM.Trace as Trace
 

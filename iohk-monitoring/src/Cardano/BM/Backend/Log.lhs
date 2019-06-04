@@ -1,6 +1,6 @@
 
-\subsection{Cardano.BM.Output.Log}
-\label{code:Cardano.BM.Output.Log}
+\subsection{Cardano.BM.Backend.Log}
+\label{code:Cardano.BM.Backend.Log}
 
 %if style == newcode
 \begin{code}
@@ -21,7 +21,7 @@
 #define LINUX
 #endif
 
-module Cardano.BM.Output.Log
+module Cardano.BM.Backend.Log
     (
       Log
     , effectuate

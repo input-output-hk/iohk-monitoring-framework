@@ -363,13 +363,13 @@ thus specializes its interface.}\label{fig:overview}
 %include ../iohk-monitoring/src/Cardano/BM/Configuration/Model.lhs
 %include ../iohk-monitoring/src/Cardano/BM/Configuration/Static.lhs
 
-%include ../iohk-monitoring/src/Cardano/BM/Output/Switchboard.lhs
-%include ../iohk-monitoring/src/Cardano/BM/Output/Log.lhs
-%include ../iohk-monitoring/src/Cardano/BM/Output/LogBuffer.lhs
-%include ../iohk-monitoring/src/Cardano/BM/Output/EKGView.lhs
-%include ../iohk-monitoring/src/Cardano/BM/Output/Editor.lhs
-%include ../iohk-monitoring/src/Cardano/BM/Output/Aggregation.lhs
-%include ../iohk-monitoring/src/Cardano/BM/Output/Monitoring.lhs
+%include ../iohk-monitoring/src/Cardano/BM/Backend/Switchboard.lhs
+%include ../iohk-monitoring/src/Cardano/BM/Backend/Log.lhs
+%include ../iohk-monitoring/src/Cardano/BM/Backend/LogBuffer.lhs
+%include ../iohk-monitoring/src/Cardano/BM/Backend/EKGView.lhs
+%include ../iohk-monitoring/src/Cardano/BM/Backend/Editor.lhs
+%include ../iohk-monitoring/src/Cardano/BM/Backend/Aggregation.lhs
+%include ../iohk-monitoring/src/Cardano/BM/Backend/Monitoring.lhs
 
 \chapter{Testing}
 

@@ -1,5 +1,5 @@
-\subsection{Cardano.BM.Output.LogBuffer}
-\label{module:Cardano.BM.Output.LogBuffer}
+\subsection{Cardano.BM.Backend.LogBuffer}
+\label{module:Cardano.BM.Backend.LogBuffer}
 
 %if style == newcode
 \begin{code}
@@ -7,7 +7,7 @@
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 
-module Cardano.BM.Output.LogBuffer
+module Cardano.BM.Backend.LogBuffer
     ( LogBuffer
     , readBuffer
     , effectuate

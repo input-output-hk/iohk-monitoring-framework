@@ -28,7 +28,7 @@ import           System.IO (FilePath)
 
 import qualified Cardano.BM.Configuration as Config
 import           Cardano.BM.Data.Tracer (ToObject)
-import qualified Cardano.BM.Output.Switchboard as Switchboard
+import qualified Cardano.BM.Backend.Switchboard as Switchboard
 import           Cardano.BM.Trace (Trace, appendName, natTrace)
 
 \end{code}

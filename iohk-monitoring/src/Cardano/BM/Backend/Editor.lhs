@@ -1,5 +1,5 @@
-\subsection{Cardano.BM.Output.Editor}
-\label{code:Cardano.BM.Output.Editor}
+\subsection{Cardano.BM.Backend.Editor}
+\label{code:Cardano.BM.Backend.Editor}
 
 %if style == newcode
 \begin{code}
@@ -8,7 +8,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 
-module Cardano.BM.Output.Editor
+module Cardano.BM.Backend.Editor
     (
       Editor
     , effectuate
@@ -48,7 +48,7 @@ import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.SubTrace
 import           Cardano.BM.Data.Trace
 import           Cardano.BM.Data.Tracer (ToObject (..))
-import           Cardano.BM.Output.LogBuffer
+import           Cardano.BM.Backend.LogBuffer
 import           Cardano.BM.Rotator (tsformat)
 
 \end{code}
@@ -97,7 +97,7 @@ instance ToObject a => IsBackend Editor a where
         when (port <= 0) $ fail "cannot create GUI"
 
         -- local |LogBuffer|
-        logbuf :: Cardano.BM.Output.LogBuffer.LogBuffer a <- Cardano.BM.Output.LogBuffer.realize config
+        logbuf :: Cardano.BM.Backend.LogBuffer.LogBuffer a <- Cardano.BM.Backend.LogBuffer.realize config
 
         thd <- Async.async $
             startGUI defaultConfig { jsPort       = Just port

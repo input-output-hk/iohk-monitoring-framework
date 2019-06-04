@@ -71,32 +71,32 @@ library
                        Cardano.BM.Data.Tracer
                        Cardano.BM.Tracing
 
-                       Cardano.BM.Output.Log
-                       Cardano.BM.Output.LogBuffer
-                       Cardano.BM.Output.Switchboard
+                       Cardano.BM.Backend.Log
+                       Cardano.BM.Backend.LogBuffer
+                       Cardano.BM.Backend.Switchboard
                        Cardano.BM.Rotator
                        Cardano.BM.Setup
                        Cardano.BM.Trace
                        Cardano.BM.Tracer
 
   if !flag(disable-aggregation)
-    exposed-modules:   Cardano.BM.Output.Aggregation
+    exposed-modules:   Cardano.BM.Backend.Aggregation
 
   if !flag(disable-ekg)
-    exposed-modules:   Cardano.BM.Output.EKGView
+    exposed-modules:   Cardano.BM.Backend.EKGView
 
   if !flag(disable-ekg) && !flag(disable-prometheus)
-    exposed-modules:   Cardano.BM.Output.Prometheus
+    exposed-modules:   Cardano.BM.Backend.Prometheus
 
   if !flag(disable-gui)
-    exposed-modules:   Cardano.BM.Output.Editor
+    exposed-modules:   Cardano.BM.Backend.Editor
 
   if !flag(disable-observables)
     exposed-modules:   Cardano.BM.Observer.Monadic
                        Cardano.BM.Observer.STM
 
   if !flag(disable-monitoring)
-    exposed-modules:   Cardano.BM.Output.Monitoring
+    exposed-modules:   Cardano.BM.Backend.Monitoring
 
   if os(linux)
     exposed-modules:   Cardano.BM.Counters.Linux

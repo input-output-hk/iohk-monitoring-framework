@@ -1,6 +1,6 @@
 
-\subsection{Cardano.BM.Output.Aggregation}
-\label{code:Cardano.BM.Output.Aggregation}
+\subsection{Cardano.BM.Backend.Aggregation}
+\label{code:Cardano.BM.Backend.Aggregation}
 
 %if style == newcode
 \begin{code}
@@ -10,7 +10,7 @@
 
 {-@ embed GHC.Natural.Natural as int @-}
 
-module Cardano.BM.Output.Aggregation
+module Cardano.BM.Backend.Aggregation
     (
       Aggregation
     , effectuate

@@ -27,13 +27,13 @@ SOURCES = Code.lhs \
 					$(SRCDIR1)/Cardano/BM/Data/Tracer.lhs \
 					$(SRCDIR1)/Cardano/BM/Observer/Monadic.lhs \
 					$(SRCDIR1)/Cardano/BM/Observer/STM.lhs \
-					$(SRCDIR1)/Cardano/BM/Output/Aggregation.lhs \
-					$(SRCDIR1)/Cardano/BM/Output/Editor.lhs \
-					$(SRCDIR1)/Cardano/BM/Output/EKGView.lhs \
-					$(SRCDIR1)/Cardano/BM/Output/Log.lhs \
-					$(SRCDIR1)/Cardano/BM/Output/LogBuffer.lhs \
-					$(SRCDIR1)/Cardano/BM/Output/Monitoring.lhs \
-					$(SRCDIR1)/Cardano/BM/Output/Switchboard.lhs \
+					$(SRCDIR1)/Cardano/BM/Backend/Aggregation.lhs \
+					$(SRCDIR1)/Cardano/BM/Backend/Editor.lhs \
+					$(SRCDIR1)/Cardano/BM/Backend/EKGView.lhs \
+					$(SRCDIR1)/Cardano/BM/Backend/Log.lhs \
+					$(SRCDIR1)/Cardano/BM/Backend/LogBuffer.lhs \
+					$(SRCDIR1)/Cardano/BM/Backend/Monitoring.lhs \
+					$(SRCDIR1)/Cardano/BM/Backend/Switchboard.lhs \
 					$(SRCDIR1)/Cardano/BM/Rotator.lhs \
 					$(SRCDIR1)/Cardano/BM/Setup.lhs \
 					$(SRCDIR1)/Cardano/BM/Trace.lhs \
