@@ -28,7 +28,7 @@ import           Control.Monad (void)
 import           Data.Aeson (FromJSON (..), ToJSON (..), Value (..))
 import           Data.Aeson.Types (typeMismatch)
 import qualified Data.Attoparsec.Text as P
-import           Data.Char (isDigit, isLower, isUpper, isSpace)
+import           Data.Char (isAlpha, isDigit, isLower, isUpper)
 import qualified Data.HashMap.Strict as HM
 import           Data.Maybe (catMaybes)
 import           Data.Text (Text, pack, unpack)
@@ -309,17 +309,12 @@ parseNot = do
 
 parseComp :: P.Parser MEvExpr
 parseComp = do
-    vn <- parseVname
+    vn <- parseVarName
     P.skipSpace
     op <- parseOperator
     P.skipSpace
     operand <- parseOperand
-    -- m <- parseMeasurable
     return $ Compare vn (op, operand)
-
-parseVname :: P.Parser VarName
-parseVname = do
-    P.takeTill (isSpace)
 
 parseOperator :: P.Parser Operator
 parseOperator = do
@@ -336,29 +331,34 @@ parseOpMeasurable :: P.Parser Operand
 parseOpMeasurable =
     OpMeasurable <$> parseMeasurable
 
--- VarName and Measurable, examples:
+-- VarName first, examples:
 -- 1. stats.mean + (2 seconds)
--- 2. stats.mean - (10)
-parseOpAlgebraVnM :: P.Parser Operand
-parseOpAlgebraVnM = do
-    varName <- P.takeWhile1 (not . isSpace)
+-- 2. stats.mean + stats.max
+-- 3. stats.mean - (10)
+-- 4. stats.mean
+parseOpAlgebraVFirst :: P.Parser Operand
+parseOpAlgebraVFirst = do
+    varName <- parseVarName
     P.skipSpace
-    algOp <- do
-            (P.string "+" >> return Plus)
-        <|> (P.string "-" >> return Minus)
-    P.skipSpace
-    openPar
-    P.skipSpace
-    m <- parseMeasurable
-    P.skipSpace
-    closePar
-    return $ Operation algOp (AlgV varName) (AlgM m)
+    c <- P.peekChar'
+    if c == ')'
+    then return $ OpVarName varName
+    else do
+        algOp <- do
+                (P.string "+" >> return Plus)
+            <|> (P.string "-" >> return Minus)
+        P.skipSpace
+        algOperand <- do
+                (nextIsChar '('   >> parseAlgM)
+            <|> (nextChar isLower >> parseAlgV)
+        return $ Operation algOp (AlgV varName) algOperand
 
--- Measurable and VarName, examples:
--- 1. (2 seconds) + stats.mean
--- 2. (10) - stats.mean
-parseOpAlgebraMnV :: P.Parser Operand
-parseOpAlgebraMnV = do
+-- Measurable first, examples:
+-- 1. (2 seconds) + (3 seconds)
+-- 2. (2 seconds) + stats.mean
+-- 3. (10) - stats.mean
+parseOpAlgebraMFirst :: P.Parser Operand
+parseOpAlgebraMFirst = do
     openPar
     P.skipSpace
     m <- parseMeasurable
@@ -368,9 +368,33 @@ parseOpAlgebraMnV = do
     algOp <- do
             (P.string "+" >> return Plus)
         <|> (P.string "-" >> return Minus)
-    varName <- P.takeWhile1 $ \c -> (not . isSpace $ c) && c /= ')'
     P.skipSpace
-    return $ Operation algOp (AlgM m) (AlgV varName)
+    algOperand <- do
+            (nextIsChar '('   >> parseAlgM)
+        <|> (nextChar isLower >> parseAlgV)
+    return $ Operation algOp (AlgM m) algOperand
+
+parseAlgM :: P.Parser AlgOperand
+parseAlgM = do
+    openPar
+    P.skipSpace
+    m <- parseMeasurable
+    P.skipSpace
+    closePar
+    return $ AlgM m
+
+parseAlgV :: P.Parser AlgOperand
+parseAlgV = do
+    varName <- parseVarName
+    return $ AlgV varName
+
+parseVarName :: P.Parser VarName
+parseVarName =
+    P.takeWhile1 $ \c ->
+           isAlpha c
+        || isDigit c
+        || c == '.'
+        || c == '_'
 
 parseOperand :: P.Parser Operand
 parseOperand = do
@@ -379,19 +403,15 @@ parseOperand = do
     operand <- do
             (nextChar isDigit >> parseOpMeasurable)
         <|> (nextChar isUpper >> parseOpMeasurable) -- This is for Severity.
-        <|> (nextChar isLower >> parseOpAlgebraVnM)
-        <|> (nextIsChar '('   >> parseOpAlgebraMnV)
+        <|> (nextChar isLower >> parseOpAlgebraVFirst)
+        <|> (nextIsChar '('   >> parseOpAlgebraMFirst)
     P.skipSpace
     closePar
     return operand
 
 parseMeasurable :: P.Parser Measurable
 parseMeasurable = do
-    --openPar
-    --P.skipSpace
     m <- parseMeasurable'
-    --P.skipSpace
-    --closePar
     return m
 parseMeasurable' :: P.Parser Measurable
 parseMeasurable' =
