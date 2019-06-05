@@ -7,6 +7,7 @@
 %if style == newcode
 \begin{code}
 {-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 
@@ -28,7 +29,7 @@ import           Control.Concurrent.STM (atomically)
 import qualified Control.Concurrent.STM.TBQueue as TBQ
 import qualified Data.HashMap.Strict as HM
 import           Data.Maybe (catMaybes)
-import           Data.Text (pack)
+import           Data.Text (Text, pack)
 import qualified Data.Text.IO as TIO
 import           Data.Time.Calendar (toModifiedJulianDay)
 import           Data.Time.Clock (UTCTime (..), diffTimeToPicoseconds, getCurrentTime)
@@ -172,9 +173,10 @@ getVarValuesForMonitoring :: Configuration
                           -> [(LoggerName, LogObject a)]
                           -> IO [(VarName, Measurable)]
 getVarValuesForMonitoring config mbuf = do
+    -- Here we take all var names for all monitors, just in case.
     monitorsInfo <- HM.elems <$> getMonitors config
     let varNames = concat [extractVarNames mEvExpr | (_, mEvExpr, _) <- monitorsInfo]
-    return $ catMaybes $ map (getVNnVal varNames) mbuf
+    return . catMaybes . concat $ map (getVNnVal varNames) mbuf
   where
     extractVarNames expr = case expr of
         Compare vn _  -> [vn]
@@ -182,9 +184,45 @@ getVarValuesForMonitoring config mbuf = do
         OR      e1 e2 -> extractVarNames e1 ++ extractVarNames e2
         NOT     e     -> extractVarNames e
 
-    getVNnVal varNames (_, LogObject _ _ (LogValue vn val)) =
-        if vn `elem` varNames then Just (vn, val) else Nothing
-    getVNnVal _ (_, _) = Nothing
+    getVNnVal varNames logObj = case logObj of
+        (_, LogObject _ _ (LogValue vn val))       -> if vn `elem` varNames
+                                                      then [Just (vn, val)]
+                                                      else []
+        (_, LogObject _ _ (AggregatedMessage agg)) -> concat $ map getMeasurable agg
+        (_, _)                                     -> []
+      where
+        getMeasurable :: (Text, Aggregated) -> [Maybe (VarName, Measurable)]
+        getMeasurable agg = case agg of
+            (vn, AggregatedEWMA (EWMA _ val)) -> if vn `elem` varNames
+                                                 then [Just (vn <> ".ewma.avg", val)]
+                                                 else []
+            (vn, AggregatedStats st)          -> if vn `elem` varNames
+                                                 then stValues vn st
+                                                 else []
+            _                                 -> []
+          where
+            stValues vn st =
+                [ Just (vn <> ".flast", flast st)
+                , Just (vn <> ".fold",  fold st)
+
+                , Just (vn <> ".fbasic.fmin",   fmin  . fbasic $ st)
+                , Just (vn <> ".fbasic.fmax",   fmax  . fbasic $ st)
+                , Just (vn <> ".fbasic.mean",   PureD . meanOfStats . fbasic $ st)
+                , Just (vn <> ".fbasic.stdev",  PureD . stdevOfStats . fbasic $ st)
+                , Just (vn <> ".fbasic.fcount", PureI . fromIntegral . fcount . fbasic $ st)
+
+                , Just (vn <> ".fdelta.fmin",   fmin  . fdelta $ st)
+                , Just (vn <> ".fdelta.fmax",   fmax  . fdelta $ st)
+                , Just (vn <> ".fdelta.mean",   PureD . meanOfStats . fdelta $ st)
+                , Just (vn <> ".fdelta.stdev",  PureD . stdevOfStats . fdelta $ st)
+                , Just (vn <> ".fdelta.fcount", PureI . fromIntegral . fcount . fdelta $ st)
+
+                , Just (vn <> ".ftimed.fmin",   fmin  . ftimed $ st)
+                , Just (vn <> ".ftimed.fmax",   fmax  . ftimed $ st)
+                , Just (vn <> ".ftimed.mean",   PureD . meanOfStats . ftimed $ st)
+                , Just (vn <> ".ftimed.stdev",  PureD . stdevOfStats . ftimed $ st)
+                , Just (vn <> ".ftimed.fcount", PureI . fromIntegral . fcount . ftimed $ st)
+                ]
 
 \end{code}
 

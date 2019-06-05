@@ -62,6 +62,16 @@ unitTests = testGroup "Unit tests" [
                                           True
                                           $ HM.fromList [("time", Seconds 30)]
                 , testCase
+                      "parse and eval expression with algebra, measurable * measurable; must return True" $
+                      parseEvalExpression "(time > ((19 s) * (10 s)))"
+                                          True
+                                          $ HM.fromList [("time", Seconds 191)]
+                , testCase
+                      "parse and eval expression with algebra, measurable - measurable, wrong result; must return False" $
+                      parseEvalExpression "(time > ((19 s) - (10 s)))"
+                                          False
+                                          $ HM.fromList [("time", Seconds 1)]
+                , testCase
                       "parse and eval expression with algebra, measurable - measurable; must return True" $
                       parseEvalExpression "(time == ((19 s)-(9 s)))"
                                           True
@@ -74,8 +84,22 @@ unitTests = testGroup "Unit tests" [
                                                         , ("stats.mean", Seconds 2)
                                                         ]
                 , testCase
+                      "parse and eval expression with algebra, measurable * variable; must return True" $
+                      parseEvalExpression "(time >= ((15 s) * stats.mean))"
+                                          True
+                                          $ HM.fromList [ ("time",       Seconds 75)
+                                                        , ("stats.mean", Seconds 5)
+                                                        ]
+                , testCase
+                      "parse and eval expression with algebra, measurable + variable, wrong result; must return False" $
+                      parseEvalExpression "(time == ((19 s) - stats.mean))"
+                                          False
+                                          $ HM.fromList [ ("time",       Seconds 100)
+                                                        , ("stats.mean", Seconds 2)
+                                                        ]
+                , testCase
                       "parse and eval expression with algebra, measurable - variable; must return True" $
-                      parseEvalExpression "(time==((100 ns)+ stats.mean))"
+                      parseEvalExpression "(time<=((100 ns)+ stats.mean))"
                                           True
                                           $ HM.fromList [ ("time",       Nanoseconds 150)
                                                         , ("stats.mean", Nanoseconds 50)
@@ -88,6 +112,13 @@ unitTests = testGroup "Unit tests" [
                                                         , ("stats.mean", Seconds 9)
                                                         ]
                 , testCase
+                      "parse and eval expression, with variable, wrong result; must return False" $
+                      parseEvalExpression "(time>( stats.mean)    )"
+                                          False
+                                          $ HM.fromList [ ("time",       Seconds 2)
+                                                        , ("stats.mean", Seconds 90)
+                                                        ]
+                , testCase
                       "parse and eval expression with algebra, variable + measurable; must return True" $
                       parseEvalExpression "(  time<(stats.mean+(      10 s)      ))"
                                           True
@@ -95,10 +126,33 @@ unitTests = testGroup "Unit tests" [
                                                         , ("stats.mean", Seconds 2)
                                                         ]
                 , testCase
+                      "parse and eval expression with algebra, variable * measurable; must return True" $
+                      parseEvalExpression "(  time==(stats.mean*(      10 s)      ))"
+                                          True
+                                          $ HM.fromList [ ("time",       Seconds 20)
+                                                        , ("stats.mean", Seconds 2)
+                                                        ]
+                , testCase
                       "parse and eval expression with algebra, variable - variable; must return True" $
                       parseEvalExpression "(time < (stats.mean-stats.min))"
                                           True
                                           $ HM.fromList [ ("time",       Seconds 3)
+                                                        , ("stats.mean", Seconds 20)
+                                                        , ("stats.min",  Seconds 2)
+                                                        ]
+                , testCase
+                      "parse and eval expression with algebra, variable - variable, wrong result; must return False" $
+                      parseEvalExpression "(time < (stats.mean-stats.min))"
+                                          False
+                                          $ HM.fromList [ ("time",       Seconds 300)
+                                                        , ("stats.mean", Seconds 20)
+                                                        , ("stats.min",  Seconds 2)
+                                                        ]
+                , testCase
+                      "parse and eval expression with algebra, variable * variable, wrong result; must return False" $
+                      parseEvalExpression "(time < (stats.mean*stats.min))"
+                                          False
+                                          $ HM.fromList [ ("time",       Seconds 300)
                                                         , ("stats.mean", Seconds 20)
                                                         , ("stats.min",  Seconds 2)
                                                         ]

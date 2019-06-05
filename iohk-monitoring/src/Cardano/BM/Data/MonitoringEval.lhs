@@ -74,15 +74,18 @@ fromOperator GT = (>)
 \begin{code}
 data AlgOp = Plus
            | Minus
+           | Mult
            deriving Eq
 
 instance Show AlgOp where
     show Plus  = "+"
     show Minus = "-"
+    show Mult  = "*"
 
 fromAlgOp :: AlgOp -> (Measurable -> Measurable -> Measurable)
 fromAlgOp Plus  = (+)
 fromAlgOp Minus = (-)
+fromAlgOp Mult  = (*)
 
 data AlgOperand = AlgM Measurable
                 | AlgV VarName
@@ -108,7 +111,6 @@ instance Show Operand where
 Evaluation in monitoring will evaluate expressions
 \begin{code}
 type VarName = Text
---data MEvExpr = Compare VarName (Operator, Operand)
 data MEvExpr = Compare VarName (Operator, Operand)
              | AND MEvExpr MEvExpr
              | OR  MEvExpr MEvExpr
@@ -282,8 +284,8 @@ nextIsChar c = do
     then return ()
     else fail $ "cannot parse char: " ++ [c]
 
-nextChar :: (Char -> Bool) -> P.Parser ()
-nextChar predicate = do
+peekNextChar :: (Char -> Bool) -> P.Parser ()
+peekNextChar predicate = do
     c <- P.peekChar'
     if predicate c
     then return ()
@@ -331,6 +333,12 @@ parseOpMeasurable :: P.Parser Operand
 parseOpMeasurable =
     OpMeasurable <$> parseMeasurable
 
+parseAlgOperator :: P.Parser AlgOp
+parseAlgOperator =
+        (P.string "+" >> return Plus)
+    <|> (P.string "-" >> return Minus)
+    <|> (P.string "*" >> return Mult)
+
 -- VarName first, examples:
 -- 1. stats.mean + (2 seconds)
 -- 2. stats.mean + stats.max
@@ -344,13 +352,11 @@ parseOpAlgebraVFirst = do
     if c == ')'
     then return $ OpVarName varName
     else do
-        algOp <- do
-                (P.string "+" >> return Plus)
-            <|> (P.string "-" >> return Minus)
+        algOp <- parseAlgOperator
         P.skipSpace
         algOperand <- do
-                (nextIsChar '('   >> parseAlgM)
-            <|> (nextChar isLower >> parseAlgV)
+                (nextIsChar '('       >> parseAlgM)
+            <|> (peekNextChar isLower >> parseAlgV)
         return $ Operation algOp (AlgV varName) algOperand
 
 -- Measurable first, examples:
@@ -365,13 +371,11 @@ parseOpAlgebraMFirst = do
     P.skipSpace
     closePar
     P.skipSpace
-    algOp <- do
-            (P.string "+" >> return Plus)
-        <|> (P.string "-" >> return Minus)
+    algOp <- parseAlgOperator
     P.skipSpace
     algOperand <- do
-            (nextIsChar '('   >> parseAlgM)
-        <|> (nextChar isLower >> parseAlgV)
+            (nextIsChar '('       >> parseAlgM)
+        <|> (peekNextChar isLower >> parseAlgV)
     return $ Operation algOp (AlgM m) algOperand
 
 parseAlgM :: P.Parser AlgOperand
@@ -401,25 +405,23 @@ parseOperand = do
     openPar
     P.skipSpace
     operand <- do
-            (nextChar isDigit >> parseOpMeasurable)
-        <|> (nextChar isUpper >> parseOpMeasurable) -- This is for Severity.
-        <|> (nextChar isLower >> parseOpAlgebraVFirst)
-        <|> (nextIsChar '('   >> parseOpAlgebraMFirst)
+            (peekNextChar isDigit >> parseOpMeasurable)
+        <|> (peekNextChar isUpper >> parseOpMeasurable) -- This is for Severity.
+        <|> (peekNextChar isLower >> parseOpAlgebraVFirst)
+        <|> (nextIsChar '('       >> parseOpAlgebraMFirst)
     P.skipSpace
     closePar
     return operand
 
 parseMeasurable :: P.Parser Measurable
 parseMeasurable = do
-    m <- parseMeasurable'
+    m <- do
+            parseTime
+        <|> parseBytes
+        <|> parseSeverity
+        <|> (P.decimal >>= return . PureI)
+        <|> (P.double >>= return . PureD)
     return m
-parseMeasurable' :: P.Parser Measurable
-parseMeasurable' =
-        parseTime
-    <|> parseBytes
-    <|> parseSeverity
-    <|> (P.decimal >>= return . PureI)
-    <|> (P.double >>= return . PureD)
 
 parseTime :: P.Parser Measurable
 parseTime = do
