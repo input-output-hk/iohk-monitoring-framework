@@ -72,7 +72,6 @@
 %format Backend = "\hyperref[code:Backend]{Backend}"
 %format Cardano.BM.Data.BackendKind = "\hyperref[code:Cardano.BM.Data.BackendKind]{Cardano.BM.Data.BackendKind}"
 %format BackendKind = "\hyperref[code:BackendKind]{BackendKind}"
-%format KatipBK = "\hyperref[code:KatipBK]{KatipBK}"
 %format SwitchboardBK = "\hyperref[code:SwitchboardBK]{SwitchboardBK}"
 %format Cardano.BM.Data.Configuration = "\hyperref[code:Cardano.BM.Data.Configuration]{Cardano.BM.Data.Configuration}"
 %format Port = "\hyperref[code:Port]{Port}"
