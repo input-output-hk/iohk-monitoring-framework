@@ -25,7 +25,6 @@ import           Control.Monad.IO.Class (MonadIO, liftIO)
 import           Data.Maybe (fromMaybe)
 import           Data.Text
 import qualified Data.Text.IO as TIO
-import           Data.Unique (newUnique)
 import           System.IO (stderr)
 
 import           Cardano.BM.Data.Counter (CounterState (..), diffCounters)
@@ -41,7 +40,7 @@ import           Cardano.BM.Trace (Trace, appendName, traceNamedObject)
 
 \subsubsection{Monadic.bracketObserverIO}
 Observes an |IO| action and adds a name to the logger
-name of the passed in |Trace|. The subtrace type is found in the 
+name of the passed in |Trace|. The subtrace type is found in the
 configuration with the passed-in name.
 \newline
 \par\noindent
@@ -212,11 +211,9 @@ observeOpen subtrace severity logTrace = (do
 
 observeOpen0 :: (MonadIO m) => SubTrace -> Severity -> Trace m a -> m CounterState
 observeOpen0 subtrace severity logTrace = do
-    identifier <- liftIO newUnique
-
     -- take measurement
     counters <- liftIO $ readCounters subtrace
-    let state = CounterState identifier counters
+    let state = CounterState counters
     if counters == []
     then return ()
     else do
@@ -241,8 +238,7 @@ observeClose0 :: (MonadIO m) => SubTrace -> Severity -> Trace m a
     -> CounterState -> [(LOMeta, LOContent a)]
     -> m ()
 observeClose0 subtrace sev logTrace initState logObjects = do
-    let identifier = csIdentifier initState
-        initialCounters = csCounters initState
+    let initialCounters = csCounters initState
 
     -- take measurement
     counters <- liftIO $ readCounters subtrace
@@ -252,10 +248,10 @@ observeClose0 subtrace sev logTrace initState logObjects = do
         mle <- mkLOMeta sev Confidential
         -- send closing message to Trace
         traceNamedObject logTrace $
-            (mle, ObserveClose (CounterState identifier counters))
+            (mle, ObserveClose (CounterState counters))
         -- send diff message to Trace
         traceNamedObject logTrace $
-            (mle, ObserveDiff (CounterState identifier (diffCounters initialCounters counters)))
+            (mle, ObserveDiff (CounterState (diffCounters initialCounters counters)))
     -- trace the messages gathered from inside the action
     forM_ logObjects $ traceNamedObject logTrace
     return ()

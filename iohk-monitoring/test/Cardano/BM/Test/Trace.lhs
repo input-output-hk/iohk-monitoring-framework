@@ -27,7 +27,6 @@ import           Data.Text (Text, append, pack)
 import qualified Data.Text as T
 #ifdef ENABLE_OBSERVABLES
 import qualified Control.Monad.STM as STM
-import           Data.Unique (newUnique)
 #endif
 import           System.Directory (getTemporaryDirectory, removeFile)
 import           System.Mem (performMajorGC)
@@ -202,25 +201,22 @@ exampleWithNamedContexts = do
 #ifdef ENABLE_OBSERVABLES
 runTimedAction :: Configuration -> Trace IO Text -> LoggerName -> Int -> IO Measurable
 runTimedAction cfg logTrace name reps = do
-    runid <- newUnique
     t0 <- getMonoClock
     forM_ [(1::Int)..reps] $ const $ observeAction logTrace
     t1 <- getMonoClock
-    return $ diffTimeObserved (CounterState runid t0) (CounterState runid t1)
+    return $ diffTimeObserved (CounterState t0) (CounterState t1)
   where
     observeAction trace = do
         _ <- MonadicObserver.bracketObserveIO cfg trace Debug name action
         return ()
     action = return $ forM [1::Int ..100] $ \x -> [x] ++ (init $ reverse [1::Int ..10000])
     diffTimeObserved :: CounterState -> CounterState -> Measurable
-    diffTimeObserved (CounterState id0 startCounters) (CounterState id1 endCounters) =
+    diffTimeObserved (CounterState startCounters) (CounterState endCounters) =
         let
             startTime = getMonotonicTime startCounters
             endTime   = getMonotonicTime endCounters
         in
-        if (id0 == id1)
-        then endTime - startTime
-        else error "these clocks are not from the same experiment"
+        endTime - startTime
     getMonotonicTime counters = case (filter isMonotonicClockCounter counters) of
         [(Counter MonotonicClockTime _ mus)] -> mus
         _                                    -> error "A time measurement is missing!"
