@@ -1,11 +1,16 @@
 
-packages: ./iohk-monitoring
-          ./contra-tracer
+packages:
+  iohk-monitoring
+  contra-tracer
 
 package iohk-monitoring
   tests: True
 
 package contra-tracer
-  tests: False
+   -- Currently does not have tests, but set it True in case any are added.
+  tests: True
   documentation: True
   haddock-hyperlink-source: True
+
+constraints:
+  network == 3.0.*
