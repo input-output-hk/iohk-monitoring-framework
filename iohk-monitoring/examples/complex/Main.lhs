@@ -205,14 +205,14 @@ prepare_configuration = do
 #endif
     CM.setMonitors c $ HM.fromList
         [ ( "complex.monitoring"
-          , ( Just (Compare "monitMe" (GE, 10))
-            , Compare "monitMe" (GE, 42)
+          , ( Just (Compare "monitMe" (GE, (OpMeasurable 10)))
+            , Compare "monitMe" (GE, (OpMeasurable 42))
             , [CreateMessage Warning "MonitMe is greater than 42!"]
             )
           )
         , ( "#aggregation.complex.monitoring"
-          , ( Just (Compare "monitMe.fcount" (GE, 8))
-            , Compare "monitMe.mean" (GE, 25)
+          , ( Just (Compare "monitMe.fcount" (GE, (OpMeasurable 8)))
+            , Compare "monitMe.mean" (GE, (OpMeasurable 25))
             , [CreateMessage Warning "MonitMe.mean is greater than 25!"]
             )
           )

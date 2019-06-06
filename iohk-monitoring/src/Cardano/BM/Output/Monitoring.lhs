@@ -7,7 +7,9 @@
 %if style == newcode
 \begin{code}
 {-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
 
 {-@ embed Ratio * as int             @-}
 {-@ embed GHC.Natural.Natural as int @-}
@@ -22,11 +24,12 @@ module Cardano.BM.Output.Monitoring
 
 import qualified Control.Concurrent.Async as Async
 import           Control.Concurrent.MVar (MVar, newEmptyMVar, newMVar, putMVar,
-                     modifyMVar_, readMVar)
+                     modifyMVar_, readMVar, tryReadMVar)
 import           Control.Concurrent.STM (atomically)
 import qualified Control.Concurrent.STM.TBQueue as TBQ
 import qualified Data.HashMap.Strict as HM
-import           Data.Text (pack)
+import           Data.Maybe (catMaybes)
+import           Data.Text (Text, pack)
 import qualified Data.Text.IO as TIO
 import           Data.Time.Calendar (toModifiedJulianDay)
 import           Data.Time.Clock (UTCTime (..), diffTimeToPicoseconds, getCurrentTime)
@@ -41,6 +44,7 @@ import           Cardano.BM.Data.MessageCounter (resetCounters, sendAndResetAfte
                      updateMessageCounters)
 import           Cardano.BM.Data.MonitoringEval
 import           Cardano.BM.Data.Severity (Severity (..))
+import           Cardano.BM.Output.LogBuffer
 import qualified Cardano.BM.Trace as Trace
 
 \end{code}
@@ -54,6 +58,7 @@ newtype Monitor a = Monitor
 
 data MonitorInternal a = MonitorInternal
     { monQueue   :: TBQ.TBQueue (Maybe (LogObject a))
+    , monBuffer  :: LogBuffer a
     }
 
 \end{code}
@@ -77,6 +82,7 @@ Function |effectuate| is called to pass in a |LogObject| for monitoring.
 instance IsEffectuator Monitor a where
     effectuate monitor item = do
         mon <- readMVar (getMon monitor)
+        effectuate (monBuffer mon) item
         nocapacity <- atomically $ TBQ.isFullTBQueue (monQueue mon)
         if nocapacity
         then handleOverflow monitor
@@ -99,13 +105,15 @@ instance IsBackend Monitor a where
         monref <- newEmptyMVar
         let monitor = Monitor monref
         queue <- atomically $ TBQ.newTBQueue 512
-        dispatcher <- spawnDispatcher queue config sbtrace
+        dispatcher <- spawnDispatcher queue config sbtrace monitor
+        monbuf :: Cardano.BM.Output.LogBuffer.LogBuffer a <- Cardano.BM.Output.LogBuffer.realize config
         -- link the given Async to the current thread, such that if the Async
         -- raises an exception, that exception will be re-thrown in the current
         -- thread, wrapped in ExceptionInLinkedThread.
         Async.link dispatcher
         putMVar monref $ MonitorInternal
                         { monQueue = queue
+                        , monBuffer = monbuf
                         -- , monState = mempty
                         }
         return monitor
@@ -119,8 +127,9 @@ instance IsBackend Monitor a where
 spawnDispatcher :: TBQ.TBQueue (Maybe (LogObject a))
                 -> Configuration
                 -> Trace.Trace IO a
+                -> Monitor a
                 -> IO (Async.Async ())
-spawnDispatcher mqueue config sbtrace = do
+spawnDispatcher mqueue config sbtrace monitor = do
     now <- getCurrentTime
     let messageCounters = resetCounters now
     countersMVar <- newMVar messageCounters
@@ -137,8 +146,18 @@ spawnDispatcher mqueue config sbtrace = do
         maybeItem <- atomically $ TBQ.readTBQueue mqueue
         case maybeItem of
             Just (logvalue@(LogObject _ _ _)) -> do
+                let accessBufferMap = do
+                        mon <- tryReadMVar (getMon monitor)
+                        case mon of
+                            Nothing        -> return []
+                            Just actualMon -> readBuffer $ monBuffer actualMon
+                mbuf <- accessBufferMap
                 sbtraceWithMonitoring <- Trace.appendName "#monitoring" sbtrace
-                state' <- evalMonitoringAction sbtraceWithMonitoring state logvalue
+                valuesForMonitoring <- getVarValuesForMonitoring config mbuf
+                state' <- evalMonitoringAction sbtraceWithMonitoring
+                                               state
+                                               logvalue
+                                               valuesForMonitoring
                 -- increase the counter for the type of message
                 modifyMVar_ counters $ \cnt -> return $ updateMessageCounters cnt logvalue
                 qProc counters state'
@@ -149,6 +168,64 @@ spawnDispatcher mqueue config sbtrace = do
                                    $ HM.toList ls
 \end{code}
 
+\begin{code}
+getVarValuesForMonitoring :: Configuration
+                          -> [(LoggerName, LogObject a)]
+                          -> IO [(VarName, Measurable)]
+getVarValuesForMonitoring config mbuf = do
+    -- Here we take all var names for all monitors, just in case.
+    monitorsInfo <- HM.elems <$> getMonitors config
+    let varNames = concat [extractVarNames mEvExpr | (_, mEvExpr, _) <- monitorsInfo]
+    return . catMaybes . concat $ map (getVNnVal varNames) mbuf
+  where
+    extractVarNames expr = case expr of
+        Compare vn _  -> [vn]
+        AND     e1 e2 -> extractVarNames e1 ++ extractVarNames e2
+        OR      e1 e2 -> extractVarNames e1 ++ extractVarNames e2
+        NOT     e     -> extractVarNames e
+
+    getVNnVal varNames logObj = case logObj of
+        (_, LogObject _ _ (LogValue vn val))       -> if vn `elem` varNames
+                                                      then [Just (vn, val)]
+                                                      else []
+        (_, LogObject _ _ (AggregatedMessage agg)) -> concat $ map getMeasurable agg
+        (_, _)                                     -> []
+      where
+        getMeasurable :: (Text, Aggregated) -> [Maybe (VarName, Measurable)]
+        getMeasurable agg = case agg of
+            (vn, AggregatedEWMA (EWMA _ val)) -> if vn `elem` varNames
+                                                 then [Just (vn <> ".ewma.avg", val)]
+                                                 else []
+            (vn, AggregatedStats st)          -> if vn `elem` varNames
+                                                 then stValues vn st
+                                                 else []
+            _                                 -> []
+          where
+            stValues vn st =
+                [ Just (vn <> ".flast", flast st)
+                , Just (vn <> ".fold",  fold st)
+
+                , Just (vn <> ".fbasic.fmin",   fmin  . fbasic $ st)
+                , Just (vn <> ".fbasic.fmax",   fmax  . fbasic $ st)
+                , Just (vn <> ".fbasic.mean",   PureD . meanOfStats . fbasic $ st)
+                , Just (vn <> ".fbasic.stdev",  PureD . stdevOfStats . fbasic $ st)
+                , Just (vn <> ".fbasic.fcount", PureI . fromIntegral . fcount . fbasic $ st)
+
+                , Just (vn <> ".fdelta.fmin",   fmin  . fdelta $ st)
+                , Just (vn <> ".fdelta.fmax",   fmax  . fdelta $ st)
+                , Just (vn <> ".fdelta.mean",   PureD . meanOfStats . fdelta $ st)
+                , Just (vn <> ".fdelta.stdev",  PureD . stdevOfStats . fdelta $ st)
+                , Just (vn <> ".fdelta.fcount", PureI . fromIntegral . fcount . fdelta $ st)
+
+                , Just (vn <> ".ftimed.fmin",   fmin  . ftimed $ st)
+                , Just (vn <> ".ftimed.fmax",   fmax  . ftimed $ st)
+                , Just (vn <> ".ftimed.mean",   PureD . meanOfStats . ftimed $ st)
+                , Just (vn <> ".ftimed.stdev",  PureD . stdevOfStats . ftimed $ st)
+                , Just (vn <> ".ftimed.fcount", PureI . fromIntegral . fcount . ftimed $ st)
+                ]
+
+\end{code}
+
 \subsubsection{Evaluation of monitoring action}\label{code:evalMonitoringAction}
 Inspect the log message and match it against configured thresholds. If positive,
 then run the action on the current state and return the updated state.
@@ -156,18 +233,21 @@ then run the action on the current state and return the updated state.
 evalMonitoringAction :: Trace.Trace IO a
                      -> MonitorMap
                      -> LogObject a
+                     -> [(VarName, Measurable)]
                      -> IO MonitorMap
-evalMonitoringAction sbtrace mmap logObj@(LogObject logname _ _) = do
+evalMonitoringAction sbtrace mmap logObj@(LogObject logname _ _) variables = do
     sbtrace' <- Trace.appendName logname sbtrace
     case HM.lookup logname mmap of
         Nothing -> return mmap
         Just mon@(MonitorState precond expr acts env0) -> do
-            let env' = updateEnv env0 logObj
+            let env1 = updateEnv env0 logObj
+            let env' = HM.union env1 $ HM.fromList variables
             let doMonitor = case precond of
                     -- There's no precondition, do monitor as usual.
                     Nothing -> True
                     -- Precondition is defined, do monitor only if it is True.
                     Just preCondExpr -> evaluate env' preCondExpr
+            -- In this place env' already must contain opvn..
             let thresholdIsReached = evaluate env' expr
             if doMonitor && thresholdIsReached then do
                 now <- getMonotonicTimeNSec
@@ -190,9 +270,9 @@ evalMonitoringAction sbtrace mmap logObj@(LogObject logname _ _) = do
     updateEnv env (LogObject _ _ (ObserveDiff _)) = env
     updateEnv env (LogObject _ _ (ObserveClose _)) = env
     updateEnv env (LogObject _ lometa (LogValue vn val)) =
-        let addenv = HM.fromList [ (vn, val)
-                                 , ("timestamp", utc2ns (tstamp lometa))
-                                 ]
+        let addenv = HM.fromList $ [ (vn, val)
+                                   , ("timestamp", utc2ns (tstamp lometa))
+                                   ]
         in
         HM.union addenv env
     updateEnv env (LogObject _ lometa (LogMessage _logitem)) =

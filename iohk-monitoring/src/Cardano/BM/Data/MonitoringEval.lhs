@@ -6,11 +6,13 @@
 
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes        #-}
+{-# LANGUAGE ViewPatterns #-}
 
 module Cardano.BM.Data.MonitoringEval
   ( MEvExpr (..)
   , MEvPreCond
   , Operator (..)
+  , Operand (..)
   , MEvAction (..)
   , VarName
   , Environment
@@ -26,8 +28,9 @@ import           Control.Monad (void)
 import           Data.Aeson (FromJSON (..), ToJSON (..), Value (..))
 import           Data.Aeson.Types (typeMismatch)
 import qualified Data.Attoparsec.Text as P
-import           Data.Char (isSpace)
+import           Data.Char (isAlpha, isDigit, isLower, isUpper)
 import qualified Data.HashMap.Strict as HM
+import           Data.Maybe (catMaybes)
 import           Data.Text (Text, pack, unpack)
 import           Data.Word (Word64)
 
@@ -68,11 +71,47 @@ fromOperator GT = (>)
 
 \end{code}
 
+\begin{code}
+data AlgOp = Plus
+           | Minus
+           | Mult
+           deriving Eq
+
+instance Show AlgOp where
+    show Plus  = "+"
+    show Minus = "-"
+    show Mult  = "*"
+
+fromAlgOp :: AlgOp -> (Measurable -> Measurable -> Measurable)
+fromAlgOp Plus  = (+)
+fromAlgOp Minus = (-)
+fromAlgOp Mult  = (*)
+
+data AlgOperand = AlgM Measurable
+                | AlgV VarName
+                deriving Eq
+
+instance Show AlgOperand where
+    show (AlgM m)  = show m
+    show (AlgV vn) = unpack vn
+
+data Operand = OpMeasurable Measurable
+             | OpVarName    VarName
+             | Operation    AlgOp AlgOperand AlgOperand
+             deriving Eq
+
+instance Show Operand where
+    show (OpMeasurable m)  = show m
+    show (OpVarName    vn) = unpack vn
+    show (Operation    algOp op1 op2) = "(" ++ show op1 ++ " " ++ show algOp ++ " " ++ show op2 ++ ")"
+
+\end{code}
+
 \subsubsection{Expressions}\label{code:MEvExpr}
 Evaluation in monitoring will evaluate expressions
 \begin{code}
 type VarName = Text
-data MEvExpr = Compare VarName (Operator, Measurable)
+data MEvExpr = Compare VarName (Operator, Operand)
              | AND MEvExpr MEvExpr
              | OR  MEvExpr MEvExpr
              | NOT MEvExpr
@@ -245,6 +284,13 @@ nextIsChar c = do
     then return ()
     else fail $ "cannot parse char: " ++ [c]
 
+peekNextChar :: (Char -> Bool) -> P.Parser ()
+peekNextChar predicate = do
+    c <- P.peekChar'
+    if predicate c
+    then return ()
+    else fail $ "next char doesn't satisfy to a predicate: " ++ [c]
+
 parseBi :: P.Parser MEvExpr
 parseBi = do
     e1 <- parseExpr
@@ -265,19 +311,15 @@ parseNot = do
 
 parseComp :: P.Parser MEvExpr
 parseComp = do
-    vn <- parseVname
+    vn <- parseVarName
     P.skipSpace
-    op <- parseOp
+    op <- parseOperator
     P.skipSpace
-    m <- parseMeasurable
-    return $ Compare vn (op, m)
+    operand <- parseOperand
+    return $ Compare vn (op, operand)
 
-parseVname :: P.Parser VarName
-parseVname = do
-    P.takeTill (isSpace)
-
-parseOp :: P.Parser Operator
-parseOp = do
+parseOperator :: P.Parser Operator
+parseOperator = do
         (P.string ">=" >> return GE)
     <|> (P.string "==" >> return EQ)
     <|> (P.string "/=" >> return NE)
@@ -287,21 +329,99 @@ parseOp = do
     <|> (P.string "<"  >> return LT)
     <|> (P.string ">"  >> return GT)
 
-parseMeasurable :: P.Parser Measurable
-parseMeasurable = do
+parseOpMeasurable :: P.Parser Operand
+parseOpMeasurable =
+    OpMeasurable <$> parseMeasurable
+
+parseAlgOperator :: P.Parser AlgOp
+parseAlgOperator =
+        (P.string "+" >> return Plus)
+    <|> (P.string "-" >> return Minus)
+    <|> (P.string "*" >> return Mult)
+
+-- VarName first, examples:
+-- 1. stats.mean + (2 seconds)
+-- 2. stats.mean + stats.max
+-- 3. stats.mean - (10)
+-- 4. stats.mean
+parseOpAlgebraVFirst :: P.Parser Operand
+parseOpAlgebraVFirst = do
+    varName <- parseVarName
+    P.skipSpace
+    c <- P.peekChar'
+    if c == ')'
+    then return $ OpVarName varName
+    else do
+        algOp <- parseAlgOperator
+        P.skipSpace
+        algOperand <- do
+                (nextIsChar '('       >> parseAlgM)
+            <|> (peekNextChar isLower >> parseAlgV)
+        return $ Operation algOp (AlgV varName) algOperand
+
+-- Measurable first, examples:
+-- 1. (2 seconds) + (3 seconds)
+-- 2. (2 seconds) + stats.mean
+-- 3. (10) - stats.mean
+parseOpAlgebraMFirst :: P.Parser Operand
+parseOpAlgebraMFirst = do
     openPar
     P.skipSpace
-    m <- parseMeasurable'
+    m <- parseMeasurable
     P.skipSpace
     closePar
+    P.skipSpace
+    algOp <- parseAlgOperator
+    P.skipSpace
+    algOperand <- do
+            (nextIsChar '('       >> parseAlgM)
+        <|> (peekNextChar isLower >> parseAlgV)
+    return $ Operation algOp (AlgM m) algOperand
+
+parseAlgM :: P.Parser AlgOperand
+parseAlgM = do
+    openPar
+    P.skipSpace
+    m <- parseMeasurable
+    P.skipSpace
+    closePar
+    return $ AlgM m
+
+parseAlgV :: P.Parser AlgOperand
+parseAlgV = do
+    varName <- parseVarName
+    return $ AlgV varName
+
+parseVarName :: P.Parser VarName
+parseVarName =
+    P.takeWhile1 $ \c ->
+           isAlpha c
+        || isDigit c
+        || c == '.'
+        || c == '_'
+
+parseOperand :: P.Parser Operand
+parseOperand = do
+    openPar
+    P.skipSpace
+    operand <- do
+            (peekNextChar isDigit >> parseOpMeasurable)
+        <|> (peekNextChar isUpper >> parseOpMeasurable) -- This is for Severity.
+        <|> (peekNextChar isLower >> parseOpAlgebraVFirst)
+        <|> (nextIsChar '('       >> parseOpAlgebraMFirst)
+    P.skipSpace
+    closePar
+    return operand
+
+parseMeasurable :: P.Parser Measurable
+parseMeasurable = do
+    m <- do
+            parseTime
+        <|> parseBytes
+        <|> parseSeverity
+        <|> (P.decimal >>= return . PureI)
+        <|> (P.double >>= return . PureD)
     return m
-parseMeasurable' :: P.Parser Measurable
-parseMeasurable' =
-        parseTime
-    <|> parseBytes
-    <|> parseSeverity
-    <|> (P.decimal >>= return . PureI)
-    <|> (P.double >>= return . PureD)
 
 parseTime :: P.Parser Measurable
 parseTime = do
@@ -353,21 +473,28 @@ if the expression is valid in the |Environment|,
 otherwise returns |False|.
 \begin{code}
 evaluate :: Environment -> MEvExpr -> Bool
-evaluate ev expr =
-    case expr of
-        Compare vn (op, m2) ->
-                     case getMeasurable ev vn of
-                        Nothing -> False
-                        Just m1 -> (fromOperator op) m1 m2
-        AND e1 e2 -> (evaluate ev e1) && (evaluate ev e2)
-        OR e1 e2  -> (evaluate ev e1) || (evaluate ev e2)
-        NOT e     -> not (evaluate ev e)
-
-\end{code}
-
-Helper functions to extract named values from the |Environment|.
-\begin{code}
-getMeasurable :: Environment -> VarName -> Maybe Measurable
-getMeasurable ev vn = HM.lookup vn ev
+evaluate ev expr = case expr of
+    Compare vn ((fromOperator -> compOp), operand) -> case getValueOf vn of
+        Nothing -> False
+        Just m1 -> case operand of
+            OpMeasurable m2 ->
+                m1 `compOp` m2
+            OpVarName opvn ->
+                maybe False (\m2 -> m1 `compOp` m2) $ getValueOf opvn
+            Operation (fromAlgOp -> algOp) (AlgM m1') (AlgM m2') ->
+                m1 `compOp` (m1' `algOp` m2')
+            Operation (fromAlgOp -> algOp) (AlgM m) (AlgV opvn) ->
+                maybe False (\m2 -> m1 `compOp` (m `algOp` m2)) $ getValueOf opvn
+            Operation (fromAlgOp -> algOp) (AlgV opvn) (AlgM m) ->
+                maybe False (\m2 -> m1 `compOp` (m2 `algOp` m)) $ getValueOf opvn
+            Operation (fromAlgOp -> algOp) (AlgV opvn1) (AlgV opvn2) ->
+                case catMaybes [getValueOf opvn1, getValueOf opvn2] of
+                    [opm1, opm2] -> m1 `compOp` (opm1 `algOp` opm2)
+                    _ -> False
+    AND e1 e2 -> (evaluate ev e1) && (evaluate ev e2)
+    OR e1 e2  -> (evaluate ev e1) || (evaluate ev e2)
+    NOT e     -> not (evaluate ev e)
+  where
+    getValueOf = flip HM.lookup ev
 
 \end{code}
