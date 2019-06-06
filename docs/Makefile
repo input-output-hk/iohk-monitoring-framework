@@ -34,6 +34,7 @@ SOURCES = Code.lhs \
 					$(SRCDIR1)/Cardano/BM/Backend/LogBuffer.lhs \
 					$(SRCDIR1)/Cardano/BM/Backend/Monitoring.lhs \
 					$(SRCDIR1)/Cardano/BM/Backend/Switchboard.lhs \
+					$(SRCDIR1)/Cardano/BM/Backend/TraceAcceptor.lhs \
 					$(SRCDIR1)/Cardano/BM/Rotator.lhs \
 					$(SRCDIR1)/Cardano/BM/Setup.lhs \
 					$(SRCDIR1)/Cardano/BM/Trace.lhs \

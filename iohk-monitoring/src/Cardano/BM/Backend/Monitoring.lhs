@@ -27,6 +27,7 @@ import           Control.Concurrent.MVar (MVar, newEmptyMVar, newMVar, putMVar,
                      modifyMVar_, readMVar, tryReadMVar)
 import           Control.Concurrent.STM (atomically)
 import qualified Control.Concurrent.STM.TBQueue as TBQ
+import           Data.Aeson (FromJSON)
 import qualified Data.HashMap.Strict as HM
 import           Data.Maybe (catMaybes)
 import           Data.Text (Text, pack)
@@ -96,7 +97,7 @@ instance IsEffectuator Monitor a where
 
 |Monitor| is an |IsBackend|
 \begin{code}
-instance IsBackend Monitor a where
+instance FromJSON a => IsBackend Monitor a where
     typeof _ = MonitoringBK
 
     realize _ = fail "Monitoring cannot be instantiated by 'realize'"

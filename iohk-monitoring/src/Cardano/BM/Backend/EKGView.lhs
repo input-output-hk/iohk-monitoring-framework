@@ -24,6 +24,7 @@ import           Control.Concurrent.MVar (MVar, newEmptyMVar, newMVar,
 import           Control.Concurrent.STM (atomically)
 import qualified Control.Concurrent.STM.TBQueue as TBQ
 import           Control.Monad.IO.Class (liftIO)
+import           Data.Aeson (FromJSON)
 import qualified Data.HashMap.Strict as HM
 import           Data.Int (Int64)
 import           Data.Text (Text, pack, stripPrefix)
@@ -190,7 +191,7 @@ instance IsEffectuator EKGView a where
 
 |EKGView| is an |IsBackend|
 \begin{code}
-instance ToObject a => IsBackend EKGView a where
+instance (ToObject a, FromJSON a) => IsBackend EKGView a where
     typeof _ = EKGViewBK
 
     realize _ = fail "EKGView cannot be instantiated by 'realize'"

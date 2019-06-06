@@ -17,14 +17,15 @@ module Cardano.BM.Data.Counter
   )
   where
 
-import           Data.Aeson (ToJSON, toEncoding, toJSON)
+import           Data.Aeson (FromJSON (..), ToJSON, toEncoding,
+                     toJSON)
 import qualified Data.HashMap.Strict as HM
 import           Data.Maybe (catMaybes)
 import           Data.Text (Text)
 import           Data.Time.Units (Microsecond, toMicroseconds)
 import           GHC.Generics (Generic)
 
-import           Cardano.BM.Data.Aggregated (Measurable(..))
+import           Cardano.BM.Data.Aggregated (Measurable (..))
 
 \end{code}
 %endif
@@ -37,7 +38,7 @@ data Counter = Counter
                , cName  :: Text
                , cValue :: Measurable
                }
-               deriving (Eq, Show, Generic, ToJSON)
+               deriving (Eq, Show, Generic, ToJSON, FromJSON)
 
 data CounterType = MonotonicClockTime
                  | MemoryCounter
@@ -45,7 +46,7 @@ data CounterType = MonotonicClockTime
                  | IOCounter
                  | NetCounter
                  | RTSStats
-                   deriving (Eq, Show, Generic, ToJSON)
+                   deriving (Eq, Show, Generic, ToJSON, FromJSON)
 
 instance ToJSON Microsecond where
     toJSON     = toJSON     . toMicroseconds
@@ -70,7 +71,7 @@ nameCounter (Counter RTSStats           _ _) = "RTS"
 data CounterState = CounterState {
       csCounters   :: [Counter]
     }
-    deriving (Show, Generic, ToJSON)
+    deriving (Show, Generic, ToJSON, FromJSON)
 
 \end{code}
 

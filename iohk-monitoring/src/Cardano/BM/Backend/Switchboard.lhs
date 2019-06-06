@@ -30,6 +30,7 @@ import           Control.Concurrent.STM (TVar, atomically, modifyTVar, retry)
 import qualified Control.Concurrent.STM.TBQueue as TBQ
 import           Control.Exception.Safe (throwM)
 import           Control.Monad (forM_, when, void)
+import           Data.Aeson (FromJSON)
 import           Data.Maybe (fromMaybe)
 import qualified Data.Text.IO as TIO
 import           Data.Time.Clock (getCurrentTime)
@@ -46,6 +47,7 @@ import           Cardano.BM.Data.MessageCounter (resetCounters, sendAndResetAfte
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.SubTrace (SubTrace (..))
 import           Cardano.BM.Data.Tracer (Tracer (..), ToObject, traceWith)
+import qualified Cardano.BM.Backend.TraceAcceptor
 import qualified Cardano.BM.Backend.Log
 import qualified Cardano.BM.Backend.LogBuffer
 
@@ -141,7 +143,7 @@ instance IsEffectuator Switchboard a where
 
 |Switchboard| is an |IsBackend|
 \begin{code}
-instance ToObject a => IsBackend Switchboard a where
+instance (FromJSON a, ToObject a) => IsBackend Switchboard a where
     typeof _ = SwitchboardBK
 
     realize cfg = do
@@ -279,7 +281,7 @@ readLogBuffer switchboard = do
 
 \subsubsection{Realizing the backends according to configuration}\label{code:setupBackends}\index{Switchboard!setupBackends}
 \begin{code}
-setupBackends :: ToObject a
+setupBackends :: (FromJSON a, ToObject a)
               => [BackendKind]
               -> Configuration
               -> Switchboard a
@@ -292,7 +294,7 @@ setupBackends bes c sb = setupBackendsAcc bes []
             Nothing -> setupBackendsAcc r acc
             Just be -> setupBackendsAcc r ((bk,be) : acc)
 
-setupBackend' :: ToObject a => BackendKind -> Configuration -> Switchboard a -> IO (Maybe (Backend a))
+setupBackend' :: (FromJSON a, ToObject a) => BackendKind -> Configuration -> Switchboard a -> IO (Maybe (Backend a))
 setupBackend' SwitchboardBK _ _ = fail "cannot instantiate a further Switchboard"
 #ifdef ENABLE_MONITORING
 setupBackend' MonitoringBK c sb = do
@@ -361,6 +363,14 @@ setupBackend' KatipBK c _ = do
         , bUnrealize = Cardano.BM.Backend.Log.unrealize be
         }
 setupBackend' LogBufferBK _ _ = return Nothing
+setupBackend' TraceAcceptorBK c sb = do
+    let basetrace = mainTraceConditionally c sb
+
+    be :: Cardano.BM.Backend.TraceAcceptor.TraceAcceptor a <- Cardano.BM.Backend.TraceAcceptor.realizefrom c basetrace sb
+    return $ Just MkBackend
+      { bEffectuate = Cardano.BM.Backend.TraceAcceptor.effectuate be
+      , bUnrealize = Cardano.BM.Backend.TraceAcceptor.unrealize be
+      }
 
 \end{code}
 

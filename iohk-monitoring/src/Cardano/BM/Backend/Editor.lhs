@@ -21,7 +21,7 @@ import qualified Control.Concurrent.Async as Async
 import           Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar, readMVar, withMVar)
 import           Control.Exception.Safe (SomeException, catch)
 import           Control.Monad  (void, when, forM_)
-import           Data.Aeson (encode)
+import           Data.Aeson (FromJSON, encode)
 import qualified Data.ByteString.Lazy.Char8 as BS8
 import qualified Data.HashMap.Strict as HM
 import           Data.List (delete)
@@ -85,7 +85,7 @@ data {-ToObject a =>-} EditorInternal a = EditorInternal
 
 |Editor| is an |IsBackend|
 \begin{code}
-instance ToObject a => IsBackend Editor a where
+instance (ToObject a, FromJSON a) => IsBackend Editor a where
     typeof _ = EditorBK
 
     realize _ = fail "Editor cannot be instantiated by 'realize'"

@@ -246,6 +246,7 @@ unitConfigurationParsedRepresentation = do
             , "- AggregationBK"
             , "- EKGViewBK"
             , "- KatipBK"
+            , "- TraceAcceptorBK"
             , "hasPrometheus: null"
             , "hasGUI: null"
             , "defaultScribes:"
@@ -372,12 +373,12 @@ unitConfigurationParsed = do
                                                 ]
                                               )
                                             ]
-        , cgDefBackendKs      = [KatipBK]
-        , cgSetupBackends     = [
-                                  AggregationBK
-                                ,
-                                  EKGViewBK
-                                , KatipBK]
+        , cgDefBackendKs      = [ KatipBK ]
+        , cgSetupBackends     = [ AggregationBK
+                                , EKGViewBK
+                                , KatipBK
+                                , TraceAcceptorBK
+                                ]
         , cgMapScribe         = HM.fromList [ ("iohk.interesting.value",
                                                     ["StdoutSK::stdout","FileSK::testlog"])
                                             , ("iohk.background.process", ["FileSK::testlog"])

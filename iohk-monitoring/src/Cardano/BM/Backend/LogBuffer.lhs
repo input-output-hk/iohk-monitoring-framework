@@ -16,6 +16,7 @@ module Cardano.BM.Backend.LogBuffer
     ) where
 
 import           Control.Concurrent.MVar (MVar, modifyMVar_, newMVar, withMVar)
+import           Data.Aeson (FromJSON)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Text.IO as TIO
 import           System.IO (stderr)
@@ -76,7 +77,7 @@ instance IsEffectuator LogBuffer a where
 
 |LogBuffer| is an |IsBackend|
 \begin{code}
-instance IsBackend LogBuffer a where
+instance FromJSON a => IsBackend LogBuffer a where
     typeof _ = LogBufferBK
 
     realize _ = do

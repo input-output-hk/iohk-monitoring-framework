@@ -370,6 +370,7 @@ thus specializes its interface.}\label{fig:overview}
 %include ../iohk-monitoring/src/Cardano/BM/Backend/Editor.lhs
 %include ../iohk-monitoring/src/Cardano/BM/Backend/Aggregation.lhs
 %include ../iohk-monitoring/src/Cardano/BM/Backend/Monitoring.lhs
+%include ../iohk-monitoring/src/Cardano/BM/Backend/TraceAcceptor.lhs
 
 \chapter{Testing}
 

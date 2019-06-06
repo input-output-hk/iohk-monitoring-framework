@@ -159,7 +159,7 @@ initializeRotator rotation filename = do
                   let rotationTime = addUTCTime (fromInteger $ maxAge * 3600) tsfp
                   return (hdl, (maxSize - cursize), rotationTime)
   where
-    fplen = length filename
+    fplen = length $ takeFileName filename
 
 \end{code}
 
