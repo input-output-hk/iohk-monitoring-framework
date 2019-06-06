@@ -10,7 +10,7 @@
       };
     package = {
       specVersion = "1.10";
-      identifier = { name = "iohk-monitoring"; version = "0.1.8.0"; };
+      identifier = { name = "iohk-monitoring"; version = "0.1.9.0"; };
       license = "MIT";
       copyright = "2018 IOHK";
       maintainer = "";
