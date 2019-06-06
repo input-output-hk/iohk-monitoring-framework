@@ -61,7 +61,7 @@ ImagePdf = OverviewModules.pdf SetupProcedure.pdf ConfigurationModel.pdf ConfigE
 
 all: $(DOC).pdf
 
-$(DOC).tex: $(SOURCES) $(TESTS) $(EXAMPLES) $(TeXs) test-coverage.tex references.fmt
+$(DOC).tex: $(SOURCES) $(TESTS) $(EXAMPLES) $(TeXs) references.fmt
 	lhs2TeX -v -o $(DOC).tex Code.lhs
 
 $(DOC).pdf: $(DOC).tex $(ImagePdf)
