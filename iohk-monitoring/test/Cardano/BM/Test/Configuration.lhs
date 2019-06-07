@@ -191,6 +191,7 @@ unitConfigurationStaticRepresentation =
             , setupBackends = [ EKGViewBK, KatipBK ]
             , defaultBackends = [ KatipBK ]
             , hasGUI = Just 12789
+            , hasGraylog = Just 12788
             , hasEKG = Just 18321
             , hasPrometheus = Just 12799
             , logOutput = Nothing
@@ -211,6 +212,7 @@ unitConfigurationStaticRepresentation =
             , "- EKGViewBK"
             , "- KatipBK"
             , "hasPrometheus: 12799"
+            , "hasGraylog: 12788"
             , "hasGUI: 12789"
             , "defaultScribes:"
             , "- - StdoutSK"
@@ -250,6 +252,7 @@ unitConfigurationParsedRepresentation = do
             , "- KatipBK"
             , "- TraceAcceptorBK"
             , "hasPrometheus: null"
+            , "hasGraylog: 12788"
             , "hasGUI: null"
             , "defaultScribes:"
             , "- - StdoutSK"
@@ -432,6 +435,7 @@ unitConfigurationParsed = do
                                               )
                                             ]
         , cgPortEKG           = 12789
+        , cgPortGraylog       = 12788
         , cgPortPrometheus    = 12799 -- the default value
         , cgPortGUI           = 0
         , cgLogOutput         = Nothing
