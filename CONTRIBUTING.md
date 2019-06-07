@@ -1,9 +1,6 @@
 Contributing
 ============
 
-`develop`: development happens here; submit PRs against this branch
-`master` : contains versioned releases that can be referenced from other repos
-
 Bugs
 ----
 If you want to submit a *bug*, please search the existing issues and if an appropriate issue was found, then add a comment with your report there.
@@ -22,7 +19,7 @@ Work items are selected weekly into the *Selected* column of the kanban board. T
 Submitting PRs
 --------------
 
-Pull requests should be opened against `develop`.
+Pull requests should be opened against `master`.
 
 a) Please describe the PR in as much detail as would be necessary to understand the code changes, and make sure the description is consistent with the changes introduced.
 

@@ -15,7 +15,7 @@ steps:
       - "./stack-rebuild --show-trace"
     agents:
       system: x86_64-linux
-    branches: "develop master"
+    branches: "master"
 
   - label: "make TeX documentation"
     command: "cd docs; nix-shell --run make"
