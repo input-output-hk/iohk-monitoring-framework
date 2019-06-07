@@ -24,7 +24,8 @@ import           GHC.Generics (Generic)
 \label{code:SwitchboardBK}
 \index{BackendKind!AggregationBK}\index{BackendKind!EKGViewBK}\index{BackendKind!KatipBK}
 \index{BackendKind!LogBufferBK}\index{BackendKind!MonitoringBK}
-\index{BackendKind!TraceAcceptorBK}\index{BackendKind!SwitchboardBK}
+\index{BackendKind!TraceAcceptorBK}\index{BackendKind!TraceForwarderBK}
+\index{BackendKind!SwitchboardBK}
 This identifies the backends that can be attached to the |Switchboard|.
 \begin{code}
 
@@ -36,6 +37,7 @@ data BackendKind =
     | LogBufferBK
     | MonitoringBK
     | TraceAcceptorBK
+    | TraceForwarderBK
     | SwitchboardBK
     deriving (Generic, Eq, Ord, Show, ToJSON, FromJSON, Read)
 

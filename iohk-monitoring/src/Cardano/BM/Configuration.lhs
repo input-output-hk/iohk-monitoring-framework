@@ -46,7 +46,7 @@ see |Cardano.BM.Configuration.Model| for the implementation.
 
 \label{code:getOptionOrDefault}\index{getOptionOrDefault}
 \begin{code}
-getOptionOrDefault :: CM.Configuration -> Text -> Text -> IO (Text)
+getOptionOrDefault :: CM.Configuration -> Text -> Text -> IO Text
 getOptionOrDefault cg name def = do
     opt <- CM.getOption cg name
     case opt of

@@ -193,6 +193,7 @@ unitConfigurationStaticRepresentation =
             , hasGUI = Just 12789
             , hasEKG = Just 18321
             , hasPrometheus = Just 12799
+            , logOutput = Nothing
             , options =
                 HM.fromList [ ("test1", (HM.singleton "value" "object1"))
                             , ("test2", (HM.singleton "value" "object2")) ]
@@ -225,6 +226,7 @@ unitConfigurationStaticRepresentation =
             , "  scKind: StdoutSK"
             , "  scFormat: ScText"
             , "  scPrivacy: ScPublic"
+            , "logOutput: null"
             , "hasEKG: 18321"
             , "minSeverity: Info"
             , "" -- to force a line feed at the end of the file
@@ -304,6 +306,7 @@ unitConfigurationParsedRepresentation = do
             , "  scKind: StdoutSK"
             , "  scFormat: ScText"
             , "  scPrivacy: ScPublic"
+            , "logOutput: null"
             , "hasEKG: 12789"
             , "minSeverity: Info"
             , "" -- to force a line feed at the end of the file
@@ -431,6 +434,7 @@ unitConfigurationParsed = do
         , cgPortEKG           = 12789
         , cgPortPrometheus    = 12799 -- the default value
         , cgPortGUI           = 0
+        , cgLogOutput         = Nothing
         }
 
 unitConfigurationExport :: Assertion

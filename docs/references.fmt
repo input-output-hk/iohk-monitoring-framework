@@ -197,6 +197,7 @@
 %format MonitorState = "\hyperref[code:MonitorState]{MonitorState}"
 %format evalMonitoringAction = "\hyperref[code:evalMonitoringAction]{evalMonitoringAction}"
 %format TraceAcceptor = "\hyperref[code:TraceAcceptor]{TraceAcceptor}"
+%format TraceForwarder = "\hyperref[code:TraceForwarder]{TraceForwarder}"
 %format Cardano.BM.Arbitrary.Aggregated = "\hyperref[code:Cardano.BM.Arbitrary.Aggregated]{Cardano.BM.Arbitrary.Aggregated}"
 %format Cardano.BM.Test.Aggregated = "\hyperref[code:Cardano.BM.Test.Aggregated]{Cardano.BM.Test.Aggregated}"
 %format Cardano.BM.Test.STM = "\hyperref[code:Cardano.BM.Test.STM]{Cardano.BM.Test.STM}"

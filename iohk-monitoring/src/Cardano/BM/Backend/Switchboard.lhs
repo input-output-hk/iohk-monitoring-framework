@@ -50,6 +50,7 @@ import           Cardano.BM.Data.Tracer (Tracer (..), ToObject, traceWith)
 import qualified Cardano.BM.Backend.TraceAcceptor
 import qualified Cardano.BM.Backend.Log
 import qualified Cardano.BM.Backend.LogBuffer
+import qualified Cardano.BM.Backend.TraceForwarder
 
 #ifdef ENABLE_AGGREGATION
 import qualified Cardano.BM.Backend.Aggregation
@@ -370,6 +371,12 @@ setupBackend' TraceAcceptorBK c sb = do
     return $ Just MkBackend
       { bEffectuate = Cardano.BM.Backend.TraceAcceptor.effectuate be
       , bUnrealize = Cardano.BM.Backend.TraceAcceptor.unrealize be
+      }
+setupBackend' TraceForwarderBK c _ = do
+    be :: Cardano.BM.Backend.TraceForwarder.TraceForwarder a <- Cardano.BM.Backend.TraceForwarder.realize c
+    return $ Just MkBackend
+      { bEffectuate = Cardano.BM.Backend.TraceForwarder.effectuate be
+      , bUnrealize = Cardano.BM.Backend.TraceForwarder.unrealize be
       }
 
 \end{code}

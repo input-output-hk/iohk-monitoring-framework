@@ -53,6 +53,8 @@ module Cardano.BM.Configuration.Model
     , setPrometheusPort
     , getGUIport
     , setGUIport
+    , getLogOutput
+    , setLogOutput
     , testSubTrace
     , evalFilters
     ) where
@@ -139,6 +141,8 @@ data ConfigurationInternal = ConfigurationInternal
     -- port for Prometheus server
     , cgPortGUI           :: Int
     -- port for changes at runtime
+    , cgLogOutput         :: Maybe FilePath
+    -- filepath of pipe or file for forwarding of log objects
     } deriving (Show, Eq)
 
 \end{code}
@@ -301,6 +305,19 @@ setGUIport configuration port =
 
 \end{code}
 
+\subsubsection{Access port numbers of EKG, Prometheus, GUI}
+\begin{code}
+getLogOutput :: Configuration -> IO (Maybe FilePath)
+getLogOutput configuration =
+    cgLogOutput <$> (readMVar $ getCG configuration)
+
+setLogOutput :: Configuration -> FilePath -> IO ()
+setLogOutput configuration path =
+    modifyMVar_ (getCG configuration) $ \cg ->
+        return cg { cgLogOutput = Just path }
+
+\end{code}
+
 \subsubsection{Options}
 \begin{code}
 getOption :: Configuration -> Text -> IO (Maybe Text)
@@ -434,6 +451,7 @@ setupFromRepresentation r = do
         , cgPortEKG           = r_hasEKG r
         , cgPortPrometheus    = r_hasPrometheus r
         , cgPortGUI           = r_hasGUI r
+        , cgLogOutput         = R.logOutput r
         }
     return $ Configuration cgref
   where
@@ -524,6 +542,7 @@ empty = do
                            , cgPortEKG           = 0
                            , cgPortPrometheus    = 12799
                            , cgPortGUI           = 0
+                           , cgLogOutput         = Nothing
                            }
     return $ Configuration cgref
 
@@ -581,6 +600,7 @@ toRepresentation (Configuration c) = do
             , R.hasEKG          = if portEKG == 0 then Nothing else Just portEKG
             , R.hasPrometheus   = if portPrometheus == 0 then Nothing else Just portPrometheus
             , R.hasGUI          = if portGUI == 0 then Nothing else Just portGUI
+            , R.logOutput       = cgLogOutput cfg
             , R.options         = mapSeverities `HM.union`
                                   mapBackends   `HM.union`
                                   mapAggKinds   `HM.union`
