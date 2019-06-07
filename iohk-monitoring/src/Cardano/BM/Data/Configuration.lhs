@@ -46,6 +46,7 @@ data Representation = Representation
     , setupBackends   :: [BackendKind]
     , defaultBackends :: [BackendKind]
     , hasEKG          :: Maybe Port
+    , hasGraylog      :: Maybe Port
     , hasPrometheus   :: Maybe Port
     , hasGUI          :: Maybe Port
     , logOutput       :: Maybe FilePath

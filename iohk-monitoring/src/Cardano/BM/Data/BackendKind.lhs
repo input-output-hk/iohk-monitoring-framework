@@ -33,6 +33,7 @@ data BackendKind =
       AggregationBK
     | EditorBK
     | EKGViewBK
+    | GraylogBK
     | KatipBK
     | LogBufferBK
     | MonitoringBK

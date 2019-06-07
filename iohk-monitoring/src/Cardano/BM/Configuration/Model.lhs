@@ -49,6 +49,8 @@ module Cardano.BM.Configuration.Model
     , setMonitors
     , getEKGport
     , setEKGport
+    , getGraylogPort
+    , setGraylogPort
     , getPrometheusPort
     , setPrometheusPort
     , getGUIport
@@ -137,6 +139,8 @@ data ConfigurationInternal = ConfigurationInternal
     , cgMonitors          :: HM.HashMap LoggerName (MEvPreCond, MEvExpr, [MEvAction])
     , cgPortEKG           :: Int
     -- port for EKG server
+    , cgPortGraylog       :: Int
+    -- port to Graylog server
     , cgPortPrometheus    :: Int
     -- port for Prometheus server
     , cgPortGUI           :: Int
@@ -284,6 +288,15 @@ setEKGport :: Configuration -> Int -> IO ()
 setEKGport configuration port =
     modifyMVar_ (getCG configuration) $ \cg ->
         return cg { cgPortEKG = port }
+
+getGraylogPort :: Configuration -> IO Int
+getGraylogPort configuration =
+    cgPortGraylog <$> (readMVar $ getCG configuration)
+
+setGraylogPort :: Configuration -> Int -> IO ()
+setGraylogPort configuration port =
+    modifyMVar_ (getCG configuration) $ \cg ->
+        return cg { cgPortGraylog = port }
 
 getPrometheusPort :: Configuration -> IO Int
 getPrometheusPort configuration =
@@ -449,6 +462,7 @@ setupFromRepresentation r = do
         , cgDefAggregatedKind = StatsAK
         , cgMonitors          = parseMonitors mapmonitors
         , cgPortEKG           = r_hasEKG r
+        , cgPortGraylog       = r_hasGraylog r
         , cgPortPrometheus    = r_hasPrometheus r
         , cgPortGUI           = r_hasGUI r
         , cgLogOutput         = R.logOutput r
@@ -501,6 +515,9 @@ setupFromRepresentation r = do
     r_hasEKG repr = case (R.hasEKG repr) of
                        Nothing -> 0
                        Just p  -> p
+    r_hasGraylog repr = case (R.hasGraylog repr) of
+                       Nothing -> 0
+                       Just p  -> p
     r_hasPrometheus repr = case (R.hasPrometheus repr) of
                        Nothing -> 12799 -- default port for Prometheus
                        Just p  -> p
@@ -540,6 +557,7 @@ empty = do
                            , cgDefAggregatedKind = StatsAK
                            , cgMonitors          = HM.empty
                            , cgPortEKG           = 0
+                           , cgPortGraylog       = 0
                            , cgPortPrometheus    = 12799
                            , cgPortGUI           = 0
                            , cgLogOutput         = Nothing
@@ -554,6 +572,7 @@ toRepresentation :: Configuration -> IO R.Representation
 toRepresentation (Configuration c) = do
     cfg <- readMVar c
     let portEKG = cgPortEKG cfg
+        portGraylog = cgPortGraylog cfg
         portPrometheus = cgPortPrometheus cfg
         portGUI = cgPortGUI cfg
         otherOptions = cgOptions cfg
@@ -598,6 +617,7 @@ toRepresentation (Configuration c) = do
             , R.setupBackends   = cgSetupBackends cfg
             , R.defaultBackends = cgDefBackendKs cfg
             , R.hasEKG          = if portEKG == 0 then Nothing else Just portEKG
+            , R.hasGraylog      = if portGraylog == 0 then Nothing else Just portGraylog
             , R.hasPrometheus   = if portPrometheus == 0 then Nothing else Just portPrometheus
             , R.hasGUI          = if portGUI == 0 then Nothing else Just portGUI
             , R.logOutput       = cgLogOutput cfg

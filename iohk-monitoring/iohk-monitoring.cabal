@@ -22,6 +22,11 @@ flag disable-ekg
   default:             False
   manual:              True
 
+flag disable-graylog
+  description:         Turn off Graylog.
+  default:             False
+  manual:              True
+
 flag disable-prometheus
   description:         Turn off Prometheus.
   default:             False
@@ -87,6 +92,9 @@ library
 
   if !flag(disable-ekg)
     exposed-modules:   Cardano.BM.Backend.EKGView
+
+  if !flag(disable-graylog)
+    exposed-modules:   Cardano.BM.Output.Graylog
 
   if !flag(disable-ekg) && !flag(disable-prometheus)
     exposed-modules:   Cardano.BM.Backend.Prometheus
@@ -164,6 +172,9 @@ library
   if !flag(disable-ekg)
     cpp-options:       -DENABLE_EKG
 
+  if !flag(disable-graylog)
+    cpp-options:       -DENABLE_GRAYLOG
+
   if !flag(disable-ekg) && !flag(disable-prometheus)
     cpp-options:       -DENABLE_PROMETHEUS
 
@@ -239,6 +250,9 @@ test-suite tests
   if !flag(disable-ekg)
     cpp-options:       -DENABLE_EKG
 
+  if !flag(disable-graylog)
+    cpp-options:       -DENABLE_GRAYLOG
+
   if !flag(disable-ekg) && !flag(disable-prometheus)
     cpp-options:       -DENABLE_PROMETHEUS
 
@@ -296,6 +310,9 @@ executable example-complex
 
   if !flag(disable-ekg)
     cpp-options:       -DENABLE_EKG
+
+  if !flag(disable-graylog)
+    cpp-options:       -DENABLE_GRAYLOG
 
   if !flag(disable-ekg) && !flag(disable-prometheus)
     cpp-options:       -DENABLE_PROMETHEUS
