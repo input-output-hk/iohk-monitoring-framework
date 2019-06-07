@@ -32,6 +32,6 @@ e.g.: The API _must_ ..., the module _should_.>
 
 | Number    | Base      |
 | ---       | ---       |
-| [][PR-1] | `develop` |
+| [][PR-1] | `master` |
 
 [PR-1]: https://github.com/input-output-hk/iohk-monitoring-framework/pull/

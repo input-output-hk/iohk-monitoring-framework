@@ -1,8 +1,8 @@
 # iohk-monitoring-framework
 
 [![Release version](https://img.shields.io/github/release-pre/input-output-hk/iohk-monitoring-framework.svg)](https://github.com/input-output-hk/iohk-monitoring-framework/releases)
-[![Build status](https://badge.buildkite.com/1cc7939a1fed4972c15b8f87d510e0404b0eb65d73cfd1e30b.svg?branch=develop)](https://buildkite.com/input-output-hk/iohk-monitoring-framework)
-[![Coverage Status](https://coveralls.io/repos/github/input-output-hk/iohk-monitoring-framework/badge.svg?branch=develop)](https://coveralls.io/github/input-output-hk/iohk-monitoring-framework?branch=develop)
+[![Build status](https://badge.buildkite.com/1cc7939a1fed4972c15b8f87d510e0404b0eb65d73cfd1e30b.svg?branch=master)](https://buildkite.com/input-output-hk/iohk-monitoring-framework)
+[![Coverage Status](https://coveralls.io/repos/github/input-output-hk/iohk-monitoring-framework/badge.svg?branch=master)](https://coveralls.io/github/input-output-hk/iohk-monitoring-framework?branch=master)
 
 This framework provides logging, benchmarking and monitoring.
 
@@ -25,7 +25,7 @@ And, introductory one-pagers on logging and benchmarking are available in [pdf](
 `cabal new-test all`
 
 ## examples
-https://github.com/input-output-hk/iohk-monitoring-framework/edit/develop/README.md
+https://github.com/input-output-hk/iohk-monitoring-framework/edit/master/README.md
 Some examples are available in the directory `examples`:
 * `simple`  -  run with `cabal new-run example-simple`
 * `complex`  -  run with `cabal new-run example-complex`
