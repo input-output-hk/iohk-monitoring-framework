@@ -32,11 +32,11 @@ import           GHC.Generics (Generic)
 \label{code:Emergency}\index{Severity!Emergency}
 The intended meaning of severity codes:
 
-Debug     | detailled information about values and decision flow
+Debug     | detailed information about values and decision flow
 Info      | general information of events; progressing properly
 Notice    | needs attention; something not progressing properly
 Warning   | may continue into an error condition if continued
-Error     | unexpected set of event or condition occured
+Error     | unexpected set of event or condition occurred
 Critical  | error condition causing degrade of operation
 Alert     | a subsystem is no longer operating correctly, likely requires manual intervention
 Emergency | at this point, the system can never progress without additional intervention
