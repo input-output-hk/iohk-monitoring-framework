@@ -20,14 +20,11 @@ module Cardano.BM.Backend.TraceAcceptor
 import qualified Control.Concurrent.Async as Async
 import           Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar,
                      withMVar)
-import           Control.Exception (SomeException, catch)
 import           Data.Aeson (FromJSON, decodeStrict)
 import qualified Data.ByteString as BS
-import           System.Directory (removeFile)
-import           System.IO (IOMode (..), openFile)
 
-import           System.Posix.Files (createNamedPipe, stdFileMode)
-
+import qualified Cardano.BM.Backend.ExternalAbstraction as CH
+import           Cardano.BM.Backend.ExternalAbstraction (Pipe (..))
 import           Cardano.BM.Data.Tracer (traceWith)
 import           Cardano.BM.Data.Backend
 import           Cardano.BM.Data.LogItem (LOContent (LogError),
@@ -43,13 +40,13 @@ the |LogObject|s to the |SwitchBoard|.
 
 \subsubsection{Structure of TraceAcceptor}\label{code:TraceAcceptor}\index{TraceAcceptor}
 \begin{code}
-newtype TraceAcceptor a = TraceAcceptor
-    { getTA :: TraceAcceptorMVar a }
+newtype TraceAcceptor p a = TraceAcceptor
+    { getTA :: TraceAcceptorMVar p a }
 
-type TraceAcceptorMVar a = MVar (TraceAcceptorInternal a)
+type TraceAcceptorMVar p a = MVar (TraceAcceptorInternal p a)
 
-data TraceAcceptorInternal a = TraceAcceptorInternal
-    { accPipe :: FilePath
+data TraceAcceptorInternal p a = TraceAcceptorInternal
+    { accPipe :: ChannelHandler p
     }
 
 \end{code}
@@ -57,7 +54,7 @@ data TraceAcceptorInternal a = TraceAcceptorInternal
 \subsubsection{TraceAcceptor is an effectuator}\index{TraceAcceptor!instance of IsEffectuator}
 Must be an effectuator to be a Backend.
 \begin{code}
-instance IsEffectuator TraceAcceptor a where
+instance IsEffectuator (TraceAcceptor p) a where
     effectuate _ _   = return ()
     handleOverflow _ = return ()
 
@@ -66,7 +63,7 @@ instance IsEffectuator TraceAcceptor a where
 \subsubsection{|TraceAcceptor| implements |Backend| functions}\index{TraceAcceptor!instance of IsBackend}
 |TraceAcceptor| is an |IsBackend|
 \begin{code}
-instance FromJSON a => IsBackend TraceAcceptor a where
+instance (Pipe p, FromJSON a) => IsBackend (TraceAcceptor p) a where
     typeof _ = TraceAcceptorBK
 
     realize _ = fail "TraceAcceptor cannot be instantiated by 'realize'"
@@ -75,41 +72,36 @@ instance FromJSON a => IsBackend TraceAcceptor a where
         elref <- newEmptyMVar
         let externalLog = TraceAcceptor elref
             pipePath = "log-pipe"
-        createNamedPipe pipePath stdFileMode
-            `catch` (\(_ :: SomeException) -> pure ())
-        dispatcher <- spawnDispatcher pipePath sbtrace
+        h <- create pipePath sbtrace
+        dispatcher <- spawnDispatcher h sbtrace
         -- link the given Async to the current thread, such that if the Async
         -- raises an exception, that exception will be re-thrown in the current
         -- thread, wrapped in ExceptionInLinkedThread.
         Async.link dispatcher
         putMVar elref $ TraceAcceptorInternal
-                            { accPipe = pipePath
+                            { accPipe = h
                             }
         return externalLog
 
-    unrealize accView = withMVar (getTA accView) (\acc -> do
-        let pipeName = accPipe acc
-        -- Destroy the pipe
-        removeFile pipeName
-            `catch` (\(_ :: SomeException) -> pure ()))
+    unrealize accView = withMVar (getTA accView) (\el -> do
+        let hPipe = accPipe el
+        -- close the pipe
+        close hPipe)
 
 \end{code}
 
 \subsubsection{Reading log items from the pipe}
 \begin{code}
-spawnDispatcher :: FromJSON a
-                => FilePath
+spawnDispatcher :: (Pipe p, FromJSON a)
+                => ChannelHandler p
                 -> Trace.Trace IO a
                 -> IO (Async.Async ())
-spawnDispatcher pipe sbtrace = do
-    -- Use of ReadWriteMode instead of ReadMode in order EOF not to
-    -- be written at the end of file
-    hPipe <- openFile pipe ReadWriteMode
+spawnDispatcher hPipe sbtrace = do
     Async.async $ pProc hPipe
   where
     {-@ lazy pProc @-}
     pProc h = do
-        bs <- BS.hGetLine h
+        bs <- CH.getLine h
         if not (BS.null bs)
         then do
             case decodeStrict bs of

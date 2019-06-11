@@ -199,7 +199,7 @@ prepare_configuration = do
     CM.setEKGport c 12790
     CM.setLogOutput c "iohk-monitoring/log-pipe"
 #ifdef ENABLE_PROMETHEUS
-    CM.setPrometheusPort c 1280
+    CM.setPrometheusPort c 12800
 #endif
 #endif
 #ifdef ENABLE_GUI

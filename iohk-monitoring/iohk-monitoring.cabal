@@ -71,6 +71,7 @@ library
                        Cardano.BM.Data.Tracer
                        Cardano.BM.Tracing
 
+                       Cardano.BM.Backend.ExternalAbstraction
                        Cardano.BM.Backend.Log
                        Cardano.BM.Backend.LogBuffer
                        Cardano.BM.Backend.Switchboard

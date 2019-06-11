@@ -11,6 +11,10 @@
 {-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 
+#if !defined(mingw32_HOST_OS)
+#define POSIX
+#endif
+
 module Cardano.BM.Backend.Switchboard
     (
       Switchboard (..)
@@ -51,6 +55,12 @@ import qualified Cardano.BM.Backend.TraceAcceptor
 import qualified Cardano.BM.Backend.Log
 import qualified Cardano.BM.Backend.LogBuffer
 import qualified Cardano.BM.Backend.TraceForwarder
+
+#ifdef POSIX
+import           Cardano.BM.Backend.ExternalAbstraction (UnixNamedPipe)
+#else
+import           Cardano.BM.Backend.ExternalAbstraction (NoPipe)
+#endif
 
 #ifdef ENABLE_AGGREGATION
 import qualified Cardano.BM.Backend.Aggregation
@@ -367,17 +377,28 @@ setupBackend' LogBufferBK _ _ = return Nothing
 setupBackend' TraceAcceptorBK c sb = do
     let basetrace = mainTraceConditionally c sb
 
-    be :: Cardano.BM.Backend.TraceAcceptor.TraceAcceptor a <- Cardano.BM.Backend.TraceAcceptor.realizefrom c basetrace sb
+    be :: Cardano.BM.Backend.TraceAcceptor.TraceAcceptor PipeType a
+            <- Cardano.BM.Backend.TraceAcceptor.realizefrom c basetrace sb
     return $ Just MkBackend
       { bEffectuate = Cardano.BM.Backend.TraceAcceptor.effectuate be
       , bUnrealize = Cardano.BM.Backend.TraceAcceptor.unrealize be
       }
-setupBackend' TraceForwarderBK c _ = do
-    be :: Cardano.BM.Backend.TraceForwarder.TraceForwarder a <- Cardano.BM.Backend.TraceForwarder.realize c
+setupBackend' TraceForwarderBK c sb = do
+    let basetrace = mainTraceConditionally c sb
+
+    be :: Cardano.BM.Backend.TraceForwarder.TraceForwarder PipeType a
+            <- Cardano.BM.Backend.TraceForwarder.realizefrom c basetrace sb
     return $ Just MkBackend
       { bEffectuate = Cardano.BM.Backend.TraceForwarder.effectuate be
       , bUnrealize = Cardano.BM.Backend.TraceForwarder.unrealize be
       }
+
+type PipeType =
+#ifdef POSIX
+    UnixNamedPipe
+#else
+    NoPipe
+#endif
 
 \end{code}
 

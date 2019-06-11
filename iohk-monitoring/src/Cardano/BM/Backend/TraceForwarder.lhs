@@ -11,10 +11,9 @@
 
 
 module Cardano.BM.Backend.TraceForwarder
-    (
-      TraceForwarder (..)
+    ( TraceForwarder (..)
     , effectuate
-    , realize
+    , realizefrom
     , unrealize
     ) where
 
@@ -24,38 +23,44 @@ import           Control.Exception (SomeException, catch)
 import           Data.Aeson (FromJSON, ToJSON, encode)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BL
-import qualified Data.ByteString.Char8 as BSC
 import           Data.Maybe (fromMaybe)
-import           System.IO (IOMode (..), openFile, BufferMode (NoBuffering),
-                     Handle, hClose, hSetBuffering, openFile, stderr)
 
+import           Cardano.BM.Backend.ExternalAbstraction (Pipe (..))
 import           Cardano.BM.Configuration.Model (getLogOutput)
 import           Cardano.BM.Data.Backend
 
 \end{code}
 %endif
 
+|TraceForwarder| is a new backend responsible for redirecting the logs into a pipe
+or a socket to be used from another application. It puts |LogObject|s as
+|ByteString|s in the provided handler.
+
 \subsubsection{Structure of TraceForwarder}\label{code:TraceForwarder}\index{TraceForwarder}
+Contains the handler to the pipe or to the socket.
 \begin{code}
-newtype TraceForwarder a = TraceForwarder
-    { getTF :: TraceForwarderMVar a }
+newtype TraceForwarder p a = TraceForwarder
+    { getTF :: TraceForwarderMVar p a }
 
-type TraceForwarderMVar a = MVar (TraceForwarderInternal a)
+type TraceForwarderMVar p a = MVar (TraceForwarderInternal p a)
 
-data TraceForwarderInternal a = TraceForwarderInternal
-    { tfPipeHandler :: Handle
-    }
+data Pipe p => TraceForwarderInternal p a =
+    TraceForwarderInternal
+        { tfPipeHandler :: ChannelHandler p
+        }
 
 \end{code}
 
 \subsubsection{TraceForwarder is an effectuator}\index{TraceForwarder!instance of IsEffectuator}
+Every |LogObject| before being written to the given handler is converted to
+|ByteString| through its |JSON| represantation.
 \begin{code}
-instance ToJSON a => IsEffectuator TraceForwarder a where
+instance (Pipe p, ToJSON a) => IsEffectuator (TraceForwarder p) a where
     effectuate tf lo  =
         withMVar (getTF tf) $ \(TraceForwarderInternal h) ->
             let (_, bs) = jsonToBS lo
             in
-                BSC.hPutStrLn h $! bs
+                write h bs
     handleOverflow _ = return ()
 
 jsonToBS :: ToJSON a => a -> (Int, BS.ByteString)
@@ -70,26 +75,24 @@ jsonToBS a =
 
 |TraceForwarder| is an |IsBackend|
 \begin{code}
-instance (FromJSON a, ToJSON a) => IsBackend TraceForwarder a where
+instance (Pipe p, FromJSON a, ToJSON a) => IsBackend (TraceForwarder p) a where
     typeof _ = TraceForwarderBK
 
-    realize _cfg = do
+    realize _ = fail "ExternalLog cannot be instantiated by 'realize'"
+
+    realizefrom cfg sbtrace _ = do
         ltpref <- newEmptyMVar
         let logToPipe = TraceForwarder ltpref
-        pipePath <- fromMaybe "log-pipe" <$> getLogOutput _cfg
-        h <- openFile pipePath WriteMode
-                `catch` (\(_ :: SomeException) -> pure stderr)
-        hSetBuffering h NoBuffering
+        pipePath <- fromMaybe "log-pipe" <$> getLogOutput cfg
+        h <- open pipePath sbtrace
         putMVar ltpref $ TraceForwarderInternal
                             { tfPipeHandler = h
                             }
         return logToPipe
 
-    realizefrom cfg _ _ = realize cfg
-
     unrealize tf = withMVar (getTF tf) (\(TraceForwarderInternal h) ->
-        -- Close the handle of pipe
-        hClose h
+        -- close the pipe
+        close h
             `catch` (\(_ :: SomeException) -> pure ()))
 
 \end{code}
