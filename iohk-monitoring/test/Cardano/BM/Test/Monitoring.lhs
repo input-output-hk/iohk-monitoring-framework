@@ -3,17 +3,23 @@
 
 %if style == newcode
 \begin{code}
-{-# LANGUAGE OverloadedStrings   #-}
-
 module Cardano.BM.Test.Monitoring (
     tests
   ) where
 
+import qualified Control.Concurrent.Async as Async
+import           Control.Concurrent (threadDelay)
 import qualified Data.HashMap.Strict as HM
 import           Data.Text (Text)
 
+import qualified Cardano.BM.Configuration.Model as CM
 import           Cardano.BM.Data.Aggregated
+import           Cardano.BM.Data.BackendKind
+import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.MonitoringEval
+import           Cardano.BM.Data.Severity
+import           Cardano.BM.Setup
+import           Cardano.BM.Trace
 
 import           Test.Tasty
 import           Test.Tasty.HUnit
@@ -25,7 +31,8 @@ import           Test.Tasty.HUnit
 \begin{code}
 tests :: TestTree
 tests = testGroup "Monitoring tests" [
-            unitTests
+              unitTests
+            , actionsTests
         ]
 
 unitTests :: TestTree
@@ -158,6 +165,15 @@ unitTests = testGroup "Unit tests" [
                                                         ]
             ]
 
+actionsTests :: TestTree
+actionsTests = testGroup "Actions tests" [
+                     testCase
+                         "test SetGlobalMinimalSeverity" $
+                         testSetGlobalMinimalSeverity
+                   , testCase
+                         "test AlterSeverity" $
+                         testAlterSeverity
+               ]
 \end{code}
 
 \subsubsection{Unit tests}
@@ -171,5 +187,82 @@ parseEvalExpression t res env =
     case parseMaybe t of
         Nothing -> error "failed to parse"
         Just e  -> evaluate env e @?= res
+
+\end{code}
+
+\subsubsection{Actions tests}
+
+\begin{code}
+monitoringThr :: Trace IO Text -> IO (Async.Async ())
+monitoringThr trace = do
+    trace' <- appendName "monitoring" trace
+    proc <- Async.async $ sendTo trace'
+    return proc
+  where
+    sendTo tr = do
+        (,) <$> (mkLOMeta Warning Public)
+            <*> pure (LogValue "monitMe" (PureI 100))
+        >>= traceNamedObject tr
+
+testSetGlobalMinimalSeverity :: Assertion
+testSetGlobalMinimalSeverity = do
+    let initialGlobalSeverity = Debug
+        targetGlobalSeverity  = Info
+
+    c <- CM.empty
+    CM.setMinSeverity c initialGlobalSeverity
+    CM.setDefaultBackends c [MonitoringBK]
+    CM.setSetupBackends c [MonitoringBK]
+
+    CM.setBackends c "complex.monitoring.monitMe" (Just [MonitoringBK])
+
+    CM.setMonitors c $ HM.fromList
+        [ ( "complex.monitoring"
+          , ( Nothing
+            , Compare "monitMe" (GE, (OpMeasurable 10))
+            , [SetGlobalMinimalSeverity targetGlobalSeverity]
+            )
+          )
+        ]
+
+    tr' <- setupTrace (Right c) "complex"
+
+    procMonitoring <- monitoringThr tr'
+    _ <- Async.waitCatch procMonitoring
+
+    threadDelay 10000  -- 10 ms
+    currentGlobalSeverity <- CM.minSeverity c
+    assertBool "Global minimal severity didn't change!" $
+        currentGlobalSeverity == targetGlobalSeverity
+
+testAlterSeverity :: Assertion
+testAlterSeverity = do
+    let initialSeverity = Debug
+        targetSeverity  = Info
+
+    c <- CM.empty
+    CM.setSeverity c "complex.monitoring.monitMe" (Just initialSeverity)
+    CM.setDefaultBackends c [MonitoringBK]
+    CM.setSetupBackends c [MonitoringBK]
+
+    CM.setBackends c "complex.monitoring.monitMe" (Just [MonitoringBK])
+
+    CM.setMonitors c $ HM.fromList
+        [ ( "complex.monitoring"
+          , ( Nothing
+            , Compare "monitMe" (GE, (OpMeasurable 10))
+            , [AlterSeverity "complex.monitoring.monitMe" targetSeverity]
+            )
+          )
+        ]
+
+    tr' <- setupTrace (Right c) "complex"
+
+    procMonitoring <- monitoringThr tr'
+    _ <- Async.waitCatch procMonitoring
+
+    threadDelay 10000  -- 10 ms
+    Just currentSeverity <- CM.inspectSeverity c "complex.monitoring.monitMe"
+    assertBool "Severity didn't change!" $ targetSeverity == currentSeverity
 
 \end{code}
