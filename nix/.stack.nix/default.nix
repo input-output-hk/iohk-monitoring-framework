@@ -15,9 +15,9 @@
         contra-tracer = ./contra-tracer.nix;
         iohk-monitoring = ./iohk-monitoring.nix;
         };
-      compiler.version = "8.6.4";
-      compiler.nix-name = "ghc864";
+      compiler.version = "8.6.5";
+      compiler.nix-name = "ghc865";
       };
-  resolver = "lts-13.15";
-  compiler = "ghc-8.6.4";
+  resolver = "lts-13.24";
+  compiler = "ghc-8.6.5";
   }
