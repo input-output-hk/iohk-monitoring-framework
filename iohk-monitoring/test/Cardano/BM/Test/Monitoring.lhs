@@ -3,18 +3,13 @@
 
 %if style == newcode
 \begin{code}
-{-# LANGUAGE OverloadedStrings   #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-
 module Cardano.BM.Test.Monitoring (
     tests
   ) where
 
-import           Control.Monad
 import qualified Control.Concurrent.Async as Async
 import           Control.Concurrent (threadDelay)
 import qualified Data.HashMap.Strict as HM
-import           Data.Either (isRight)
 import           Data.Text (Text)
 
 import qualified Cardano.BM.Configuration.Model as CM
@@ -23,7 +18,6 @@ import           Cardano.BM.Data.BackendKind
 import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.MonitoringEval
 import           Cardano.BM.Data.Severity
-import           Cardano.BM.Output.Monitoring
 import           Cardano.BM.Setup
 import           Cardano.BM.Trace
 
@@ -231,12 +225,12 @@ testSetGlobalMinimalSeverity = do
           )
         ]
 
-    (tr' :: Trace IO Text, _) <- setupTrace_ c "complex"
+    tr' <- setupTrace (Right c) "complex"
 
     procMonitoring <- monitoringThr tr'
     _ <- Async.waitCatch procMonitoring
 
-    threadDelay 1000000  -- 1 second
+    threadDelay 10000  -- 10 ms
     currentGlobalSeverity <- CM.minSeverity c
     assertBool "Global minimal severity didn't change!" $
         currentGlobalSeverity == targetGlobalSeverity
@@ -262,12 +256,12 @@ testAlterSeverity = do
           )
         ]
 
-    (tr' :: Trace IO Text, _) <- setupTrace_ c "complex"
+    tr' <- setupTrace (Right c) "complex"
 
     procMonitoring <- monitoringThr tr'
     _ <- Async.waitCatch procMonitoring
 
-    threadDelay 1000000  -- 1 second
+    threadDelay 10000  -- 10 ms
     Just currentSeverity <- CM.inspectSeverity c "complex.monitoring.monitMe"
     assertBool "Severity didn't change!" $ targetSeverity == currentSeverity
 
