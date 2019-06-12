@@ -46,7 +46,7 @@ type TraceForwarderMVar p a = MVar (TraceForwarderInternal p a)
 
 data Pipe p => TraceForwarderInternal p a =
     TraceForwarderInternal
-        { tfPipeHandler :: ChannelHandler p
+        { tfPipeHandler :: PipeHandler p
         }
 
 \end{code}
