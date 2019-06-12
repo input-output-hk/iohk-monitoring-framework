@@ -1,6 +1,6 @@
 
-\subsection{Cardano.BM.Output.Switchboard}
-\label{code:Cardano.BM.Output.Switchboard}
+\subsection{Cardano.BM.Backend.Switchboard}
+\label{code:Cardano.BM.Backend.Switchboard}
 
 %if style == newcode
 \begin{code}
@@ -11,7 +11,11 @@
 {-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 
-module Cardano.BM.Output.Switchboard
+#if !defined(mingw32_HOST_OS)
+#define POSIX
+#endif
+
+module Cardano.BM.Backend.Switchboard
     (
       Switchboard (..)
     , MockSwitchboard (..)
@@ -30,6 +34,7 @@ import           Control.Concurrent.STM (TVar, atomically, modifyTVar, retry)
 import qualified Control.Concurrent.STM.TBQueue as TBQ
 import           Control.Exception.Safe (throwM)
 import           Control.Monad (forM_, when, void)
+import           Data.Aeson (FromJSON)
 import           Data.Maybe (fromMaybe)
 import qualified Data.Text.IO as TIO
 import           Data.Time.Clock (getCurrentTime)
@@ -46,23 +51,31 @@ import           Cardano.BM.Data.MessageCounter (resetCounters, sendAndResetAfte
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.SubTrace (SubTrace (..))
 import           Cardano.BM.Data.Tracer (Tracer (..), ToObject, traceWith)
-import qualified Cardano.BM.Output.Log
-import qualified Cardano.BM.Output.LogBuffer
+import qualified Cardano.BM.Backend.TraceAcceptor
+import qualified Cardano.BM.Backend.Log
+import qualified Cardano.BM.Backend.LogBuffer
+import qualified Cardano.BM.Backend.TraceForwarder
+
+#ifdef POSIX
+import           Cardano.BM.Backend.ExternalAbstraction (UnixNamedPipe)
+#else
+import           Cardano.BM.Backend.ExternalAbstraction (NoPipe)
+#endif
 
 #ifdef ENABLE_AGGREGATION
-import qualified Cardano.BM.Output.Aggregation
+import qualified Cardano.BM.Backend.Aggregation
 #endif
 
 #ifdef ENABLE_EKG
-import qualified Cardano.BM.Output.EKGView
+import qualified Cardano.BM.Backend.EKGView
 #endif
 
 #ifdef ENABLE_MONITORING
-import qualified Cardano.BM.Output.Monitoring
+import qualified Cardano.BM.Backend.Monitoring
 #endif
 
 #ifdef ENABLE_GUI
-import qualified Cardano.BM.Output.Editor
+import qualified Cardano.BM.Backend.Editor
 #endif
 
 \end{code}
@@ -81,7 +94,7 @@ newtype Switchboard a = Switchboard
 data SwitchboardInternal a = SwitchboardInternal
     { sbQueue     :: TBQ.TBQueue (LogObject a)
     , sbDispatch  :: Async.Async ()
-    , sbLogBuffer :: Cardano.BM.Output.LogBuffer.LogBuffer a
+    , sbLogBuffer :: Cardano.BM.Backend.LogBuffer.LogBuffer a
     }
 
 \end{code}
@@ -141,12 +154,12 @@ instance IsEffectuator Switchboard a where
 
 |Switchboard| is an |IsBackend|
 \begin{code}
-instance ToObject a => IsBackend Switchboard a where
+instance (FromJSON a, ToObject a) => IsBackend Switchboard a where
     typeof _ = SwitchboardBK
 
     realize cfg = do
         -- we setup |LogBuffer| explicitly so we can access it as a |Backend| and as |LogBuffer|
-        logbuf :: Cardano.BM.Output.LogBuffer.LogBuffer a <- Cardano.BM.Output.LogBuffer.realize cfg
+        logbuf :: Cardano.BM.Backend.LogBuffer.LogBuffer a <- Cardano.BM.Backend.LogBuffer.realize cfg
         let spawnDispatcher
                 :: [(BackendKind, Backend a)]
                 -> TBQ.TBQueue (LogObject a)
@@ -218,7 +231,7 @@ instance ToObject a => IsBackend Switchboard a where
                                         setSeverity cfg loggerName (Just sev)
                                         return True
                                     (Command (DumpBufferedTo bk)) -> do
-                                        msgs <- Cardano.BM.Output.LogBuffer.readBuffer logbuf
+                                        msgs <- Cardano.BM.Backend.LogBuffer.readBuffer logbuf
                                         forM_ msgs (\(lonm, lobj) -> sendMessage (lobj {loName = lonm}) (const [bk]))
                                         return True
                                     _ -> do
@@ -237,8 +250,8 @@ instance ToObject a => IsBackend Switchboard a where
         backends <- getSetupBackends cfg
         bs0 <- setupBackends backends cfg sb
         bs1 <- return (LogBufferBK, MkBackend
-                            { bEffectuate = Cardano.BM.Output.LogBuffer.effectuate logbuf
-                            , bUnrealize = Cardano.BM.Output.LogBuffer.unrealize logbuf
+                            { bEffectuate = Cardano.BM.Backend.LogBuffer.effectuate logbuf
+                            , bUnrealize = Cardano.BM.Backend.LogBuffer.unrealize logbuf
                             })
 
         let bs = bs1 : bs0
@@ -273,13 +286,13 @@ instance ToObject a => IsBackend Switchboard a where
 readLogBuffer :: Switchboard a -> IO [(LoggerName, LogObject a)]
 readLogBuffer switchboard = do
     sb <- readMVar (getSB switchboard)
-    Cardano.BM.Output.LogBuffer.readBuffer (sbLogBuffer sb)
+    Cardano.BM.Backend.LogBuffer.readBuffer (sbLogBuffer sb)
 
 \end{code}
 
 \subsubsection{Realizing the backends according to configuration}\label{code:setupBackends}\index{Switchboard!setupBackends}
 \begin{code}
-setupBackends :: ToObject a
+setupBackends :: (FromJSON a, ToObject a)
               => [BackendKind]
               -> Configuration
               -> Switchboard a
@@ -292,16 +305,16 @@ setupBackends bes c sb = setupBackendsAcc bes []
             Nothing -> setupBackendsAcc r acc
             Just be -> setupBackendsAcc r ((bk,be) : acc)
 
-setupBackend' :: ToObject a => BackendKind -> Configuration -> Switchboard a -> IO (Maybe (Backend a))
+setupBackend' :: (FromJSON a, ToObject a) => BackendKind -> Configuration -> Switchboard a -> IO (Maybe (Backend a))
 setupBackend' SwitchboardBK _ _ = fail "cannot instantiate a further Switchboard"
 #ifdef ENABLE_MONITORING
 setupBackend' MonitoringBK c sb = do
     let basetrace = mainTraceConditionally c sb
 
-    be :: Cardano.BM.Output.Monitoring.Monitor a <- Cardano.BM.Output.Monitoring.realizefrom c basetrace sb
+    be :: Cardano.BM.Backend.Monitoring.Monitor a <- Cardano.BM.Backend.Monitoring.realizefrom c basetrace sb
     return $ Just MkBackend
-      { bEffectuate = Cardano.BM.Output.Monitoring.effectuate be
-      , bUnrealize = Cardano.BM.Output.Monitoring.unrealize be
+      { bEffectuate = Cardano.BM.Backend.Monitoring.effectuate be
+      , bUnrealize = Cardano.BM.Backend.Monitoring.unrealize be
       }
 #else
 setupBackend' MonitoringBK _ _ = do
@@ -312,10 +325,10 @@ setupBackend' MonitoringBK _ _ = do
 setupBackend' EKGViewBK c sb = do
     let basetrace = mainTraceConditionally c sb
 
-    be :: Cardano.BM.Output.EKGView.EKGView a <- Cardano.BM.Output.EKGView.realizefrom c basetrace sb
+    be :: Cardano.BM.Backend.EKGView.EKGView a <- Cardano.BM.Backend.EKGView.realizefrom c basetrace sb
     return $ Just MkBackend
-      { bEffectuate = Cardano.BM.Output.EKGView.effectuate be
-      , bUnrealize = Cardano.BM.Output.EKGView.unrealize be
+      { bEffectuate = Cardano.BM.Backend.EKGView.effectuate be
+      , bUnrealize = Cardano.BM.Backend.EKGView.unrealize be
       }
 #else
 setupBackend' EKGViewBK _ _ = do
@@ -326,10 +339,10 @@ setupBackend' EKGViewBK _ _ = do
 setupBackend' AggregationBK c sb = do
     let basetrace = mainTraceConditionally c sb
 
-    be :: Cardano.BM.Output.Aggregation.Aggregation a <- Cardano.BM.Output.Aggregation.realizefrom c basetrace sb
+    be :: Cardano.BM.Backend.Aggregation.Aggregation a <- Cardano.BM.Backend.Aggregation.realizefrom c basetrace sb
     return $ Just MkBackend
-      { bEffectuate = Cardano.BM.Output.Aggregation.effectuate be
-      , bUnrealize = Cardano.BM.Output.Aggregation.unrealize be
+      { bEffectuate = Cardano.BM.Backend.Aggregation.effectuate be
+      , bUnrealize = Cardano.BM.Backend.Aggregation.unrealize be
       }
 #else
 setupBackend' AggregationBK _ _ = do
@@ -342,10 +355,10 @@ setupBackend' EditorBK c sb = do
     if port > 0
     then do
         let trace = mainTraceConditionally c sb
-        be :: Cardano.BM.Output.Editor.Editor a <- Cardano.BM.Output.Editor.realizefrom c trace sb
+        be :: Cardano.BM.Backend.Editor.Editor a <- Cardano.BM.Backend.Editor.realizefrom c trace sb
         return $ Just MkBackend
-            { bEffectuate = Cardano.BM.Output.Editor.effectuate be
-            , bUnrealize = Cardano.BM.Output.Editor.unrealize be
+            { bEffectuate = Cardano.BM.Backend.Editor.effectuate be
+            , bUnrealize = Cardano.BM.Backend.Editor.unrealize be
             }
     else
         return Nothing
@@ -355,12 +368,37 @@ setupBackend' EditorBK _ _ = do
     return Nothing
 #endif
 setupBackend' KatipBK c _ = do
-    be :: Cardano.BM.Output.Log.Log a <- Cardano.BM.Output.Log.realize c
+    be :: Cardano.BM.Backend.Log.Log a <- Cardano.BM.Backend.Log.realize c
     return $ Just MkBackend
-        { bEffectuate = Cardano.BM.Output.Log.effectuate be
-        , bUnrealize = Cardano.BM.Output.Log.unrealize be
+        { bEffectuate = Cardano.BM.Backend.Log.effectuate be
+        , bUnrealize = Cardano.BM.Backend.Log.unrealize be
         }
 setupBackend' LogBufferBK _ _ = return Nothing
+setupBackend' TraceAcceptorBK c sb = do
+    let basetrace = mainTraceConditionally c sb
+
+    be :: Cardano.BM.Backend.TraceAcceptor.TraceAcceptor PipeType a
+            <- Cardano.BM.Backend.TraceAcceptor.realizefrom c basetrace sb
+    return $ Just MkBackend
+      { bEffectuate = Cardano.BM.Backend.TraceAcceptor.effectuate be
+      , bUnrealize = Cardano.BM.Backend.TraceAcceptor.unrealize be
+      }
+setupBackend' TraceForwarderBK c sb = do
+    let basetrace = mainTraceConditionally c sb
+
+    be :: Cardano.BM.Backend.TraceForwarder.TraceForwarder PipeType a
+            <- Cardano.BM.Backend.TraceForwarder.realizefrom c basetrace sb
+    return $ Just MkBackend
+      { bEffectuate = Cardano.BM.Backend.TraceForwarder.effectuate be
+      , bUnrealize = Cardano.BM.Backend.TraceForwarder.unrealize be
+      }
+
+type PipeType =
+#ifdef POSIX
+    UnixNamedPipe
+#else
+    NoPipe
+#endif
 
 \end{code}
 

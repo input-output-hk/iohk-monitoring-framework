@@ -26,7 +26,7 @@ module Cardano.BM.Data.Aggregated
   ) where
 
 import           GHC.Generics (Generic)
-import           Data.Aeson (ToJSON)
+import           Data.Aeson (FromJSON, ToJSON)
 import           Data.Scientific (fromFloatDigits)
 import           Data.Text (Text, pack)
 import           Data.Word (Word64)
@@ -49,7 +49,7 @@ data Measurable = Microseconds {-# UNPACK #-} !Word64
                 | PureD        !Double
                 | PureI        !Integer
                 | Severity     S.Severity
-                deriving (Eq, Read, Generic, ToJSON)
+                deriving (Eq, Read, Generic, ToJSON, FromJSON)
 
 \end{code}
 
@@ -208,7 +208,7 @@ data BaseStats = BaseStats {
     fcount :: {-# UNPACK #-} !Word64,
     fsum_A :: {-# UNPACK #-} !Double,
     fsum_B :: {-# UNPACK #-} !Double
-    } deriving (Generic, ToJSON, Show)
+    } deriving (Show, Generic, ToJSON, FromJSON)
 
 instance Eq BaseStats where
     (BaseStats mina maxa counta sumAa sumBa) == (BaseStats minb maxb countb sumAb sumBb) =
@@ -222,7 +222,7 @@ data Stats = Stats {
     fbasic :: !BaseStats,
     fdelta :: !BaseStats,
     ftimed :: !BaseStats
-    } deriving (Eq, Generic, ToJSON, Show)
+    } deriving (Show, Eq, Generic, ToJSON, FromJSON)
 
 \end{code}
 
@@ -304,7 +304,7 @@ $$
 data EWMA = EmptyEWMA { alpha :: Double }
           | EWMA { alpha :: Double
                  , avg   :: Measurable
-                 } deriving (Show, Eq, Generic, ToJSON)
+                 } deriving (Show, Eq, Generic, ToJSON, FromJSON)
 
 \end{code}
 
@@ -312,7 +312,7 @@ data EWMA = EmptyEWMA { alpha :: Double }
 \begin{code}
 data Aggregated = AggregatedStats Stats
                 | AggregatedEWMA EWMA
-                deriving (Eq, Generic, ToJSON)
+                deriving (Eq, Generic, ToJSON, FromJSON)
 
 \end{code}
 

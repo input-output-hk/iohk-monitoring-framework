@@ -1,6 +1,6 @@
 
-\subsection{Cardano.BM.Output.Monitoring}
-\label{module:Cardano.BM.Output.Monitoring}
+\subsection{Cardano.BM.Backend.Monitoring}
+\label{module:Cardano.BM.Backend.Monitoring}
 
 
 
@@ -14,7 +14,7 @@
 {-@ embed Ratio * as int             @-}
 {-@ embed GHC.Natural.Natural as int @-}
 
-module Cardano.BM.Output.Monitoring
+module Cardano.BM.Backend.Monitoring
     (
       Monitor
     , effectuate
@@ -27,6 +27,7 @@ import           Control.Concurrent.MVar (MVar, newEmptyMVar, newMVar, putMVar,
                      modifyMVar_, readMVar, tryReadMVar)
 import           Control.Concurrent.STM (atomically)
 import qualified Control.Concurrent.STM.TBQueue as TBQ
+import           Data.Aeson (FromJSON)
 import qualified Data.HashMap.Strict as HM
 import           Data.Maybe (catMaybes)
 import           Data.Text (Text, pack)
@@ -44,7 +45,7 @@ import           Cardano.BM.Data.MessageCounter (resetCounters, sendAndResetAfte
                      updateMessageCounters)
 import           Cardano.BM.Data.MonitoringEval
 import           Cardano.BM.Data.Severity (Severity (..))
-import           Cardano.BM.Output.LogBuffer
+import           Cardano.BM.Backend.LogBuffer
 import qualified Cardano.BM.Trace as Trace
 
 \end{code}
@@ -96,7 +97,7 @@ instance IsEffectuator Monitor a where
 
 |Monitor| is an |IsBackend|
 \begin{code}
-instance IsBackend Monitor a where
+instance FromJSON a => IsBackend Monitor a where
     typeof _ = MonitoringBK
 
     realize _ = fail "Monitoring cannot be instantiated by 'realize'"
@@ -106,7 +107,7 @@ instance IsBackend Monitor a where
         let monitor = Monitor monref
         queue <- atomically $ TBQ.newTBQueue 512
         dispatcher <- spawnDispatcher queue config sbtrace monitor
-        monbuf :: Cardano.BM.Output.LogBuffer.LogBuffer a <- Cardano.BM.Output.LogBuffer.realize config
+        monbuf :: Cardano.BM.Backend.LogBuffer.LogBuffer a <- Cardano.BM.Backend.LogBuffer.realize config
         -- link the given Async to the current thread, such that if the Async
         -- raises an exception, that exception will be re-thrown in the current
         -- thread, wrapped in ExceptionInLinkedThread.
@@ -114,7 +115,6 @@ instance IsBackend Monitor a where
         putMVar monref $ MonitorInternal
                         { monQueue = queue
                         , monBuffer = monbuf
-                        -- , monState = mempty
                         }
         return monitor
 
@@ -122,7 +122,7 @@ instance IsBackend Monitor a where
 
 \end{code}
 
-\subsubsection{Asynchrouniously reading log items from the queue and their processing}
+\subsubsection{Asynchronously reading log items from the queue and their processing}
 \begin{code}
 spawnDispatcher :: TBQ.TBQueue (Maybe (LogObject a))
                 -> Configuration
@@ -138,7 +138,7 @@ spawnDispatcher mqueue config sbtrace monitor = do
                                 "#messagecounters.monitoring"
                                 countersMVar
                                 60000   -- 60000 ms = 1 min
-                                Warning -- Debug
+                                Warning
     Async.async (initMap >>= qProc countersMVar)
   where
     {-@ lazy qProc @-}

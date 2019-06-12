@@ -145,7 +145,7 @@ initializeRotator rotation filename = do
         Just fname -> do
             -- check date
             now <- getCurrentTime
-            tsfp <- parseTimeM True defaultTimeLocale tsformat $ drop (fplen + 1) fname
+            tsfp <- parseTimeM True defaultTimeLocale tsformat $ drop (fplen + 1) $ takeFileName fname
             if (round $ diffUTCTime now tsfp) > (3600 * maxAge)
                then do  -- file is too old, return new
                   evalRotator rotation filename
@@ -159,7 +159,7 @@ initializeRotator rotation filename = do
                   let rotationTime = addUTCTime (fromInteger $ maxAge * 3600) tsfp
                   return (hdl, (maxSize - cursize), rotationTime)
   where
-    fplen = length filename
+    fplen = length $ takeFileName filename
 
 \end{code}
 

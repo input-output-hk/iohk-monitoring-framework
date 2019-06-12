@@ -48,6 +48,7 @@ data Representation = Representation
     , hasEKG          :: Maybe Port
     , hasPrometheus   :: Maybe Port
     , hasGUI          :: Maybe Port
+    , logOutput       :: Maybe FilePath
     , options         :: HM.HashMap Text Object
     }
     deriving (Generic, Show, ToJSON, FromJSON)

@@ -17,15 +17,15 @@ module Cardano.BM.Data.Counter
   )
   where
 
-import           Data.Aeson (ToJSON, toEncoding, toJSON)
+import           Data.Aeson (FromJSON (..), ToJSON, toEncoding,
+                     toJSON)
 import qualified Data.HashMap.Strict as HM
 import           Data.Maybe (catMaybes)
 import           Data.Text (Text)
 import           Data.Time.Units (Microsecond, toMicroseconds)
-import           Data.Unique (Unique, hashUnique)
 import           GHC.Generics (Generic)
 
-import           Cardano.BM.Data.Aggregated (Measurable(..))
+import           Cardano.BM.Data.Aggregated (Measurable (..))
 
 \end{code}
 %endif
@@ -38,7 +38,7 @@ data Counter = Counter
                , cName  :: Text
                , cValue :: Measurable
                }
-               deriving (Eq, Show, Generic, ToJSON)
+               deriving (Eq, Show, Generic, ToJSON, FromJSON)
 
 data CounterType = MonotonicClockTime
                  | MemoryCounter
@@ -46,7 +46,7 @@ data CounterType = MonotonicClockTime
                  | IOCounter
                  | NetCounter
                  | RTSStats
-                   deriving (Eq, Show, Generic, ToJSON)
+                   deriving (Eq, Show, Generic, ToJSON, FromJSON)
 
 instance ToJSON Microsecond where
     toJSON     = toJSON     . toMicroseconds
@@ -69,18 +69,9 @@ nameCounter (Counter RTSStats           _ _) = "RTS"
 \subsubsection{CounterState}\label{code:CounterState}\index{CounterState}
 \begin{code}
 data CounterState = CounterState {
-      csIdentifier :: Unique
-    , csCounters   :: [Counter]
+      csCounters   :: [Counter]
     }
-    deriving (Generic, ToJSON)
-
-instance ToJSON Unique where
-    toJSON     = toJSON     . hashUnique
-    toEncoding = toEncoding . hashUnique
-
-instance Show CounterState where
-    show cs = (show . hashUnique) (csIdentifier cs)
-           <> " => " <> (show $ csCounters cs)
+    deriving (Show, Generic, ToJSON, FromJSON)
 
 \end{code}
 

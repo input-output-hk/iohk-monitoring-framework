@@ -1,13 +1,13 @@
 
-\subsection{Cardano.BM.Output.Prometheus}
-\label{module:Cardano.BM.Output.Prometheus}
+\subsection{Cardano.BM.Backend.Prometheus}
+\label{module:Cardano.BM.Backend.Prometheus}
 
 
 
 %if style == newcode
 \begin{code}
 
-module Cardano.BM.Output.Prometheus
+module Cardano.BM.Backend.Prometheus
     ( spawnPrometheus
     , passToPrometheus
     ) where

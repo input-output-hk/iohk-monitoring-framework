@@ -1,5 +1,5 @@
-\subsection{Cardano.BM.Output.LogBuffer}
-\label{module:Cardano.BM.Output.LogBuffer}
+\subsection{Cardano.BM.Backend.LogBuffer}
+\label{module:Cardano.BM.Backend.LogBuffer}
 
 %if style == newcode
 \begin{code}
@@ -7,7 +7,7 @@
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 
-module Cardano.BM.Output.LogBuffer
+module Cardano.BM.Backend.LogBuffer
     ( LogBuffer
     , readBuffer
     , effectuate
@@ -16,6 +16,7 @@ module Cardano.BM.Output.LogBuffer
     ) where
 
 import           Control.Concurrent.MVar (MVar, modifyMVar_, newMVar, withMVar)
+import           Data.Aeson (FromJSON)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Text.IO as TIO
 import           System.IO (stderr)
@@ -76,7 +77,7 @@ instance IsEffectuator LogBuffer a where
 
 |LogBuffer| is an |IsBackend|
 \begin{code}
-instance IsBackend LogBuffer a where
+instance FromJSON a => IsBackend LogBuffer a where
     typeof _ = LogBufferBK
 
     realize _ = do

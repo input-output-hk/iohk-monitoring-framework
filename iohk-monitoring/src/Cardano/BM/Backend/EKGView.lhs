@@ -1,6 +1,6 @@
 
-\subsection{Cardano.BM.Output.EKGView}
-\label{code:Cardano.BM.Output.EKGView}
+\subsection{Cardano.BM.Backend.EKGView}
+\label{code:Cardano.BM.Backend.EKGView}
 
 %if style == newcode
 \begin{code}
@@ -9,7 +9,7 @@
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 
-module Cardano.BM.Output.EKGView
+module Cardano.BM.Backend.EKGView
     (
       EKGView
     , effectuate
@@ -24,6 +24,7 @@ import           Control.Concurrent.MVar (MVar, newEmptyMVar, newMVar,
 import           Control.Concurrent.STM (atomically)
 import qualified Control.Concurrent.STM.TBQueue as TBQ
 import           Control.Monad.IO.Class (liftIO)
+import           Data.Aeson (FromJSON)
 import qualified Data.HashMap.Strict as HM
 import           Data.Int (Int64)
 import           Data.Text (Text, pack, stripPrefix)
@@ -51,7 +52,7 @@ import           Cardano.BM.Data.Trace
 import           Cardano.BM.Data.Tracer (Tracer (..), ToObject (..))
 #ifdef ENABLE_PROMETHEUS
 import           Cardano.BM.Configuration (getPrometheusPort)
-import           Cardano.BM.Output.Prometheus (spawnPrometheus)
+import           Cardano.BM.Backend.Prometheus (spawnPrometheus)
 #endif
 import qualified Cardano.BM.Trace as Trace
 
@@ -190,7 +191,7 @@ instance IsEffectuator EKGView a where
 
 |EKGView| is an |IsBackend|
 \begin{code}
-instance ToObject a => IsBackend EKGView a where
+instance (ToObject a, FromJSON a) => IsBackend EKGView a where
     typeof _ = EKGViewBK
 
     realize _ = fail "EKGView cannot be instantiated by 'realize'"

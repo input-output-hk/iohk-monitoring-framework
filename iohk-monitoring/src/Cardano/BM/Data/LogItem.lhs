@@ -56,7 +56,7 @@ data LogObject a = LogObject
                      , loMeta    :: !LOMeta
                      , loContent :: (LOContent a)
                      }
-                     deriving (Generic, Show, ToJSON)
+                     deriving (Generic, Show, ToJSON, FromJSON)
 
 \end{code}
 
@@ -72,7 +72,7 @@ data LOMeta = LOMeta {
                 , severity :: !Severity
                 , privacy  :: !PrivacyAnnotation
                 }
-                deriving (Show)
+                deriving (Show, Generic, FromJSON)
 
 instance ToJSON LOMeta where
     toJSON (LOMeta _tstamp _tid _sev _priv) =
@@ -95,7 +95,7 @@ mkLOMeta sev priv =
 data MonitorAction = MonitorAlert Text
                    | MonitorAlterGlobalSeverity Severity
                    | MonitorAlterSeverity LoggerName Severity
-                   deriving (Generic, Show, ToJSON)
+                   deriving (Generic, Show, ToJSON, FromJSON)
 \end{code}
 
 \label{code:LogMessage}\index{LogMessage}
@@ -120,7 +120,7 @@ data LOContent a = LogMessage a
                  | MonitoringEffect MonitorAction
                  | Command CommandValue
                  | KillPill
-                   deriving (Generic, Show, ToJSON)
+                   deriving (Generic, Show, ToJSON, FromJSON)
 
 loType :: LogObject a -> Text
 loType (LogObject _ _ content) = loType2Name content
@@ -149,7 +149,7 @@ Backends can enter commands to the trace. Commands will end up in the
 |Switchboard|, which will interpret them and take action.
 \begin{code}
 data CommandValue = DumpBufferedTo BackendKind
-                    deriving (Generic, Show, ToJSON)
+                    deriving (Generic, Show, ToJSON, FromJSON)
 
 \end{code}
 

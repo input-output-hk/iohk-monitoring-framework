@@ -17,6 +17,8 @@ module Cardano.BM.Data.Backend
   )
   where
 
+import           Data.Aeson (FromJSON)
+
 import           Cardano.BM.Data.BackendKind
 import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.Trace
@@ -40,7 +42,7 @@ class IsEffectuator t a where
 \subsubsection{Declaration of a |Backend|}\label{code:IsBackend}\index{IsBackend}
 A backend is life-cycle managed, thus can be |realize|d and |unrealize|d.
 \begin{code}
-class IsEffectuator t a => IsBackend t a where
+class (IsEffectuator t a, FromJSON a) => IsBackend t a where
     typeof      :: t a -> BackendKind
     realize     :: Configuration -> IO (t a)
     realizefrom :: forall s . (IsEffectuator s a) => Configuration -> Trace IO a -> s a -> IO (t a)

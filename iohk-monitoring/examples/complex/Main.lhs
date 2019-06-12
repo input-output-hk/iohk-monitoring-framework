@@ -64,7 +64,7 @@ The configuration editor listens on \url{http://localhost:13789}.
 prepare_configuration :: IO CM.Configuration
 prepare_configuration = do
     c <- CM.empty
-    CM.setMinSeverity c Debug
+    CM.setMinSeverity c Warning
     CM.setSetupBackends c [ KatipBK
 #ifdef ENABLE_AGGREGATION
                           , AggregationBK
@@ -76,8 +76,9 @@ prepare_configuration = do
                           , EditorBK
 #endif
                           , MonitoringBK
+                          , TraceForwarderBK
                           ]
-    CM.setDefaultBackends c [KatipBK]
+    CM.setDefaultBackends c [KatipBK, TraceForwarderBK]
     CM.setSetupScribes c [ ScribeDefinition {
                               scName = "stdout"
                             , scKind = StdoutSK
@@ -161,7 +162,7 @@ prepare_configuration = do
 #endif
 
 #ifdef ENABLE_AGGREGATION
-    CM.setBackends c "complex.message" (Just [AggregationBK, KatipBK])
+    CM.setBackends c "complex.message" (Just [AggregationBK, KatipBK, TraceForwarderBK])
     CM.setBackends c "complex.random" (Just [KatipBK, EKGViewBK])
     CM.setBackends c "complex.random.ewma" (Just [KatipBK])
     CM.setBackends c "complex.observeIO" (Just [AggregationBK])
@@ -195,13 +196,14 @@ prepare_configuration = do
     ------------------------------------------------------------------
     ------------------------------------------------------------------
     CM.setBackends c "#aggregation.complex.observeIO" (Just [EKGViewBK])
-    CM.setEKGport c 12789
+    CM.setEKGport c 12790
+    CM.setLogOutput c "iohk-monitoring/log-pipe"
 #ifdef ENABLE_PROMETHEUS
-    CM.setPrometheusPort c 12799
+    CM.setPrometheusPort c 12800
 #endif
 #endif
 #ifdef ENABLE_GUI
-    CM.setGUIport c 13789
+    CM.setGUIport c 13790
 #endif
     CM.setMonitors c $ HM.fromList
         [ ( "complex.monitoring"

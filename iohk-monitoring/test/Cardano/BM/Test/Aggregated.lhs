@@ -17,7 +17,7 @@ import           Cardano.BM.Arbitrary.Aggregated ()
 import           Cardano.BM.Data.Aggregated
 import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.Severity
-import           Cardano.BM.Output.Aggregation (updateAggregation)
+import           Cardano.BM.Backend.Aggregation (updateAggregation)
 
 import           Test.QuickCheck (Property, (===), (.&&.), (.||.), property)
 import           Test.Tasty

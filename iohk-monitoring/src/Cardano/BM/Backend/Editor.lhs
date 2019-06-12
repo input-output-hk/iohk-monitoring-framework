@@ -1,5 +1,5 @@
-\subsection{Cardano.BM.Output.Editor}
-\label{code:Cardano.BM.Output.Editor}
+\subsection{Cardano.BM.Backend.Editor}
+\label{code:Cardano.BM.Backend.Editor}
 
 %if style == newcode
 \begin{code}
@@ -8,7 +8,7 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 
-module Cardano.BM.Output.Editor
+module Cardano.BM.Backend.Editor
     (
       Editor
     , effectuate
@@ -21,7 +21,7 @@ import qualified Control.Concurrent.Async as Async
 import           Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar, readMVar, withMVar)
 import           Control.Exception.Safe (SomeException, catch)
 import           Control.Monad  (void, when, forM_)
-import           Data.Aeson (encode)
+import           Data.Aeson (FromJSON, encode)
 import qualified Data.ByteString.Lazy.Char8 as BS8
 import qualified Data.HashMap.Strict as HM
 import           Data.List (delete)
@@ -48,7 +48,7 @@ import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.SubTrace
 import           Cardano.BM.Data.Trace
 import           Cardano.BM.Data.Tracer (ToObject (..))
-import           Cardano.BM.Output.LogBuffer
+import           Cardano.BM.Backend.LogBuffer
 import           Cardano.BM.Rotator (tsformat)
 
 \end{code}
@@ -85,7 +85,7 @@ data {-ToObject a =>-} EditorInternal a = EditorInternal
 
 |Editor| is an |IsBackend|
 \begin{code}
-instance ToObject a => IsBackend Editor a where
+instance (ToObject a, FromJSON a) => IsBackend Editor a where
     typeof _ = EditorBK
 
     realize _ = fail "Editor cannot be instantiated by 'realize'"
@@ -97,7 +97,7 @@ instance ToObject a => IsBackend Editor a where
         when (port <= 0) $ fail "cannot create GUI"
 
         -- local |LogBuffer|
-        logbuf :: Cardano.BM.Output.LogBuffer.LogBuffer a <- Cardano.BM.Output.LogBuffer.realize config
+        logbuf :: Cardano.BM.Backend.LogBuffer.LogBuffer a <- Cardano.BM.Backend.LogBuffer.realize config
 
         thd <- Async.async $
             startGUI defaultConfig { jsPort       = Just port

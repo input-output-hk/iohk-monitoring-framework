@@ -1,6 +1,6 @@
 
-\subsection{Cardano.BM.Output.Log}
-\label{code:Cardano.BM.Output.Log}
+\subsection{Cardano.BM.Backend.Log}
+\label{code:Cardano.BM.Backend.Log}
 
 %if style == newcode
 \begin{code}
@@ -21,7 +21,7 @@
 #define LINUX
 #endif
 
-module Cardano.BM.Output.Log
+module Cardano.BM.Backend.Log
     (
       Log
     , effectuate
@@ -36,7 +36,7 @@ import           Control.Concurrent.MVar (MVar, modifyMVar_, readMVar,
 import           Control.Exception.Safe (catchIO)
 import           Control.Monad (forM, forM_, void, when)
 import           Control.Lens ((^.))
-import           Data.Aeson (ToJSON, Result (Success), Value (..), fromJSON)
+import           Data.Aeson (FromJSON, ToJSON, Result (Success), Value (..), fromJSON)
 import           Data.Aeson.Text (encodeToLazyText)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Map as Map
@@ -177,7 +177,7 @@ instance ToObject a => IsEffectuator Log a where
 
 \subsubsection{Log implements backend functions}\index{Log!instance of IsBackend}
 \begin{code}
-instance ToObject a => IsBackend Log a where
+instance (ToObject a, FromJSON a) => IsBackend Log a where
     typeof _ = KatipBK
 
     realize config = do

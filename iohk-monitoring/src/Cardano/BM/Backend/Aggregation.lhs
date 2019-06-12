@@ -1,6 +1,6 @@
 
-\subsection{Cardano.BM.Output.Aggregation}
-\label{code:Cardano.BM.Output.Aggregation}
+\subsection{Cardano.BM.Backend.Aggregation}
+\label{code:Cardano.BM.Backend.Aggregation}
 
 %if style == newcode
 \begin{code}
@@ -10,7 +10,7 @@
 
 {-@ embed GHC.Natural.Natural as int @-}
 
-module Cardano.BM.Output.Aggregation
+module Cardano.BM.Backend.Aggregation
     (
       Aggregation
     , effectuate
@@ -27,6 +27,7 @@ import qualified Control.Concurrent.STM.TBQueue as TBQ
 import           Control.Exception.Safe (throwM)
 import           Control.Monad (unless, void)
 import           Control.Monad.IO.Class (liftIO)
+import           Data.Aeson (FromJSON)
 import qualified Data.HashMap.Strict as HM
 import           Data.Text (Text, pack)
 import qualified Data.Text.IO as TIO
@@ -107,7 +108,7 @@ instance IsEffectuator Aggregation a where
 
 |Aggregation| is an |IsBackend|
 \begin{code}
-instance IsBackend Aggregation a where
+instance FromJSON a => IsBackend Aggregation a where
     typeof _ = AggregationBK
 
     realize _ = fail "Aggregation cannot be instantiated by 'realize'"
