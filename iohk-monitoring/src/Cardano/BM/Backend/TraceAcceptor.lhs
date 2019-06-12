@@ -46,7 +46,7 @@ newtype TraceAcceptor p a = TraceAcceptor
 type TraceAcceptorMVar p a = MVar (TraceAcceptorInternal p a)
 
 data TraceAcceptorInternal p a = TraceAcceptorInternal
-    { accPipe :: ChannelHandler p
+    { accPipe :: PipeHandler p
     }
 
 \end{code}
@@ -93,7 +93,7 @@ instance (Pipe p, FromJSON a) => IsBackend (TraceAcceptor p) a where
 \subsubsection{Reading log items from the pipe}
 \begin{code}
 spawnDispatcher :: (Pipe p, FromJSON a)
-                => ChannelHandler p
+                => PipeHandler p
                 -> Trace.Trace IO a
                 -> IO (Async.Async ())
 spawnDispatcher hPipe sbtrace = do

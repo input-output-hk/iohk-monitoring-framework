@@ -36,13 +36,13 @@ Abstraction for the communication between |ExternalLogBK| and |LogToPipeBK| back
 
 \begin{code}
 class Pipe p where
-    data family ChannelHandler p
+    data family PipeHandler p
 
-    create  :: FilePath -> Trace.Trace IO a -> IO (ChannelHandler p)
-    open    :: FilePath -> Trace.Trace IO a -> IO (ChannelHandler p)
-    close   :: ChannelHandler p -> IO ()
-    write   :: ChannelHandler p -> BS.ByteString -> IO ()
-    getLine :: ChannelHandler p -> IO BS.ByteString
+    create  :: FilePath -> Trace.Trace IO a -> IO (PipeHandler p)
+    open    :: FilePath -> Trace.Trace IO a -> IO (PipeHandler p)
+    close   :: PipeHandler p -> IO ()
+    write   :: PipeHandler p -> BS.ByteString -> IO ()
+    getLine :: PipeHandler p -> IO BS.ByteString
 
 \end{code}
 
@@ -51,7 +51,7 @@ data NoPipe
 data UnixNamedPipe
 
 instance Pipe NoPipe where
-    data ChannelHandler NoPipe = NP ()
+    data PipeHandler NoPipe = NP ()
     create  = \_ _ -> pure $ NP ()
     open    = \_ _ -> pure $ NP ()
     close   = \_ -> pure ()
@@ -59,7 +59,7 @@ instance Pipe NoPipe where
     getLine = \_ -> pure ""
 
 instance Pipe UnixNamedPipe where
-    data ChannelHandler UnixNamedPipe = P Handle
+    data PipeHandler UnixNamedPipe = P Handle
     create pipePath sbtrace =
         (createNamedPipe pipePath stdFileMode >> (P <$> openFile pipePath ReadWriteMode))
         -- use of ReadWriteMode instead of ReadMode in order
