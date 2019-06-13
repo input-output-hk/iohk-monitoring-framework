@@ -1,0 +1,129 @@
+\include{tex/base}
+
+\pagecolor{grannysmithapple}
+
+\begin{document}
+
+\twocolumn[
+    \begin{@twocolumnfalse}
+        \begin{mdframed}
+            \begin{minipage}{24em}
+                \vspace{1.0em}
+                {\includegraphics[scale=0.7]{tex/img/iohk-logo.png}}
+            \end{minipage}
+            \begin{minipage}{27em}
+                \vspace{0.95em}
+                \Large{LOGGING}
+            \end{minipage}
+            \begin{minipage}{2.5em}
+                \vspace{1.0em}
+                {\includegraphics[scale=0.03]{tex/img/github.png}}
+            \end{minipage}
+        \end{mdframed}
+        \vspace{0.75em}
+    \end{@twocolumnfalse}
+]
+
+\begin{mdframed}
+    \section*{\href{https://github.com/input-output-hk/iohk-monitoring-framework/tree/master/contra-tracer}{contra-tracer}}
+
+    A minimal implementation of \texttt{Tracer m a} is sufficient to start tracing observables in any code. Simply create a trace and add transformers to process the observables.
+
+    \subsection*{Create a tracer}
+
+    In this example, the terminal transformer outputs a text representation to the console:
+
+    \begin{lstlisting}[language=Haskell]
+let logTrace = showTracing stdoutTracer
+
+showTracing
+  :: (Show a)
+  => Tracer m String
+  -> Tracer m a
+
+stdoutTracer
+  :: (MonadIO m)
+  => Tracer m String
+    \end{lstlisting}
+
+    \subsection*{Usage of the tracer argument in a function}
+
+    For example:
+
+    \begin{lstlisting}[language=Haskell]
+handleBlockHeader logTrace = do
+  ...
+  curBlockHeader :: Header <- ...
+  traceWith logTrace curBlockHeader
+  ...
+    \end{lstlisting}
+\end{mdframed}
+
+\begin{mdframed}
+    \section*{\href{https://github.com/input-output-hk/iohk-monitoring-framework/blob/master/iohk-monitoring/src/Cardano/BM/Trace.lhs}{Hierarchy of traces}}
+
+    The derived Trace m a type accepts LogObject for further processing and routing depending on the context name.
+
+    A hierarchy of traces can be created by entering a local namespace with:
+
+    \begin{lstlisting}[language=Haskell]
+trace' <- appendName "deeper" trace
+    \end{lstlisting}
+
+    Observables on the new trace are annotated with the extended name.
+\end{mdframed}
+
+\begin{mdframed}
+    \section*{\href{https://github.com/input-output-hk/iohk-monitoring-framework/blob/master/iohk-monitoring/src/Cardano/BM/Data/LogItem.lhs}{Privacy annotation}}
+
+    The logged observables can be annotated with either\newline \texttt{Confidential} or \texttt{Public}. This will be taken into account when dispatching to the \texttt{katip} backend and its output scribes which are itself annotated to only process observables of a certain kind.
+\end{mdframed}
+
+\begin{mdframed}
+    \section*{Trace with \href{https://github.com/input-output-hk/iohk-monitoring-framework/blob/master/iohk-monitoring/src/Cardano/BM/Data/Severity.lhs}{severity} annotation}
+
+This code:
+
+    \begin{lstlisting}[language=Haskell]
+trace <- setupTrace (Left "config.yaml")
+                    "test"
+logInfo trace "Info"
+logError trace "Error"
+    \end{lstlisting}
+
+leads to outputs:
+
+    \begin{lstlisting}[language=Bash]
+[iohk.test:Info:ThreadId 104] [2019-03-27 07:30:32.37 UTC] "Info"
+[iohk.test:Error:ThreadId 104] [2019-03-27 07:30:32.37 UTC] "Error"
+    \end{lstlisting}
+\end{mdframed}
+
+\begin{mdframed}
+    \section*{\href{https://github.com/input-output-hk/iohk-monitoring-framework/blob/master/iohk-monitoring/src/Cardano/BM/Configuration/Model.lhs}{Configuration}}
+
+The configuration is loaded on startup from a YAML file.
+
+    \begin{lstlisting}[language=Haskell]
+bTrace <- setupTrace (Left "config.yaml")
+                     "base"
+    \end{lstlisting}
+
+    The returned trace in the namespace \texttt{"base"} will route all messages to the \texttt{Switchboard} which dispatches the messages to the backends according to configuration. The \texttt{katip} backend handles output to the console or log files, and also includes the log rotator.
+
+The configuration contains mappings from the named context \texttt{LoggerName} to values changing the trace's behaviour.
+
+Run:
+
+    \begin{lstlisting}[language=Bash]
+cabal new-run example-complex
+    \end{lstlisting}
+
+and access the editor on \href{http://localhost:13789}{http://localhost:13789}.
+    
+{\includegraphics[scale=0.31]{tex/img/screen.png}}
+    
+Changes are effective immediately, because the changed configuration will be queried on arrival of every traced message.
+\end{mdframed}
+
+\end{document}
