@@ -162,7 +162,7 @@ spawnDispatcher config evqueue sbtrace = do
                 qProc gltrace counters conn (Just obj)
             Nothing -> do
                 closeConn conn
-                return ()  -- | stop
+                return ()  -- stop
     qProc gltrace counters (Just conn) (Just item) = do
         sendLO conn item
             `catch` \(e :: SomeException) -> do
