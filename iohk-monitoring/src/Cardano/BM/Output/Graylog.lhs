@@ -7,6 +7,7 @@
 {-# LANGUAGE CPP                   #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 
 module Cardano.BM.Output.Graylog
@@ -17,19 +18,23 @@ module Cardano.BM.Output.Graylog
     , unrealize
     ) where
 
+import           Control.Concurrent (threadDelay)
 import qualified Control.Concurrent.Async as Async
 import           Control.Concurrent.MVar (MVar, newEmptyMVar, newMVar,
                      putMVar, readMVar, withMVar, modifyMVar_)
 import           Control.Concurrent.STM (atomically)
 import qualified Control.Concurrent.STM.TBQueue as TBQ
+import           Control.Exception.Safe (SomeException, catch)
 import           Control.Monad.IO.Class (liftIO)
-import           Data.Text (Text)
+import           Data.Aeson (FromJSON, ToJSON (..), Value, encode, object, (.=))
+import qualified Data.ByteString.Lazy.Char8 as BS8
+import           Data.Text (Text, pack)
 import qualified Data.Text.IO as TIO
 import           Data.Time (getCurrentTime)
---import           Data.Version (showVersion)
+import           Network.Socket
+import           Network.Socket.ByteString (sendAll)
 import           System.IO (stderr)
-
---import           Paths_iohk_monitoring (version)
+import           Text.Printf (printf)
 
 import           Cardano.BM.Configuration (Configuration, getGraylogPort)
 import           Cardano.BM.Data.Aggregated
@@ -38,9 +43,7 @@ import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.MessageCounter (MessageCounter, resetCounters,
                      sendAndResetAfter, updateMessageCounters)
 import           Cardano.BM.Data.Severity
-import           Cardano.BM.Data.Trace
-import           Cardano.BM.Data.Tracer (Tracer (..), ToObject (..))
-import           Cardano.BM.Configuration (getGraylogPort)
+import           Cardano.BM.Data.Tracer (ToObject (..))
 import qualified Cardano.BM.Trace as Trace
 
 \end{code}
@@ -103,7 +106,7 @@ instance IsEffectuator Graylog a where
 
 |Graylog| is an |IsBackend|
 \begin{code}
-instance ToObject a => IsBackend Graylog a where
+instance (ToObject a, FromJSON a) => IsBackend Graylog a where
     typeof _ = GraylogBK
 
     realize _ = fail "Graylog cannot be instantiated by 'realize'"
@@ -130,7 +133,8 @@ instance ToObject a => IsBackend Graylog a where
 
 \subsubsection{Asynchronously reading log items from the queue and their processing}
 \begin{code}
-spawnDispatcher :: Configuration
+spawnDispatcher :: forall a. ToObject a
+                => Configuration
                 -> TBQ.TBQueue (Maybe (LogObject a))
                 -> Trace.Trace IO a
                 -> IO (Async.Async ())
@@ -145,18 +149,95 @@ spawnDispatcher config evqueue sbtrace = do
                                 60000   -- 60000 ms = 1 min
                                 Warning -- Debug
 
-    Async.async $ qProc countersMVar
+    gltrace <- Trace.appendName "#graylog" sbtrace
+    Async.async $ withSocketsDo $ qProc gltrace countersMVar Nothing Nothing
   where
     {-@ lazy qProc @-}
-    qProc :: MVar MessageCounter -> IO ()
-    qProc counters = do
+    qProc :: Trace.Trace IO a -> MVar MessageCounter -> Maybe Socket -> Maybe (LogObject a) -> IO ()
+    qProc gltrace counters conn Nothing = do
         -- TODO read all items and process list at once
         maybeItem <- atomically $ TBQ.readTBQueue evqueue
         case maybeItem of
-            Just obj@(LogObject logname _ _) -> do
-                -- increase the counter for the type of message
-                modifyMVar_ counters $ \cnt -> return $ updateMessageCounters cnt obj
-                qProc counters
-            Nothing -> return ()  -- stop here
+            Just obj -> do
+                qProc gltrace counters conn (Just obj)
+            Nothing -> do
+                closeConn conn
+                return ()  -- | stop
+    qProc gltrace counters (Just conn) (Just item) = do
+        sendLO conn item
+            `catch` \(e :: SomeException) -> do
+                trace' <- Trace.appendName "sending" gltrace
+                mle <- mkLOMeta Error Public
+                Trace.traceNamedObject trace' (mle, LogError (pack $ show e))
+                threadDelay 50000
+                qProc gltrace counters (Just conn) (Just item)
+        modifyMVar_ counters $ \cnt -> return $ updateMessageCounters cnt item
+        qProc gltrace counters (Just conn) Nothing
+    qProc gltrace counters Nothing item = do
+        conn <- tryConnect gltrace
+        qProc gltrace counters conn item
 
+    sendLO :: ToObject a => Socket -> LogObject a -> IO ()
+    sendLO conn obj =
+        let msg = BS8.toStrict $ encodeMessage obj
+        in sendAll conn msg
+    closeConn :: Maybe Socket -> IO ()
+    closeConn Nothing = return ()
+    closeConn (Just conn) = close conn
+    tryConnect :: Trace.Trace IO a -> IO (Maybe Socket)
+    tryConnect gltrace = do
+        port <- getGraylogPort config
+        let hints = defaultHints { addrSocketType = Datagram }
+        (addr:_) <- getAddrInfo (Just hints) (Just "127.0.0.1") (Just $ show port)
+        sock <- socket (addrFamily addr) (addrSocketType addr) (addrProtocol addr)
+        res <- connect sock (addrAddress addr) >> return (Just sock)
+            `catch` \(e :: SomeException) -> do 
+                trace' <- Trace.appendName "connecting" gltrace
+                mle <- mkLOMeta Error Public
+                Trace.traceNamedObject trace' (mle, LogError (pack $ show e))
+                return Nothing
+        return res
+
+    encodeMessage :: ToObject a => LogObject a -> BS8.ByteString
+    encodeMessage lo = encode $ mkGelfItem lo
+
+\end{code}
+
+\subsubsection{Gelf data structure}
+GELF defines a data format of the message payload: \url{https://docs.graylog.org/en/3.0/pages/gelf.html}
+\begin{code}
+data GelfItem = GelfItem {
+        version :: Text,
+        host :: Text,
+        short_message :: Text,
+        full_message :: Value,
+        timestamp :: Double,
+        level :: Int,
+        _tid :: Text,
+        _privacy :: Text
+    }
+
+mkGelfItem :: ToJSON a => LogObject a -> GelfItem
+mkGelfItem (LogObject loname lometa locontent) = GelfItem {
+        version = "1.1",
+        host = "hostname",
+        short_message = loname,
+        full_message = toJSON locontent,
+        timestamp = (fromInteger . toInteger $ (utc2ns $ tstamp lometa) :: Double) / 1000000000,
+        level = (fromEnum Emergency) - (fromEnum $ severity lometa),
+        _tid = tid lometa,
+        _privacy = pack $ show $ privacy lometa
+    }
+
+instance ToJSON GelfItem where
+    toJSON gli = object [
+            "version" .= version gli,
+            "host" .= host gli,
+            "short_message" .= short_message gli,
+            "full_message" .= full_message gli,
+            "timestamp" .= (printf "%0.3f" $ timestamp gli :: String),
+            "level" .= level gli,
+            "_tid" .= _tid gli,
+            "_privacy" .= _privacy gli
+        ]
 \end{code}

@@ -155,6 +155,8 @@ library
      build-depends:    ekg-prometheus-adapter,
                        prometheus,
                        warp
+  if !flag(disable-graylog)
+     build-depends:    network
   if !flag(disable-gui)
      build-depends:    threepenny-gui
   if os(windows)

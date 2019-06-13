@@ -21,11 +21,11 @@ import           GHC.Generics (Generic)
 \subsubsection{BackendKind}\label{code:BackendKind}\index{BackendKind}
 \label{code:AggregationBK}\label{code:EditorBK}\label{code:EKGViewBK}\label{code:KatipBK}
 \label{code:LogBufferBK}\label{code:MonitoringBK}\label{code:TraceAcceptorBK}
-\label{code:SwitchboardBK}
+\label{code:SwitchboardBK}\label{code:GraylogBK}\label{code:TraceForwarderBK}
 \index{BackendKind!AggregationBK}\index{BackendKind!EKGViewBK}\index{BackendKind!KatipBK}
-\index{BackendKind!LogBufferBK}\index{BackendKind!MonitoringBK}
+\index{BackendKind!LogBufferBK}\index{BackendKind!MonitoringBK}\index{BackendKind!EditorBK}
 \index{BackendKind!TraceAcceptorBK}\index{BackendKind!TraceForwarderBK}
-\index{BackendKind!SwitchboardBK}
+\index{BackendKind!SwitchboardBK}\index{BackendKind!GraylogBK}
 This identifies the backends that can be attached to the |Switchboard|.
 \begin{code}
 
