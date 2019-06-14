@@ -43,8 +43,17 @@ in
 { ... }@args:
 # We will instantiate the default-nix template with the
 # nix/pkgs.nix file...
-commonLib.nix-tools.default-nix ./nix/pkgs.nix args
+let
+  d = commonLib.nix-tools.default-nix ./nix/pkgs.nix args;
+in
 # ... and add additional non-haskell packages we want to build on CI:
-// {
-
-}
+  d // {
+    shell = d.nix-tools.shellFor {
+      name = "iohk-monitoring-framework-env";
+      packages = ps: with ps; [ iohk-monitoring contra-tracer ];
+      nativeBuildInputs = with commonLib.pkgs; [
+        haskellPackages.ghcid
+        numactl
+      ];
+    };
+  }
