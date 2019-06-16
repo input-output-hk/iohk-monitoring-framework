@@ -13,4 +13,4 @@ package contra-tracer
   haddock-hyperlink-source: True
 
 constraints:
-  network == 3.0.*
+  network < 3.1
