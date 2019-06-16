@@ -15,4 +15,4 @@ extra-deps:
 - libsystemd-journal-1.4.4
 
 nix:
-  shell-file: scripts/nix/stack-shell.nix
+  shell-file: nix/stack-shell.nix
