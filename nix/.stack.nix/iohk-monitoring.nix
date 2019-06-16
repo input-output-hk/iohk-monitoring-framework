@@ -7,6 +7,8 @@
       disable-gui = false;
       disable-monitoring = false;
       disable-observables = false;
+      disable-syslog = false;
+      disable-examples = false;
       };
     package = {
       specVersion = "1.10";
@@ -63,7 +65,9 @@
           (hsPkgs.warp)
           ]) ++ (pkgs.lib).optional (!flags.disable-gui) (hsPkgs.threepenny-gui)) ++ (if system.isWindows
           then [ (hsPkgs.Win32) ]
-          else [ (hsPkgs.unix) ])) ++ (pkgs.lib).optionals (system.isLinux) [
+          else [
+            (hsPkgs.unix)
+            ])) ++ (pkgs.lib).optionals (system.isLinux && !flags.disable-syslog) [
           (hsPkgs.hsyslog)
           (hsPkgs.libsystemd-journal)
           ];
