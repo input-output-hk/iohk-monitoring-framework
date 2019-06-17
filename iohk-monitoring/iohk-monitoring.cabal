@@ -42,6 +42,16 @@ flag disable-observables
   default:             False
   manual:              True
 
+flag disable-syslog
+  description:         Turn off syslog and systemd facilities.
+  default:             False
+  manual:              True
+
+flag disable-examples
+  description:         Turn off building of examples.
+  default:             False
+  manual:              True
+
 library
   hs-source-dirs:      src
   exposed-modules:     Paths_iohk_monitoring
@@ -154,7 +164,8 @@ library
   else
      build-depends:    unix
 
-  if os(linux)
+  if os(linux) && !flag(disable-syslog)
+     cpp-options:      -DENABLE_SYSLOG
      build-depends:    hsyslog,
                        libsystemd-journal
 
@@ -267,6 +278,8 @@ executable example-simple
      build-depends:    Win32
   else
      build-depends:    unix
+  if flag(disable-examples)
+    buildable:         False
 
 executable example-complex
   hs-source-dirs:      examples/complex
@@ -308,3 +321,6 @@ executable example-complex
 
   if !flag(disable-observables)
     cpp-options:       -DENABLE_OBSERVABLES
+
+  if flag(disable-examples)
+    buildable:         False

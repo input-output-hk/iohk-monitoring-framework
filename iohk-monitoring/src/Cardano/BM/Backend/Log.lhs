@@ -17,10 +17,6 @@
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
-#if defined(linux_HOST_OS)
-#define LINUX
-#endif
-
 module Cardano.BM.Backend.Log
     (
       Log
@@ -58,7 +54,7 @@ import           System.Directory (createDirectoryIfMissing)
 import           System.FilePath (takeDirectory)
 import           System.IO (BufferMode (LineBuffering), Handle, hClose,
                      hSetBuffering, stderr, stdout, openFile, IOMode (WriteMode))
-#ifdef LINUX
+#ifdef ENABLE_SYSLOG
 import           Data.Aeson (encode)
 import qualified Data.ByteString.Lazy as BL (toStrict)
 import qualified Data.Text.Encoding as T (encodeUtf8)
@@ -75,7 +71,7 @@ import           Paths_iohk_monitoring (version)
 import qualified Katip as K
 import qualified Katip.Core as KC
 import           Katip.Scribes.Handle (brackets)
-#ifdef LINUX
+#ifdef ENABLE_SYSLOG
 import           Katip.Format.Time (formatAsIso8601)
 #endif
 
@@ -207,8 +203,10 @@ instance (ToObject a, FromJSON a) => IsBackend Log a where
                                                             rotParams
                                                             (FileDescription $ unpack name)
                                                             False
-#ifdef LINUX
+#ifdef ENABLE_SYSLOG
             createScribe JournalSK _ _ _ = mkJournalScribe
+#else
+            createScribe JournalSK _ _ _ = mkDevNullScribe
 #endif
             createScribe StdoutSK sctype _ _ = mkStdoutScribe sctype
             createScribe StderrSK sctype _ _ = mkStderrScribe sctype
@@ -576,7 +574,7 @@ prefixPath = takeDirectory . filePath
 \end{code}
 
 \begin{code}
-#ifdef LINUX
+#ifdef ENABLE_SYSLOG
 mkJournalScribe :: IO K.Scribe
 mkJournalScribe = return $ journalScribe Nothing (sev2klog Debug) K.V3
 
