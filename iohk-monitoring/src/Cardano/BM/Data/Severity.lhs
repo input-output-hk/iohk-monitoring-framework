@@ -52,7 +52,7 @@ data Severity = Debug
               | Critical
               | Alert
               | Emergency
-                deriving (Show, Eq, Ord, Enum, Generic, ToJSON, Read)
+                deriving (Show, Eq, Ord, Bounded, Enum, Generic, ToJSON, Read)
 
 instance FromJSON Severity where
     parseJSON = withText "severity" $ \case
