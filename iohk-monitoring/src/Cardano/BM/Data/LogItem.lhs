@@ -20,6 +20,7 @@ module Cardano.BM.Data.LogItem
   , MonitorAction (..)
   , PrivacyAnnotation (..)
   , PrivacyAndSeverityAnnotated (..)
+  , utc2ns
   )
   where
 
@@ -27,7 +28,9 @@ import           Control.Concurrent (myThreadId)
 import           Control.Monad.IO.Class (MonadIO, liftIO)
 import           Data.Aeson (FromJSON, ToJSON, object, toJSON, (.=))
 import           Data.Text (Text, pack)
-import           Data.Time.Clock (UTCTime, getCurrentTime)
+import           Data.Time.Clock.POSIX (utcTimeToPOSIXSeconds)
+import           Data.Time.Clock (UTCTime (..), getCurrentTime)
+import           Data.Word (Word64)
 import           GHC.Generics (Generic)
 
 import           Cardano.BM.Data.Aggregated (Aggregated (..), Measurable (..))
@@ -88,6 +91,13 @@ mkLOMeta sev priv =
            <*> (pack . show <$> (liftIO myThreadId))
            <*> pure sev
            <*> pure priv
+
+\end{code}
+
+Convert a timestamp to ns since epoch:\label{code:utc2ns}\index{utc2ns}
+\begin{code}
+utc2ns :: UTCTime -> Word64
+utc2ns utctime = fromInteger $ round $ 1000 * 1000 * 1000 * (utcTimeToPOSIXSeconds utctime)
 
 \end{code}
 

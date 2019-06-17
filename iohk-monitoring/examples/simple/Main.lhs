@@ -15,6 +15,7 @@ import           Control.Concurrent (threadDelay)
 import qualified Cardano.BM.Configuration.Model as CM
 import           Cardano.BM.Configuration.Static (defaultConfigStdout)
 #ifdef LINUX
+import           Cardano.BM.Data.BackendKind
 import           Cardano.BM.Data.Output (ScribeDefinition (..),
                      ScribePrivacy (..), ScribeKind (..), ScribeFormat (..))
 #endif
@@ -27,6 +28,9 @@ main :: IO ()
 main = do
     c <- defaultConfigStdout
 #ifdef LINUX
+    CM.setSetupBackends c [KatipBK, GraylogBK]
+    CM.setDefaultBackends c [KatipBK, GraylogBK]
+    CM.setGraylogPort c 3456
     CM.setSetupScribes c [ ScribeDefinition {
                               scName = "text"
                             , scFormat = ScText

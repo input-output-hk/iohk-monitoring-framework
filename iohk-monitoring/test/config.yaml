@@ -26,6 +26,9 @@ defaultBackends:
 # if wanted, the EKG interface is listening on this port:
 hasEKG: 12789
 
+# if wanted, we send log items to Graylog on this port:
+hasGraylog: 12788
+
 # if wanted, the Prometheus interface is using this port:
 # hasPrometheus: 12799
 

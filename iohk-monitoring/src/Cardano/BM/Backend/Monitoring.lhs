@@ -32,8 +32,7 @@ import qualified Data.HashMap.Strict as HM
 import           Data.Maybe (catMaybes)
 import           Data.Text (Text, pack)
 import qualified Data.Text.IO as TIO
-import           Data.Time.Calendar (toModifiedJulianDay)
-import           Data.Time.Clock (UTCTime (..), diffTimeToPicoseconds, getCurrentTime)
+import           Data.Time.Clock (getCurrentTime)
 import           GHC.Clock (getMonotonicTimeNSec)
 import           System.IO (stderr)
 
@@ -257,21 +256,12 @@ evalMonitoringAction sbtrace mmap logObj@(LogObject logname _ _) variables = do
                 return $ HM.insert logname mon{_environment=env''} mmap
             else return mmap
   where
-    utc2ns (UTCTime days secs) =
-        let daysecs = 24 * 3600
-            rdays,rsecs :: Integer
-            rdays = toModifiedJulianDay days
-            rsecs = diffTimeToPicoseconds secs `div` 1000
-            s2ns = 1000*1000*1000
-            ns = rsecs + s2ns * rdays * daysecs
-        in
-        Nanoseconds $ fromInteger ns
     updateEnv env (LogObject _ _ (ObserveOpen _)) = env
     updateEnv env (LogObject _ _ (ObserveDiff _)) = env
     updateEnv env (LogObject _ _ (ObserveClose _)) = env
     updateEnv env (LogObject _ lometa (LogValue vn val)) =
         let addenv = HM.fromList $ [ (vn, val)
-                                   , ("timestamp", utc2ns (tstamp lometa))
+                                   , ("timestamp", Nanoseconds $ utc2ns (tstamp lometa))
                                    ]
         in
         HM.union addenv env
@@ -279,12 +269,12 @@ evalMonitoringAction sbtrace mmap logObj@(LogObject logname _ _) variables = do
         let addenv = HM.fromList [ ("severity", (Severity (severity lometa)))
                                 --  , ("selection", (liSelection logitem))
                                 --  , ("message", (liPayload logitem))
-                                 , ("timestamp", utc2ns (tstamp lometa))
+                                 , ("timestamp", Nanoseconds $ utc2ns (tstamp lometa))
                                  ]
         in
         HM.union addenv env
     updateEnv env (LogObject _ lometa (AggregatedMessage vals)) =
-        let addenv = ("timestamp", utc2ns (tstamp lometa)) : aggs2measurables vals []
+        let addenv = ("timestamp", Nanoseconds $ utc2ns (tstamp lometa)) : aggs2measurables vals []
         in
         HM.union (HM.fromList addenv) env
       where

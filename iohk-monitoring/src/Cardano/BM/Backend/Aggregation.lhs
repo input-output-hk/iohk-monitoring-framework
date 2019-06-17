@@ -31,8 +31,7 @@ import           Data.Aeson (FromJSON)
 import qualified Data.HashMap.Strict as HM
 import           Data.Text (Text, pack)
 import qualified Data.Text.IO as TIO
-import           Data.Time.Calendar (toModifiedJulianDay)
-import           Data.Time.Clock (UTCTime (..), diffTimeToPicoseconds, getCurrentTime)
+import           Data.Time.Clock (getCurrentTime)
 import           Data.Word (Word64)
 import           GHC.Clock (getMonotonicTimeNSec)
 import           System.IO (stderr)
@@ -311,17 +310,8 @@ updateAggregation v (AggregatedStats s) lme resetAfter =
                                          }
   where
     deltav = subtractMeasurable v (flast s)
-    mkTimestamp = utc2ns (tstamp lme)
+    mkTimestamp = Nanoseconds $ utc2ns (tstamp lme)
     timediff = Nanoseconds $ fromInteger $ (getInteger mkTimestamp) - (getInteger $ fold s)
-    utc2ns (UTCTime days secs) =
-        let daysecs = 24 * 3600
-            rdays,rsecs :: Integer
-            rdays = toModifiedJulianDay days
-            rsecs = diffTimeToPicoseconds secs `div` 1000
-            s2ns = 1000*1000*1000
-            ns = rsecs + s2ns * rdays * daysecs
-        in
-        Nanoseconds $ fromInteger ns
 
 updateAggregation v (AggregatedEWMA e) _ _ =
     let !eitherAvg = ewma e v

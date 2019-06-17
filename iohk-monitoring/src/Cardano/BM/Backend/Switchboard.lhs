@@ -70,6 +70,10 @@ import qualified Cardano.BM.Backend.Aggregation
 import qualified Cardano.BM.Backend.EKGView
 #endif
 
+#ifdef ENABLE_GRAYLOG
+import qualified Cardano.BM.Output.Graylog
+#endif
+
 #ifdef ENABLE_MONITORING
 import qualified Cardano.BM.Backend.Monitoring
 #endif
@@ -365,6 +369,24 @@ setupBackend' EditorBK c sb = do
 #else
 setupBackend' EditorBK _ _ = do
     TIO.hPutStrLn stderr "disabled! will not setup backend 'Editor'"
+    return Nothing
+#endif
+#ifdef ENABLE_GRAYLOG
+setupBackend' GraylogBK c sb = do
+    port <- Config.getGraylogPort c
+    if port > 0
+    then do
+        let trace = mainTraceConditionally c sb
+        be :: Cardano.BM.Output.Graylog.Graylog a <- Cardano.BM.Output.Graylog.realizefrom c trace sb
+        return $ Just MkBackend
+            { bEffectuate = Cardano.BM.Output.Graylog.effectuate be
+            , bUnrealize = Cardano.BM.Output.Graylog.unrealize be
+            }
+    else
+        return Nothing
+#else
+setupBackend' GraylogBK _ _ = do
+    TIO.hPutStrLn stderr "disabled! will not setup backend 'Graylog'"
     return Nothing
 #endif
 setupBackend' KatipBK c _ = do
