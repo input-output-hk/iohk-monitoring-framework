@@ -30,9 +30,11 @@ SOURCES = Code.lhs \
 					$(SRCDIR1)/Cardano/BM/Backend/Aggregation.lhs \
 					$(SRCDIR1)/Cardano/BM/Backend/Editor.lhs \
 					$(SRCDIR1)/Cardano/BM/Backend/EKGView.lhs \
+					$(SRCDIR1)/Cardano/BM/Backend/Graylog.lhs \
 					$(SRCDIR1)/Cardano/BM/Backend/Log.lhs \
 					$(SRCDIR1)/Cardano/BM/Backend/LogBuffer.lhs \
 					$(SRCDIR1)/Cardano/BM/Backend/Monitoring.lhs \
+					$(SRCDIR1)/Cardano/BM/Backend/Prometheus.lhs \
 					$(SRCDIR1)/Cardano/BM/Backend/Switchboard.lhs \
 					$(SRCDIR1)/Cardano/BM/Backend/TraceAcceptor.lhs \
 					$(SRCDIR1)/Cardano/BM/Backend/TraceForwarder.lhs \
