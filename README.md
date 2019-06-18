@@ -25,8 +25,7 @@ And, introductory one-pagers on logging and benchmarking are available in [pdf](
 `cabal new-test all`
 
 ## examples
-https://github.com/input-output-hk/iohk-monitoring-framework/edit/master/README.md
-Some examples are available in the directory `examples`:
+Some examples are available in the directory [examples](https://github.com/input-output-hk/iohk-monitoring-framework/tree/master/iohk-monitoring/examples):
 * `simple`  -  run with `cabal new-run example-simple`
 * `complex`  -  run with `cabal new-run example-complex`
 
