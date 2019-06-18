@@ -1,0 +1,68 @@
+\documentclass[10pt]{article}
+
+\usepackage[a4paper,margin=0.2in]{geometry}
+\usepackage{fontspec}
+\usepackage{listings}
+\usepackage{color}
+\usepackage[framemethod=TikZ]{mdframed}
+\usepackage[parfill]{parskip}
+\usepackage{hyperref}
+\usepackage{graphicx}
+
+\renewcommand{\familydefault}{\sfdefault}
+
+\pagenumbering{gobble}
+
+\definecolor{gray}{RGB}{34, 34, 34}
+\definecolor{red}{RGB}{248, 103, 78}
+\definecolor{carminepink}{rgb}{0.92, 0.3, 0.26}
+\definecolor{darkelectricblue}{rgb}{0.33, 0.41, 0.47}
+\definecolor{antiquewhite}{rgb}{0.98, 0.92, 0.84}
+\definecolor{columbiablue}{rgb}{0.61, 0.87, 1.0}
+\definecolor{cadmiumgreen}{rgb}{0.0, 0.42, 0.24}
+\definecolor{cobalt}{rgb}{0.0, 0.28, 0.67}
+\definecolor{darkorange}{rgb}{1.0, 0.55, 0.0}
+\definecolor{grannysmithapple}{rgb}{0.66, 0.89, 0.63}
+\definecolor{atomictangerine}{rgb}{1.0, 0.6, 0.4}
+
+\hypersetup{unicode=true,
+            colorlinks=true,
+            urlcolor=cobalt,
+            breaklinks=true}
+
+\lstset{
+    inputencoding=utf8,
+    extendedchars=true,
+    aboveskip=0.5em,
+    backgroundcolor=\color{white},
+    basicstyle=\normalsize\ttfamily\color{black},
+    breakatwhitespace=false,
+    breaklines=true,
+    captionpos=b,
+    escapeinside={\%*}{*)},
+    keywordstyle=\texttt{\textbf{\color{carminepink}}},
+    identifierstyle=\color{black},
+    stringstyle=\color{cadmiumgreen},
+    commentstyle=\color{darkelectricblue},
+    showspaces=false,
+    showstringspaces=false,
+    showtabs=false,
+    stepnumber=2,
+}
+
+\mdfsetup{
+    nobreak=true,
+    outerlinewidth=0,
+    innerlinewidth=0,
+    outerlinecolor=red!90,
+    innerlinecolor=red!90,
+    roundcorner=4pt,
+    leftmargin=3,
+    rightmargin=3,
+    backgroundcolor=white,
+    innertopmargin=0,
+    innerbottommargin=10,
+    innerleftmargin=9,
+    innerrightmargin=9,
+    splittopskip=\topskip,
+}

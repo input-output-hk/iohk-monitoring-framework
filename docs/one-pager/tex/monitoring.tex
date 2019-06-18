@@ -1,0 +1,135 @@
+\include{tex/base}
+
+\pagecolor{atomictangerine!50}
+
+\begin{document}
+
+\twocolumn[
+    \begin{@twocolumnfalse}
+        \begin{mdframed}
+            \begin{minipage}{22.7em}
+                \vspace{1.0em}
+                {\includegraphics[scale=0.7]{tex/img/iohk-logo.png}}
+            \end{minipage}
+            \begin{minipage}{27.9em}
+                \vspace{0.95em}
+                \Large{MONITORING}
+            \end{minipage}
+            \begin{minipage}{2.5em}
+                \vspace{1.0em}
+                \href{https://github.com/input-output-hk/iohk-monitoring-framework}{GitHub}
+            \end{minipage}
+        \end{mdframed}
+        \vspace{0.75em}
+    \end{@twocolumnfalse}
+]
+
+\begin{mdframed}
+\section*{\href{https://github.com/input-output-hk/iohk-monitoring-framework/blob/master/iohk-monitoring/src/Cardano/BM/Backend/Monitoring.lhs}{Monitoring}: idea}
+
+    The core idea of monitoring is an ability to monitor some \textit{event} and perform corresponding \textit{action} if that event occurred.
+\end{mdframed}
+
+\begin{mdframed}
+\section*{Configuration}
+
+Monitoring can be configured in the Yaml configuration file, in the section \texttt{mapMonitors}:
+
+\begin{lstlisting}[language=bash]
+  mapMonitors:
+    chain.creation.block:
+      monitor: ...
+      actions:
+        - ...
+        - ...
+\end{lstlisting}
+
+In this example "chain.creation.block" is a logger name, and we will monitor messages sent to this logger.
+
+\end{mdframed}
+
+\begin{mdframed}
+\section*{Event}
+
+Monitoring event is defined in the configuration as a logical expression, for example:
+
+\begin{lstlisting}[language=bash]
+  monitor: (monitMe >= (42))
+\end{lstlisting}
+
+So if the value of \texttt{monitMe} will reach 42 - event occurs.
+
+It's possible to use the following compare operators: \texttt{<=}, \texttt{<}, \texttt{>=}, \texttt{>}, \texttt{==}, \texttt{!=}, \texttt{/=}.
+
+\subsection*{Composition and arithmetic}
+
+Comparisons can be composed using \texttt{And}, \texttt{Or} and \texttt{Not}, for example:
+
+\begin{lstlisting}[language=bash]
+  monitor:
+    ((monitMe < (2)) Or (monitMe >= (4)))
+\end{lstlisting}
+
+It's possible to do basic arithmetic in comparisons using operators \texttt{+}, \texttt{-} and \texttt{*}, for example:
+
+\begin{lstlisting}[language=bash]
+  monitor: (monitMe > ((19) * (133)))
+\end{lstlisting}
+\end{mdframed}
+
+\begin{mdframed}
+\section*{Measurable}
+
+Any \href{https://github.com/input-output-hk/iohk-monitoring-framework/blob/master/iohk-monitoring/src/Cardano/BM/Data/Aggregated.lhs}{Measurable} value can be used in comparisons, for example:
+
+\begin{lstlisting}[language=bash]
+  monitor: (time > (22 s))
+\end{lstlisting}
+
+or
+
+\begin{lstlisting}[language=bash]
+  monitor: (f.size > (22 MB))
+\end{lstlisting}
+
+Here \texttt{s} corresponds to \texttt{Seconds} and \texttt{MB} to megabytes.
+\end{mdframed}
+
+\begin{mdframed}
+\section*{Action}
+
+When monitoring event occurred, corresponding action is performing.
+
+Action is defined in the configuration, for example:
+
+\begin{lstlisting}[language=bash]
+  actions:
+    - CreateMessage Warning "Alert msg!"
+\end{lstlisting}
+
+The following actions are supported:
+
+\begin{enumerate}
+  \item \texttt{CreateMessage} --- creates a message with defined log severity.
+  \item \texttt{SetGlobalMinimalSeverity} --- sets global minimal log severity.
+  \item \texttt{AlterSeverity} --- alters log severity for particular logger.
+\end{enumerate}
+\end{mdframed}
+
+\begin{mdframed}
+\section*{Precondition}
+
+It's possible to define precondition expression for monitoring. This precondition is optional, but if it's defined --- monitoring will be performed only if precondition returns \texttt{True}. For example:
+
+\begin{lstlisting}[language=bash]
+  monitor-if: (monitMe.fcount >= (10))
+  monitor: (monitMe >= (34))
+\end{lstlisting}
+
+In this case the first 10 \texttt{monitMe} values will be skipped for monitor analysis.
+
+Please note that technically precondition expression is the same one as an event expression, and can contain the same compare operators, logical compositions and arithmetic operators.
+
+\end{mdframed}
+
+\end{document}
