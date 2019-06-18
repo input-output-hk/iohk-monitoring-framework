@@ -1,16 +1,17 @@
 
-\subsection{Cardano.BM.Output.Graylog}
-\label{code:Cardano.BM.Output.Graylog}
+\subsection{Cardano.BM.Backend.Graylog}
+\label{code:Cardano.BM.Backend.Graylog}
 
 %if style == newcode
 \begin{code}
 {-# LANGUAGE CPP                   #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE LambdaCase            #-}
-{-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE TypeApplications      #-}
 
-module Cardano.BM.Output.Graylog
+module Cardano.BM.Backend.Graylog
     (
       Graylog
     , effectuate
@@ -224,7 +225,7 @@ mkGelfItem (LogObject loname lometa locontent) = GelfItem {
         short_message = loname,
         full_message = toJSON locontent,
         timestamp = (fromInteger . toInteger $ (utc2ns $ tstamp lometa) :: Double) / 1000000000,
-        level = (fromEnum Emergency) - (fromEnum $ severity lometa),
+        level = (fromEnum $ maxBound @Severity) - (fromEnum $ severity lometa),
         _tid = tid lometa,
         _privacy = pack $ show $ privacy lometa
     }
