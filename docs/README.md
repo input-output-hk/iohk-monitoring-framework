@@ -8,9 +8,11 @@ to generate documentation. Then, simply run `make`.
 
 ## Logging overview
 
-A short summary of [logging](Logging_one-pager.pdf) on a single page.
+A summary of [logging](one-pager/pdf/logging.pdf) on a single page.
 
-A single-page description of [benchmarking](Benchmarking_one-pager.pdf).
+A single-page description of [benchmarking](one-pager/pdf/benchmarking.pdf).
+
+Expose of [monitoring](one-pager/pdf/monitoring.pdf).
 
 # Presentations
 

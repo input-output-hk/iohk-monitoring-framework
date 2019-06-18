@@ -9,9 +9,7 @@
 \usepackage{hyperref}
 \usepackage{graphicx}
 
-\setmainfont{Fira Sans}
-\setmonofont{Fira Mono}
-\newfontface\BoldMonoFont{Fira Mono Bold}[]
+\renewcommand{\familydefault}{\sfdefault}
 
 \pagenumbering{gobble}
 
@@ -42,7 +40,7 @@
     breaklines=true,
     captionpos=b,
     escapeinside={\%*}{*)},
-    keywordstyle=\BoldMonoFont\color{carminepink},
+    keywordstyle=\texttt{\textbf{\color{carminepink}}},
     identifierstyle=\color{black},
     stringstyle=\color{cadmiumgreen},
     commentstyle=\color{darkelectricblue},
