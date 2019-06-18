@@ -13,6 +13,10 @@ commonLib.pkgs.lib.mapAttrsRecursiveCond
   # are interested in building on CI via nix-tools.
   packages = [ "iohk-monitoring" ];
 
+  # non nix-tools jobs from default.nix that we want to build for
+  # all supported systems.
+  builds-on-supported-systems = [ "shell" ];
+
   # The set of jobs we consider crutial for each CI run.
   # if a single one of these fails, the build will be marked
   # as failed.
@@ -57,6 +61,7 @@ commonLib.pkgs.lib.mapAttrsRecursiveCond
     # Disabled due to: https://github.com/psibi/download/issues/17:
     #jobs.nix-tools.exes.x86_64-pc-mingw32-iohk-monitoring.x86_64-linux
 
-    jobs.shell
+    jobs.shell.x86_64-linux
+    jobs.shell.x86_64-darwin
   ];
 } args)
