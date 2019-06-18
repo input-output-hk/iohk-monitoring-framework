@@ -50,11 +50,13 @@ commonLib.pkgs.lib.mapAttrsRecursiveCond
   required-targets = jobs: [
     # targets are specified using above nomenclature:
     jobs.nix-tools.tests.iohk-monitoring.tests.x86_64-linux
-
+    jobs.nix-tools.tests.iohk-monitoring.tests.x86_64-darwin
     jobs.nix-tools.exes.iohk-monitoring.x86_64-linux
+    jobs.nix-tools.exes.iohk-monitoring.x86_64-darwin
 
     # Disabled due to: https://github.com/psibi/download/issues/17:
     #jobs.nix-tools.exes.x86_64-pc-mingw32-iohk-monitoring.x86_64-linux
 
+    jobs.shell
   ];
 } args)
