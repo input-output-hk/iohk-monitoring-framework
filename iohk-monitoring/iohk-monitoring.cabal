@@ -104,7 +104,7 @@ library
     exposed-modules:   Cardano.BM.Backend.EKGView
 
   if !flag(disable-graylog)
-    exposed-modules:   Cardano.BM.Output.Graylog
+    exposed-modules:   Cardano.BM.Backend.Graylog
 
   if !flag(disable-ekg) && !flag(disable-prometheus)
     exposed-modules:   Cardano.BM.Backend.Prometheus

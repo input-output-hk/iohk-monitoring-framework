@@ -71,7 +71,7 @@ import qualified Cardano.BM.Backend.EKGView
 #endif
 
 #ifdef ENABLE_GRAYLOG
-import qualified Cardano.BM.Output.Graylog
+import qualified Cardano.BM.Backend.Graylog
 #endif
 
 #ifdef ENABLE_MONITORING
@@ -377,10 +377,10 @@ setupBackend' GraylogBK c sb = do
     if port > 0
     then do
         let trace = mainTraceConditionally c sb
-        be :: Cardano.BM.Output.Graylog.Graylog a <- Cardano.BM.Output.Graylog.realizefrom c trace sb
+        be :: Cardano.BM.Backend.Graylog.Graylog a <- Cardano.BM.Backend.Graylog.realizefrom c trace sb
         return $ Just MkBackend
-            { bEffectuate = Cardano.BM.Output.Graylog.effectuate be
-            , bUnrealize = Cardano.BM.Output.Graylog.unrealize be
+            { bEffectuate = Cardano.BM.Backend.Graylog.effectuate be
+            , bUnrealize = Cardano.BM.Backend.Graylog.unrealize be
             }
     else
         return Nothing
