@@ -50,10 +50,13 @@ in
   d // {
     shell = d.nix-tools.shellFor {
       name = "iohk-monitoring-framework-env";
-      packages = ps: with ps; [ iohk-monitoring contra-tracer ];
+      packages = ps: with ps; [ iohk-monitoring contra-tracer hackage-db ];
       nativeBuildInputs = with commonLib.pkgs; [
         haskellPackages.ghcid
         numactl
+        git
+        pkgconfig
+        systemd
       ];
     };
   }
