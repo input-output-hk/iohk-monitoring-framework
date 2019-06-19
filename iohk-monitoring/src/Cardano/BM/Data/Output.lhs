@@ -8,10 +8,6 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveGeneric  #-}
 
-#if defined(linux_HOST_OS)
-#define LINUX
-#endif
-
 module Cardano.BM.Data.Output
   (
     ScribeKind (..)
@@ -46,7 +42,7 @@ This identifies katip's scribes by type.
 data ScribeKind = FileSK
                 | StdoutSK
                 | StderrSK
-#ifdef LINUX
+#ifdef ENABLE_SYSLOG
                 | JournalSK
 #endif
                 | DevNullSK
