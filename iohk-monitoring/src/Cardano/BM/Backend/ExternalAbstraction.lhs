@@ -5,6 +5,7 @@
 
 %if style == newcode
 \begin{code}
+{-# LANGUAGE CPP                 #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies        #-}
 
@@ -22,7 +23,9 @@ import           Data.Text (pack)
 import           GHC.IO.Handle (hDuplicate)
 import           System.IO (IOMode (..), openFile, BufferMode (NoBuffering),
                      Handle, hClose, hSetBuffering, openFile, stderr)
+#ifndef mingw32_HOST_OS
 import           System.Posix.Files (createNamedPipe, stdFileMode)
+#endif
 
 import           Cardano.BM.Data.LogItem (LOContent (LogError),
                      PrivacyAnnotation (Public),mkLOMeta)
@@ -60,6 +63,7 @@ instance Pipe NoPipe where
 
 instance Pipe UnixNamedPipe where
     data PipeHandler UnixNamedPipe = P Handle
+#ifndef mingw32_HOST_OS
     create pipePath sbtrace =
         (createNamedPipe pipePath stdFileMode >> (P <$> openFile pipePath ReadWriteMode))
         -- use of ReadWriteMode instead of ReadMode in order
@@ -69,6 +73,9 @@ instance Pipe UnixNamedPipe where
                                 (,) <$> (mkLOMeta Warning Public)
                                     <*> pure (LogError $ pack $ show e)
                             P <$> hDuplicate stderr)
+#else
+    create _ _ = error "UnixNamedPipe not supported on Windows"
+#endif
     open pipePath sbtrace = do
         h <- openFile pipePath WriteMode
                 `catch` (\(e :: SomeException) -> do

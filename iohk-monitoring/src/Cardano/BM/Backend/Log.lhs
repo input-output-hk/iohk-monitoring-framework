@@ -206,8 +206,6 @@ instance (ToObject a, FromJSON a) => IsBackend Log a where
 #if defined(linux_HOST_OS)
 #if defined(ENABLE_SYSLOG)
             createScribe JournalSK _ _ _ = mkJournalScribe
-#else
-            createScribe JournalSK _ _ _ = mkDevNullScribe
 #endif
 #endif
             createScribe StdoutSK sctype _ _ = mkStdoutScribe sctype
