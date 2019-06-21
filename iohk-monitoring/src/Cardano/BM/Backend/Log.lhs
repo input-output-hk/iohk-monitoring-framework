@@ -203,10 +203,8 @@ instance (ToObject a, FromJSON a) => IsBackend Log a where
                                                             rotParams
                                                             (FileDescription $ unpack name)
                                                             False
-#if defined(linux_HOST_OS)
 #if defined(ENABLE_SYSLOG)
             createScribe JournalSK _ _ _ = mkJournalScribe
-#endif
 #endif
             createScribe StdoutSK sctype _ _ = mkStdoutScribe sctype
             createScribe StderrSK sctype _ _ = mkStderrScribe sctype

@@ -10,10 +10,6 @@
 
 {-@ LIQUID "--max-case-expand=4" @-}
 
-#if defined(linux_HOST_OS)
-#define LINUX
-#endif
-
 module Cardano.BM.Configuration.Model
     ( Configuration (..)
     , ConfigurationInternal (..)
@@ -479,7 +475,7 @@ setupFromRepresentation r = do
     fillRotationParams :: Maybe RotationParameters -> [ScribeDefinition] -> [ScribeDefinition]
     fillRotationParams defaultRotation = map $ \sd ->
         if (scKind sd /= StdoutSK) && (scKind sd /= StderrSK)
-#ifdef LINUX
+#ifdef ENABLE_SYSLOG
             && (scKind sd /= JournalSK)
 #endif
         then
