@@ -43,7 +43,13 @@ Here we refer to the example that can be found in \hyperref[sec:examplecomplex]{
 The capturing of STM actions is defined in |Cardano.BM.Observer.STM| and the
 function \emph{STM.bracketObserveIO} has type:
 \begin{verbatim}
-    bracketObserveIO :: Trace IO -> Text -> STM.STM t -> IO t
+    bracketObserveIO
+        :: Configuration
+        -> Trace IO a
+        -> Severity
+        -> Text
+        -> STM.STM t
+        -> IO t
 \end{verbatim}
 It accepts a Trace to which it logs, adds a name to the context name and enters
 this with a SubTrace, and finally the STM action which will be evaluated.
@@ -54,7 +60,13 @@ captures log items in its result, which then are threaded through the Trace.
 Capturing observables for a function evaluation in \emph{IO}, the type of
 \mbox{bracketObserveIO} (defined in |Cardano.BM.Observer.Monadic|) is:
 \begin{verbatim}
-    bracketObserveIO :: Trace IO -> Text -> IO t -> IO t
+    bracketObserveIO
+        :: Configuration
+        -> Trace IO a
+        -> Severity
+        -> Text
+        -> IO t
+        -> IO t
 \end{verbatim}
 
 It accepts a Trace to which it logs items, adds a name to the context name and
