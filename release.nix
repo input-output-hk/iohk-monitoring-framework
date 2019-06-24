@@ -11,7 +11,7 @@ commonLib.pkgs.lib.mapAttrsRecursiveCond
 
   # packages from our stack.yaml or plan file (via nix/pkgs.nix) we
   # are interested in building on CI via nix-tools.
-  packages = [ "iohk-monitoring" ];
+  packages = [ "iohk-monitoring" "iohk-monitoring-minimal" ];
 
   # The set of jobs we consider crutial for each CI run.
   # if a single one of these fails, the build will be marked
@@ -52,6 +52,10 @@ commonLib.pkgs.lib.mapAttrsRecursiveCond
     jobs.nix-tools.tests.iohk-monitoring.tests.x86_64-linux
 
     jobs.nix-tools.exes.iohk-monitoring.x86_64-linux
+
+    # Linux "minimal" cabal flags builds
+    jobs.nix-tools.libs.iohk-monitoring-minimal.x86_64-linux
+    jobs.nix-tools.exes.iohk-monitoring-minimal.x86_64-linux
 
     # Disabled due to: https://github.com/psibi/download/issues/17:
     #jobs.nix-tools.exes.x86_64-pc-mingw32-iohk-monitoring.x86_64-linux

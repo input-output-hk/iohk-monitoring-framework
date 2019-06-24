@@ -1,7 +1,11 @@
 { pkgs ? import <nixpkgs> {}
+# package set extensions from iohk-nix
 , iohk-extras ? {}
+# package set configuration from iohk-nix
 , iohk-module ? {}
+# Haskell.nix library
 , haskell
+# iohk-nix might call this with more arguments
 , ...
 }:
 let
@@ -21,6 +25,8 @@ let
     inherit stack-pkgs;
     pkg-def-extras = [
       iohk-extras.${compiler}
+      # Add a clone of iohk-monitoring package
+      (hackage: { packages.iohk-monitoring-minimal = ./.stack.nix/iohk-monitoring.nix; })
     ];
     modules = [
       iohk-module
@@ -33,6 +39,20 @@ let
         # lift containers==0.5.* restriction, see
         # https://github.com/bitnomial/prometheus/commit/61bb7ec834279d6274c9d13b0edcfff3cc42c856
         packages.prometheus.components.library.doExactConfig = true;
+
+        # Add a variant of iohk-monitoring to test disabling of flags
+        packages.iohk-monitoring-minimal.flags = {
+          disable-aggregation = true;
+          disable-ekg = true;
+          disable-graylog = true;
+          disable-prometheus = true;
+          disable-gui = true;
+          disable-monitoring = true;
+          disable-observables = true;
+          disable-syslog = true;
+          # Keep examples, to see if they build
+          disable-examples = false;
+        };
       }
     ];
   };
