@@ -13,12 +13,15 @@ module Cardano.BM.Backend.Prometheus
     ) where
 
 import qualified Control.Concurrent.Async as Async
-import           Network.Wai.Handler.Warp (Port)
-import           System.Metrics.Prometheus.Http.Scrape (serveHttpTextMetrics)
-import           System.Metrics.Prometheus.Registry (sample)
+import           Control.Monad.IO.Class (MonadIO (..))
+import           Network.Wai.Handler.Warp (Port, defaultSettings, runSettings,
+                   setHost, setPort)
+import           System.Metrics.Prometheus.Http.Scrape (prometheusApp)
+import           System.Metrics.Prometheus.Registry (RegistrySample, sample)
 import           System.Metrics.Prometheus.RegistryT (execRegistryT)
 import qualified System.Remote.Monitoring as EKG
-import           System.Remote.Monitoring.Prometheus (registerEKGStore, AdapterOptions (..))
+import           System.Remote.Monitoring.Prometheus (registerEKGStore,
+                   AdapterOptions (..))
 
 \end{code}
 %endif
@@ -30,10 +33,13 @@ spawnPrometheus :: EKG.Server -> Port -> IO (Async.Async ())
 spawnPrometheus s p = Async.async $ passToPrometheus s p
 
 passToPrometheus :: EKG.Server -> Port -> IO ()
-passToPrometheus server port = do
+passToPrometheus server port =
     let store = EKG.serverMetricStore server
-    let reg = execRegistryT $ registerEKGStore store $ AdapterOptions mempty Nothing 1
-
-    serveHttpTextMetrics port ["metrics"] (reg >>= sample) -- http://localhost:{port}/metrics server
+        reg = execRegistryT $ registerEKGStore store $ AdapterOptions mempty Nothing 1
+    in serveMetrics (reg >>= sample)
+  where
+    serveMetrics :: MonadIO m => IO RegistrySample -> m ()
+    serveMetrics = liftIO . runSettings settings . prometheusApp ["metrics"]
+    settings = setPort port . setHost "127.0.0.1" $ defaultSettings
 
 \end{code}
