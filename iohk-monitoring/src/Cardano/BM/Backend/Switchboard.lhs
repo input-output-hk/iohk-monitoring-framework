@@ -189,7 +189,7 @@ instance (FromJSON a, ToObject a) => IsBackend Switchboard a where
                                             "#messagecounters.switchboard"
                                             countersMVar
                                             60000   -- 60000 ms = 1 min
-                                            Warning -- Debug
+                                            Debug
 
                 let sendMessage nli befilter = do
                         let name = case nli of

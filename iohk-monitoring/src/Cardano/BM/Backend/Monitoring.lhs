@@ -137,7 +137,7 @@ spawnDispatcher mqueue config sbtrace monitor = do
                                 "#messagecounters.monitoring"
                                 countersMVar
                                 60000   -- 60000 ms = 1 min
-                                Warning
+                                Debug
     Async.async (initMap >>= qProc countersMVar)
   where
     {-@ lazy qProc @-}

@@ -32,7 +32,7 @@ import qualified Data.ByteString.Lazy.Char8 as BS8
 import           Data.Text (Text, pack)
 import qualified Data.Text.IO as TIO
 import           Data.Time (getCurrentTime)
-import           Network.Socket
+import qualified Network.Socket as Net
 import           Network.Socket.ByteString (sendAll)
 import           System.IO (stderr)
 import           Text.Printf (printf)
@@ -148,13 +148,13 @@ spawnDispatcher config evqueue sbtrace = do
                                 "#messagecounters.graylog"
                                 countersMVar
                                 60000   -- 60000 ms = 1 min
-                                Warning -- Debug
+                                Debug
 
     gltrace <- Trace.appendName "#graylog" sbtrace
-    Async.async $ withSocketsDo $ qProc gltrace countersMVar Nothing Nothing
+    Async.async $ Net.withSocketsDo $ qProc gltrace countersMVar Nothing Nothing
   where
     {-@ lazy qProc @-}
-    qProc :: Trace.Trace IO a -> MVar MessageCounter -> Maybe Socket -> Maybe (LogObject a) -> IO ()
+    qProc :: Trace.Trace IO a -> MVar MessageCounter -> Maybe Net.Socket -> Maybe (LogObject a) -> IO ()
     qProc gltrace counters conn Nothing = do
         -- TODO read all items and process list at once
         maybeItem <- atomically $ TBQ.readTBQueue evqueue
@@ -178,20 +178,20 @@ spawnDispatcher config evqueue sbtrace = do
         conn <- tryConnect gltrace
         qProc gltrace counters conn item
 
-    sendLO :: ToObject a => Socket -> LogObject a -> IO ()
+    sendLO :: ToObject a => Net.Socket -> LogObject a -> IO ()
     sendLO conn obj =
         let msg = BS8.toStrict $ encodeMessage obj
         in sendAll conn msg
-    closeConn :: Maybe Socket -> IO ()
+    closeConn :: Maybe Net.Socket -> IO ()
     closeConn Nothing = return ()
-    closeConn (Just conn) = close conn
-    tryConnect :: Trace.Trace IO a -> IO (Maybe Socket)
+    closeConn (Just conn) = Net.close conn
+    tryConnect :: Trace.Trace IO a -> IO (Maybe Net.Socket)
     tryConnect gltrace = do
         port <- getGraylogPort config
-        let hints = defaultHints { addrSocketType = Datagram }
-        (addr:_) <- getAddrInfo (Just hints) (Just "127.0.0.1") (Just $ show port)
-        sock <- socket (addrFamily addr) (addrSocketType addr) (addrProtocol addr)
-        res <- connect sock (addrAddress addr) >> return (Just sock)
+        let hints = Net.defaultHints { Net.addrSocketType = Net.Datagram }
+        (addr:_) <- Net.getAddrInfo (Just hints) (Just "127.0.0.1") (Just $ show port)
+        sock <- Net.socket (Net.addrFamily addr) (Net.addrSocketType addr) (Net.addrProtocol addr)
+        res <- Net.connect sock (Net.addrAddress addr) >> return (Just sock)
             `catch` \(e :: SomeException) -> do 
                 trace' <- Trace.appendName "connecting" gltrace
                 mle <- mkLOMeta Error Public
