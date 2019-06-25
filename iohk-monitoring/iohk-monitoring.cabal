@@ -164,6 +164,7 @@ library
   if !flag(disable-ekg) && !flag(disable-prometheus)
      build-depends:    ekg-prometheus-adapter,
                        prometheus,
+                       streaming-commons,
                        warp
   if !flag(disable-graylog)
      build-depends:    network

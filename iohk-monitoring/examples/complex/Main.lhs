@@ -188,13 +188,9 @@ prepare_configuration = do
 #endif
 
 #ifdef ENABLE_EKG
-    CM.setSubTrace c "#messagecounters.monitoring" $ (Just $ ObservableTrace [GhcRtsStats,MemoryStats])
-    ------------------------------------------------------------------
-    ------------------------------------------------------------------
+    CM.setSubTrace c "#messagecounters.monitoring" $ (Just Neutral)
     CM.setBackends c "#aggregation.complex.message" (Just [EKGViewBK, MonitoringBK])
     CM.setBackends c "#aggregation.complex.monitoring" (Just [MonitoringBK])
-    ------------------------------------------------------------------
-    ------------------------------------------------------------------
     CM.setBackends c "#aggregation.complex.observeIO" (Just [EKGViewBK])
     CM.setEKGport c 12790
     CM.setLogOutput c "iohk-monitoring/log-pipe"
