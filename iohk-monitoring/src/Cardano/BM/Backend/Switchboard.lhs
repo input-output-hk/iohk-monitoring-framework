@@ -405,11 +405,9 @@ setupBackend' TraceAcceptorBK c sb = do
       { bEffectuate = Cardano.BM.Backend.TraceAcceptor.effectuate be
       , bUnrealize = Cardano.BM.Backend.TraceAcceptor.unrealize be
       }
-setupBackend' TraceForwarderBK c sb = do
-    let basetrace = mainTraceConditionally c sb
-
+setupBackend' TraceForwarderBK c _ = do
     be :: Cardano.BM.Backend.TraceForwarder.TraceForwarder PipeType a
-            <- Cardano.BM.Backend.TraceForwarder.realizefrom c basetrace sb
+            <- Cardano.BM.Backend.TraceForwarder.realize c
     return $ Just MkBackend
       { bEffectuate = Cardano.BM.Backend.TraceForwarder.effectuate be
       , bUnrealize = Cardano.BM.Backend.TraceForwarder.unrealize be

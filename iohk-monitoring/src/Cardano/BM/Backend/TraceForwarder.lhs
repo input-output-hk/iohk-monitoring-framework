@@ -13,7 +13,7 @@
 module Cardano.BM.Backend.TraceForwarder
     ( TraceForwarder (..)
     , effectuate
-    , realizefrom
+    , realize
     , unrealize
     ) where
 
@@ -78,13 +78,11 @@ jsonToBS a =
 instance (Pipe p, FromJSON a, ToJSON a) => IsBackend (TraceForwarder p) a where
     typeof _ = TraceForwarderBK
 
-    realize _ = fail "ExternalLog cannot be instantiated by 'realize'"
-
-    realizefrom cfg sbtrace _ = do
+    realize cfg = do
         ltpref <- newEmptyMVar
         let logToPipe = TraceForwarder ltpref
         pipePath <- fromMaybe "log-pipe" <$> getLogOutput cfg
-        h <- open pipePath sbtrace
+        h <- open pipePath
         putMVar ltpref $ TraceForwarderInternal
                             { tfPipeHandler = h
                             }

@@ -72,7 +72,7 @@ instance (Pipe p, FromJSON a) => IsBackend (TraceAcceptor p) a where
         elref <- newEmptyMVar
         let externalLog = TraceAcceptor elref
             pipePath = "log-pipe"
-        h <- create pipePath sbtrace
+        h <- create pipePath
         dispatcher <- spawnDispatcher h sbtrace
         -- link the given Async to the current thread, such that if the Async
         -- raises an exception, that exception will be re-thrown in the current
