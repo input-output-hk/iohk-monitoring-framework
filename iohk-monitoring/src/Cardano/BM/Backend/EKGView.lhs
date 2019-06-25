@@ -245,7 +245,7 @@ spawnDispatcher config evqueue sbtrace ekgtrace = do
                                 "#messagecounters.ekgview"
                                 countersMVar
                                 60000   -- 60000 ms = 1 min
-                                Warning -- Debug
+                                Debug
 
     Async.async $ qProc countersMVar
   where

@@ -157,7 +157,7 @@ spawnDispatcher conf aggMap aggregationQueue basetrace = do
                                 "#messagecounters.aggregation"
                                 countersMVar
                                 60000   -- 60000 ms = 1 min
-                                Warning -- Debug
+                                Debug
 
     Async.async $ qProc trace countersMVar aggMap
   where

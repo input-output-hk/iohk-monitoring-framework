@@ -540,7 +540,13 @@ empty = do
                            { cgMinSeverity       = Debug
                            , cgDefRotation       = Nothing
                            , cgMapSeverity       = HM.empty
-                           , cgMapSubtrace       = HM.empty
+                           , cgMapSubtrace       = HM.fromList [
+                                                     ("#messagecounters.ekgview", NoTrace),
+                                                     ("#messagecounters.aggregation", NoTrace),
+                                                     ("#messagecounters.switchboard", NoTrace),
+                                                     ("#messagecounters.monitoring", NoTrace),
+                                                     ("#messagecounters.katip", NoTrace),
+                                                     ("#messagecounters.graylog", NoTrace) ]
                            , cgOptions           = HM.empty
                            , cgMapBackend        = HM.empty
                            , cgDefBackendKs      = []
