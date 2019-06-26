@@ -57,6 +57,11 @@ flag disable-examples
   default:             False
   manual:              True
 
+flag queue-flush
+  description:         Enable batch handling of items.
+  default:             False
+  manual:              True
+
 library
   hs-source-dirs:      src
   exposed-modules:     Paths_iohk_monitoring
@@ -89,6 +94,7 @@ library
                        Cardano.BM.Backend.ExternalAbstraction
                        Cardano.BM.Backend.Log
                        Cardano.BM.Backend.LogBuffer
+                       Cardano.BM.Backend.ProcessQueue
                        Cardano.BM.Backend.Switchboard
                        Cardano.BM.Backend.TraceAcceptor
                        Cardano.BM.Backend.TraceForwarder
@@ -199,6 +205,9 @@ library
 
   if !flag(disable-observables)
     cpp-options:       -DENABLE_OBSERVABLES
+
+  if flag(queue-flush)
+    cpp-options:       -DQUEUE_FLUSH
 
   ghc-options:         -Wall -O2
                        -fno-ignore-asserts
