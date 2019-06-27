@@ -34,15 +34,13 @@ or a function, before and afterwards. Then, we compute the difference between th
 two and report all three measurements via a \emph{Trace} to the logging system.
 Here we refer to the example that can be found in \hyperref[sec:examplecomplex]{complex example}.
 
-\begin{wrapfigure}{r}{0.5\textwidth}
-    \begin{center}\begin{scriptsize}\begin{verbatim}
+\begin{spec}
     STM.bracketObserveIO trace "observeSTM" (stmAction args)
-    \end{verbatim}\end{scriptsize}\end{center}
-\end{wrapfigure}
+\end{spec}
 
 The capturing of STM actions is defined in |Cardano.BM.Observer.STM| and the
 function \emph{STM.bracketObserveIO} has type:
-\begin{verbatim}
+\begin{spec}
     bracketObserveIO
         :: Configuration
         -> Trace IO a
@@ -50,7 +48,7 @@ function \emph{STM.bracketObserveIO} has type:
         -> Text
         -> STM.STM t
         -> IO t
-\end{verbatim}
+\end{spec}
 It accepts a Trace to which it logs, adds a name to the context name and enters
 this with a SubTrace, and finally the STM action which will be evaluated.
 Because this evaluation can be retried, we cannot pass to it a Trace to which it
@@ -59,7 +57,7 @@ captures log items in its result, which then are threaded through the Trace.
 \\
 Capturing observables for a function evaluation in \emph{IO}, the type of
 \mbox{bracketObserveIO} (defined in |Cardano.BM.Observer.Monadic|) is:
-\begin{verbatim}
+\begin{spec}
     bracketObserveIO
         :: Configuration
         -> Trace IO a
@@ -67,14 +65,12 @@ Capturing observables for a function evaluation in \emph{IO}, the type of
         -> Text
         -> IO t
         -> IO t
-\end{verbatim}
+\end{spec}
 
 It accepts a Trace to which it logs items, adds a name to the context name and
 enters this with a SubTrace, and then the IO action which will be evaluated.
 
-\begin{wrapfigure}{r}{0.5\textwidth}
-    \vspace{-10pt}
-    \begin{center}\begin{scriptsize}\begin{verbatim}
+\begin{spec}
     bracketObserveIO trace "observeDownload" $ do
         license <- openURI "http://www.gnu.org/licenses/gpl.txt"
         case license of
@@ -82,8 +78,7 @@ enters this with a SubTrace, and then the IO action which will be evaluated.
             Left e   -> logError trace $ "failed to download; error: " ++ (show e)
         threadDelay 50000  -- .05 second
         pure ()
-    \end{verbatim}\end{scriptsize}\end{center}
-  \end{wrapfigure}
+\end{spec}
 
 Counters are evaluated before the evaluation and afterwards. We trace these as
 log items |ObserveOpen| and |ObserveClose|, as well as the difference
@@ -94,16 +89,16 @@ with type |ObserveDiff|.
 Observed STM actions or functions enter a new named context with a SubTrace.
 Thus, they need a configuration of the behaviour of this SubTrace in the new
 context. We can define this in the configuration for our example:
-\begin{verbatim}
+\begin{spec}
     CM.setSubTrace c "complex.observeDownload" (Just $ ObservableTrace [NetStats,IOStats])
-\end{verbatim}
+\end{spec}
 
 This enables the capturing of network and I/O stats from the operating system.
 Other Observables are implemented in |Cardano.BM.Data.Observable|.
 \\
 Captured observables need to be routed to backends. In our example we configure:
-\begin{verbatim}
+\begin{spec}
     CM.setBackends c "complex.observeIO" (Just [AggregationBK])
-\end{verbatim}
+\end{spec}
 to direct observables from named context \emph{complex.observeIO} to the
 Aggregation backend.
