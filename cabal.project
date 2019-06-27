@@ -14,3 +14,8 @@ package contra-tracer
 
 constraints:
   network == 3.0.*
+
+source-repository-package
+  type: git
+  location: https://github.com/365andreas/ekg-prometheus-adapter
+  tag: fe48327538b32de62c9bffd9d1ac517ba85c7750
