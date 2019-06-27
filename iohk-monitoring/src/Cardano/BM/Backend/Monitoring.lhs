@@ -24,7 +24,7 @@ module Cardano.BM.Backend.Monitoring
 
 import qualified Control.Concurrent.Async as Async
 import           Control.Concurrent.MVar (MVar, newEmptyMVar, newMVar, putMVar,
-                     modifyMVar_, readMVar, tryReadMVar, tryTakeMVar, withMVar)
+                     modifyMVar, readMVar, tryReadMVar, tryTakeMVar, withMVar)
 import           Control.Concurrent.STM (atomically)
 import qualified Control.Concurrent.STM.TBQueue as TBQ
 import           Control.Exception.Safe (throwM)
