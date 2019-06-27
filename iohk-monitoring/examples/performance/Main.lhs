@@ -26,7 +26,7 @@ module Main
 #endif
 
 
-import           Control.Concurrent (threadDelay)
+import           Control.Concurrent (threadDelay, readMVar)
 import qualified Control.Concurrent.Async as Async
 import           Control.Monad (forM_)
 #ifdef ENABLE_OBSERVABLES
@@ -41,6 +41,7 @@ import qualified Data.HashMap.Strict as HM
 import           Data.Text (Text, pack)
 import           System.Random
 
+import           Cardano.BM.Backend.Switchboard
 import qualified Cardano.BM.Configuration.Model as CM
 import           Cardano.BM.Data.Aggregated (Measurable (..))
 import           Cardano.BM.Data.AggregatedKind
@@ -90,13 +91,15 @@ prepare_configuration = do
 monitoringThr :: Trace IO Text -> IO (Async.Async ())
 monitoringThr trace = do
   trace' <- appendName "monitoring" trace
-  o <- (,) <$> (mkLOMeta Warning Public) <*> pure (LogValue "monitMe" (PureD 123.45))
-  proc <- Async.async (loop trace' o)
+  obj <- (,) <$> (mkLOMeta Warning Public) <*> pure (LogValue "monitMe" (PureD 123.45))
+  proc <- Async.async (loop trace' obj)
   return proc
   where
-    loop tr lo = forM_ [(1 :: Int) .. 1000000] $ \_ -> do
-        -- threadDelay 1
-        traceNamedObject tr lo
+    loop tr lo = do
+      forM_ [(1 :: Int) .. 1000000] $ \_ -> traceNamedObject tr lo
+      -- terminate Switchboard
+      killPill <- (,) <$> (mkLOMeta Warning Public) <*> pure KillPill
+      traceNamedObject tr killPill
 #endif
 \end{code}
 
@@ -105,9 +108,10 @@ monitoringThr trace = do
 main :: IO ()
 main = do
     c <- prepare_configuration
-    (tr :: Trace IO Text, _) <- setupTrace_ c "performance"
+    (tr :: Trace IO Text, sb) <- setupTrace_ c "performance"
     procMonitoring <- monitoringThr tr
-    _ <- Async.waitCatch procMonitoring
+    sbi <- readMVar $ getSB sb
+    _ <- Async.waitBoth procMonitoring $ sbDispatch sbi
     return ()
 
 \end{code}
