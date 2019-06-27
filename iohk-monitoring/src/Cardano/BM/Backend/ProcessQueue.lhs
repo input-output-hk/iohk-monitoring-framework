@@ -33,6 +33,7 @@ processQueue tbqueue proc state terminate = do
                 list <- TBQ.flushTBQueue tbqueue
                 when (null list) retry
                 return list
+    putStrLn $ "list length: " ++ show (length items)
     processItems state items
     where
     processItems s []             = processQueue tbqueue proc s terminate
