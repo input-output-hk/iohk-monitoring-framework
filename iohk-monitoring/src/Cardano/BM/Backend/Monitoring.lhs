@@ -6,6 +6,7 @@
 
 %if style == newcode
 \begin{code}
+{-# LANGUAGE CPP                   #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -36,6 +37,9 @@ import           Data.Time.Clock (getCurrentTime)
 import           GHC.Clock (getMonotonicTimeNSec)
 import           System.IO (stderr)
 
+#ifdef QUEUE_FLUSH
+import           Cardano.BM.Backend.ProcessQueue (processQueue)
+#endif
 import           Cardano.BM.Configuration.Model (Configuration, getMonitors)
 import           Cardano.BM.Data.Aggregated
 import           Cardano.BM.Data.Backend
@@ -142,6 +146,13 @@ spawnDispatcher mqueue config sbtrace monitor = do
   where
     {-@ lazy qProc @-}
     qProc counters state = do
+#ifdef QUEUE_FLUSH
+        processQueue
+            mqueue
+            processMonitoring
+            (counters, state)
+            (\_ -> pure ())
+#else
         maybeItem <- atomically $ TBQ.readTBQueue mqueue
         case maybeItem of
             Just (logvalue@(LogObject _ _ _)) -> do
@@ -161,6 +172,27 @@ spawnDispatcher mqueue config sbtrace monitor = do
                 modifyMVar_ counters $ \cnt -> return $ updateMessageCounters cnt logvalue
                 qProc counters state'
             Nothing -> return ()  -- stop here
+#endif
+
+#ifdef QUEUE_FLUSH
+    processMonitoring lo@(LogObject _ _ _) (counters, state) = do
+        let accessBufferMap = do
+                mon <- tryReadMVar (getMon monitor)
+                case mon of
+                    Nothing        -> return []
+                    Just actualMon -> readBuffer $ monBuffer actualMon
+        mbuf <- accessBufferMap
+        sbtraceWithMonitoring <- Trace.appendName "#monitoring" sbtrace
+        valuesForMonitoring <- getVarValuesForMonitoring config mbuf
+        state' <- evalMonitoringAction sbtraceWithMonitoring
+                                        state
+                                        lo
+                                        valuesForMonitoring
+        -- increase the counter for the type of message
+        modifyMVar_ counters $ \cnt -> return $ updateMessageCounters cnt lo
+        return (counters, state')
+#endif
+
     initMap = do
         ls <- getMonitors config
         return $ HM.fromList $ map (\(n, (precond,e,as)) -> (n, MonitorState precond e as HM.empty))

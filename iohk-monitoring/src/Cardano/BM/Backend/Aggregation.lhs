@@ -5,6 +5,7 @@
 %if style == newcode
 \begin{code}
 {-# LANGUAGE BangPatterns          #-}
+{-# LANGUAGE CPP                   #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 
@@ -36,6 +37,9 @@ import           Data.Word (Word64)
 import           GHC.Clock (getMonotonicTimeNSec)
 import           System.IO (stderr)
 
+#ifdef QUEUE_FLUSH
+import           Cardano.BM.Backend.ProcessQueue (processQueue)
+#endif
 import           Cardano.BM.Configuration.Model (Configuration, getAggregatedKind)
 import           Cardano.BM.Data.Aggregated (Aggregated (..), BaseStats (..),
                      EWMA (..), Measurable (..), Stats (..), getDouble,
@@ -163,6 +167,13 @@ spawnDispatcher conf aggMap aggregationQueue basetrace = do
   where
     {-@ lazy qProc @-}
     qProc trace counters aggregatedMap = do
+#ifdef QUEUE_FLUSH
+        processQueue
+            aggregationQueue
+            processAggregated
+            (trace, counters, aggregatedMap)
+            (\_ -> pure ())
+#else
         maybeItem <- atomically $ TBQ.readTBQueue aggregationQueue
         case maybeItem of
             Just (lo@(LogObject logname lm _)) -> do
@@ -173,6 +184,17 @@ spawnDispatcher conf aggMap aggregationQueue basetrace = do
                 modifyMVar_ counters $ \cnt -> return $ updateMessageCounters cnt lo
                 qProc trace counters updatedMap
             Nothing -> return ()
+#endif
+
+#ifdef QUEUE_FLUSH
+    processAggregated lo@(LogObject logname lm _) (trace, counters, aggregatedMap) = do
+        (updatedMap, aggregations) <- update lo aggregatedMap trace
+        unless (null aggregations) $
+            sendAggregated trace (LogObject logname lm (AggregatedMessage aggregations))
+        -- increase the counter for the specific severity and message type
+        modifyMVar_ counters $ \cnt -> return $ updateMessageCounters cnt lo
+        return (trace, counters, updatedMap)
+#endif
 
     createNupdate :: Text -> Measurable -> LOMeta -> AggregationMap -> IO (Either Text Aggregated)
     createNupdate name value lme agmap = do

@@ -10,6 +10,7 @@
       disable-observables = false;
       disable-syslog = false;
       disable-examples = false;
+      queue-flush = false;
       };
     package = {
       specVersion = "1.10";

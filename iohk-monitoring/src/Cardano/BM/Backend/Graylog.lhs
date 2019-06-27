@@ -37,6 +37,12 @@ import           Network.Socket.ByteString (sendAll)
 import           System.IO (stderr)
 import           Text.Printf (printf)
 
+#ifdef QUEUE_FLUSH
+import           Control.Monad (void)
+
+import           Cardano.BM.Backend.ProcessQueue (processQueue)
+#endif
+
 import           Cardano.BM.Configuration (Configuration, getGraylogPort)
 import           Cardano.BM.Data.Aggregated
 import           Cardano.BM.Data.Backend
@@ -151,12 +157,24 @@ spawnDispatcher config evqueue sbtrace = do
                                 Debug
 
     gltrace <- Trace.appendName "#graylog" sbtrace
+#ifdef QUEUE_FLUSH
+    Async.async $ Net.withSocketsDo $ qProc gltrace countersMVar Nothing
+#else
     Async.async $ Net.withSocketsDo $ qProc gltrace countersMVar Nothing Nothing
+#endif
   where
     {-@ lazy qProc @-}
+#ifdef QUEUE_FLUSH
+    qProc :: Trace.Trace IO a -> MVar MessageCounter -> Maybe Net.Socket -> IO ()
+    qProc gltrace counters conn =
+        processQueue
+            evqueue
+            processGraylog
+            (gltrace, counters, conn)
+            (\(_, _, c) -> closeConn c)
+#else
     qProc :: Trace.Trace IO a -> MVar MessageCounter -> Maybe Net.Socket -> Maybe (LogObject a) -> IO ()
     qProc gltrace counters conn Nothing = do
-        -- TODO read all items and process list at once
         maybeItem <- atomically $ TBQ.readTBQueue evqueue
         case maybeItem of
             Just obj -> do
@@ -177,6 +195,26 @@ spawnDispatcher config evqueue sbtrace = do
     qProc gltrace counters Nothing item = do
         conn <- tryConnect gltrace
         qProc gltrace counters conn item
+#endif
+
+#ifdef QUEUE_FLUSH
+    processGraylog :: LogObject a -> (Trace.Trace IO a, MVar MessageCounter, Maybe Net.Socket) -> IO (Trace.Trace IO a, MVar MessageCounter, Maybe Net.Socket)
+    processGraylog item (gltrace, counters, mConn) = do
+        case mConn of
+            (Just conn) -> do
+                sendLO conn item
+                    `catch` \(e :: SomeException) -> do
+                        trace' <- Trace.appendName "sending" gltrace
+                        mle <- mkLOMeta Error Public
+                        Trace.traceNamedObject trace' (mle, LogError (pack $ show e))
+                        threadDelay 50000
+                        void $ processGraylog item (gltrace, counters, mConn)
+                modifyMVar_ counters $ \cnt -> return $ updateMessageCounters cnt item
+                return (gltrace, counters, mConn)
+            Nothing     -> do
+                mConn' <- tryConnect gltrace
+                processGraylog item (gltrace, counters, mConn')
+#endif
 
     sendLO :: ToObject a => Net.Socket -> LogObject a -> IO ()
     sendLO conn obj =
@@ -192,7 +230,7 @@ spawnDispatcher config evqueue sbtrace = do
         (addr:_) <- Net.getAddrInfo (Just hints) (Just "127.0.0.1") (Just $ show port)
         sock <- Net.socket (Net.addrFamily addr) (Net.addrSocketType addr) (Net.addrProtocol addr)
         res <- Net.connect sock (Net.addrAddress addr) >> return (Just sock)
-            `catch` \(e :: SomeException) -> do 
+            `catch` \(e :: SomeException) -> do
                 trace' <- Trace.appendName "connecting" gltrace
                 mle <- mkLOMeta Error Public
                 Trace.traceNamedObject trace' (mle, LogError (pack $ show e))
