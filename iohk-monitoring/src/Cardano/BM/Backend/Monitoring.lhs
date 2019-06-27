@@ -108,7 +108,7 @@ instance FromJSON a => IsBackend Monitor a where
     realizefrom config sbtrace _ = do
         monref <- newEmptyMVar
         let monitor = Monitor monref
-        queue <- atomically $ TBQ.newTBQueue 512
+        queue <- atomically $ TBQ.newTBQueue 1000000
         dispatcher <- spawnDispatcher queue config sbtrace monitor
         monbuf :: Cardano.BM.Backend.LogBuffer.LogBuffer a <- Cardano.BM.Backend.LogBuffer.realize config
         -- link the given Async to the current thread, such that if the Async

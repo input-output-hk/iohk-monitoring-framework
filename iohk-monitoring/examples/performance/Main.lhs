@@ -90,12 +90,12 @@ prepare_configuration = do
 monitoringThr :: Trace IO Text -> IO (Async.Async ())
 monitoringThr trace = do
   trace' <- appendName "monitoring" trace
-  proc <- Async.async (loop trace')
+  o <- (,) <$> (mkLOMeta Warning Public) <*> pure (LogValue "monitMe" (PureD 123.45))
+  proc <- Async.async (loop trace' o)
   return proc
   where
-    loop tr = forM_ [(1 :: Int) .. 1000000] $ \_ -> do
-        threadDelay 1
-        lo <- (,) <$> (mkLOMeta Warning Public) <*> pure (LogValue "monitMe" (PureD 123.45))
+    loop tr lo = forM_ [(1 :: Int) .. 1000000] $ \_ -> do
+        -- threadDelay 1
         traceNamedObject tr lo
 #endif
 \end{code}
