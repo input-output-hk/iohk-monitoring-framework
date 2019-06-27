@@ -25,9 +25,11 @@ module Cardano.BM.Backend.Monitoring
 
 import qualified Control.Concurrent.Async as Async
 import           Control.Concurrent.MVar (MVar, newEmptyMVar, newMVar, putMVar,
-                     modifyMVar_, readMVar, tryReadMVar)
+                     modifyMVar_, readMVar, tryReadMVar, tryTakeMVar, withMVar)
 import           Control.Concurrent.STM (atomically)
 import qualified Control.Concurrent.STM.TBQueue as TBQ
+import           Control.Exception.Safe (throwM)
+import           Control.Monad (void)
 import           Data.Aeson (FromJSON)
 import qualified Data.HashMap.Strict as HM
 import           Data.Maybe (catMaybes)
@@ -61,8 +63,9 @@ newtype Monitor a = Monitor
     { getMon :: MonitorMVar a }
 
 data MonitorInternal a = MonitorInternal
-    { monQueue   :: TBQ.TBQueue (Maybe (LogObject a))
-    , monBuffer  :: LogBuffer a
+    { monQueue    :: TBQ.TBQueue (Maybe (LogObject a))
+    , monDispatch :: Async.Async ()
+    , monBuffer   :: LogBuffer a
     }
 
 \end{code}
@@ -117,11 +120,23 @@ instance FromJSON a => IsBackend Monitor a where
         Async.link dispatcher
         putMVar monref $ MonitorInternal
                         { monQueue = queue
+                        , monDispatch = dispatcher
                         , monBuffer = monbuf
                         }
         return monitor
 
-    unrealize _ = return ()
+    unrealize monitoring = do
+        let clearMVar :: MVar b -> IO ()
+            clearMVar = void . tryTakeMVar
+
+        (dispatcher, queue) <- withMVar (getMon monitoring) (\mon ->
+                                return (monDispatch mon, monQueue mon))
+        -- send terminating item to the queue
+        atomically $ TBQ.writeTBQueue queue Nothing
+        -- wait for the dispatcher to exit
+        res <- Async.waitCatch dispatcher
+        either throwM return res
+        clearMVar $ getMon monitoring
 
 \end{code}
 

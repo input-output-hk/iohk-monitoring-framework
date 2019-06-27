@@ -22,10 +22,11 @@ module Cardano.BM.Backend.Graylog
 import           Control.Concurrent (threadDelay)
 import qualified Control.Concurrent.Async as Async
 import           Control.Concurrent.MVar (MVar, newEmptyMVar, newMVar,
-                     putMVar, readMVar, withMVar, modifyMVar_)
+                     putMVar, readMVar, withMVar, modifyMVar_, tryTakeMVar)
 import           Control.Concurrent.STM (atomically)
 import qualified Control.Concurrent.STM.TBQueue as TBQ
-import           Control.Exception.Safe (SomeException, catch)
+import           Control.Exception.Safe (SomeException, catch, throwM)
+import           Control.Monad (void)
 import           Control.Monad.IO.Class (liftIO)
 import           Data.Aeson (FromJSON, ToJSON (..), Value, encode, object, (.=))
 import qualified Data.ByteString.Lazy.Char8 as BS8
@@ -63,7 +64,8 @@ newtype Graylog a = Graylog
     { getGL :: GraylogMVar a }
 
 data GraylogInternal a = GraylogInternal
-    { glQueue :: TBQ.TBQueue (Maybe (LogObject a))
+    { glQueue    :: TBQ.TBQueue (Maybe (LogObject a))
+    , glDispatch :: Async.Async ()
     }
 
 \end{code}
@@ -129,12 +131,22 @@ instance (ToObject a, FromJSON a) => IsBackend Graylog a where
         Async.link dispatcher
         putMVar glref $ GraylogInternal
                         { glQueue = queue
+                        , glDispatch = dispatcher
                         }
         return graylog
 
-    unrealize graylog =
-        withMVar (getGL graylog) $ \gelf ->
-            atomically $ TBQ.writeTBQueue (glQueue gelf) Nothing
+    unrealize graylog = do
+        let clearMVar :: MVar b -> IO ()
+            clearMVar = void . tryTakeMVar
+
+        (dispatcher, queue) <- withMVar (getGL graylog) (\gelf ->
+                                return (glDispatch gelf, glQueue gelf))
+        -- send terminating item to the queue
+        atomically $ TBQ.writeTBQueue queue Nothing
+        -- wait for the dispatcher to exit
+        res <- Async.waitCatch dispatcher
+        either throwM return res
+        clearMVar $ getGL graylog
 
 \end{code}
 
