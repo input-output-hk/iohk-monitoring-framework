@@ -18,6 +18,7 @@
 module Cardano.BM.Backend.Switchboard
     (
       Switchboard (..)
+    , SwitchboardInternal (sbDispatch)
     , MockSwitchboard (..)
     , mainTraceConditionally
     , traceMock
@@ -141,11 +142,7 @@ The queue is initialized and the message dispatcher launched.
 instance IsEffectuator Switchboard a where
     effectuate switchboard item = do
         let writequeue :: TBQ.TBQueue (LogObject a) -> LogObject a -> IO ()
-            writequeue q i = do
-                    nocapacity <- atomically $ TBQ.isFullTBQueue q
-                    if nocapacity
-                    then handleOverflow switchboard
-                    else atomically $ TBQ.writeTBQueue q i
+            writequeue q i = atomically $ TBQ.writeTBQueue q i
 
         sb <- readMVar (getSB switchboard)
         writequeue (sbQueue sb) item
