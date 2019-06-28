@@ -20,9 +20,11 @@ module Cardano.BM.Backend.EKGView
 import           Control.Concurrent (killThread)
 import qualified Control.Concurrent.Async as Async
 import           Control.Concurrent.MVar (MVar, newEmptyMVar, newMVar,
-                     putMVar, readMVar, withMVar, modifyMVar_)
+                     putMVar, readMVar, withMVar, modifyMVar_, tryTakeMVar)
 import           Control.Concurrent.STM (atomically)
 import qualified Control.Concurrent.STM.TBQueue as TBQ
+import           Control.Exception.Safe (throwM)
+import           Control.Monad (void)
 import           Control.Monad.IO.Class (liftIO)
 import           Data.Aeson (FromJSON)
 import qualified Data.HashMap.Strict as HM
@@ -69,10 +71,12 @@ newtype EKGView a = EKGView
     { getEV :: EKGViewMVar a }
 
 data EKGViewInternal a = EKGViewInternal
-    { evQueue   :: TBQ.TBQueue (Maybe (LogObject a))
-    , evLabels  :: EKGViewMap Label.Label
-    , evGauges  :: EKGViewMap Gauge.Gauge
-    , evServer  :: Server
+    { evQueue              :: TBQ.TBQueue (Maybe (LogObject a))
+    , evLabels             :: EKGViewMap Label.Label
+    , evGauges             :: EKGViewMap Gauge.Gauge
+    , evServer             :: Server
+    , evDispatch           :: Async.Async ()
+    , evPrometheusDispatch :: Maybe (Async.Async ())
     }
 
 \end{code}
@@ -96,7 +100,7 @@ ekgTrace ekg _c = do
     ekgTrace' :: ToObject a => EKGView a -> Tracer IO (LogObject a)
     ekgTrace' ekgview = Tracer $ \lo@(LogObject loname _ _) -> do
         let setLabel :: Text -> Text -> EKGViewInternal a -> IO (Maybe (EKGViewInternal a))
-            setLabel name label ekg_i@(EKGViewInternal _ labels _ server) =
+            setLabel name label ekg_i@(EKGViewInternal _ labels _ server _ _) =
                 case HM.lookup name labels of
                     Nothing -> do
                         ekghdl <- getLabel name server
@@ -106,7 +110,7 @@ ekgTrace ekg _c = do
                         Label.set ekghdl label
                         return Nothing
             setGauge :: Text -> Int64 -> EKGViewInternal a -> IO (Maybe (EKGViewInternal a))
-            setGauge name value ekg_i@(EKGViewInternal _ _ gauges server) =
+            setGauge name value ekg_i@(EKGViewInternal _ _ gauges server _ _) =
                 case HM.lookup name gauges of
                     Nothing -> do
                         ekghdl <- getGauge name server
@@ -223,12 +227,33 @@ instance (ToObject a, FromJSON a) => IsBackend EKGView a where
                         , evGauges = HM.empty
                         , evServer = ehdl
                         , evQueue = queue
+                        , evDispatch = dispatcher
+#ifdef ENABLE_PROMETHEUS
+                        , evPrometheusDispatch = Just prometheusDispatcher
+#else
+                        , evPrometheusDispatch = Nothing
+#endif
                         }
         return ekgview
 
-    unrealize ekgview =
+    unrealize ekgview = do
+        let clearMVar :: MVar b -> IO ()
+            clearMVar = void . tryTakeMVar
+
+        (dispatcher, queue, prometheusDispatcher) <-
+            withMVar (getEV ekgview) (\ev ->
+                return (evDispatch ev, evQueue ev, evPrometheusDispatch ev))
+        -- send terminating item to the queue
+        atomically $ TBQ.writeTBQueue queue Nothing
+        -- wait for the dispatcher to exit
+        res <- Async.waitCatch dispatcher
+        either throwM return res
+        case prometheusDispatcher of
+            Just d  -> Async.cancel d
+            Nothing -> return ()
         withMVar (getEV ekgview) $ \ekg ->
             killThread $ serverThreadId $ evServer ekg
+        clearMVar $ getEV ekgview
 
 \end{code}
 

@@ -46,7 +46,8 @@ newtype TraceAcceptor p a = TraceAcceptor
 type TraceAcceptorMVar p a = MVar (TraceAcceptorInternal p a)
 
 data TraceAcceptorInternal p a = TraceAcceptorInternal
-    { accPipe :: PipeHandler p
+    { accPipe     :: PipeHandler p
+    , accDispatch :: Async.Async ()
     }
 
 \end{code}
@@ -80,11 +81,13 @@ instance (Pipe p, FromJSON a) => IsBackend (TraceAcceptor p) a where
         Async.link dispatcher
         putMVar elref $ TraceAcceptorInternal
                             { accPipe = h
+                            , accDispatch = dispatcher
                             }
         return externalLog
 
-    unrealize accView = withMVar (getTA accView) (\el -> do
-        let hPipe = accPipe el
+    unrealize accView = withMVar (getTA accView) (\acc -> do
+        Async.cancel $ accDispatch acc
+        let hPipe = accPipe acc
         -- close the pipe
         close hPipe)
 

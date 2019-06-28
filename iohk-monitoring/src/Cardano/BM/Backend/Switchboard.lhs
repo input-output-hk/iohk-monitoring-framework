@@ -220,7 +220,9 @@ instance (FromJSON a, ToObject a) => IsBackend Switchboard a where
 
                                 case loitem of
                                     KillPill -> do
+                                        -- each of the backends will be terminated sequentially
                                         forM_ backends ( \(_, be) -> bUnrealize be )
+                                        -- all backends have terminated
                                         return False
                                     (AggregatedMessage _) -> do
                                         sendMessage nli (filter (/= AggregationBK))
