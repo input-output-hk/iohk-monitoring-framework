@@ -475,7 +475,7 @@ setupFromRepresentation r = do
     fillRotationParams :: Maybe RotationParameters -> [ScribeDefinition] -> [ScribeDefinition]
     fillRotationParams defaultRotation = map $ \sd ->
         if (scKind sd /= StdoutSK) && (scKind sd /= StderrSK)
-#ifdef ENABLE_SYSLOG
+#ifdef ENABLE_SYSTEMD
             && (scKind sd /= JournalSK)
 #endif
         then

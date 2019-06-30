@@ -42,7 +42,7 @@ This identifies katip's scribes by type.
 data ScribeKind = FileSK
                 | StdoutSK
                 | StderrSK
-#ifdef ENABLE_SYSLOG
+#ifdef ENABLE_SYSTEMD
                 | JournalSK
 #endif
                 | DevNullSK

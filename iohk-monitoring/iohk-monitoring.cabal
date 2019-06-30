@@ -47,8 +47,8 @@ flag disable-observables
   default:             False
   manual:              True
 
-flag disable-syslog
-  description:         Turn off syslog and systemd facilities.
+flag disable-systemd
+  description:         Turn off systemd journal scribe.
   default:             False
   manual:              True
 
@@ -180,8 +180,8 @@ library
   else
      build-depends:    unix
 
-  if os(linux) && !flag(disable-syslog)
-     cpp-options:      -DENABLE_SYSLOG
+  if os(linux) && !flag(disable-systemd)
+     cpp-options:      -DENABLE_SYSTEMD
      build-depends:    hsyslog,
                        libsystemd-journal
 
