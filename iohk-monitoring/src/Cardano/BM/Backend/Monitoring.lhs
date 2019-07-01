@@ -25,7 +25,7 @@ module Cardano.BM.Backend.Monitoring
 
 import qualified Control.Concurrent.Async as Async
 import           Control.Concurrent.MVar (MVar, newEmptyMVar, newMVar, putMVar,
-                     modifyMVar, readMVar, tryReadMVar, tryTakeMVar, withMVar)
+                     modifyMVar_, readMVar, tryReadMVar, tryTakeMVar, withMVar)
 import           Control.Concurrent.STM (atomically)
 import qualified Control.Concurrent.STM.TBQueue as TBQ
 import           Control.Exception.Safe (throwM)
@@ -111,7 +111,7 @@ instance FromJSON a => IsBackend Monitor a where
     realizefrom config sbtrace _ = do
         monref <- newEmptyMVar
         let monitor = Monitor monref
-        queue <- atomically $ TBQ.newTBQueue 1000000
+        queue <- atomically $ TBQ.newTBQueue 512
         dispatcher <- spawnDispatcher queue config sbtrace monitor
         monbuf :: Cardano.BM.Backend.LogBuffer.LogBuffer a <- Cardano.BM.Backend.LogBuffer.realize config
         -- link the given Async to the current thread, such that if the Async
@@ -184,9 +184,7 @@ spawnDispatcher mqueue config sbtrace monitor = do
                                                logvalue
                                                valuesForMonitoring
                 -- increase the counter for the type of message
-                _c <- modifyMVar counters $ \cnt ->
-                    let counters' = updateMessageCounters cnt logvalue
-                    in  return (counters', counters')
+                modifyMVar_ counters $ \cnt -> return $ updateMessageCounters cnt logvalue
                 qProc counters state'
             Nothing -> return ()  -- stop here
 #endif
@@ -206,9 +204,7 @@ spawnDispatcher mqueue config sbtrace monitor = do
                                         lo
                                         valuesForMonitoring
         -- increase the counter for the type of message
-        _c <- modifyMVar counters $ \cnt ->
-            let counters' = updateMessageCounters cnt lo
-            in  return (counters', counters')
+        modifyMVar_ counters $ \cnt -> return $ updateMessageCounters cnt lo
         return (counters, state')
 #endif
 
@@ -302,7 +298,7 @@ evalMonitoringAction sbtrace mmap logObj@(LogObject logname _ _) variables = do
             if doMonitor && thresholdIsReached then do
                 now <- getMonotonicTimeNSec
                 let env'' = HM.insert "lastalert" (Nanoseconds now) env'
-                -- TIO.putStrLn $ "alert! " <> logname <> " " <> (pack $ show acts) <> " " <> (pack $ show env'')
+                TIO.putStrLn $ "alert! " <> logname <> " " <> (pack $ show acts) <> " " <> (pack $ show env'')
                 mapM_ (evaluateAction sbtrace' env' expr) acts
                 return $ HM.insert logname mon{_environment=env''} mmap
             else return mmap
