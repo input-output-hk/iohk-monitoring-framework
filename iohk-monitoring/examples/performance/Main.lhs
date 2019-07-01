@@ -1,11 +1,6 @@
 \subsubsection{Module header and import directives}
 \begin{code}
-{-# LANGUAGE CPP                 #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-
-#if defined(linux_HOST_OS)
-#define LINUX
-#endif
 
 module Main
   ( main )

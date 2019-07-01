@@ -6,6 +6,7 @@
 
 %if style == newcode
 \begin{code}
+{-# LANGUAGE CPP                   #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -108,7 +109,11 @@ instance FromJSON a => IsBackend Monitor a where
     realizefrom config sbtrace _ = do
         monref <- newEmptyMVar
         let monitor = Monitor monref
+#ifdef PERFORMANCE_TEST_QUEUE
+        queue <- atomically $ TBQ.newTBQueue 1000000
+#else
         queue <- atomically $ TBQ.newTBQueue 512
+#endif
         dispatcher <- spawnDispatcher queue config sbtrace monitor
         monbuf :: Cardano.BM.Backend.LogBuffer.LogBuffer a <- Cardano.BM.Backend.LogBuffer.realize config
         -- link the given Async to the current thread, such that if the Async

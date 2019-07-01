@@ -4,6 +4,7 @@
 
 %if style == newcode
 \begin{code}
+{-# LANGUAGE CPP                   #-}
 {-# LANGUAGE BangPatterns          #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -115,7 +116,11 @@ instance FromJSON a => IsBackend Aggregation a where
 
     realizefrom config trace _ = do
         aggref <- newEmptyMVar
+#ifdef PERFORMANCE_TEST_QUEUE
+        aggregationQueue <- atomically $ TBQ.newTBQueue 1000000
+#else
         aggregationQueue <- atomically $ TBQ.newTBQueue 2048
+#endif
         dispatcher <- spawnDispatcher config HM.empty aggregationQueue trace
         -- link the given Async to the current thread, such that if the Async
         -- raises an exception, that exception will be re-thrown in the current
