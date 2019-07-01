@@ -277,7 +277,6 @@ evalMonitoringAction sbtrace mmap logObj@(LogObject logname _ _) variables = do
             if doMonitor && thresholdIsReached then do
                 now <- getMonotonicTimeNSec
                 let env'' = HM.insert "lastalert" (Nanoseconds now) env'
-                -- TIO.putStrLn $ "alert! " <> logname <> " " <> (pack $ show acts) <> " " <> (pack $ show env'')
                 mapM_ (evaluateAction sbtrace' env' expr) acts
                 return $ HM.insert logname mon{_environment=env''} mmap
             else return mmap
