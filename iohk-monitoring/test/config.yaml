@@ -72,7 +72,7 @@ options:
     iohk.testing.uncritical: Warning
   mapSubtrace:
     iohk.benchmarking:
-      subtrace: ObservableTrace
+      subtrace: ObservableTraceSelf
       contents:
         - GhcRtsStats
         - MonotonicClock

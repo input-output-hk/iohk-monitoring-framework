@@ -131,7 +131,7 @@ prepare_configuration = do
 
 #ifdef LINUX
 #ifdef ENABLE_OBSERVABLES
-    CM.setSubTrace c "complex.observeDownload" (Just $ ObservableTrace [IOStats,NetStats])
+    CM.setSubTrace c "complex.observeDownload" (Just $ ObservableTraceSelf [IOStats,NetStats])
 #endif
     CM.setBackends c "complex.observeDownload" (Just [KatipBK])
     CM.setScribes c "complex.observeDownload" (Just ["StdoutSK::stdout", "FileSK::logs/downloading.json"])
@@ -153,12 +153,12 @@ prepare_configuration = do
                           ])
     CM.setSubTrace c "#messagecounters.ekgview" $ Just NoTrace
 #ifdef ENABLE_OBSERVABLES
-    CM.setSubTrace c "complex.observeIO" (Just $ ObservableTrace [GhcRtsStats,MemoryStats])
+    CM.setSubTrace c "complex.observeIO" (Just $ ObservableTraceSelf [GhcRtsStats,MemoryStats])
     forM_ [(1::Int)..10] $ \x ->
       CM.setSubTrace
         c
         ("complex.observeSTM." <> (pack $ show x))
-        (Just $ ObservableTrace [GhcRtsStats,MemoryStats])
+        (Just $ ObservableTraceSelf [GhcRtsStats,MemoryStats])
 #endif
 
 #ifdef ENABLE_AGGREGATION
@@ -285,7 +285,8 @@ observeIO config trace = do
   where
     loop tr = do
         threadDelay 5000000  -- 5 seconds
-        _ <- bracketObserveIO config tr Debug "observeIO" $ do
+        tr' <- appendName "observeIO" tr
+        _ <- bracketObserveIO config tr' Debug "complex.observeIO" $ do
             num <- randomRIO (100000, 200000) :: IO Int
             ls <- return $ reverse $ init $ reverse $ 42 : [1 .. num]
             pure $ const ls ()
@@ -331,7 +332,7 @@ observeDownload config trace = do
     loop tr = do
         threadDelay 1000000  -- 1 second
         tr' <- appendName "observeDownload" tr
-        bracketObserveIO config tr' Debug "" $ do
+        bracketObserveIO config tr' Debug "complex.observeDownload" $ do
             license <- openURI "http://www.gnu.org/licenses/gpl.txt"
             case license of
               Right bs -> logNotice tr' $ pack $ BS8.unpack bs

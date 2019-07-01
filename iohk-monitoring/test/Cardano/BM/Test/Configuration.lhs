@@ -263,7 +263,7 @@ unitConfigurationParsedRepresentation = do
             , "      contents:"
             , "      - GhcRtsStats"
             , "      - MonotonicClock"
-            , "      subtrace: ObservableTrace"
+            , "      subtrace: ObservableTraceSelf"
             , "    iohk.deadend:"
             , "      subtrace: NoTrace"
             , "  mapSeverity:"
@@ -332,13 +332,13 @@ unitConfigurationParsed = do
                                             , ("iohk.testing.uncritical", Warning)
                                             ]
         , cgMapSubtrace       = HM.fromList [ ("iohk.benchmarking",
-                                                    ObservableTrace [GhcRtsStats, MonotonicClock])
+                                                    ObservableTraceSelf [GhcRtsStats, MonotonicClock])
                                             , ("iohk.deadend", NoTrace)
                                             ]
         , cgOptions           = HM.fromList
             [ ("mapSubtrace",
                 HM.fromList [("iohk.benchmarking",
-                              Object (HM.fromList [("subtrace",String "ObservableTrace")
+                              Object (HM.fromList [("subtrace",String "ObservableTraceSelf")
                                                   ,("contents",Array $ V.fromList
                                                         [String "GhcRtsStats"
                                                         ,String "MonotonicClock"])]))

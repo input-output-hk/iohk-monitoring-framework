@@ -4,9 +4,16 @@
 
 %if style == newcode
 \begin{code}
-{-# LANGUAGE DeriveAnyClass      #-}
-{-# LANGUAGE DeriveGeneric       #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE CPP                  #-}
+{-# LANGUAGE DeriveAnyClass       #-}
+{-# LANGUAGE DeriveGeneric        #-}
+{-# LANGUAGE ScopedTypeVariables  #-}
+{-# LANGUAGE TypeSynonymInstances #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
+#if !defined(mingw32_HOST_OS)
+#define POSIX
+#endif
 
 module Cardano.BM.Data.SubTrace
   (
@@ -16,14 +23,18 @@ module Cardano.BM.Data.SubTrace
   )
   where
 
+#ifdef POSIX
+import           System.Posix.Types (ProcessID, CPid (..))
+#else
+import           System.Win32.Process (ProcessID)
+#endif
 import           Data.Aeson (FromJSON (..), ToJSON (..), Value (..), (.:), (.=), object, withObject)
-import           Data.Text (Text, unpack)
+import           Data.Text (Text, pack, unpack)
+import           GHC.Generics (Generic)
 
 import           Cardano.BM.Data.LogItem (LoggerName)
 import           Cardano.BM.Data.Observable
 import           Cardano.BM.Data.Severity (Severity (..))
-
-import           GHC.Generics (Generic)
 
 \end{code}
 %endif
@@ -35,6 +46,7 @@ import           GHC.Generics (Generic)
 \label{code:TeeTrace}\index{SubTrace!TeeTrace}
 \label{code:FilterTrace}\index{SubTrace!FilterTrace}
 \label{code:DropOpening}\index{SubTrace!DropOpening}
+\label{code:ObservableTraceSelf}\index{SubTrace!ObservableTraceSelf}
 \label{code:ObservableTrace}\index{SubTrace!ObservableTrace}
 \label{code:SetSeverity}\index{SubTrace!SetSeverity}
 \label{code:NameOperator}\index{SubTrace!FilterTrace!NameOperator}
@@ -53,32 +65,45 @@ data SubTrace = Neutral
               | TeeTrace LoggerName
               | FilterTrace [(DropName, UnhideNames)]
               | DropOpening
-              | ObservableTrace [ObservableInstance]
+              | ObservableTraceSelf [ObservableInstance]
+              | ObservableTrace ProcessID [ObservableInstance]
               | SetSeverity Severity
                 deriving (Generic, Show, Read, Eq)
 
+#ifdef POSIX
+instance ToJSON ProcessID where
+    toJSON (CPid pid) = String $ pack $ show pid
+
+instance FromJSON ProcessID where
+    parseJSON v = CPid <$> parseJSON v
+#endif
+
 instance FromJSON SubTrace where
-    parseJSON = withObject "" $ \o -> do
+    parseJSON = withObject "SubTrace" $ \o -> do
                     subtrace :: Text <- o .: "subtrace"
                     case subtrace of
-                        "Neutral"         -> return $ Neutral
-                        "UntimedTrace"    -> return $ UntimedTrace
-                        "NoTrace"         -> return $ NoTrace
-                        "TeeTrace"        -> TeeTrace        <$> o .: "contents"
-                        "FilterTrace"     -> FilterTrace     <$> o .: "contents"
-                        "DropOpening"     -> return $ DropOpening
-                        "ObservableTrace" -> ObservableTrace <$> o .: "contents"
-                        "SetSeverity"     -> SetSeverity     <$> o .: "contents"
-                        other             -> fail $ "unexpected subtrace: " ++ (unpack other)
+                        "Neutral"             -> return $ Neutral
+                        "UntimedTrace"        -> return $ UntimedTrace
+                        "NoTrace"             -> return $ NoTrace
+                        "TeeTrace"            -> TeeTrace            <$> o .: "contents"
+                        "FilterTrace"         -> FilterTrace         <$> o .: "contents"
+                        "DropOpening"         -> return $ DropOpening
+                        "ObservableTraceSelf" -> ObservableTraceSelf <$> o .: "contents"
+                        "ObservableTrace"     -> ObservableTrace     <$> o .: "pid"
+                                                                     <*> o .: "contents"
+                        "SetSeverity"         -> SetSeverity         <$> o .: "contents"
+                        other                 -> fail $ "unexpected subtrace: " ++ (unpack other)
 
 instance ToJSON SubTrace where
-    toJSON Neutral              = object ["subtrace" .= String "Neutral"         ]
-    toJSON UntimedTrace         = object ["subtrace" .= String "UntimedTrace"    ]
-    toJSON NoTrace              = object ["subtrace" .= String "NoTrace"         ]
-    toJSON (TeeTrace name)      = object ["subtrace" .= String "TeeTrace"        , "contents" .= toJSON name]
-    toJSON (FilterTrace dus)    = object ["subtrace" .= String "FilterTrace"     , "contents" .= toJSON dus ]
-    toJSON DropOpening          = object ["subtrace" .= String "DropOpening"     ]
-    toJSON (ObservableTrace os) = object ["subtrace" .= String "ObservableTrace" , "contents" .= toJSON os  ]
-    toJSON (SetSeverity sev)    = object ["subtrace" .= String "SetSeverity"     , "contents" .= toJSON sev ]
+    toJSON Neutral                  = object [ "subtrace" .= String "Neutral"             ]
+    toJSON UntimedTrace             = object [ "subtrace" .= String "UntimedTrace"        ]
+    toJSON NoTrace                  = object [ "subtrace" .= String "NoTrace"             ]
+    toJSON (TeeTrace name)          = object [ "subtrace" .= String "TeeTrace"            , "contents" .= toJSON name ]
+    toJSON (FilterTrace dus)        = object [ "subtrace" .= String "FilterTrace"         , "contents" .= toJSON dus  ]
+    toJSON DropOpening              = object [ "subtrace" .= String "DropOpening"         ]
+    toJSON (ObservableTraceSelf os) = object [ "subtrace" .= String "ObservableTraceSelf" , "contents" .= toJSON os   ]
+    toJSON (ObservableTrace pid os) = object [ "subtrace" .= String "ObservableTrace"     , "pid"      .= toJSON pid
+                                             , "contents" .= toJSON os                    ]
+    toJSON (SetSeverity sev)        = object [ "subtrace" .= String "SetSeverity"         , "contents" .= toJSON sev  ]
 
 \end{code}
