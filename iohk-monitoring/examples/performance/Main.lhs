@@ -17,6 +17,9 @@ import           Control.Monad (forM_)
 import qualified Data.HashMap.Strict as HM
 import           Data.Text (Text)
 
+import           Criterion (Benchmark, bench, nfIO)
+import           Criterion.Main (defaultMain)
+
 import           Cardano.BM.Backend.Switchboard
 import qualified Cardano.BM.Configuration.Model as CM
 import           Cardano.BM.Data.Aggregated (Measurable (..))
@@ -51,17 +54,17 @@ prepare_configuration = do
 
 \end{code}
 
-\subsubsection{Thread that outputs a random number to monitoring |Trace|}
+\subsubsection{Thread that outputs a value to monitoring |Trace|}
 \begin{code}
-monitoringThr :: Trace IO Text -> IO (Async.Async ())
-monitoringThr trace = do
+monitoringThr :: Trace IO Text -> Int -> IO (Async.Async ())
+monitoringThr trace objNumber = do
   trace' <- appendName "monitoring" trace
   obj <- (,) <$> (mkLOMeta Warning Public) <*> pure (LogValue "monitMe" (PureD 123.45))
   proc <- Async.async (loop trace' obj)
   return proc
   where
     loop tr lo = do
-      forM_ [(1 :: Int) .. 1000000] $ \_ -> traceNamedObject tr lo
+      forM_ [1 .. objNumber] $ \_ -> traceNamedObject tr lo
        -- terminate Switchboard
       killPill <- (,) <$> (mkLOMeta Warning Public) <*> pure KillPill
       traceNamedObject tr killPill
@@ -70,10 +73,18 @@ monitoringThr trace = do
 \subsubsection{Main entry point}
 \begin{code}
 main :: IO ()
-main = do
+main = defaultMain
+    [ benchMain 1000
+    , benchMain 10000
+    , benchMain 100000
+    , benchMain 1000000
+    ]
+
+benchMain :: Int -> Benchmark
+benchMain objNumber = bench (show objNumber ++ " objects") $ nfIO $ do
     c <- prepare_configuration
     (tr :: Trace IO Text, sb) <- setupTrace_ c "performance"
-    procMonitoring <- monitoringThr tr
+    procMonitoring <- monitoringThr tr objNumber
     sbi <- readMVar $ getSB sb
     _ <- Async.waitBoth procMonitoring $ sbDispatch sbi
     return ()

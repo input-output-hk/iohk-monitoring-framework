@@ -47,7 +47,7 @@ import           Cardano.BM.Data.Aggregated
 import           Cardano.BM.Data.Backend
 import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.MessageCounter (resetCounters, sendAndResetAfter,
-                     updateMessageCounters, MessageCounter (..))
+                     updateMessageCounters)
 import           Cardano.BM.Data.MonitoringEval
 import           Cardano.BM.Data.Severity (Severity (..))
 import           Cardano.BM.Backend.LogBuffer
@@ -184,10 +184,9 @@ spawnDispatcher mqueue config sbtrace monitor = do
                                                logvalue
                                                valuesForMonitoring
                 -- increase the counter for the type of message
-                c <- modifyMVar counters $ \cnt ->
+                _c <- modifyMVar counters $ \cnt ->
                     let counters' = updateMessageCounters cnt logvalue
                     in  return (counters', counters')
-                putStrLn $ "counters: " ++ (show . sum . mcCountersMap) c
                 qProc counters state'
             Nothing -> return ()  -- stop here
 #endif
@@ -207,10 +206,9 @@ spawnDispatcher mqueue config sbtrace monitor = do
                                         lo
                                         valuesForMonitoring
         -- increase the counter for the type of message
-        c <- modifyMVar counters $ \cnt ->
+        _c <- modifyMVar counters $ \cnt ->
             let counters' = updateMessageCounters cnt lo
             in  return (counters', counters')
-        putStrLn $ "counters: " ++ (show . sum . mcCountersMap) c
         return (counters, state')
 #endif
 
