@@ -210,10 +210,11 @@ instance (ToObject a, FromJSON a) => IsBackend EKGView a where
         Label.set ekghdl $ pack (showVersion version)
         ekgtrace <- ekgTrace ekgview config
 #ifdef PERFORMANCE_TEST_QUEUE
-        queue <- atomically $ TBQ.newTBQueue 1000000
+        let qSize = 1000000
 #else
-        queue <- atomically $ TBQ.newTBQueue 5120
+        let qSize = 5120
 #endif
+        queue <- atomically $ TBQ.newTBQueue qSize
         dispatcher <- spawnDispatcher config queue sbtrace ekgtrace
         -- link the given Async to the current thread, such that if the Async
         -- raises an exception, that exception will be re-thrown in the current

@@ -117,10 +117,11 @@ instance FromJSON a => IsBackend Aggregation a where
     realizefrom config trace _ = do
         aggref <- newEmptyMVar
 #ifdef PERFORMANCE_TEST_QUEUE
-        aggregationQueue <- atomically $ TBQ.newTBQueue 1000000
+        let qSize = 1000000
 #else
-        aggregationQueue <- atomically $ TBQ.newTBQueue 2048
+        let qSize = 2048
 #endif
+        aggregationQueue <- atomically $ TBQ.newTBQueue qSize
         dispatcher <- spawnDispatcher config HM.empty aggregationQueue trace
         -- link the given Async to the current thread, such that if the Async
         -- raises an exception, that exception will be re-thrown in the current

@@ -119,10 +119,11 @@ instance (ToObject a, FromJSON a) => IsBackend Graylog a where
         glref <- newEmptyMVar
         let graylog = Graylog glref
 #ifdef PERFORMANCE_TEST_QUEUE
-        queue <- atomically $ TBQ.newTBQueue 1000000
+        let qSize = 1000000
 #else
-        queue <- atomically $ TBQ.newTBQueue 1024
+        let qSize = 1024
 #endif
+        queue <- atomically $ TBQ.newTBQueue qSize
         dispatcher <- spawnDispatcher config queue sbtrace
         -- link the given Async to the current thread, such that if the Async
         -- raises an exception, that exception will be re-thrown in the current

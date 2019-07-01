@@ -10,6 +10,7 @@
       disable-observables = false;
       disable-systemd = false;
       disable-examples = false;
+      performance-test-queue = false;
       };
     package = {
       specVersion = "1.10";
@@ -102,7 +103,7 @@
               ])) ++ (pkgs.lib).optional (system.isLinux) (hsPkgs.download);
           };
         "example-performance" = {
-          depends = ([
+          depends = [
             (hsPkgs.base)
             (hsPkgs.iohk-monitoring)
             (hsPkgs.async)
@@ -111,9 +112,7 @@
             (hsPkgs.unordered-containers)
             ] ++ (if system.isWindows
             then [ (hsPkgs.Win32) ]
-            else [
-              (hsPkgs.unix)
-              ])) ++ (pkgs.lib).optional (system.isLinux) (hsPkgs.download);
+            else [ (hsPkgs.unix) ]);
           };
         };
       tests = {

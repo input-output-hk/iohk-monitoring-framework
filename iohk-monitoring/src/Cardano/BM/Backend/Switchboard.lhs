@@ -251,10 +251,11 @@ instance (FromJSON a, ToObject a) => IsBackend Switchboard a where
                 Async.async $ qProc countersMVar
 
 #ifdef PERFORMANCE_TEST_QUEUE
-        q <- atomically $ TBQ.newTBQueue 1000000
+        let qSize = 1000000
 #else
-        q <- atomically $ TBQ.newTBQueue 2048
+        let qSize = 2048
 #endif
+        q <- atomically $ TBQ.newTBQueue qSize
         sbref <- newEmptyMVar
         let sb :: Switchboard a = Switchboard sbref
 
