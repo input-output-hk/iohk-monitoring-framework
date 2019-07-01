@@ -71,7 +71,7 @@ tests = testGroup "Testing Trace" [
         unit_tests
       , testCase "forked traces stress testing" stressTraceInFork
 #ifdef ENABLE_OBSERVABLES
-      , testCase "stress testing: ObservableTrace vs. NoTrace" timingObservableVsUntimed
+      , testCase "stress testing: ObservableTraceSelf vs. NoTrace" timingObservableVsUntimed
 #endif
       , testCaseInfo "demonstrating logging" simpleDemo
       , testCaseInfo "demonstrating nested named context logging" exampleWithNamedContexts
@@ -83,10 +83,10 @@ unit_tests = testGroup "Unit tests" [
     --   , testCase "hierarchy of traces" unitHierarchy
       , testCase "forked traces" unitTraceInFork
       , testCase "hierarchy of traces with NoTrace" $
-            unitHierarchy' [Neutral, NoTrace, (ObservableTrace observablesSet)]
+            unitHierarchy' [Neutral, NoTrace, (ObservableTraceSelf observablesSet)]
                 onlyLevelOneMessage
       , testCase "hierarchy of traces with DropOpening" $
-            unitHierarchy' [Neutral, DropOpening, (ObservableTrace observablesSet)]
+            unitHierarchy' [Neutral, DropOpening, (ObservableTraceSelf observablesSet)]
                 notObserveOpen
       , testCase "hierarchy of traces with UntimedTrace" $
             unitHierarchy' [Neutral, UntimedTrace, UntimedTrace]
@@ -188,7 +188,7 @@ exampleWithNamedContexts = do
         trInner <- appendName "inner-work-1" tr
         let observablesSet = [MonotonicClock]
         setSubTrace cfg "test.complex-work-1.inner-work-1.STM-action" $
-            Just $ ObservableTrace observablesSet
+            Just $ ObservableTraceSelf observablesSet
 #ifdef ENABLE_OBSERVABLES
         _ <- STMObserver.bracketObserveIO cfg trInner Debug "STM-action" setVar_
 #endif
@@ -230,7 +230,7 @@ timingObservableVsUntimed = do
     traceObservable <- setupTrace $ TraceConfiguration cfg1
                                     (MockSB msgs1)
                                     "observables"
-                                    (ObservableTrace observablesSet)
+                                    (ObservableTraceSelf observablesSet)
     cfg2 <- defaultConfigTesting
     msgs2 <- STM.newTVarIO []
     traceUntimed <- setupTrace $ TraceConfiguration cfg2
@@ -251,10 +251,10 @@ timingObservableVsUntimed = do
     ms <- STM.readTVarIO msgs1
 
     assertBool
-        ("Untimed consumed more time than ObservableTrace " ++ (show [t_untimed, t_observable]) ++ show ms)
+        ("Untimed consumed more time than ObservableTraceSelf " ++ (show [t_untimed, t_observable]) ++ show ms)
         (t_observable > t_untimed && not (null ms))
     assertBool
-        ("NoTrace consumed more time than ObservableTrace" ++ (show [t_notrace, t_observable]))
+        ("NoTrace consumed more time than ObservableTraceSelf" ++ (show [t_notrace, t_observable]))
         (t_observable > t_notrace)
     assertBool
         ("NoTrace consumed more time than Untimed" ++ (show [t_notrace, t_untimed]))

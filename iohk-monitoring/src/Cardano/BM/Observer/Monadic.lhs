@@ -98,7 +98,7 @@ in a configuration file (YAML) means
         CM.setSubTrace
             config
             "submit-tx"
-            (Just $ ObservableTrace observablesSet)
+            (Just $ ObservableTraceSelf observablesSet)
           where
             observablesSet = [MonotonicClock, MemoryStats]
 \end{spec}
@@ -120,9 +120,8 @@ in a configuration file (YAML) means
 \begin{code}
 bracketObserveIO :: Config.Configuration -> Trace IO a -> Severity -> Text -> IO t -> IO t
 bracketObserveIO config trace severity name action = do
-    trace' <- appendName name trace
     subTrace <- fromMaybe Neutral <$> Config.findSubTrace config name
-    bracketObserveIO' subTrace severity trace' action
+    bracketObserveIO' subTrace severity trace action
   where
     bracketObserveIO' :: SubTrace -> Severity -> Trace IO a -> IO t -> IO t
     bracketObserveIO' NoTrace _ _ act = act
@@ -247,6 +246,7 @@ observeClose0 subtrace sev logTrace initState logObjects = do
     else do
         mle <- mkLOMeta sev Confidential
         -- send closing message to Trace
+        -- liftIO $ putStrLn $ "Counterssssssssssssssssssssssssssssssssssssssssssssssssss: " ++ show counters
         traceNamedObject logTrace $
             (mle, ObserveClose (CounterState counters))
         -- send diff message to Trace
@@ -254,6 +254,7 @@ observeClose0 subtrace sev logTrace initState logObjects = do
             (mle, ObserveDiff (CounterState (diffCounters initialCounters counters)))
     -- trace the messages gathered from inside the action
     forM_ logObjects $ traceNamedObject logTrace
+    -- liftIO $ putStrLn $ "Counterssssssssssssssssssssssssssssssssssssssssssssssssss: "
     return ()
 
 \end{code}

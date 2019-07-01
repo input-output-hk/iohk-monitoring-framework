@@ -18,6 +18,8 @@ import           Data.Foldable (foldrM)
 import           Data.Text (Text, pack)
 import           System.FilePath.Posix ((</>))
 import           System.IO (FilePath)
+import           System.Posix.Files (getFileStatus,fileMode,ownerReadMode,
+                     intersectFileModes)
 import           System.Posix.Process (getProcessID)
 import           System.Posix.Types (ProcessID)
 import           Text.Read (readMaybe)
@@ -40,30 +42,37 @@ import           Cardano.BM.Data.SubTrace
 \begin{code}
 
 readCounters :: SubTrace -> IO [Counter]
-readCounters NoTrace             = return []
-readCounters Neutral             = return []
-readCounters (TeeTrace _)        = return []
-readCounters (FilterTrace _)     = return []
-readCounters UntimedTrace        = return []
-readCounters DropOpening         = return []
-readCounters (SetSeverity _)     = return []
+readCounters NoTrace                   = return []
+readCounters Neutral                   = return []
+readCounters (TeeTrace _)              = return []
+readCounters (FilterTrace _)           = return []
+readCounters UntimedTrace              = return []
+readCounters DropOpening               = return []
+readCounters (SetSeverity _)           = return []
 #ifdef ENABLE_OBSERVABLES
-readCounters (ObservableTrace tts) = do
+readCounters (ObservableTraceSelf tts) = do
     pid <- getProcessID
     foldrM (\(sel, fun) a ->
        if any (== sel) tts
        then (fun >>= \xs -> return $ a ++ xs)
        else return a) [] (selectors pid)
-  where
-    selectors pid = [ (MonotonicClock, getMonoClock)
-                    , (MemoryStats, readProcStatM pid)
-                    , (ProcessStats, readProcStats pid)
-                    , (NetStats, readProcNet pid)
-                    , (IOStats, readProcIO pid)
-                    , (GhcRtsStats, readRTSStats)
-                    ]
+readCounters (ObservableTrace pid tts) = do
+    foldrM (\(sel, fun) a ->
+       if any (== sel) tts
+       then (fun >>= \xs -> return $ a ++ xs)
+       else return a) [] (selectors pid)
+
+selectors :: ProcessID -> [(ObservableInstance, IO [Counter])]
+selectors pid = [ (MonotonicClock, getMonoClock)
+                , (MemoryStats, readProcStatM pid)
+                , (ProcessStats, readProcStats pid)
+                , (NetStats, readProcNet pid)
+                , (IOStats, readProcIO pid)
+                , (GhcRtsStats, readRTSStats)
+                ]
 #else
-readCounters (ObservableTrace _)   = return []
+readCounters (ObservableTraceSelf _)   = return []
+readCounters (ObservableTrace     _ _) = return []
 #endif
 \end{code}
 
@@ -88,8 +97,15 @@ pathProcNet pid = pathProc </> (show pid) </> "net" </> "netstat"
 #ifdef ENABLE_OBSERVABLES
 readProcList :: FilePath -> IO [Integer]
 readProcList fp = do
-    cs <- readFile fp
-    return $ map (\s -> maybe 0 id $ (readMaybe s :: Maybe Integer)) (words cs)
+    fs <- getFileStatus fp
+    if readable fs
+    then do
+        cs <- readFile fp
+        return $ map (\s -> maybe 0 id $ (readMaybe s :: Maybe Integer)) (words cs)
+    else
+        return []
+  where
+    readable fs = intersectFileModes (fileMode fs) ownerReadMode == ownerReadMode
 #endif
 \end{code}
 

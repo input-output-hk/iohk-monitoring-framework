@@ -27,15 +27,16 @@ import           Cardano.BM.Data.SubTrace
 \label{code:Dummy.readCounters}\index{Counters!Dummy!readCounters}
 \begin{code}
 readCounters :: SubTrace -> IO [Counter]
-readCounters NoTrace               = return []
-readCounters Neutral               = return []
-readCounters (TeeTrace _)          = return []
-readCounters (FilterTrace _)       = return []
-readCounters UntimedTrace          = return []
-readCounters DropOpening           = return []
-readCounters (SetSeverity _)       = return []
+readCounters NoTrace                       = return []
+readCounters Neutral                       = return []
+readCounters (TeeTrace _)                  = return []
+readCounters (FilterTrace _)               = return []
+readCounters UntimedTrace                  = return []
+readCounters DropOpening                   = return []
+readCounters (SetSeverity _)               = return []
 #ifdef ENABLE_OBSERVABLES
-readCounters (ObservableTrace tts) = readCounters' tts []
+readCounters (ObservableTraceSelf tts)     = readCounters' tts []
+readCounters (ObservableTrace     _   tts) = readCounters' tts []
 
 readCounters' :: [ObservableInstance] -> [Counter] -> IO [Counter]
 readCounters' [] acc = return acc
@@ -43,6 +44,7 @@ readCounters' (MonotonicClock : r) acc = getMonoClock >>= \xs -> readCounters' r
 readCounters' (GhcRtsStats    : r) acc = readRTSStats >>= \xs -> readCounters' r $ acc ++ xs
 readCounters' (_              : r) acc = readCounters' r acc
 #else
-readCounters (ObservableTrace _)   = return []
+readCounters (ObservableTraceSelf _)   = return []
+readCounters (ObservableTrace     _ _) = return []
 #endif
 \end{code}
