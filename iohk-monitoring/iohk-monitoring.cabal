@@ -366,10 +366,6 @@ executable example-performance
                        criterion,
                        text,
                        unordered-containers
-  if os(windows)
-     build-depends:    Win32
-  else
-     build-depends:    unix
 
-  if flag(disable-examples)
+  if flag(disable-examples) || !flag(performance-test-queue)
     buildable:         False

@@ -6,7 +6,6 @@ module Main
   ( main )
   where
 
-import           Control.Concurrent (readMVar)
 import qualified Control.Concurrent.Async as Async
 import           Control.Monad (forM_)
 import qualified Data.HashMap.Strict as HM
@@ -80,8 +79,8 @@ benchMain objNumber = bench (show objNumber ++ " objects") $ nfIO $ do
     c <- prepare_configuration
     (tr :: Trace IO Text, sb) <- setupTrace_ c "performance"
     procMonitoring <- monitoringThr tr objNumber
-    sbi <- readMVar $ getSB sb
-    _ <- Async.waitBoth procMonitoring $ sbDispatch sbi
+    _ <- Async.wait procMonitoring
+    _ <- waitForTermination sb
     return ()
 
 \end{code}

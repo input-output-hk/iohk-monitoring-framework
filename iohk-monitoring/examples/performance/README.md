@@ -13,12 +13,14 @@ We use package [criterion](https://hackage.haskell.org/package/criterion) for be
 Run it using:
 
 ```
-cabal new-run example-performance
+cabal new-run example-performance --constraint="iohk-monitoring +performance-test-queue"
+
 ```
 
 or:
 
 ```
+stack build iohk-monitoring:example-performance --flag iohk-monitoring:performance-test-queue
 stack exec -- example-performance
 ```
 
