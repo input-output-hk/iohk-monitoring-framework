@@ -110,9 +110,7 @@
             (hsPkgs.criterion)
             (hsPkgs.text)
             (hsPkgs.unordered-containers)
-            ] ++ (if system.isWindows
-            then [ (hsPkgs.Win32) ]
-            else [ (hsPkgs.unix) ]);
+            ];
           };
         };
       tests = {
