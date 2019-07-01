@@ -42,9 +42,7 @@ import           System.Remote.Monitoring (Server, forkServer,
 
 import           Paths_iohk_monitoring (version)
 
-#ifdef QUEUE_FLUSH
 import           Cardano.BM.Backend.ProcessQueue (processQueue)
-#endif
 import           Cardano.BM.Configuration (Configuration, getEKGport,
                      testSubTrace)
 import           Cardano.BM.Data.Aggregated
@@ -280,29 +278,12 @@ spawnDispatcher config evqueue sbtrace ekgtrace = do
     {-@ lazy qProc @-}
     qProc :: MVar MessageCounter -> IO ()
     qProc counters = do
-#ifdef QUEUE_FLUSH
         processQueue
             evqueue
             processEKGView
             counters
             (\_ -> pure ())
-#else
-        maybeItem <- atomically $ TBQ.readTBQueue evqueue
-        case maybeItem of
-            Just obj@(LogObject logname _ _) -> do
-                obj' <- testSubTrace config ("#ekgview." <> logname) obj
-                case obj' of
-                    Just lo@(LogObject logname' meta content) -> do
-                        trace <- Trace.appendName logname' ekgtrace
-                        Trace.traceNamedObject trace (meta, content)
-                        -- increase the counter for the type of message
-                        modifyMVar_ counters $ \cnt -> return $ updateMessageCounters cnt lo
-                    Nothing -> pure ()
-                qProc counters
-            Nothing -> return ()  -- stop here
-#endif
 
-#ifdef QUEUE_FLUSH
     processEKGView obj@(LogObject logname _ _) counters = do
         obj' <- testSubTrace config ("#ekgview." <> logname) obj
         case obj' of
@@ -313,6 +294,5 @@ spawnDispatcher config evqueue sbtrace ekgtrace = do
                 modifyMVar_ counters $ \cnt -> return $ updateMessageCounters cnt lo
             Nothing -> pure ()
         return counters
-#endif
 
 \end{code}
