@@ -324,10 +324,6 @@ thus specializes its interface.}\label{fig:overview}
 
 %include ../iohk-monitoring/examples/complex/Main.lhs
 
-\subsection{Performance example for time measurements}\label{sec:exampleperformance}
-
-%include ../iohk-monitoring/examples/performance/Main.lhs
-
 \section{Code listings - contra-tracer package}
 
 %include ../contra-tracer/src/Control/Tracer.lhs
