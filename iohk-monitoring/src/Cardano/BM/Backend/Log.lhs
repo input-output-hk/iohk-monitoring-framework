@@ -54,7 +54,7 @@ import           System.Directory (createDirectoryIfMissing)
 import           System.FilePath (takeDirectory)
 import           System.IO (BufferMode (LineBuffering), Handle, hClose,
                      hSetBuffering, stderr, stdout, openFile, IOMode (WriteMode))
-#ifdef ENABLE_SYSLOG
+#ifdef ENABLE_SYSTEMD
 import           Data.Aeson (encode)
 import qualified Data.ByteString.Lazy as BL (toStrict)
 import qualified Data.Text.Encoding as T (encodeUtf8)
@@ -71,7 +71,7 @@ import           Paths_iohk_monitoring (version)
 import qualified Katip as K
 import qualified Katip.Core as KC
 import           Katip.Scribes.Handle (brackets)
-#ifdef ENABLE_SYSLOG
+#ifdef ENABLE_SYSTEMD
 import           Katip.Format.Time (formatAsIso8601)
 #endif
 
@@ -203,7 +203,7 @@ instance (ToObject a, FromJSON a) => IsBackend Log a where
                                                             rotParams
                                                             (FileDescription $ unpack name)
                                                             False
-#if defined(ENABLE_SYSLOG)
+#if defined(ENABLE_SYSTEMD)
             createScribe JournalSK _ _ _ = mkJournalScribe
 #endif
             createScribe StdoutSK sctype _ _ = mkStdoutScribe sctype
@@ -572,7 +572,7 @@ prefixPath = takeDirectory . filePath
 \end{code}
 
 \begin{code}
-#ifdef ENABLE_SYSLOG
+#ifdef ENABLE_SYSTEMD
 mkJournalScribe :: IO K.Scribe
 mkJournalScribe = return $ journalScribe Nothing (sev2klog Debug) K.V3
 

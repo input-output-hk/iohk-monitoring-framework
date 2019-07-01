@@ -8,7 +8,7 @@
       disable-gui = false;
       disable-monitoring = false;
       disable-observables = false;
-      disable-syslog = false;
+      disable-systemd = false;
       disable-examples = false;
       queue-flush = false;
       };
@@ -69,7 +69,7 @@
           then [ (hsPkgs.Win32) ]
           else [
             (hsPkgs.unix)
-            ])) ++ (pkgs.lib).optionals (system.isLinux && !flags.disable-syslog) [
+            ])) ++ (pkgs.lib).optionals (system.isLinux && !flags.disable-systemd) [
           (hsPkgs.hsyslog)
           (hsPkgs.libsystemd-journal)
           ];
