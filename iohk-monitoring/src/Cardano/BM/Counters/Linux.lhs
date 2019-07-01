@@ -52,18 +52,18 @@ readCounters (SetSeverity _)           = return []
 #ifdef ENABLE_OBSERVABLES
 readCounters (ObservableTraceSelf tts) = do
     pid <- getProcessID
-    foldrM (\(sel, fun) a ->
-       if any (== sel) tts
-       then (fun >>= \xs -> return $ a ++ xs)
-       else return a) [] (selectors pid)
-readCounters (ObservableTrace pid tts) = do
-    foldrM (\(sel, fun) a ->
-       if any (== sel) tts
-       then (fun >>= \xs -> return $ a ++ xs)
-       else return a) [] (selectors pid)
+    takeMeasurements pid tts
+readCounters (ObservableTrace pid tts) =
+    takeMeasurements pid tts
 
-selectors :: ProcessID -> [(ObservableInstance, IO [Counter])]
-selectors pid = [ (MonotonicClock, getMonoClock)
+takeMeasurements :: ProcessID -> [ObservableInstance] -> IO [Counter]
+takeMeasurements pid tts =
+    foldrM (\(sel, fun) a ->
+       if any (== sel) tts
+       then (fun >>= \xs -> return $ a ++ xs)
+       else return a) [] selectors
+  where
+    selectors = [ (MonotonicClock, getMonoClock)
                 , (MemoryStats, readProcStatM pid)
                 , (ProcessStats, readProcStats pid)
                 , (NetStats, readProcNet pid)
