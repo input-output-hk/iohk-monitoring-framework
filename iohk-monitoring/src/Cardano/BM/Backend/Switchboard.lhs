@@ -142,7 +142,11 @@ The queue is initialized and the message dispatcher launched.
 instance IsEffectuator Switchboard a where
     effectuate switchboard item = do
         let writequeue :: TBQ.TBQueue (LogObject a) -> LogObject a -> IO ()
-            writequeue q i = atomically $ TBQ.writeTBQueue q i
+            writequeue q i = do
+                    nocapacity <- atomically $ TBQ.isFullTBQueue q
+                    if nocapacity
+                    then handleOverflow switchboard
+                    else atomically $ TBQ.writeTBQueue q i
 
         sb <- readMVar (getSB switchboard)
         writequeue (sbQueue sb) item
@@ -246,7 +250,7 @@ instance (FromJSON a, ToObject a) => IsBackend Switchboard a where
 
                 Async.async $ qProc countersMVar
 
-        q <- atomically $ TBQ.newTBQueue 1000000
+        q <- atomically $ TBQ.newTBQueue 2048
         sbref <- newEmptyMVar
         let sb :: Switchboard a = Switchboard sbref
 
