@@ -31,6 +31,7 @@ These showcase the usage of this framework in an application. The *complex* exam
 
 ![Edit runtime configuration](docs/ConfigEditor.png)
 
+
 ## development
 
 * `cabal new-build` and `cabal new-test`
