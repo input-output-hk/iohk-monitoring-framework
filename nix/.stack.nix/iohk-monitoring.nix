@@ -10,7 +10,6 @@
       disable-observables = false;
       disable-systemd = false;
       disable-examples = false;
-      queue-flush = false;
       };
     package = {
       specVersion = "1.10";

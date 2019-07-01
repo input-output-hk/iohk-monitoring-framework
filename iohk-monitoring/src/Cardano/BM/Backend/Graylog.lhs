@@ -4,7 +4,6 @@
 
 %if style == newcode
 \begin{code}
-{-# LANGUAGE CPP                   #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -38,12 +37,7 @@ import           Network.Socket.ByteString (sendAll)
 import           System.IO (stderr)
 import           Text.Printf (printf)
 
-#ifdef QUEUE_FLUSH
-import           Control.Monad (void)
-
 import           Cardano.BM.Backend.ProcessQueue (processQueue)
-#endif
-
 import           Cardano.BM.Configuration (Configuration, getGraylogPort)
 import           Cardano.BM.Data.Aggregated
 import           Cardano.BM.Data.Backend
@@ -169,14 +163,9 @@ spawnDispatcher config evqueue sbtrace = do
                                 Debug
 
     gltrace <- Trace.appendName "#graylog" sbtrace
-#ifdef QUEUE_FLUSH
     Async.async $ Net.withSocketsDo $ qProc gltrace countersMVar Nothing
-#else
-    Async.async $ Net.withSocketsDo $ qProc gltrace countersMVar Nothing Nothing
-#endif
   where
     {-@ lazy qProc @-}
-#ifdef QUEUE_FLUSH
     qProc :: Trace.Trace IO a -> MVar MessageCounter -> Maybe Net.Socket -> IO ()
     qProc gltrace counters conn =
         processQueue
@@ -184,32 +173,7 @@ spawnDispatcher config evqueue sbtrace = do
             processGraylog
             (gltrace, counters, conn)
             (\(_, _, c) -> closeConn c)
-#else
-    qProc :: Trace.Trace IO a -> MVar MessageCounter -> Maybe Net.Socket -> Maybe (LogObject a) -> IO ()
-    qProc gltrace counters conn Nothing = do
-        maybeItem <- atomically $ TBQ.readTBQueue evqueue
-        case maybeItem of
-            Just obj -> do
-                qProc gltrace counters conn (Just obj)
-            Nothing -> do
-                closeConn conn
-                return ()  -- stop
-    qProc gltrace counters (Just conn) (Just item) = do
-        sendLO conn item
-            `catch` \(e :: SomeException) -> do
-                trace' <- Trace.appendName "sending" gltrace
-                mle <- mkLOMeta Error Public
-                Trace.traceNamedObject trace' (mle, LogError (pack $ show e))
-                threadDelay 50000
-                qProc gltrace counters (Just conn) (Just item)
-        modifyMVar_ counters $ \cnt -> return $ updateMessageCounters cnt item
-        qProc gltrace counters (Just conn) Nothing
-    qProc gltrace counters Nothing item = do
-        conn <- tryConnect gltrace
-        qProc gltrace counters conn item
-#endif
 
-#ifdef QUEUE_FLUSH
     processGraylog :: LogObject a -> (Trace.Trace IO a, MVar MessageCounter, Maybe Net.Socket) -> IO (Trace.Trace IO a, MVar MessageCounter, Maybe Net.Socket)
     processGraylog item (gltrace, counters, mConn) = do
         case mConn of
@@ -226,7 +190,6 @@ spawnDispatcher config evqueue sbtrace = do
             Nothing     -> do
                 mConn' <- tryConnect gltrace
                 processGraylog item (gltrace, counters, mConn')
-#endif
 
     sendLO :: ToObject a => Net.Socket -> LogObject a -> IO ()
     sendLO conn obj =
