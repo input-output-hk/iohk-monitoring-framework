@@ -163,7 +163,31 @@ spawnDispatcher mqueue config sbtrace monitor = do
             processMonitoring
             (counters, state)
             (\_ -> pure ())
+#else
+        maybeItem <- atomically $ TBQ.readTBQueue mqueue
+        case maybeItem of
+            Just (logvalue@(LogObject _ _ _)) -> do
+                let accessBufferMap = do
+                        mon <- tryReadMVar (getMon monitor)
+                        case mon of
+                            Nothing        -> return []
+                            Just actualMon -> readBuffer $ monBuffer actualMon
+                mbuf <- accessBufferMap
+                sbtraceWithMonitoring <- Trace.appendName "#monitoring" sbtrace
+                valuesForMonitoring <- getVarValuesForMonitoring config mbuf
+                state' <- evalMonitoringAction sbtraceWithMonitoring
+                                               state
+                                               logvalue
+                                               valuesForMonitoring
+                -- increase the counter for the type of message
+                _c <- modifyMVar counters $ \cnt ->
+                    let counters' = updateMessageCounters cnt logvalue
+                    in  return (counters', counters')
+                qProc counters state'
+            Nothing -> return ()  -- stop here
+#endif
 
+#ifdef QUEUE_FLUSH
     processMonitoring lo@(LogObject _ _ _) (counters, state) = do
         let accessBufferMap = do
                 mon <- tryReadMVar (getMon monitor)
