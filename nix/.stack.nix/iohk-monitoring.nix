@@ -78,6 +78,7 @@
         "example-simple" = {
           depends = [
             (hsPkgs.base)
+            (hsPkgs.aeson)
             (hsPkgs.iohk-monitoring)
             (hsPkgs.async)
             (hsPkgs.bytestring)
