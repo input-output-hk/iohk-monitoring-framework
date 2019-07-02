@@ -72,7 +72,7 @@ data SubTrace = Neutral
 
 #ifdef POSIX
 instance ToJSON ProcessID where
-    toJSON (CPid pid) = String $ pack $ show pid
+    toJSON (CPid pid) = Number $ fromIntegral pid
 
 instance FromJSON ProcessID where
     parseJSON v = CPid <$> parseJSON v
@@ -82,7 +82,7 @@ newtype ProcessID = ProcessID ProcessId
     deriving (Generic, Show, Read, Eq)
 
 instance ToJSON ProcessID where
-    toJSON (ProcessID pid) = String $ pack $ show pid
+    toJSON (ProcessID pid) = Number $ fromIntegral pid
 
 instance FromJSON ProcessID where
     parseJSON v = ProcessID <$> parseJSON v
