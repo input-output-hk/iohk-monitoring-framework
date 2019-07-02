@@ -13,6 +13,7 @@ module Cardano.BM.Data.BackendKind
   where
 
 import           Data.Aeson (FromJSON, ToJSON)
+import           Data.Text (Text)
 import           GHC.Generics (Generic)
 
 \end{code}
@@ -21,11 +22,11 @@ import           GHC.Generics (Generic)
 \subsubsection{BackendKind}\label{code:BackendKind}\index{BackendKind}
 \label{code:AggregationBK}\label{code:EditorBK}\label{code:EKGViewBK}\label{code:KatipBK}
 \label{code:LogBufferBK}\label{code:MonitoringBK}\label{code:TraceAcceptorBK}
-\label{code:SwitchboardBK}\label{code:GraylogBK}\label{code:TraceForwarderBK}
+\label{code:SwitchboardBK}\label{code:GraylogBK}\label{code:TraceForwarderBK}\label{code:UserDefinedBK}
 \index{BackendKind!AggregationBK}\index{BackendKind!EKGViewBK}\index{BackendKind!KatipBK}
 \index{BackendKind!LogBufferBK}\index{BackendKind!MonitoringBK}\index{BackendKind!EditorBK}
 \index{BackendKind!TraceAcceptorBK}\index{BackendKind!TraceForwarderBK}
-\index{BackendKind!SwitchboardBK}\index{BackendKind!GraylogBK}
+\index{BackendKind!SwitchboardBK}\index{BackendKind!GraylogBK}\index{BackendKind!UserDefinedBK}
 This identifies the backends that can be attached to the |Switchboard|.
 \begin{code}
 
@@ -39,6 +40,7 @@ data BackendKind =
     | MonitoringBK
     | TraceAcceptorBK
     | TraceForwarderBK
+    | UserDefinedBK Text
     | SwitchboardBK
     deriving (Generic, Eq, Ord, Show, ToJSON, FromJSON, Read)
 

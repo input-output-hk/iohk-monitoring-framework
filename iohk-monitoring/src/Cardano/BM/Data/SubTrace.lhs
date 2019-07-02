@@ -29,7 +29,7 @@ import           System.Posix.Types (ProcessID, CPid (..))
 import           System.Win32.Process (ProcessId)
 #endif
 import           Data.Aeson (FromJSON (..), ToJSON (..), Value (..), (.:), (.=), object, withObject)
-import           Data.Text (Text, pack, unpack)
+import           Data.Text (Text, unpack)
 import           GHC.Generics (Generic)
 
 import           Cardano.BM.Data.LogItem (LoggerName)
