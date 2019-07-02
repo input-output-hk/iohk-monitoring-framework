@@ -26,7 +26,7 @@ module Cardano.BM.Data.SubTrace
 #ifdef POSIX
 import           System.Posix.Types (ProcessID, CPid (..))
 #else
-import           System.Win32.Process (ProcessID)
+import           System.Win32.Process (ProcessId)
 #endif
 import           Data.Aeson (FromJSON (..), ToJSON (..), Value (..), (.:), (.=), object, withObject)
 import           Data.Text (Text, pack, unpack)
@@ -76,6 +76,16 @@ instance ToJSON ProcessID where
 
 instance FromJSON ProcessID where
     parseJSON v = CPid <$> parseJSON v
+#else
+-- Wrap the Win32 DWORD type alias so that it can be logged
+newtype ProcessID = ProcessID ProcessId
+    deriving (Generic, Show, Read, Eq)
+
+instance ToJSON ProcessID where
+    toJSON (ProcessID pid) = String $ pack $ show pid
+
+instance FromJSON ProcessID where
+    parseJSON v = ProcessID <$> parseJSON v
 #endif
 
 instance FromJSON SubTrace where
