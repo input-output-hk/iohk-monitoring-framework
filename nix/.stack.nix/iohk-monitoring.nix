@@ -15,7 +15,7 @@
     package = {
       specVersion = "1.10";
       identifier = { name = "iohk-monitoring"; version = "0.1.10.0"; };
-      license = "MIT";
+      license = "Apache-2.0";
       copyright = "2018 IOHK";
       maintainer = "";
       author = "Alexander Diemand, Andreas Triantafyllos";
