@@ -57,6 +57,11 @@ flag disable-examples
   default:             False
   manual:              True
 
+flag performance-test-queue
+  description:         Set the huge size for backends' queues.
+  default:             False
+  manual:              True
+
 library
   hs-source-dirs:      src
   exposed-modules:     Paths_iohk_monitoring
@@ -201,6 +206,9 @@ library
   if !flag(disable-observables)
     cpp-options:       -DENABLE_OBSERVABLES
 
+  if flag(performance-test-queue)
+    cpp-options:       -DPERFORMANCE_TEST_QUEUE
+
   ghc-options:         -Wall -O2
                        -fno-ignore-asserts
 
@@ -343,4 +351,21 @@ executable example-complex
     cpp-options:       -DENABLE_OBSERVABLES
 
   if flag(disable-examples)
+    buildable:         False
+
+executable example-performance
+  hs-source-dirs:      examples/performance
+  main-is:             Main.lhs
+  default-language:    Haskell2010
+  default-extensions:  OverloadedStrings
+  ghc-options:         -threaded -Wall -O2 -with-rtsopts=-T
+  other-modules:
+  build-depends:       base,
+                       iohk-monitoring,
+                       async,
+                       criterion,
+                       text,
+                       unordered-containers
+
+  if flag(disable-examples) || !flag(performance-test-queue)
     buildable:         False

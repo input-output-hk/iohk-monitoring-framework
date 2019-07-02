@@ -17,7 +17,7 @@
 
 module Cardano.BM.Backend.Switchboard
     (
-      Switchboard (..)
+      Switchboard
     , MockSwitchboard (..)
     , mainTraceConditionally
     , traceMock
@@ -25,11 +25,13 @@ module Cardano.BM.Backend.Switchboard
     , effectuate
     , realize
     , unrealize
+    , waitForTermination
     ) where
 
 import qualified Control.Concurrent.Async as Async
 import           Control.Concurrent.MVar (MVar, newEmptyMVar, newMVar,
-                     modifyMVar_, putMVar, readMVar, tryTakeMVar, withMVar)
+                     modifyMVar_, putMVar, readMVar, tryReadMVar, tryTakeMVar,
+                     withMVar)
 import           Control.Concurrent.STM (TVar, atomically, modifyTVar, retry)
 import qualified Control.Concurrent.STM.TBQueue as TBQ
 import           Control.Exception.Safe (throwM)
@@ -249,7 +251,12 @@ instance (FromJSON a, ToObject a) => IsBackend Switchboard a where
 
                 Async.async $ qProc countersMVar
 
-        q <- atomically $ TBQ.newTBQueue 2048
+#ifdef PERFORMANCE_TEST_QUEUE
+        let qSize = 1000000
+#else
+        let qSize = 2048
+#endif
+        q <- atomically $ TBQ.newTBQueue qSize
         sbref <- newEmptyMVar
         let sb :: Switchboard a = Switchboard sbref
 
@@ -284,6 +291,16 @@ instance (FromJSON a, ToObject a) => IsBackend Switchboard a where
         res <- Async.waitCatch dispatcher
         either throwM return res
         (clearMVar . getSB) switchboard
+
+\end{code}
+
+\subsubsection{Waiting for the switchboard to terminate}\label{code:waitForTermination}\index{waitForTermination}
+\begin{code}
+waitForTermination :: Switchboard a -> IO ()
+waitForTermination switchboard =
+    tryReadMVar (getSB switchboard) >>= \case
+        Nothing -> return ()
+        Just sb -> Async.waitCatch  (sbDispatch sb) >> return ()
 
 \end{code}
 

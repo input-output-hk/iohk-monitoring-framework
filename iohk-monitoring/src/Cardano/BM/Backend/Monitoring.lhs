@@ -6,6 +6,7 @@
 
 %if style == newcode
 \begin{code}
+{-# LANGUAGE CPP                   #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -108,7 +109,12 @@ instance FromJSON a => IsBackend Monitor a where
     realizefrom config sbtrace _ = do
         monref <- newEmptyMVar
         let monitor = Monitor monref
-        queue <- atomically $ TBQ.newTBQueue 512
+#ifdef PERFORMANCE_TEST_QUEUE
+        let qSize = 1000000
+#else
+        let qSize = 512
+#endif
+        queue <- atomically $ TBQ.newTBQueue qSize
         dispatcher <- spawnDispatcher queue config sbtrace monitor
         monbuf :: Cardano.BM.Backend.LogBuffer.LogBuffer a <- Cardano.BM.Backend.LogBuffer.realize config
         -- link the given Async to the current thread, such that if the Async
@@ -271,7 +277,6 @@ evalMonitoringAction sbtrace mmap logObj@(LogObject logname _ _) variables = do
             if doMonitor && thresholdIsReached then do
                 now <- getMonotonicTimeNSec
                 let env'' = HM.insert "lastalert" (Nanoseconds now) env'
-                TIO.putStrLn $ "alert! " <> logname <> " " <> (pack $ show acts) <> " " <> (pack $ show env'')
                 mapM_ (evaluateAction sbtrace' env' expr) acts
                 return $ HM.insert logname mon{_environment=env''} mmap
             else return mmap

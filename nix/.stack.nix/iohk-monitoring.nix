@@ -10,6 +10,7 @@
       disable-observables = false;
       disable-systemd = false;
       disable-examples = false;
+      performance-test-queue = false;
       };
     package = {
       specVersion = "1.10";
@@ -100,6 +101,16 @@
             else [
               (hsPkgs.unix)
               ])) ++ (pkgs.lib).optional (system.isLinux) (hsPkgs.download);
+          };
+        "example-performance" = {
+          depends = [
+            (hsPkgs.base)
+            (hsPkgs.iohk-monitoring)
+            (hsPkgs.async)
+            (hsPkgs.criterion)
+            (hsPkgs.text)
+            (hsPkgs.unordered-containers)
+            ];
           };
         };
       tests = {
