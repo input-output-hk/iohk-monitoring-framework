@@ -96,7 +96,7 @@ spawnDispatcher hPipe sbtrace = do
                 Just lo ->
                     traceWith sbtrace lo
                 Nothing -> do
-                    trace <- Trace.appendName "#external" sbtrace
+                    let trace = Trace.appendName "#external" sbtrace
                     Trace.traceNamedObject trace =<<
                         (,) <$> (mkLOMeta Warning Public)
                             <*> pure (LogError "Could not parse external log objects.")

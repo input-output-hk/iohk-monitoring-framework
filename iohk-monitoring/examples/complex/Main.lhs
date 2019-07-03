@@ -232,7 +232,7 @@ dumpBuffer sb trace = do
         threadDelay 25000000  -- 25 seconds
         buf <- readLogBuffer sb
         forM_ buf $ \(logname, LogObject _ lometa locontent) -> do
-            tr' <- modifyName (\n -> "#buffer." <> n <> logname) tr
+            let tr' = modifyName (\n -> "#buffer." <> n <> logname) tr
             traceNamedObject tr' (lometa, locontent)
         loop tr
 \end{spec}
@@ -242,7 +242,7 @@ dumpBuffer sb trace = do
 randomThr :: Trace IO Text -> IO (Async.Async ())
 randomThr trace = do
   logInfo trace "starting random generator"
-  trace' <- appendName "random" trace
+  let trace' = appendName "random" trace
   proc <- Async.async (loop trace')
   return proc
   where
@@ -261,7 +261,7 @@ randomThr trace = do
 monitoringThr :: Trace IO Text -> IO (Async.Async ())
 monitoringThr trace = do
   logInfo trace "starting numbers for monitoring..."
-  trace' <- appendName "monitoring" trace
+  let trace' = appendName "monitoring" trace
   proc <- Async.async (loop trace')
   return proc
   where
@@ -285,7 +285,7 @@ observeIO config trace = do
   where
     loop tr = do
         threadDelay 5000000  -- 5 seconds
-        tr' <- appendName "observeIO" tr
+        let tr' = appendName "observeIO" tr
         _ <- bracketObserveIO config tr' Debug "complex.observeIO" $ do
             num <- randomRIO (100000, 200000) :: IO Int
             ls <- return $ reverse $ init $ reverse $ 42 : [1 .. num]
@@ -331,7 +331,7 @@ observeDownload config trace = do
   where
     loop tr = do
         threadDelay 1000000  -- 1 second
-        tr' <- appendName "observeDownload" tr
+        let tr' = appendName "observeDownload" tr
         bracketObserveIO config tr' Debug "complex.observeDownload" $ do
             license <- openURI "http://www.gnu.org/licenses/gpl.txt"
             case license of
@@ -349,7 +349,7 @@ observeDownload config trace = do
 msgThr :: Trace IO Text -> IO (Async.Async ())
 msgThr trace = do
   logInfo trace "start messaging .."
-  trace' <- appendName "message" trace
+  let trace' = appendName "message" trace
   Async.async (loop trace')
   where
     loop tr = do

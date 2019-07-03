@@ -90,10 +90,9 @@ type EKGViewMap a = HM.HashMap Text a
 This is an internal |Trace|, named "\#ekgview", which can be used to control
 the messages that are being displayed by EKG.
 \begin{code}
-ekgTrace :: ToObject a => EKGView a -> Configuration -> IO (Trace IO a)
-ekgTrace ekg _c = do
-    let basetrace = ekgTrace' ekg
-    Trace.appendName "#ekgview" basetrace
+ekgTrace :: ToObject a => EKGView a -> Configuration -> Trace IO a
+ekgTrace ekg _c =
+    Trace.appendName "#ekgview" $ ekgTrace' ekg
   where
     ekgTrace' :: ToObject a => EKGView a -> Tracer IO (LogObject a)
     ekgTrace' ekgview = Tracer $ \lo@(LogObject loname _ _) -> do
@@ -208,7 +207,7 @@ instance (ToObject a, FromJSON a) => IsBackend EKGView a where
         ehdl <- forkServer "127.0.0.1" evport
         ekghdl <- getLabel "iohk-monitoring version" ehdl
         Label.set ekghdl $ pack (showVersion version)
-        ekgtrace <- ekgTrace ekgview config
+        let ekgtrace = ekgTrace ekgview config
 #ifdef PERFORMANCE_TEST_QUEUE
         let qSize = 1000000
 #else
@@ -293,7 +292,7 @@ spawnDispatcher config evqueue sbtrace ekgtrace = do
         obj' <- testSubTrace config ("#ekgview." <> logname) obj
         case obj' of
             Just lo@(LogObject logname' meta content) -> do
-                trace <- Trace.appendName logname' ekgtrace
+                let trace = Trace.appendName logname' ekgtrace
                 Trace.traceNamedObject trace (meta, content)
                 -- increase the counter for the type of message
                 modifyMVar_ counters $ \cnt -> return $ updateMessageCounters cnt lo

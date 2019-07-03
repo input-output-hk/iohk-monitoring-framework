@@ -133,7 +133,7 @@ setupTrace (TraceConfiguration cfg mockSB name subTr) = do
     let logTrace = traceMock mockSB cfg
 
     setSubTrace cfg name (Just subTr)
-    appendName name logTrace
+    return $ appendName name logTrace
 
 \end{code}
 
@@ -166,9 +166,9 @@ exampleWithNamedContexts = do
     Setup.withTrace cfg "test" $ \(logTrace :: Trace IO Text) -> do
         putStrLn "\n"
         logInfo logTrace "entering"
-        logTrace0 <- appendName "simple-work-0" logTrace
+        let logTrace0 = appendName "simple-work-0" logTrace
         work0 <- complexWork0 cfg logTrace0 "0"
-        logTrace1 <- appendName "complex-work-1" logTrace
+        let logTrace1 = appendName "complex-work-1" logTrace
         work1 <- complexWork1 cfg logTrace1 "42"
 
         Async.wait work0
@@ -185,8 +185,8 @@ exampleWithNamedContexts = do
     complexWork0 _ tr msg = Async.async $ logInfo tr ("let's see (0): " `append` msg)
     complexWork1 cfg tr msg = Async.async $ do
         logInfo tr ("let's see (1): " `append` msg)
-        trInner <- appendName "inner-work-1" tr
-        let observablesSet = [MonotonicClock]
+        let trInner = appendName "inner-work-1" tr
+            observablesSet = [MonotonicClock]
         setSubTrace cfg "test.complex-work-1.inner-work-1.STM-action" $
             Just $ ObservableTraceSelf observablesSet
 #ifdef ENABLE_OBSERVABLES
@@ -280,11 +280,11 @@ _unitHierarchy = do
     -- subtrace of trace which traces nothing
     setSubTrace cfg "test.inner" (Just NoTrace)
 
-    trace1 <- appendName "inner" basetrace
+    let trace1 = appendName "inner" basetrace
     logInfo trace1 "This should NOT have been displayed!"
 
     setSubTrace cfg "test.inner.innermost" (Just Neutral)
-    trace2 <- appendName "innermost" trace1
+    let trace2 = appendName "innermost" trace1
     logInfo trace2 "This should NOT have been displayed also due to the trace one level above!"
 
     -- acquire the traced objects
@@ -352,7 +352,7 @@ unitTraceDuplicate = do
 
     -- create a subtrace which duplicates all messages
     setSubTrace cfg "test-duplicate.orig" $ Just (TeeTrace "test-duplicate.dup")
-    trace <- appendName "orig" basetrace
+    let trace = appendName "orig" basetrace
 
     -- this message will be duplicated
     logInfo trace "You will see me twice!"
@@ -376,7 +376,7 @@ unitNamedMinSeverity = do
     cfg <- defaultConfigTesting
     msgs <- STM.newTVarIO []
     basetrace <- setupTrace $ TraceConfiguration cfg (MockSB msgs) "test-named-severity" Neutral
-    trace <- appendName "sev-change" basetrace
+    let trace = appendName "sev-change" basetrace
     logInfo trace "Message #1"
 
     -- raise the minimum severity to Warning
@@ -421,7 +421,7 @@ unitHierarchy' subtraces f = do
 
     -- subtrace of type 2
     setSubTrace cfg "test.inner" (Just t2)
-    trace2 <- appendName "inner" trace1
+    let trace2 = appendName "inner" trace1
     logInfo trace2 "Message from level 2."
 
     -- subsubtrace of type 3
@@ -447,8 +447,8 @@ unitTraceInFork = do
     cfg <- defaultConfigTesting
     msgs <- STM.newTVarIO []
     trace <- setupTrace $ TraceConfiguration cfg (MockSB msgs) "test" Neutral
-    trace0 <- appendName "work0" trace
-    trace1 <- appendName "work1" trace
+    let trace0 = appendName "work0" trace
+        trace1 = appendName "work1" trace
     work0 <- work trace0
     threadDelay 5000
     work1 <- work trace1
@@ -483,7 +483,7 @@ stressTraceInFork = do
     trace <- setupTrace $ TraceConfiguration cfg (MockSB msgs) "test" Neutral
     let names = map (\a -> ("work-" <> pack (show a))) [1..(10::Int)]
     ts <- forM names $ \name -> do
-        trace' <- appendName name trace
+        let trace' = appendName name trace
         work trace'
     forM_ ts Async.wait
 
@@ -529,8 +529,8 @@ unitAppendName = do
     cfg <- defaultConfigTesting
     msgs <- STM.newTVarIO []
     basetrace <- setupTrace $ TraceConfiguration cfg (MockSB msgs) "test" Neutral
-    trace1 <- appendName bigName basetrace
-    trace2 <- appendName bigName trace1
+    let trace1 = appendName bigName basetrace
+        trace2 = appendName bigName trace1
     forM_ [basetrace, trace1, trace2] $ (flip logInfo msg)
     res <- reverse <$> STM.readTVarIO msgs
     let loggernames = map loName res
@@ -665,7 +665,7 @@ unitTestLazyEvaluation = do
         cfg <- defaultConfigTesting
         basetrace <- Setup.setupTrace (Right cfg) "test"
         setSubTrace cfg "test.work" (Just NoTrace)
-        trace <- appendName "work" basetrace
+        let trace = appendName "work" basetrace
 
         logInfo trace message
 

@@ -63,7 +63,7 @@ natTrace nat basetrace = natTracer nat basetrace
 \subsubsection{Enter new named context}\label{code:appendName}\index{appendName}
 A new context name is added.
 \begin{code}
-appendName :: MonadIO m => LoggerName -> Trace m a -> m (Trace m a)
+appendName :: LoggerName -> Trace m a -> Trace m a
 appendName name =
     modifyName (\prevLoggerName -> appendWithDot name prevLoggerName)
 
@@ -78,14 +78,11 @@ appendWithDot xs newName = xs <> "." <> newName
 \subsubsection{Change named context}\label{code:modifyName}\index{modifyName}
 The context name is overwritten.
 \begin{code}
-modifyName :: MonadIO m => (LoggerName -> LoggerName) -> Trace m a -> m (Trace m a)
-modifyName f basetrace = return $ modifyNameBase f basetrace
-
-modifyNameBase
+modifyName
     :: (LoggerName -> LoggerName)
     -> Tracer m (LogObject a)
     -> Tracer m (LogObject a)
-modifyNameBase k = contramap f
+modifyName k = contramap f
   where
     f (LogObject name meta item) = LogObject (k name) meta item
 
