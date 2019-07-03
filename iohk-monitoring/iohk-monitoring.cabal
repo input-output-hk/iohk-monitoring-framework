@@ -295,6 +295,7 @@ executable example-simple
   ghc-options:         -threaded -Wall -O2 "-with-rtsopts=-T"
   other-modules:
   build-depends:       base,
+                       aeson,
                        iohk-monitoring,
                        async,
                        bytestring,

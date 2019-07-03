@@ -26,6 +26,8 @@ module Cardano.BM.Backend.Switchboard
     , realize
     , unrealize
     , waitForTermination
+    -- * integrate external backend
+    , addExternalBackend
     ) where
 
 import qualified Control.Concurrent.Async as Async
@@ -38,6 +40,7 @@ import           Control.Exception.Safe (throwM)
 import           Control.Monad (forM_, when, void)
 import           Data.Aeson (FromJSON)
 import           Data.Maybe (fromMaybe)
+import           Data.Text (Text)
 import qualified Data.Text.IO as TIO
 import           Data.Time.Clock (getCurrentTime)
 import           System.IO (stderr)
@@ -101,7 +104,10 @@ data SwitchboardInternal a = SwitchboardInternal
     { sbQueue     :: TBQ.TBQueue (LogObject a)
     , sbDispatch  :: Async.Async ()
     , sbLogBuffer :: Cardano.BM.Backend.LogBuffer.LogBuffer a
+    , sbBackends  :: NamedBackends a
     }
+
+type NamedBackends a = [(BackendKind, Backend a)]
 
 \end{code}
 
@@ -167,10 +173,10 @@ instance (FromJSON a, ToObject a) => IsBackend Switchboard a where
         -- we setup |LogBuffer| explicitly so we can access it as a |Backend| and as |LogBuffer|
         logbuf :: Cardano.BM.Backend.LogBuffer.LogBuffer a <- Cardano.BM.Backend.LogBuffer.realize cfg
         let spawnDispatcher
-                :: [(BackendKind, Backend a)]
+                :: Switchboard a
                 -> TBQ.TBQueue (LogObject a)
                 -> IO (Async.Async ())
-            spawnDispatcher backends queue = do
+            spawnDispatcher switchboard queue = do
                 now <- getCurrentTime
                 let messageCounters = resetCounters now
                 countersMVar <- newMVar messageCounters
@@ -200,8 +206,9 @@ instance (FromJSON a, ToObject a) => IsBackend Switchboard a where
                                 LogObject loname _ _ -> loname
                         selectedBackends <- getBackends cfg name
                         let selBEs = befilter selectedBackends
-                        forM_ backends $ \(bek, be) ->
-                            when (bek `elem` selBEs) (bEffectuate be nli)
+                        withMVar (getSB switchboard) $ \sb ->
+                            forM_ (sbBackends sb) $ \(bek, be) ->
+                                when (bek `elem` selBEs) (bEffectuate be nli)
 
                     qProc counters = do
                         -- read complete queue at once and process items
@@ -223,7 +230,8 @@ instance (FromJSON a, ToObject a) => IsBackend Switchboard a where
                                 case loitem of
                                     KillPill -> do
                                         -- each of the backends will be terminated sequentially
-                                        forM_ backends ( \(_, be) -> bUnrealize be )
+                                        withMVar (getSB switchboard) $ \sb ->
+                                            forM_ (sbBackends sb) ( \(_, be) -> bUnrealize be )
                                         -- all backends have terminated
                                         return False
                                     (AggregatedMessage _) -> do
@@ -268,12 +276,16 @@ instance (FromJSON a, ToObject a) => IsBackend Switchboard a where
                             })
 
         let bs = bs1 : bs0
-        dispatcher <- spawnDispatcher bs q
+        dispatcher <- spawnDispatcher sb q
         -- link the given Async to the current thread, such that if the Async
         -- raises an exception, that exception will be re-thrown in the current
         -- thread, wrapped in ExceptionInLinkedThread.
         Async.link dispatcher
-        putMVar sbref $ SwitchboardInternal {sbQueue = q, sbDispatch = dispatcher, sbLogBuffer = logbuf}
+        putMVar sbref $ SwitchboardInternal {
+                            sbQueue = q,
+                            sbDispatch = dispatcher,
+                            sbLogBuffer = logbuf,
+                            sbBackends = bs }
 
         return sb
 
@@ -292,6 +304,14 @@ instance (FromJSON a, ToObject a) => IsBackend Switchboard a where
         either throwM return res
         (clearMVar . getSB) switchboard
 
+\end{code}
+
+\subsubsection{Integrate with external backend}\label{code:addBackend}\index{addBackend}
+\begin{code}
+addExternalBackend :: Switchboard a -> Backend a -> Text -> IO ()
+addExternalBackend switchboard be name =
+    modifyMVar_ (getSB switchboard) $ \sb ->
+        return $ sb { sbBackends = (UserDefinedBK name, be) : sbBackends sb }
 \end{code}
 
 \subsubsection{Waiting for the switchboard to terminate}\label{code:waitForTermination}\index{waitForTermination}
@@ -330,6 +350,7 @@ setupBackends bes c sb = setupBackendsAcc bes []
 
 setupBackend' :: (FromJSON a, ToObject a) => BackendKind -> Configuration -> Switchboard a -> IO (Maybe (Backend a))
 setupBackend' SwitchboardBK _ _ = fail "cannot instantiate a further Switchboard"
+setupBackend' (UserDefinedBK _) _ _ = fail "cannot instantiate an user-defined backend"
 #ifdef ENABLE_MONITORING
 setupBackend' MonitoringBK c sb = do
     let basetrace = mainTraceConditionally c sb
