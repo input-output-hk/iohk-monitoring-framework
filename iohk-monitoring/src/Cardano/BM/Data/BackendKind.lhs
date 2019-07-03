@@ -39,26 +39,28 @@ data BackendKind =
     | KatipBK
     | LogBufferBK
     | MonitoringBK
-    | TraceAcceptorBK
+    | TraceAcceptorBK FilePath
     | TraceForwarderBK
     | UserDefinedBK Text
     | SwitchboardBK
     deriving (Eq, Ord, Show, Read)
 
 instance ToJSON BackendKind where
-    toJSON AggregationBK        = String "AggregationBK"
-    toJSON EditorBK             = String "EditorBK"
-    toJSON EKGViewBK            = String "EKGViewBK"
-    toJSON GraylogBK            = String "GraylogBK"
-    toJSON KatipBK              = String "KatipBK"
-    toJSON LogBufferBK          = String "LogBufferBK"
-    toJSON MonitoringBK         = String "MonitoringBK"
-    toJSON TraceAcceptorBK      = String "TraceAcceptorBK"
-    toJSON TraceForwarderBK     = String "TraceForwarderBK"
-    toJSON (UserDefinedBK name) = object [ "kind" .= String "UserDefinedBK"
-                                         , "name" .= toJSON name
-                                         ]
-    toJSON SwitchboardBK        = String "SwitchboardBK"
+    toJSON AggregationBK          = String "AggregationBK"
+    toJSON EditorBK               = String "EditorBK"
+    toJSON EKGViewBK              = String "EKGViewBK"
+    toJSON GraylogBK              = String "GraylogBK"
+    toJSON KatipBK                = String "KatipBK"
+    toJSON LogBufferBK            = String "LogBufferBK"
+    toJSON MonitoringBK           = String "MonitoringBK"
+    toJSON TraceForwarderBK       = String "TraceForwarderBK"
+    toJSON (TraceAcceptorBK file) = object [ "kind" .= String "TraceAcceptorBK"
+                                           , "path" .= toJSON file
+                                           ]
+    toJSON (UserDefinedBK name)   = object [ "kind" .= String "UserDefinedBK"
+                                           , "name" .= toJSON name
+                                           ]
+    toJSON SwitchboardBK          = String "SwitchboardBK"
 
 instance FromJSON BackendKind where
     parseJSON v = withObject
@@ -66,9 +68,11 @@ instance FromJSON BackendKind where
                     (\value -> do
                                 c <- value .: "kind" :: Parser Text
                                 case c of
-                                    "UserDefinedBK" ->
+                                    "UserDefinedBK"   ->
                                         UserDefinedBK <$> value .: "name"
-                                    _ -> fail "not expected kind"
+                                    "TraceAcceptorBK" ->
+                                        TraceAcceptorBK <$> value .: "path"
+                                    _                 -> fail "not expected kind"
                     )
                     v
               <|> withText
@@ -81,7 +85,6 @@ instance FromJSON BackendKind where
                         "KatipBK"          -> pure KatipBK
                         "LogBufferBK"      -> pure LogBufferBK
                         "MonitoringBK"     -> pure MonitoringBK
-                        "TraceAcceptorBK"  -> pure TraceAcceptorBK
                         "TraceForwarderBK" -> pure TraceForwarderBK
                         "SwitchboardBK"    -> pure SwitchboardBK
                         _                  -> fail "not expected BackendKind"

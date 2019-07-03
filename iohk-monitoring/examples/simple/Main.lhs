@@ -21,7 +21,6 @@ import           Cardano.BM.Data.Backend
 import qualified Cardano.BM.Configuration.Model as CM
 import           Cardano.BM.Configuration.Static (defaultConfigStdout)
 #ifdef LINUX
-import           Cardano.BM.Data.BackendKind
 import           Cardano.BM.Data.Output (ScribeDefinition (..),
                      ScribePrivacy (..), ScribeKind (..), ScribeFormat (..))
 #endif
