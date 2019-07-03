@@ -4,9 +4,7 @@
 
 %if style == newcode
 \begin{code}
-{-# LANGUAGE DeriveAnyClass #-}
-{-# LANGUAGE DeriveGeneric  #-}
-{-# LANGUAGE LambdaCase     #-}
+{-# LANGUAGE LambdaCase #-}
 
 module Cardano.BM.Data.BackendKind
   ( BackendKind (..)
@@ -18,7 +16,6 @@ import           Data.Aeson (FromJSON (..), ToJSON (..), Value (..), (.=),
                      (.:), object, withText, withObject)
 import           Data.Aeson.Types (Parser)
 import           Data.Text (Text)
-import           GHC.Generics (Generic)
 
 \end{code}
 %endif
@@ -46,7 +43,7 @@ data BackendKind =
     | TraceForwarderBK
     | UserDefinedBK Text
     | SwitchboardBK
-    deriving (Generic, Eq, Ord, Show, Read)
+    deriving (Eq, Ord, Show, Read)
 
 instance ToJSON BackendKind where
     toJSON AggregationBK        = String "AggregationBK"
