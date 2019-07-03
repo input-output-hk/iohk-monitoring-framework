@@ -250,7 +250,8 @@ unitConfigurationParsedRepresentation = do
             , "- AggregationBK"
             , "- EKGViewBK"
             , "- KatipBK"
-            , "- TraceAcceptorBK"
+            , "- path: log-pipe"
+            , "  kind: TraceAcceptorBK"
             , "hasPrometheus: null"
             , "hasGraylog: 12788"
             , "hasGUI: null"
@@ -383,7 +384,7 @@ unitConfigurationParsed = do
         , cgSetupBackends     = [ AggregationBK
                                 , EKGViewBK
                                 , KatipBK
-                                , TraceAcceptorBK
+                                , TraceAcceptorBK "log-pipe"
                                 ]
         , cgMapScribe         = HM.fromList [ ("iohk.interesting.value",
                                                     ["StdoutSK::stdout","FileSK::testlog"])

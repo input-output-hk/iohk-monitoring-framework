@@ -436,13 +436,13 @@ setupBackend' KatipBK c _ = do
         , bUnrealize = Cardano.BM.Backend.Log.unrealize be
         }
 setupBackend' LogBufferBK _ _ = return Nothing
-setupBackend' TraceAcceptorBK c sb = do
+setupBackend' (TraceAcceptorBK pipePath) c sb = do
     let basetrace = mainTraceConditionally c sb
 
     be :: Cardano.BM.Backend.TraceAcceptor.TraceAcceptor PipeType a
-            <- Cardano.BM.Backend.TraceAcceptor.realizefrom c basetrace sb
+            <- Cardano.BM.Backend.TraceAcceptor.realizefrom basetrace pipePath
     return $ Just MkBackend
-      { bEffectuate = Cardano.BM.Backend.TraceAcceptor.effectuate be
+      { bEffectuate = Cardano.BM.Backend.TraceAcceptor.effectuate
       , bUnrealize = Cardano.BM.Backend.TraceAcceptor.unrealize be
       }
 setupBackend' TraceForwarderBK c _ = do

@@ -16,9 +16,11 @@ module Cardano.BM.Backend.ExternalAbstraction
     , UnixNamedPipe
     ) where
 
-import           Control.Exception (SomeException, catch)
+import           Control.Exception (SomeException (..), catch, fromException,
+                     throw)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as BSC
+import           GHC.IO.Exception (IOException (..), IOErrorType (..))
 import           GHC.IO.Handle (hDuplicate)
 import           System.IO (IOMode (..), openFile, BufferMode (NoBuffering),
                      Handle, hClose, hSetBuffering, openFile, stderr,
@@ -63,10 +65,13 @@ instance Pipe UnixNamedPipe where
         (createNamedPipe pipePath stdFileMode >> (P <$> openFile pipePath ReadWriteMode))
         -- use of ReadWriteMode instead of ReadMode in order
         -- EOF not to be written at the end of file
-            `catch` (\(e :: SomeException) -> do
-                            hPutStrLn stderr $ "Creating pipe threw: " ++ show e
-                                            ++ "\nForwarding its objects to stderr"
-                            P <$> hDuplicate stderr)
+            `catch` (\(e :: SomeException) ->
+                        case fromException e of
+                            Just (IOError _ AlreadyExists _ _ _ _) ->
+                                P <$> openFile pipePath ReadWriteMode
+                            _                                      -> do
+                                hPutStrLn stderr $ "Creating pipe threw: " ++ show e
+                                throw e)
 #else
     create _ = error "UnixNamedPipe not supported on Windows"
 #endif
