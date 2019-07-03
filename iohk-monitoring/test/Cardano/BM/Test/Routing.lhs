@@ -122,11 +122,11 @@ unit_generic_scribe_backend defaultBackends setBackends defaultScribes setScribe
 
     withTrace c "test" $ \(tr :: Trace IO String) -> do
 
-        tr1 <- appendName "one" tr
-        tr2 <- appendName "two" tr
+        let tr1  = appendName "one" tr
+            tr2  = appendName "two" tr
 
-        tr1a <-appendName "alpha" tr1
-        tr2a <-appendName "alpha" tr2
+            tr1a = appendName "alpha" tr1
+            tr2a = appendName "alpha" tr2
 
         logNotice tr "starting program"
 

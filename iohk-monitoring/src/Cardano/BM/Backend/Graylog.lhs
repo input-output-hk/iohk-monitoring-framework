@@ -168,7 +168,7 @@ spawnDispatcher config evqueue sbtrace = do
                                 60000   -- 60000 ms = 1 min
                                 Debug
 
-    gltrace <- Trace.appendName "#graylog" sbtrace
+    let gltrace = Trace.appendName "#graylog" sbtrace
     Async.async $ Net.withSocketsDo $ qProc gltrace countersMVar Nothing
   where
     {-@ lazy qProc @-}
@@ -186,7 +186,7 @@ spawnDispatcher config evqueue sbtrace = do
             (Just conn) -> do
                 sendLO conn item
                     `catch` \(e :: SomeException) -> do
-                        trace' <- Trace.appendName "sending" gltrace
+                        let trace' = Trace.appendName "sending" gltrace
                         mle <- mkLOMeta Error Public
                         Trace.traceNamedObject trace' (mle, LogError (pack $ show e))
                         threadDelay 50000
@@ -212,7 +212,7 @@ spawnDispatcher config evqueue sbtrace = do
         sock <- Net.socket (Net.addrFamily addr) (Net.addrSocketType addr) (Net.addrProtocol addr)
         res <- Net.connect sock (Net.addrAddress addr) >> return (Just sock)
             `catch` \(e :: SomeException) -> do
-                trace' <- Trace.appendName "connecting" gltrace
+                let trace' = Trace.appendName "connecting" gltrace
                 mle <- mkLOMeta Error Public
                 Trace.traceNamedObject trace' (mle, LogError (pack $ show e))
                 return Nothing

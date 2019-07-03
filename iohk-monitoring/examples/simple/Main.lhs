@@ -91,10 +91,10 @@ main = do
     be :: MyBackend String <- realize c
     let mybe = MkBackend { bEffectuate = effectuate be, bUnrealize = unrealize be }
     addExternalBackend sb mybe "MyBackend"
-    trText <- appendName "text" tr
-    trJson <- appendName "json" tr
+    let trText = appendName "text" tr
+        trJson = appendName "json" tr
 #ifdef LINUX
-    trSystemd <- appendName "systemd" tr
+        trSystemd = appendName "systemd" tr
 #endif
 
     logDebug   trText    "this is a debug message\nwith a second line"

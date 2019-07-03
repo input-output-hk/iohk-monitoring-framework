@@ -156,7 +156,7 @@ spawnDispatcher :: Configuration
                 -> IO (Async.Async ())
 spawnDispatcher conf aggMap aggregationQueue basetrace = do
     now <- getCurrentTime
-    trace <- Trace.appendName "#aggregation" basetrace
+    let trace = Trace.appendName "#aggregation" basetrace
     let messageCounters = resetCounters now
     countersMVar <- newMVar messageCounters
     _timer <- Async.async $ sendAndResetAfter
@@ -216,7 +216,7 @@ spawnDispatcher conf aggMap aggregationQueue basetrace = do
                     updatedMap = HM.alter (const $ Just $ aggregatedX) fullname agmap
                 return (updatedMap, namedAggregated)
             Left w -> do
-                trace' <- Trace.appendName "update" trace
+                let trace' = Trace.appendName "update" trace
                 Trace.traceNamedObject trace' =<<
                     (,) <$> liftIO (mkLOMeta Warning Public)
                         <*> pure (LogError w)
@@ -245,7 +245,7 @@ spawnDispatcher conf aggMap aggregationQueue basetrace = do
                     updatedMap = HM.alter (const $ Just $ aggregatedX) fullname agmap
                 return (updatedMap, namedAggregated)
             Left w -> do
-                trace' <- Trace.appendName "update" trace
+                let trace' = Trace.appendName "update" trace
                 Trace.traceNamedObject trace' =<<
                     (,) <$> liftIO (mkLOMeta Warning Public)
                         <*> pure (LogError w)
@@ -280,7 +280,7 @@ spawnDispatcher conf aggMap aggregationQueue basetrace = do
                     updatedMap = HM.alter (const $ Just $ aggregatedX) fullname aggrMap
                 updateCounters cs lme (logname, msgname) updatedMap (namedAggregated : aggs) trace
             Left w -> do
-                trace' <- Trace.appendName "updateCounters" trace
+                let trace' = Trace.appendName "updateCounters" trace
                 Trace.traceNamedObject trace' =<<
                     (,) <$> liftIO (mkLOMeta Warning Public)
                         <*> pure (LogError w)
@@ -289,7 +289,7 @@ spawnDispatcher conf aggMap aggregationQueue basetrace = do
     sendAggregated :: Trace.Trace IO a -> LogObject a -> IO ()
     sendAggregated trace (LogObject logname meta v@(AggregatedMessage _)) = do
         -- enter the aggregated message into the |Trace|
-        trace' <- Trace.appendName logname trace
+        let trace' = Trace.appendName logname trace
         liftIO $ Trace.traceNamedObject trace' (meta, v)
     -- ingnore every other message
     sendAggregated _ _ = return ()

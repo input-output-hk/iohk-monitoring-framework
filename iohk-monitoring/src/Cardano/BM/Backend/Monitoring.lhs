@@ -177,7 +177,7 @@ spawnDispatcher mqueue config sbtrace monitor = do
                     Nothing        -> return []
                     Just actualMon -> readBuffer $ monBuffer actualMon
         mbuf <- accessBufferMap
-        sbtraceWithMonitoring <- Trace.appendName "#monitoring" sbtrace
+        let sbtraceWithMonitoring = Trace.appendName "#monitoring" sbtrace
         valuesForMonitoring <- getVarValuesForMonitoring config mbuf
         state' <- evalMonitoringAction sbtraceWithMonitoring
                                         state
@@ -261,7 +261,7 @@ evalMonitoringAction :: Trace.Trace IO a
                      -> [(VarName, Measurable)]
                      -> IO MonitorMap
 evalMonitoringAction sbtrace mmap logObj@(LogObject logname _ _) variables = do
-    sbtrace' <- Trace.appendName logname sbtrace
+    let sbtrace' = Trace.appendName logname sbtrace
     case HM.lookup logname mmap of
         Nothing -> return mmap
         Just mon@(MonitorState precond expr acts env0) -> do

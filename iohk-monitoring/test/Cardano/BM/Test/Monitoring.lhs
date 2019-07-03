@@ -195,7 +195,7 @@ parseEvalExpression t res env =
 \begin{code}
 monitoringThr :: Trace IO Text -> IO (Async.Async ())
 monitoringThr trace = do
-    trace' <- appendName "monitoring" trace
+    let trace' = appendName "monitoring" trace
     proc <- Async.async $ sendTo trace'
     return proc
   where

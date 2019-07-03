@@ -51,7 +51,7 @@ setupTrace_ :: (MonadIO m, FromJSON a, ToObject a) => Config.Configuration -> Te
 setupTrace_ c name = do
     sb <- liftIO $ Switchboard.realize c
 
-    tr <- appendName name $ natTrace liftIO (Switchboard.mainTraceConditionally c sb)
+    let tr = appendName name $ natTrace liftIO (Switchboard.mainTraceConditionally c sb)
     return (tr,sb)
 
 \end{code}
