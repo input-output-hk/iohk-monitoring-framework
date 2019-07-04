@@ -43,6 +43,8 @@ import           Cardano.BM.Backend.ProcessQueue (processQueue)
 import           Cardano.BM.Configuration.Model (Configuration, getMonitors)
 import           Cardano.BM.Data.Aggregated
 import           Cardano.BM.Data.Backend
+import           Cardano.BM.Data.Counter (Counter (..), CounterState (..),
+                     nameCounter)
 import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.MessageCounter (resetCounters, sendAndResetAfter,
                      updateMessageCounters)
@@ -260,7 +262,12 @@ evalMonitoringAction :: Trace.Trace IO a
                      -> LogObject a
                      -> [(VarName, Measurable)]
                      -> IO MonitorMap
-evalMonitoringAction sbtrace mmap logObj@(LogObject logname _ _) variables = do
+evalMonitoringAction sbtrace mmap logObj@(LogObject logname0 _ content) variables = do
+    let logname = case content of
+                    ObserveOpen  _ -> logname0 <> ".open"
+                    ObserveDiff  _ -> logname0 <> ".diff"
+                    ObserveClose _ -> logname0 <> ".close"
+                    _              -> logname0
     let sbtrace' = Trace.appendName logname sbtrace
     case HM.lookup logname mmap of
         Nothing -> return mmap
@@ -281,9 +288,21 @@ evalMonitoringAction sbtrace mmap logObj@(LogObject logname _ _) variables = do
                 return $ HM.insert logname mon{_environment=env''} mmap
             else return mmap
   where
-    updateEnv env (LogObject _ _ (ObserveOpen _)) = env
-    updateEnv env (LogObject _ _ (ObserveDiff _)) = env
-    updateEnv env (LogObject _ _ (ObserveClose _)) = env
+    updateEnv env (LogObject loname lometa (ObserveOpen (CounterState counters))) =
+        let addenv = HM.fromList $ ("timestamp", Nanoseconds $ utc2ns (tstamp lometa))
+                                 : countersEnvPairs (loname <> ".open") counters
+        in
+        HM.union addenv env
+    updateEnv env (LogObject loname lometa (ObserveDiff (CounterState counters))) =
+        let addenv = HM.fromList $ ("timestamp", Nanoseconds $ utc2ns (tstamp lometa))
+                                 : countersEnvPairs (loname <> ".diff") counters
+        in
+        HM.union addenv env
+    updateEnv env (LogObject loname lometa (ObserveClose (CounterState counters))) =
+        let addenv = HM.fromList $ ("timestamp", Nanoseconds $ utc2ns (tstamp lometa))
+                                 : countersEnvPairs (loname <> ".close") counters
+        in
+        HM.union addenv env
     updateEnv env (LogObject _ lometa (LogValue vn val)) =
         let addenv = HM.fromList $ [ (vn, val)
                                    , ("timestamp", Nanoseconds $ utc2ns (tstamp lometa))
@@ -312,6 +331,12 @@ evalMonitoringAction sbtrace mmap logObj@(LogObject logname _ _) variables = do
             : acc
     -- catch all
     updateEnv env _ = env
+
+    countersEnvPairs loggerName = map $ \counter ->
+        let name = loggerName <> "." <> (nameCounter counter) <> "." <> cName counter
+            value = cValue counter
+        in
+            (name, value)
 
     evaluateAction sbtrace' env expr (CreateMessage sev alertMessage) = do
         lometa <- mkLOMeta sev Public
