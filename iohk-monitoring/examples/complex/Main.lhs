@@ -165,7 +165,7 @@ prepare_configuration = do
     CM.setBackends c "complex.message" (Just [AggregationBK, KatipBK, TraceForwarderBK])
     CM.setBackends c "complex.random" (Just [KatipBK, EKGViewBK])
     CM.setBackends c "complex.random.ewma" (Just [KatipBK])
-    CM.setBackends c "complex.observeIO" (Just [AggregationBK])
+    CM.setBackends c "complex.observeIO" (Just [AggregationBK, MonitoringBK])
     CM.setSubTrace c "#messagecounters.aggregation" $ Just NoTrace
 #endif
     forM_ [(1::Int)..10] $ \x -> do
@@ -212,6 +212,12 @@ prepare_configuration = do
           , ( Just (Compare "monitMe.fcount" (GE, (OpMeasurable 8)))
             , Compare "monitMe.mean" (GE, (OpMeasurable 25))
             , [CreateMessage Warning "MonitMe.mean is greater than 25!"]
+            )
+          )
+        , ( "complex.observeIO.close"
+          , ( Nothing
+            , Compare "complex.observeIO.close.Mem.size" (GE, (OpMeasurable 25))
+            , [CreateMessage Warning "closing mem size is greater than 25!"]
             )
           )
         ]
@@ -286,7 +292,7 @@ observeIO config trace = do
     loop tr = do
         threadDelay 5000000  -- 5 seconds
         let tr' = appendName "observeIO" tr
-        _ <- bracketObserveIO config tr' Debug "complex.observeIO" $ do
+        _ <- bracketObserveIO config tr' Warning "complex.observeIO" $ do
             num <- randomRIO (100000, 200000) :: IO Int
             ls <- return $ reverse $ init $ reverse $ 42 : [1 .. num]
             pure $ const ls ()
@@ -307,7 +313,7 @@ observeSTM config trace = do
   where
     loop tr tvarlist name = do
         threadDelay 10000000  -- 10 seconds
-        STM.bracketObserveIO config tr Debug ("observeSTM." <> name) (stmAction tvarlist)
+        STM.bracketObserveIO config tr Warning ("observeSTM." <> name) (stmAction tvarlist)
         loop tr tvarlist name
 
 stmAction :: TVar [Int] -> STM ()
@@ -332,7 +338,7 @@ observeDownload config trace = do
     loop tr = do
         threadDelay 1000000  -- 1 second
         let tr' = appendName "observeDownload" tr
-        bracketObserveIO config tr' Debug "complex.observeDownload" $ do
+        bracketObserveIO config tr' Warning "complex.observeDownload" $ do
             license <- openURI "http://www.gnu.org/licenses/gpl.txt"
             case license of
               Right bs -> logNotice tr' $ pack $ BS8.unpack bs
