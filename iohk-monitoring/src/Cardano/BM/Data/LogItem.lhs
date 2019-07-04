@@ -21,6 +21,8 @@ module Cardano.BM.Data.LogItem
   , PrivacyAnnotation (..)
   , PrivacyAndSeverityAnnotated (..)
   , utc2ns
+  , mapLogObject
+  , mapLOContent
   )
   where
 
@@ -183,5 +185,34 @@ data PrivacyAndSeverityAnnotated a
                   , psaPayload  :: a
                   }
               deriving (Show)
+
+\end{code}
+
+\subsubsection{Mapping Log Objects}
+\label{code:mapLogObject}\index{mapLogObject}
+\label{code:mapLOContent}\index{mapLOContent}
+
+This provides a helper function to transform log items. It would often
+be used with |contramap|.
+
+\begin{code}
+mapLogObject :: (a -> b) -> LogObject a -> LogObject b
+mapLogObject f (LogObject nm me loc) = LogObject nm me (mapLOContent f loc)
+
+instance Functor LogObject where
+  fmap = mapLogObject
+
+mapLOContent :: (a -> b) -> LOContent a -> LOContent b
+mapLOContent f = \case
+    LogMessage msg       -> LogMessage (f msg)
+    LogError a           -> LogError a
+    LogValue a n         -> LogValue a n
+    ObserveOpen st       -> ObserveOpen st
+    ObserveDiff st       -> ObserveDiff st
+    ObserveClose st      -> ObserveClose st
+    AggregatedMessage ag -> AggregatedMessage ag
+    MonitoringEffect act -> MonitoringEffect act
+    Command v            -> Command v
+    KillPill             -> KillPill
 
 \end{code}
