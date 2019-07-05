@@ -227,8 +227,10 @@ instance (ToObject a, FromJSON a) => IsBackend Log a where
         return $ Log kref
 
     unrealize katip = do
+        putStrLn "unrealizing katip"
         le <- withMVar (getK katip) $ \k -> return (kLogEnv k)
         void $ K.closeScribes le
+        putStrLn "unrealized katip"
 
 \end{code}
 

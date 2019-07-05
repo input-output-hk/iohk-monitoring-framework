@@ -134,6 +134,7 @@ instance FromJSON a => IsBackend Aggregation a where
         let clearMVar :: MVar a -> IO ()
             clearMVar = void . tryTakeMVar
 
+        putStrLn "unrealizing aggregation"
         (dispatcher, queue) <- withMVar (getAg aggregation) (\ag ->
                             return (agDispatch ag, agQueue ag))
         -- send terminating item to the queue
@@ -144,6 +145,7 @@ instance FromJSON a => IsBackend Aggregation a where
         res <- Async.waitCatch dispatcher
         either throwM return res
         (clearMVar . getAg) aggregation
+        putStrLn "unrealized aggregation"
 
 \end{code}
 

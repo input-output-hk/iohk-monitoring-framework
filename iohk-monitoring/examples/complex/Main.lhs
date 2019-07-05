@@ -153,7 +153,7 @@ prepare_configuration = do
                           ])
     CM.setSubTrace c "#messagecounters.ekgview" $ Just NoTrace
 #ifdef ENABLE_OBSERVABLES
-    CM.setSubTrace c "complex.observeIO" (Just $ ObservableTraceSelf [GhcRtsStats,MemoryStats])
+    CM.setSubTrace c "complex.observeIO" (Just $ ObservableTraceSelf [GhcRtsStats,MemoryStats, MonotonicClock])
     forM_ [(1::Int)..10] $ \x ->
       CM.setSubTrace
         c
@@ -202,22 +202,28 @@ prepare_configuration = do
     CM.setGUIport c 13790
 #endif
     CM.setMonitors c $ HM.fromList
-        [ ( "complex.monitoring"
-          , ( Just (Compare "monitMe" (GE, (OpMeasurable 10)))
-            , Compare "monitMe" (GE, (OpMeasurable 42))
-            , [CreateMessage Warning "MonitMe is greater than 42!"]
-            )
-          )
-        , ( "#aggregation.complex.monitoring"
-          , ( Just (Compare "monitMe.fcount" (GE, (OpMeasurable 8)))
-            , Compare "monitMe.mean" (GE, (OpMeasurable 25))
-            , [CreateMessage Warning "MonitMe.mean is greater than 25!"]
-            )
-          )
-        , ( "complex.observeIO.close"
+        -- [ ( "complex.monitoring"
+        --   , ( Just (Compare "monitMe" (GE, (OpMeasurable 10)))
+        --     , Compare "monitMe" (GE, (OpMeasurable 42))
+        --     , [CreateMessage Warning "MonitMe is greater than 42!"]
+        --     )
+        --   )
+        -- , ( "#aggregation.complex.monitoring"
+        --   , ( Just (Compare "monitMe.fcount" (GE, (OpMeasurable 8)))
+        --     , Compare "monitMe.mean" (GE, (OpMeasurable 25))
+        --     , [CreateMessage Warning "MonitMe.mean is greater than 25!"]
+        --     )
+        --   )
+        [ ( "complex.observeIO.close"
           , ( Nothing
             , Compare "complex.observeIO.close.Mem.size" (GE, (OpMeasurable 25))
             , [CreateMessage Warning "closing mem size is greater than 25!"]
+            )
+          )
+        , ( "complex.observeIO.diff"
+          , ( Nothing
+            , Compare "complex.observeIO.diff.Clock.monoclock" (GE, (OpMeasurable (Seconds 0)))
+            , [CreateMessage Error "OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO"]
             )
           )
         ]

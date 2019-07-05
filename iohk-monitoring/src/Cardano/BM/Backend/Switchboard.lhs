@@ -130,7 +130,10 @@ mainTraceConditionally :: IsEffectuator eff a => Configuration -> eff a -> Trace
 mainTraceConditionally config eff = Tracer $ \item -> do
     mayItem <- Config.testSubTrace config (loName item) item
     case mayItem of
-        Just itemF@(LogObject loggername meta _) -> do
+        Just itemF@(LogObject loggername meta a) -> do
+            case a of
+                ObserveDiff _ -> putStrLn "ObserveDiff received"
+                _ -> return ()
             passSevFilter <- Config.testSeverity config loggername meta
             when passSevFilter $
                 effectuate eff itemF
@@ -155,8 +158,11 @@ instance IsEffectuator Switchboard a where
                     then handleOverflow switchboard
                     else atomically $ TBQ.writeTBQueue q i
 
+        -- putStrLn "B E F O R E sb <- readMVar (getSB switchboard)"
         sb <- readMVar (getSB switchboard)
+        -- putStrLn "B E F O R E writequeue (sbQueue sb) item"
         writequeue (sbQueue sb) item
+        -- putStrLn "A F T E R writequeue (sbQueue sb) item"
 
     handleOverflow _ = TIO.hPutStrLn stderr "Error: Switchboard's queue full, dropping log items!"
 
@@ -230,14 +236,17 @@ instance (FromJSON a, ToObject a) => IsBackend Switchboard a where
                                 case loitem of
                                     KillPill -> do
                                         -- each of the backends will be terminated sequentially
-                                        withMVar (getSB switchboard) $ \sb ->
-                                            forM_ (sbBackends sb) ( \(_, be) -> bUnrealize be )
+                                        sb <- readMVar (getSB switchboard)
+                                        -- withMVar (getSB switchboard) $ \sb -> do
+                                        putStrLn "unrealizing Backends"
+                                        forM_ (sbBackends sb) ( \(_, be) -> bUnrealize be )
                                         -- all backends have terminated
                                         return False
                                     (AggregatedMessage _) -> do
                                         sendMessage nli (filter (/= AggregationBK))
                                         return True
                                     (MonitoringEffect (MonitorAlert _)) -> do
+                                        putStrLn "MonitoringEffect R E C E I V E D"
                                         sendMessage nli (filter (/= MonitoringBK))
                                         return True
                                     (MonitoringEffect (MonitorAlterGlobalSeverity sev)) -> do
@@ -296,11 +305,13 @@ instance (FromJSON a, ToObject a) => IsBackend Switchboard a where
         (dispatcher, queue) <- withMVar (getSB switchboard) (\sb -> return (sbDispatch sb, sbQueue sb))
         -- send terminating item to the queue
         lo <- LogObject <$> pure "kill.switchboard"
-                        <*> (mkLOMeta Warning Confidential)
+                        <*> (mkLOMeta Emergency Confidential)
                         <*> pure KillPill
         atomically $ TBQ.writeTBQueue queue lo
+        putStrLn "wait for the dispatcher to exit"
         -- wait for the dispatcher to exit
         res <- Async.waitCatch dispatcher
+        putStrLn "dispatcher exited"
         either throwM return res
         (clearMVar . getSB) switchboard
 

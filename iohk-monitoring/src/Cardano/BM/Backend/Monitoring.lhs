@@ -134,6 +134,7 @@ instance FromJSON a => IsBackend Monitor a where
         let clearMVar :: MVar b -> IO ()
             clearMVar = void . tryTakeMVar
 
+        putStrLn "unrealizing monitoring"
         (dispatcher, queue) <- withMVar (getMon monitoring) (\mon ->
                                 return (monDispatch mon, monQueue mon))
         -- send terminating item to the queue
@@ -142,6 +143,7 @@ instance FromJSON a => IsBackend Monitor a where
         res <- Async.waitCatch dispatcher
         either throwM return res
         clearMVar $ getMon monitoring
+        putStrLn "unrealized monitoring"
 
 \end{code}
 
@@ -181,10 +183,12 @@ spawnDispatcher mqueue config sbtrace monitor = do
         mbuf <- accessBufferMap
         let sbtraceWithMonitoring = Trace.appendName "#monitoring" sbtrace
         valuesForMonitoring <- getVarValuesForMonitoring config mbuf
+        putStrLn "evalMonitoringActionnnnnnnnnnnnnnnnnnnnnnnnn"
         state' <- evalMonitoringAction sbtraceWithMonitoring
-                                        state
-                                        lo
-                                        valuesForMonitoring
+                                       state
+                                       lo
+                                       valuesForMonitoring
+        putStrLn "evalMonitoringActionnnnnnnnnnnnnnnnnnnnnnnnn E N D E D"
         -- increase the counter for the type of message
         modifyMVar_ counters $ \cnt -> return $ updateMessageCounters cnt lo
         return (counters, state')
@@ -269,8 +273,9 @@ evalMonitoringAction sbtrace mmap logObj@(LogObject logname0 _ content) variable
                     ObserveClose _ -> logname0 <> ".close"
                     _              -> logname0
     let sbtrace' = Trace.appendName logname sbtrace
+    putStrLn $ "evalMonitoringAction :::::::::::::::::::::::::::" ++ show logname
     case HM.lookup logname mmap of
-        Nothing -> return mmap
+        Nothing -> putStrLn "Nothing" >> return mmap
         Just mon@(MonitorState precond expr acts env0) -> do
             let env1 = updateEnv env0 logObj
             let env' = HM.union env1 $ HM.fromList variables
@@ -281,9 +286,12 @@ evalMonitoringAction sbtrace mmap logObj@(LogObject logname0 _ content) variable
                     Just preCondExpr -> evaluate env' preCondExpr
             -- In this place env' already must contain opvn..
             let thresholdIsReached = evaluate env' expr
+            putStrLn "env':"
+            print env'
             if doMonitor && thresholdIsReached then do
                 now <- getMonotonicTimeNSec
                 let env'' = HM.insert "lastalert" (Nanoseconds now) env'
+                putStrLn "evaluateAction"
                 mapM_ (evaluateAction sbtrace' env' expr) acts
                 return $ HM.insert logname mon{_environment=env''} mmap
             else return mmap
@@ -343,7 +351,9 @@ evalMonitoringAction sbtrace mmap logObj@(LogObject logname0 _ content) variable
         let fullMessage = alertMessage
                           <> "; environment is: " <> pack (show env)
                           <> "; threshold expression is: " <> pack (show expr)
+        putStrLn "BEFORE Trace.traceNamedObject"
         Trace.traceNamedObject sbtrace' (lometa, MonitoringEffect (MonitorAlert fullMessage))
+        putStrLn "AFTER Trace.traceNamedObject sbtrace'"
     evaluateAction sbtrace' _ _ (SetGlobalMinimalSeverity sev) = do
         lometa <- mkLOMeta sev Public
         Trace.traceNamedObject sbtrace' (lometa, MonitoringEffect (MonitorAlterGlobalSeverity sev))

@@ -71,8 +71,8 @@ shutdown all the components and close the trace.
 withTrace :: (MonadIO m, MonadMask m, FromJSON a, ToObject a) =>  Config.Configuration -> Text -> (Trace m a -> m t) -> m t
 withTrace cfg name action =
     bracket
-        (setupTrace_ cfg name)              -- aquire
-        (\(_,sb) -> liftIO $ shutdown sb)   -- release
+        (setupTrace_ cfg name)              -- acquire
+        (\(_,sb) -> liftIO $ putStrLn "shutting down" >> shutdown sb)   -- release
         (\(tr,_) -> action tr)              -- action
 
 \end{code}
