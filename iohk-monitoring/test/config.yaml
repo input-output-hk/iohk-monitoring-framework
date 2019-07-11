@@ -83,6 +83,10 @@ options:
     iohk.interesting.value:
       - EKGViewBK
       - AggregationBK
+    iohk.user.defined:
+      - kind: UserDefinedBK
+        name: MyBackend
+      - KatipBK
   mapScribes:
     iohk.interesting.value:
       - "StdoutSK::stdout"

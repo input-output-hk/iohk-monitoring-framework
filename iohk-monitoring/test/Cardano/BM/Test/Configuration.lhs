@@ -293,6 +293,10 @@ unitConfigurationParsedRepresentation = do
             , "    - FileSK::testlog"
             , "    iohk.background.process: FileSK::testlog"
             , "  mapBackends:"
+            , "    iohk.user.defined:"
+            , "    - kind: UserDefinedBK"
+            , "      name: MyBackend"
+            , "    - KatipBK"
             , "    iohk.interesting.value:"
             , "    - EKGViewBK"
             , "    - AggregationBK"
@@ -369,12 +373,22 @@ unitConfigurationParsed = do
                                             Array $ V.fromList [String "StdoutSK::stdout"
                                                                ,String "FileSK::testlog"])
                                          ,("iohk.background.process",String "FileSK::testlog")])
-            , ("mapBackends", HM.fromList [("iohk.interesting.value",
+            , ("mapBackends", HM.fromList [("iohk.user.defined",
+                                                Array $ V.fromList [Object (HM.fromList [("kind", String "UserDefinedBK")
+                                                                                        ,("name", String "MyBackend")])
+                                                                    ,String "KatipBK"
+                                                                   ])
+                                          ,("iohk.interesting.value",
                                                 Array $ V.fromList [String "EKGViewBK"
                                                                    ,String "AggregationBK"
                                                                    ])])
             ]
-        , cgMapBackend        = HM.fromList [ ("iohk.interesting.value"
+        , cgMapBackend        = HM.fromList [ ("iohk.user.defined"
+                                              , [ UserDefinedBK "MyBackend"
+                                                , KatipBK
+                                                ]
+                                              )
+                                            , ("iohk.interesting.value"
                                               , [ EKGViewBK
                                                 , AggregationBK
                                                 ]
