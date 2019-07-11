@@ -154,10 +154,17 @@ or, in case no such configuration exists, return the default backends.
 getBackends :: Configuration -> LoggerName -> IO [BackendKind]
 getBackends configuration name = do
     cg <- readMVar $ getCG configuration
-    let outs = HM.lookup name (cgMapBackend cg)
-    case outs of
-        Nothing -> return (cgDefBackendKs cg)
-        Just os -> return os
+    -- let outs = HM.lookup name (cgMapBackend cg)
+    -- case outs of
+    --     Nothing -> return (cgDefBackendKs cg)
+    --     Just os -> return os
+    let defs = cgDefBackendKs cg
+    let mapbks = cgMapBackend cg
+    let find_s [] = defs
+        find_s lnames = case HM.lookup (T.intercalate "." lnames) mapbks of
+            Nothing -> find_s (init lnames)
+            Just os -> os
+    return $ find_s $ T.split (=='.') name
 
 getDefaultBackends :: Configuration -> IO [BackendKind]
 getDefaultBackends configuration =
@@ -474,14 +481,14 @@ setupFromRepresentation r = do
 
     fillRotationParams :: Maybe RotationParameters -> [ScribeDefinition] -> [ScribeDefinition]
     fillRotationParams defaultRotation = map $ \sd ->
-        if (scKind sd /= StdoutSK) && (scKind sd /= StderrSK)
+        if (scKind sd /= StdoutSK) && (scKind sd /= StderrSK) && (scKind sd /= DevNullSK)
 #ifdef ENABLE_SYSTEMD
             && (scKind sd /= JournalSK)
 #endif
         then
             sd { scRotation = maybe defaultRotation Just (scRotation sd) }
         else
-            -- stdout, stderr and systemd cannot be rotated
+            -- stdout, stderr, /dev/null and systemd cannot be rotated
             sd { scRotation = Nothing }
 
     parseBackendMap Nothing = HM.empty
@@ -489,8 +496,8 @@ setupFromRepresentation r = do
       where
         mkBackends (Array bes) = catMaybes $ map mkBackend $ Vector.toList bes
         mkBackends _ = []
-        mkBackend (String s) = Just (read (unpack s) :: BackendKind)
-        mkBackend _ = Nothing
+        mkBackend :: Value -> Maybe BackendKind
+        mkBackend = parseMaybe parseJSON
 
     parseScribeMap Nothing = HM.empty
     parseScribeMap (Just hmv) = HM.map mkScribes hmv
@@ -498,8 +505,8 @@ setupFromRepresentation r = do
         mkScribes (Array scs) = catMaybes $ map mkScribe $ Vector.toList scs
         mkScribes (String s) = [(s :: ScribeId)]
         mkScribes _ = []
-        mkScribe (String s) = Just (s :: ScribeId)
-        mkScribe _ = Nothing
+        mkScribe :: Value -> Maybe ScribeId
+        mkScribe = parseMaybe parseJSON
 
     parseSubtraceMap :: Maybe (HM.HashMap Text Value) -> HM.HashMap Text SubTrace
     parseSubtraceMap Nothing = HM.empty
