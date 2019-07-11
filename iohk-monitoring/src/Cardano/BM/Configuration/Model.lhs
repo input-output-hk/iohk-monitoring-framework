@@ -154,10 +154,17 @@ or, in case no such configuration exists, return the default backends.
 getBackends :: Configuration -> LoggerName -> IO [BackendKind]
 getBackends configuration name = do
     cg <- readMVar $ getCG configuration
-    let outs = HM.lookup name (cgMapBackend cg)
-    case outs of
-        Nothing -> return (cgDefBackendKs cg)
-        Just os -> return os
+    -- let outs = HM.lookup name (cgMapBackend cg)
+    -- case outs of
+    --     Nothing -> return (cgDefBackendKs cg)
+    --     Just os -> return os
+    let defs = cgDefBackendKs cg
+    let mapbks = cgMapBackend cg
+    let find_s [] = defs
+        find_s lnames = case HM.lookup (T.intercalate "." lnames) mapbks of
+            Nothing -> find_s (init lnames)
+            Just os -> os
+    return $ find_s $ T.split (=='.') name
 
 getDefaultBackends :: Configuration -> IO [BackendKind]
 getDefaultBackends configuration =
