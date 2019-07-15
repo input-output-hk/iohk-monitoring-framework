@@ -16,6 +16,7 @@ steps:
     agents:
       system: x86_64-linux
     branches: "master"
+    timeout: 30
 
   - label: "make TeX documentation"
     command: "cd docs; nix-shell --run make"
@@ -28,8 +29,10 @@ steps:
     command: 'ci/check-hydra.sh'
     agents:
       system: x86_64-linux
+    timeout: 30
 
   - label: 'stack2nix'
     command: 'ci/check-stack2nix.sh'
     agents:
       system: x86_64-linux
+    timeout: 30
