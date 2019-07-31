@@ -2,8 +2,8 @@ name:                contra-tracer
 version:             0.1.0.0
 synopsis:            A simple interface for logging, tracing or monitoring.
 -- description:
-license:             MIT
-license-file:        LICENSE
+license:             Apache-2.0
+license-files:       LICENSE, NOTICE
 author:              Neil Davies, Alexander Diemand, Andreas Triantafyllos
 maintainer:          operations@iohk.io
 copyright:           2019 IOHK

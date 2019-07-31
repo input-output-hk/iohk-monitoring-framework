@@ -2,8 +2,8 @@ name:                iohk-monitoring
 version:             0.1.10.0
 synopsis:            logging, benchmarking and monitoring framework
 -- description:
-license:             MIT
-license-file:        LICENSE
+license:             Apache-2.0
+license-files:       LICENSE, NOTICE
 author:              Alexander Diemand, Andreas Triantafyllos
 maintainer:
 copyright:           2018 IOHK
