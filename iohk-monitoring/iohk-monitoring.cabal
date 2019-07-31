@@ -143,6 +143,7 @@ library
                        async-timer,
                        attoparsec,
                        auto-update,
+                       base64-bytestring,
                        bytestring,
                        clock,
                        containers,
@@ -219,6 +220,7 @@ test-suite tests
   other-modules:       Cardano.BM.Test.Trace
                        Cardano.BM.Test.STM
                        Cardano.BM.Test.Configuration
+                       Cardano.BM.Test.LogItem
                        Cardano.BM.Test.Rotator
                        Cardano.BM.Test.Routing
                        Cardano.BM.Test.Structured

@@ -292,6 +292,10 @@ passN backend katip (LogObject loname lometa loitem) = do
                                      (severity lometa, text, maylo)
                                 (LogError text) ->
                                      (severity lometa, text, Nothing)
+                                (LogStructured _) ->
+                                    (severity lometa, "", Just loitem)
+                                (LogValue name value) ->
+                                    (severity lometa, name <> " = " <> pack (showSI value), Nothing)
                                 (ObserveDiff _) ->
                                      let text = TL.toStrict (encodeToLazyText (toObject loitem))
                                      in
@@ -309,8 +313,6 @@ passN backend katip (LogObject loname lometa loitem) = do
                                                 "\n" <> name <> ": " <> pack (show agg)
                                     in
                                     (severity lometa, text, Nothing)
-                                (LogValue name value) ->
-                                    (severity lometa, name <> " = " <> pack (showSI value), Nothing)
                                 (MonitoringEffect _) ->
                                      let text = TL.toStrict (encodeToLazyText (toObject loitem))
                                      in
