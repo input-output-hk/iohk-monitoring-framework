@@ -6,7 +6,6 @@
 \begin{code}
 {-# LANGUAGE DeriveAnyClass     #-}
 {-# LANGUAGE DeriveGeneric      #-}
--- {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE LambdaCase         #-}
 {-# LANGUAGE StandaloneDeriving #-}
 
@@ -172,12 +171,18 @@ instance FromJSON MonitorAction where
 \label{code:MonitoringEffect}\index{MonitoringEffect}
 \label{code:Command}\index{Command}
 \label{code:KillPill}\index{KillPill}
+
+LogStructured could also be:
+
+\begin{spec}
+ forall b . (ToJSON b) => LogStructured b
+\end{spec}
+
 Payload of a |LogObject|:
 \begin{code}
 data LOContent a = LogMessage a
                  | LogError Text
                  | LogValue Text Measurable
-                --  | forall b . (ToJSON b) => LogStructured b
                  | LogStructured BS.ByteString
                  | ObserveOpen CounterState
                  | ObserveDiff CounterState
