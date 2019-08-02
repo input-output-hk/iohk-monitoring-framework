@@ -75,11 +75,10 @@ instance ToJSON a => ToJSON (LogObject a) where
                , "locontent" .= _locontent
                ]
 instance (FromJSON a) => FromJSON (LogObject a) where
-    parseJSON j = withObject "LogObject"
-                    (\v -> LogObject <$> v .: "loname"
-                                     <*> v .: "lometa"
-                                     <*> v .: "locontent")
-                    j
+    parseJSON = withObject "LogObject" $ \v ->
+                    LogObject <$> v .: "loname"
+                              <*> v .: "lometa"
+                              <*> v .: "locontent"
 
 \end{code}
 
@@ -104,12 +103,11 @@ instance ToJSON LOMeta where
                , "privacy"  .= show _priv
                ]
 instance FromJSON LOMeta where
-    parseJSON j = withObject "LOMeta"
-                    (\v -> LOMeta <$> v .: "tstamp"
-                                  <*> v .: "tid"
-                                  <*> v .: "severity"
-                                  <*> v .: "privacy")
-                    j
+    parseJSON = withObject "LOMeta" $ \v ->
+                    LOMeta <$> v .: "tstamp"
+                           <*> v .: "tid"
+                           <*> v .: "severity"
+                           <*> v .: "privacy"
 
 mkLOMeta :: MonadIO m => Severity -> PrivacyAnnotation -> m LOMeta
 mkLOMeta sev priv =
@@ -145,18 +143,16 @@ instance ToJSON MonitorAction where
                , "name" .= toJSON n
                , "severity" .= toJSON s ]
 instance FromJSON MonitorAction where
-    parseJSON j = withObject "MonitorAction"
-      (\v -> (v .: "kind" :: Parser Text)
-              >>=
-              \case "MonitorAlert" ->
-                      MonitorAlert <$> v .: "message"
-                    "MonitorAlterGlobalSeverity" ->
-                      MonitorAlterGlobalSeverity <$> v .: "severity"
-                    "MonitorAlterSeverity" ->
-                      MonitorAlterSeverity <$> v .: "name" <*> v .: "severity"
-                    _ -> fail "unknown MonitorAction" )
-      j
-
+    parseJSON = withObject "MonitorAction" $ \v ->
+                    (v .: "kind" :: Parser Text)
+                    >>=
+                    \case "MonitorAlert" ->
+                            MonitorAlert <$> v .: "message"
+                          "MonitorAlterGlobalSeverity" ->
+                            MonitorAlterGlobalSeverity <$> v .: "severity"
+                          "MonitorAlterSeverity" ->
+                            MonitorAlterSeverity <$> v .: "name" <*> v .: "severity"
+                          _ -> fail "unknown MonitorAction"
 
 \end{code}
 
@@ -288,12 +284,11 @@ instance ToJSON CommandValue where
         object [ "kind"    .= String "DumpBufferedTo"
                , "backend" .= toJSON be ]
 instance FromJSON CommandValue where
-    parseJSON v = withObject "CommandValue"
-        (\a -> (a .: "kind" :: Parser Text)
-                >>=
-                \case "DumpBufferedTo" -> DumpBufferedTo <$> a .: "backend"
-                      _ -> fail "unknown CommandValue" )
-        v
+    parseJSON = withObject "CommandValue" $ \v ->
+                    (v .: "kind" :: Parser Text)
+                    >>=
+                    \case "DumpBufferedTo" -> DumpBufferedTo <$> v .: "backend"
+                          _ -> fail "unknown CommandValue"
 
 \end{code}
 
@@ -308,11 +303,10 @@ data PrivacyAnnotation =
     deriving (Show, Eq)
 
 instance FromJSON PrivacyAnnotation where
-    parseJSON v = withText "PrivacyAnnotation"
-                    (\case "Confidential" -> pure Confidential
-                           "Public"       -> pure Public
-                           _ -> fail "unknown PrivacyAnnotation" )
-                    v
+    parseJSON = withText "PrivacyAnnotation" $
+                    \case "Confidential" -> pure Confidential
+                          "Public"       -> pure Public
+                          _ -> fail "unknown PrivacyAnnotation"
 
 \end{code}
 
