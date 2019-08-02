@@ -4,32 +4,39 @@
 
 %if style == newcode
 \begin{code}
-{-# LANGUAGE DefaultSignatures #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE InstanceSigs      #-}
-{-# LANGUAGE TypeSynonymInstances #-}
+{-# LANGUAGE DefaultSignatures     #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE InstanceSigs          #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TypeSynonymInstances  #-}
 
 module Cardano.BM.Data.Tracer
     ( Tracer (..)
+    , Transformable (..)
     , ToLogObject (..)
     , ToObject (..)
     , traceWith
-    -- , Contravariant(..)
     -- * tracer transformers
     , natTracer
     , nullTracer
     , stdoutTracer
     , debugTracer
     , showTracing
+    , trStructured
     -- * conditional tracing
     , condTracing
     , condTracingM
     ) where
 
+
+import           Control.Monad.IO.Class (MonadIO (..))
+
 import           Data.Aeson (Object, ToJSON (..), Value (..), encode)
 import qualified Data.HashMap.Strict as HM
-import           Data.Text (Text)
+import           Data.Text (Text, pack, unpack)
+import           Data.Word (Word64)
 
+import           Cardano.BM.Data.Aggregated
 import           Cardano.BM.Data.LogItem (LogObject (..), LOContent (..),
                      PrivacyAnnotation (..), mkLOMeta)
 import           Cardano.BM.Data.Severity (Severity (..))
@@ -89,15 +96,12 @@ for further processing of the messages.
 The function |toLogObject| can be specialized for various environments
 \begin{code}
 class Monad m => ToLogObject m where
-  toLogObject :: (ToObject a, ToObject b) => Tracer m (LogObject a) -> Tracer m b
+    toLogObject :: (ToObject a, Transformable a m b) => Tracer m (LogObject a) -> Tracer m b
 
 instance ToLogObject IO where
-    toLogObject :: (ToObject a, ToObject b) => Tracer IO (LogObject a) -> Tracer IO b
-    toLogObject tr = Tracer $ \a -> do
-        lo <- LogObject <$> pure ""
-                        <*> (mkLOMeta Debug Public)
-                        <*> pure (LogStructured $ encode a)
-        traceWith tr lo
+    toLogObject :: (MonadIO m, ToObject a, Transformable a m b) => Tracer m (LogObject a) -> Tracer m b
+    toLogObject tr =
+        trTransformer tr
 
 \end{code}
 
@@ -133,9 +137,9 @@ class ToJSON a => ToObject a where
     toObject :: a -> Object
     default toObject :: a -> Object
     toObject v = case toJSON v of
-        Object o -> o
+        Object o     -> o
         s@(String _) -> HM.singleton "string" s
-        _        -> mempty
+        _            -> mempty
 
 instance ToObject () where
     toObject _ = mempty
@@ -144,5 +148,82 @@ instance ToObject String
 instance ToObject Text
 instance ToJSON a => ToObject (LogObject a)
 instance ToJSON a => ToObject (LOContent a)
+
+\end{code}
+
+\subsubsection{A transformable Tracer}
+
+Parameterised over the source Tracer (\emph{b}) and
+the target Tracer (\emph{a}).
+
+\begin{code}
+class Monad m => Transformable a m b where
+    trTransformer :: Tracer m (LogObject a) -> Tracer m b
+    default trTransformer :: Tracer m (LogObject a) -> Tracer m b
+    trTransformer _ = nullTracer
+
+trFromIntegral :: (Integral b, MonadIO m) => Tracer m (LogObject a) -> Text -> Tracer m b
+trFromIntegral tr name = Tracer $ \arg ->
+        traceWith tr =<<
+            LogObject <$> pure ""
+                      <*> (mkLOMeta Debug Public)
+                      <*> pure (LogValue name $ PureI $ fromIntegral arg)
+
+trFromReal :: (Real b, MonadIO m) => Tracer m (LogObject a) -> Text -> Tracer m b
+trFromReal tr name = Tracer $ \arg ->
+        traceWith tr =<<
+            LogObject <$> pure ""
+                      <*> (mkLOMeta Debug Public)
+                      <*> pure (LogValue name $ PureD $ realToFrac arg)
+
+instance Transformable a IO Int where
+    trTransformer tr = trFromIntegral tr "int"
+instance Transformable a IO Integer where
+    trTransformer tr = trFromIntegral tr "integer"
+instance Transformable a IO Word64 where
+    trTransformer tr = trFromIntegral tr "integer"
+instance Transformable a IO Double where
+    trTransformer tr = trFromReal tr "dbl"
+instance Transformable a IO Float where
+    trTransformer tr = trFromReal tr "flt"
+instance Transformable Text IO Text where
+    trTransformer tr = Tracer $ \arg ->
+        traceWith tr =<<
+            LogObject <$> pure ""
+                      <*> (mkLOMeta Debug Public)
+                      <*> pure (LogMessage arg)
+instance Transformable String IO String where
+    trTransformer tr = Tracer $ \arg ->
+        traceWith tr =<<
+            LogObject <$> pure ""
+                      <*> (mkLOMeta Debug Public)
+                      <*> pure (LogMessage arg)
+instance Transformable Text IO String where
+    trTransformer tr = Tracer $ \arg ->
+        traceWith tr =<<
+            LogObject <$> pure ""
+                      <*> (mkLOMeta Debug Public)
+                      <*> pure (LogMessage $ pack arg)
+instance Transformable String IO Text where
+    trTransformer tr = Tracer $ \arg ->
+        traceWith tr =<<
+            LogObject <$> pure ""
+                      <*> (mkLOMeta Debug Public)
+                      <*> pure (LogMessage $ unpack arg)
+
+-- this instance is overlapping!
+-- instance ToJSON j => Transformable a IO j where
+--     trTransformer tr = Tracer $ \arg ->
+--         traceWith tr =<<
+--             LogObject <$> pure ""
+--                       <*> (mkLOMeta Debug Public)
+--                       <*> pure (LogStructured $ encode arg)
+
+trStructured :: (MonadIO m, ToJSON b) => Tracer m (LogObject a) -> Tracer m b
+trStructured tr = Tracer $ \arg ->
+        traceWith tr =<<
+            LogObject <$> pure ""
+                      <*> (mkLOMeta Debug Public)
+                      <*> pure (LogStructured $ encode arg)
 
 \end{code}

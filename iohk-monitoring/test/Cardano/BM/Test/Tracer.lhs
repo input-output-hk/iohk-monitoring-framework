@@ -83,12 +83,12 @@ tracingInNamedContext = do
 callFun2 :: Tracer IO (LogObject Text) -> IO Int
 callFun2 logTrace = do
     let logTrace' = appendNamed' "fun2" logTrace
-    traceWith (toLogObject logTrace') "in function 2"
+    traceWith (toLogObject logTrace') ("in function 2" :: Text)
     callFun3 logTrace'
 
 callFun3 :: Tracer IO (LogObject Text) -> IO Int
 callFun3 logTrace = do
-    traceWith (toLogObject $ appendNamed' "fun3" $ logTrace) "in function 3"
+    traceWith (toLogObject $ appendNamed' "fun3" $ logTrace) ("in function 3" :: Text)
     return 42
 
 \end{code}
@@ -129,15 +129,15 @@ filterAppendNameTracing test name = (appendNamed' name) . (condTracingM test)
 tracingWithPredicateFilter :: Assertion
 tracingWithPredicateFilter = do
     let appendF = filterAppendNameTracing oracle
-        logTrace = appendF "example4" (renderNamedItemTracing' stdoutTracer)
+        logTrace :: Tracer IO (LogObject Text) = appendF "example4" (renderNamedItemTracing' stdoutTracer)
 
     traceWith (toLogObject logTrace) ("Hello" :: String)
 
     let logTrace' = appendF "inner" logTrace
-    traceWith (toLogObject logTrace') "World"
+    traceWith (toLogObject logTrace') ("World" :: String)
 
     let logTrace'' = appendF "innest" logTrace'
-    traceWith (toLogObject logTrace'') "!!"
+    traceWith (toLogObject logTrace'') ("!!" :: String)
 
     assertBool "OK" True
   where
