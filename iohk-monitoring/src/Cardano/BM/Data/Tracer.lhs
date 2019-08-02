@@ -26,7 +26,7 @@ module Cardano.BM.Data.Tracer
     , condTracingM
     ) where
 
-import           Data.Aeson (Object, ToJSON (..), Value (..))
+import           Data.Aeson (Object, ToJSON (..), Value (..), encode)
 import qualified Data.HashMap.Strict as HM
 import           Data.Text (Text)
 
@@ -89,14 +89,14 @@ for further processing of the messages.
 The function |toLogObject| can be specialized for various environments
 \begin{code}
 class Monad m => ToLogObject m where
-  toLogObject :: ToObject a => Tracer m (LogObject a) -> Tracer m a
+  toLogObject :: (ToObject a, ToObject b) => Tracer m (LogObject a) -> Tracer m b
 
 instance ToLogObject IO where
-    toLogObject :: ToObject a => Tracer IO (LogObject a) -> Tracer IO a
+    toLogObject :: (ToObject a, ToObject b) => Tracer IO (LogObject a) -> Tracer IO b
     toLogObject tr = Tracer $ \a -> do
         lo <- LogObject <$> pure ""
                         <*> (mkLOMeta Debug Public)
-                        <*> pure (LogMessage a)
+                        <*> pure (LogStructured $ encode a)
         traceWith tr lo
 
 \end{code}
