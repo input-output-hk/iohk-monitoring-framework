@@ -26,14 +26,20 @@ module Cardano.BM.Data.LogItem
   )
   where
 
+import           Control.Applicative (Alternative ((<|>)))
 import           Control.Concurrent (myThreadId)
 import           Control.Monad.IO.Class (MonadIO, liftIO)
-import           Data.Aeson (FromJSON, ToJSON, object, toJSON, (.=))
+import           Data.Aeson (FromJSON (..), ToJSON (..), Value (..), (.=),
+                     (.:), object, withText, withObject)
+import           Data.Aeson.Types (Parser)
+import qualified Data.ByteString.Lazy as BS
+import qualified Data.ByteString.Base64.Lazy as BS64
 import           Data.Text (Text, pack)
+import qualified Data.Text.Lazy as LT
+import           Data.Text.Lazy.Encoding (encodeUtf8, decodeUtf8)
 import           Data.Time.Clock.POSIX (utcTimeToPOSIXSeconds)
 import           Data.Time.Clock (UTCTime (..), getCurrentTime)
 import           Data.Word (Word64)
-import           GHC.Generics (Generic)
 
 import           Cardano.BM.Data.Aggregated (Aggregated (..), Measurable (..))
 import           Cardano.BM.Data.BackendKind
@@ -60,8 +66,19 @@ data LogObject a = LogObject
                      { loName    :: LoggerName
                      , loMeta    :: !LOMeta
                      , loContent :: (LOContent a)
-                     }
-                     deriving (Generic, Show, ToJSON, FromJSON)
+                     } deriving (Show, Eq)
+
+instance ToJSON a => ToJSON (LogObject a) where
+    toJSON (LogObject _loname _lometa _locontent) =
+        object [ "loname"    .= _loname
+               , "lometa"    .= _lometa
+               , "locontent" .= _locontent
+               ]
+instance (FromJSON a) => FromJSON (LogObject a) where
+    parseJSON = withObject "LogObject" $ \v ->
+                    LogObject <$> v .: "loname"
+                              <*> v .: "lometa"
+                              <*> v .: "locontent"
 
 \end{code}
 
@@ -76,16 +93,21 @@ data LOMeta = LOMeta {
                 , tid      :: {-# UNPACK #-} !Text
                 , severity :: !Severity
                 , privacy  :: !PrivacyAnnotation
-                }
-                deriving (Show, Generic, FromJSON)
+                } deriving (Show, Eq)
 
 instance ToJSON LOMeta where
     toJSON (LOMeta _tstamp _tid _sev _priv) =
         object [ "tstamp"   .= _tstamp
-               , "tid"      .= show _tid
+               , "tid"      .= _tid
                , "severity" .= show _sev
                , "privacy"  .= show _priv
                ]
+instance FromJSON LOMeta where
+    parseJSON = withObject "LOMeta" $ \v ->
+                    LOMeta <$> v .: "tstamp"
+                           <*> v .: "tid"
+                           <*> v .: "severity"
+                           <*> v .: "privacy"
 
 mkLOMeta :: MonadIO m => Severity -> PrivacyAnnotation -> m LOMeta
 mkLOMeta sev priv =
@@ -107,12 +129,37 @@ utc2ns utctime = fromInteger $ round $ 1000 * 1000 * 1000 * (utcTimeToPOSIXSecon
 data MonitorAction = MonitorAlert Text
                    | MonitorAlterGlobalSeverity Severity
                    | MonitorAlterSeverity LoggerName Severity
-                   deriving (Generic, Show, ToJSON, FromJSON)
+                   deriving (Show, Eq)
+
+instance ToJSON MonitorAction where
+    toJSON (MonitorAlert m) =
+        object [ "kind"    .= String "MonitorAlert"
+               , "message" .= toJSON m ]
+    toJSON (MonitorAlterGlobalSeverity s) =
+        object [ "kind"     .= String "MonitorAlterGlobalSeverity"
+               , "severity" .= toJSON s ]
+    toJSON (MonitorAlterSeverity n s) =
+        object [ "kind" .= String "MonitorAlterSeverity"
+               , "name" .= toJSON n
+               , "severity" .= toJSON s ]
+instance FromJSON MonitorAction where
+    parseJSON = withObject "MonitorAction" $ \v ->
+                    (v .: "kind" :: Parser Text)
+                    >>=
+                    \case "MonitorAlert" ->
+                            MonitorAlert <$> v .: "message"
+                          "MonitorAlterGlobalSeverity" ->
+                            MonitorAlterGlobalSeverity <$> v .: "severity"
+                          "MonitorAlterSeverity" ->
+                            MonitorAlterSeverity <$> v .: "name" <*> v .: "severity"
+                          _ -> fail "unknown MonitorAction"
+
 \end{code}
 
 \label{code:LogMessage}\index{LogMessage}
 \label{code:LogError}\index{LogError}
 \label{code:LogValue}\index{LogValue}
+\label{code:LogStructured}\index{LogStructured}
 \label{code:ObserveOpen}\index{ObserveOpen}
 \label{code:ObserveDiff}\index{ObserveDiff}
 \label{code:ObserveClose}\index{ObserveClose}
@@ -120,11 +167,19 @@ data MonitorAction = MonitorAlert Text
 \label{code:MonitoringEffect}\index{MonitoringEffect}
 \label{code:Command}\index{Command}
 \label{code:KillPill}\index{KillPill}
+
+LogStructured could also be:
+
+\begin{spec}
+ forall b . (ToJSON b) => LogStructured b
+\end{spec}
+
 Payload of a |LogObject|:
 \begin{code}
 data LOContent a = LogMessage a
                  | LogError Text
                  | LogValue Text Measurable
+                 | LogStructured BS.ByteString
                  | ObserveOpen CounterState
                  | ObserveDiff CounterState
                  | ObserveClose CounterState
@@ -132,7 +187,67 @@ data LOContent a = LogMessage a
                  | MonitoringEffect MonitorAction
                  | Command CommandValue
                  | KillPill
-                   deriving (Generic, Show, ToJSON, FromJSON)
+                 deriving (Show, Eq)
+
+instance ToJSON a => ToJSON (LOContent a) where
+    toJSON (LogMessage m) =
+        object [ "kind" .= String "LogMessage"
+               , "message" .= toJSON m]
+    toJSON (LogError m) =
+        object [ "kind" .= String "LogError"
+               , "message" .= toJSON m]
+    toJSON (LogValue n v) =
+        object [ "kind" .= String "LogValue"
+               , "name" .= toJSON n
+               , "value" .= toJSON v]
+    toJSON (LogStructured m) =
+        object [ "kind" .= String "LogStructured"
+               , "message" .= (toJSON $ decodeUtf8 $ BS64.encode m)]
+    toJSON (ObserveOpen c) =
+        object [ "kind" .= String "ObserveOpen"
+               , "counters" .= toJSON c]
+    toJSON (ObserveDiff c) =
+        object [ "kind" .= String "ObserveDiff"
+               , "counters" .= toJSON c]
+    toJSON (ObserveClose c) =
+        object [ "kind" .= String "ObserveClose"
+               , "counters" .= toJSON c ]
+    toJSON (AggregatedMessage ps) =
+        object [ "kind" .= String "AggregatedMessage"
+               , "pairs" .= toJSON ps ]
+    toJSON (MonitoringEffect a) =
+        object [ "kind" .= String "MonitoringEffect"
+               , "action" .= toJSON a ]
+    toJSON (Command c) =
+        object [ "kind" .= String "Command"
+               , "command" .= toJSON c ]
+    toJSON KillPill =
+        String "KillPill"
+
+instance (FromJSON a) => FromJSON (LOContent a) where
+    parseJSON j = withObject "LOContent"
+          (\v -> (v .: "kind" :: Parser Text)
+                  >>=
+                  \case "LogMessage" -> LogMessage <$> v .: "message"
+                        "LogError" -> LogError <$> v .: "message"
+                        "LogValue" -> LogValue <$> v .: "name" <*> v .: "value"
+                        "LogStructured" -> LogStructured <$>
+                                              BS64.decodeLenient <$>
+                                              encodeUtf8 <$>
+                                              (v .: "message" :: Parser LT.Text)
+                        "ObserveOpen" -> ObserveOpen <$> v .: "counters"
+                        "ObserveDiff" -> ObserveDiff <$> v .: "counters"
+                        "ObserveClose" -> ObserveClose <$> v .: "counters"
+                        "AggregatedMessage" -> AggregatedMessage <$> v .: "pairs"
+                        "MonitoringEffect" -> MonitoringEffect <$> v .: "action"
+                        "Command" -> Command <$> v .: "command"
+                        _ -> fail "unknown LOContent" )
+          j
+        <|>
+          withText "LOContent"
+          (\case "KillPill" -> pure KillPill
+                 _ -> fail "unknown LOContent (String)")
+          j
 
 loType :: LogObject a -> Text
 loType (LogObject _ _ content) = loType2Name content
@@ -146,6 +261,7 @@ loType2Name = \case
     LogMessage _        -> "LogMessage"
     LogError _          -> "LogError"
     LogValue _ _        -> "LogValue"
+    LogStructured _     -> "LogStructured"
     ObserveOpen _       -> "ObserveOpen"
     ObserveDiff _       -> "ObserveDiff"
     ObserveClose _      -> "ObserveClose"
@@ -161,7 +277,18 @@ Backends can enter commands to the trace. Commands will end up in the
 |Switchboard|, which will interpret them and take action.
 \begin{code}
 data CommandValue = DumpBufferedTo BackendKind
-                    deriving (Generic, Show, ToJSON, FromJSON)
+                    deriving (Show, Eq)
+
+instance ToJSON CommandValue where
+    toJSON (DumpBufferedTo be) =
+        object [ "kind"    .= String "DumpBufferedTo"
+               , "backend" .= toJSON be ]
+instance FromJSON CommandValue where
+    parseJSON = withObject "CommandValue" $ \v ->
+                    (v .: "kind" :: Parser Text)
+                    >>=
+                    \case "DumpBufferedTo" -> DumpBufferedTo <$> v .: "backend"
+                          _ -> fail "unknown CommandValue"
 
 \end{code}
 
@@ -173,7 +300,13 @@ data CommandValue = DumpBufferedTo BackendKind
 data PrivacyAnnotation =
       Confidential -- confidential information - handle with care
     | Public       -- indifferent - can be public.
-    deriving (Show, Generic, ToJSON, FromJSON)
+    deriving (Show, Eq)
+
+instance FromJSON PrivacyAnnotation where
+    parseJSON = withText "PrivacyAnnotation" $
+                    \case "Confidential" -> pure Confidential
+                          "Public"       -> pure Public
+                          _ -> fail "unknown PrivacyAnnotation"
 
 \end{code}
 
@@ -184,7 +317,7 @@ data PrivacyAndSeverityAnnotated a
                   , psaPrivacy  :: !PrivacyAnnotation
                   , psaPayload  :: a
                   }
-              deriving (Show)
+            deriving (Show)
 
 \end{code}
 
@@ -206,7 +339,8 @@ mapLOContent :: (a -> b) -> LOContent a -> LOContent b
 mapLOContent f = \case
     LogMessage msg       -> LogMessage (f msg)
     LogError a           -> LogError a
-    LogValue a n         -> LogValue a n
+    LogStructured m      -> LogStructured m
+    LogValue n v         -> LogValue n v
     ObserveOpen st       -> ObserveOpen st
     ObserveDiff st       -> ObserveDiff st
     ObserveClose st      -> ObserveClose st

@@ -17,6 +17,7 @@ import qualified Cardano.BM.Test.Aggregated (tests)
 import qualified Cardano.BM.Test.STM (tests)
 import qualified Cardano.BM.Test.Trace (tests)
 import qualified Cardano.BM.Test.Configuration (tests)
+import qualified Cardano.BM.Test.LogItem (tests)
 import qualified Cardano.BM.Test.Rotator (tests)
 import qualified Cardano.BM.Test.Routing (tests)
 import qualified Cardano.BM.Test.Structured (tests)
@@ -39,6 +40,7 @@ tests =
     Cardano.BM.Test.STM.tests
   , Cardano.BM.Test.Trace.tests
   , Cardano.BM.Test.Configuration.tests
+  , Cardano.BM.Test.LogItem.tests
   , Cardano.BM.Test.Rotator.tests
   , Cardano.BM.Test.Routing.tests
   , Cardano.BM.Test.Structured.tests

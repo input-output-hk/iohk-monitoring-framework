@@ -38,7 +38,7 @@ data Counter = Counter
                , cName  :: Text
                , cValue :: Measurable
                }
-               deriving (Eq, Show, Generic, ToJSON, FromJSON)
+               deriving (Show, Eq, Generic, ToJSON, FromJSON)
 
 data CounterType = MonotonicClockTime
                  | MemoryCounter
@@ -71,7 +71,7 @@ nameCounter (Counter RTSStats           _ _) = "RTS"
 data CounterState = CounterState {
       csCounters   :: [Counter]
     }
-    deriving (Show, Generic, ToJSON, FromJSON)
+    deriving (Show, Eq, Generic, ToJSON, FromJSON)
 
 \end{code}
 

@@ -36,6 +36,7 @@
           (hsPkgs.async-timer)
           (hsPkgs.attoparsec)
           (hsPkgs.auto-update)
+          (hsPkgs.base64-bytestring)
           (hsPkgs.bytestring)
           (hsPkgs.clock)
           (hsPkgs.containers)
