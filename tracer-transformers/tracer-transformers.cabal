@@ -4,8 +4,8 @@ version:             0.1.0.1
 synopsis:            tracer transformers and examples showing their use
 -- description:
 -- bug-reports:
-license:             MIT
-license-file:        LICENSE
+license:             Apache-2.0
+license-files:       LICENSE, NOTICE
 author:              Neil Davies, Alexander Diemand, Andreas Triantafyllos
 maintainer:          operations@iohk.io
 copyright:           2019 IOHK
