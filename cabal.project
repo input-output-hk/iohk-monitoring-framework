@@ -2,11 +2,18 @@
 packages:
   iohk-monitoring
   contra-tracer
+  tracer-transformers
 
 package iohk-monitoring
   tests: True
 
 package contra-tracer
+   -- Currently does not have tests, but set it True in case any are added.
+  tests: True
+  documentation: True
+  haddock-hyperlink-source: True
+
+package tracer-transformers
    -- Currently does not have tests, but set it True in case any are added.
   tests: True
   documentation: True
