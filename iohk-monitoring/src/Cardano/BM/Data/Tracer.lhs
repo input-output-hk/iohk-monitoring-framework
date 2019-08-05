@@ -181,11 +181,11 @@ instance Transformable a IO Int where
 instance Transformable a IO Integer where
     trTransformer tr = trFromIntegral tr "integer"
 instance Transformable a IO Word64 where
-    trTransformer tr = trFromIntegral tr "integer"
+    trTransformer tr = trFromIntegral tr "word64"
 instance Transformable a IO Double where
-    trTransformer tr = trFromReal tr "dbl"
+    trTransformer tr = trFromReal tr "double"
 instance Transformable a IO Float where
-    trTransformer tr = trFromReal tr "flt"
+    trTransformer tr = trFromReal tr "float"
 instance Transformable Text IO Text where
     trTransformer tr = Tracer $ \arg ->
         traceWith tr =<<
@@ -210,14 +210,6 @@ instance Transformable String IO Text where
             LogObject <$> pure ""
                       <*> (mkLOMeta Debug Public)
                       <*> pure (LogMessage $ unpack arg)
-
--- this instance is overlapping!
--- instance ToJSON j => Transformable a IO j where
---     trTransformer tr = Tracer $ \arg ->
---         traceWith tr =<<
---             LogObject <$> pure ""
---                       <*> (mkLOMeta Debug Public)
---                       <*> pure (LogStructured $ encode arg)
 
 trStructured :: (MonadIO m, ToJSON b) => Tracer m (LogObject a) -> Tracer m b
 trStructured tr = Tracer $ \arg ->
