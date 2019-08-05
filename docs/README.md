@@ -39,6 +39,8 @@ This was the first presentation of `iohk-monitoring-framework`:
 
 [package contra-tracer](haddock/contra-tracer/index.html)
 
+[package tracer-transformers](haddock/tracer-transformers/index.html)
+
 
 ## UML Diagrams
 
