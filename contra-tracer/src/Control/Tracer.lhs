@@ -21,13 +21,14 @@ module Control.Tracer
     , stdoutTracer
     , debugTracer
     -- * transformers
+    , contramapM
     , showTracing
     , condTracing
     , condTracingM
     , natTracer
     ) where
 
-import           Control.Monad (when)
+import           Control.Monad (when, (>=>))
 import           Control.Monad.IO.Class (MonadIO (..))
 import           Data.Functor.Contravariant (Contravariant (..))
 import           Data.Semigroup (Semigroup (..))
@@ -149,6 +150,26 @@ traceWith = runTracer
 \end{code}
 
 \subsection{Transformers}
+\subsubsection{Contravariant transformers using Kleisli arrows}
+Tracers can be transformed using Kleisli arrows, e.g. arrows of the type
+|Monad m => a -> m b|, technically this makes |Tracer| a contravariant functor
+over |Kleisli| category.  The important difference from using `contramap` is
+that the monadic action runs when a tracer is called, this might be the prefered
+behaviour when trying to trace timeing information.
+
+%if style == newcode
+\begin{code}
+-- | Transform a tracer using a Kleisli map.
+\end{code}
+%endif
+\begin{code}
+contramapM :: Monad m
+           => (a -> m b)
+           -> Tracer m b
+           -> Tracer m a
+contramapM f (Tracer tr) = Tracer (f >=> tr)
+\end{code}
+
 \subsubsection{Applying |show| on a |Tracer|'s messages}
 The Tracer transformer exploiting Show.
 
