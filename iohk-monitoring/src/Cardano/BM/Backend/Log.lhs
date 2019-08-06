@@ -276,9 +276,6 @@ This function is non-blocking.
 \begin{code}
 passN :: ToObject a => ScribeId -> Log a -> LogObject a -> IO ()
 passN backend katip (LogObject loname lometa loitem) = do
-    -- case loitem of
-    --     (LogStructured s) -> putStrLn $ show s
-    --     _ -> pure ()
     env <- kLogEnv <$> readMVar (getK katip)
     forM_ (Map.toList $ K._logEnvScribes env) $
           \(scName, (KC.ScribeHandle _ shChan)) ->
@@ -297,7 +294,7 @@ passN backend katip (LogObject loname lometa loitem) = do
                                 (LogError text) ->
                                      (severity lometa, text, Nothing)
                                 (LogStructured s) ->
-                                     (severity lometa, TL.toStrict $ decodeUtf8 s, Nothing {-Just loitem-})
+                                     (severity lometa, TL.toStrict $ decodeUtf8 s, Nothing {- Just loitem -})
                                 (LogValue name value) ->
                                     (severity lometa, name <> " = " <> pack (showSI value), Nothing)
                                 (ObserveDiff _) ->

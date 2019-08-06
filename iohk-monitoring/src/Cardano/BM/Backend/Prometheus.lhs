@@ -2,8 +2,6 @@
 \subsection{Cardano.BM.Backend.Prometheus}
 \label{module:Cardano.BM.Backend.Prometheus}
 
-
-
 %if style == newcode
 \begin{code}
 
@@ -26,7 +24,9 @@ import           System.Remote.Monitoring.Prometheus (registerEKGStore,
 \end{code}
 %endif
 
-\subsubsection{Spawn Prometheus client from existing EKG server}\label{code:Monitor}\index{Monitor}
+\subsubsection{Spawn Prometheus client from existing EKG server}
+\label{code:spawnPrometheus}\index{spawnPrometheus}
+\label{code:passToPrometheus}\index{passToPrometheus}
 \begin{code}
 
 spawnPrometheus :: EKG.Server -> Port -> IO (Async.Async ())

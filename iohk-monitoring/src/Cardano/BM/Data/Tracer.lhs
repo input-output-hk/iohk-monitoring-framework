@@ -26,6 +26,18 @@ module Cardano.BM.Data.Tracer
     -- * conditional tracing
     , condTracing
     , condTracingM
+    -- * severity transformers
+    , severityDebug
+    , severityInfo
+    , severityNotice
+    , severityWarning
+    , severityError
+    , severityCritical
+    , severityAlert
+    , severityEmergency
+    -- * privacy annotation transformers
+    , annotateConfidential
+    , annotatePublic
     ) where
 
 
@@ -38,7 +50,7 @@ import           Data.Word (Word64)
 
 import           Cardano.BM.Data.Aggregated
 import           Cardano.BM.Data.LogItem (LogObject (..), LOContent (..),
-                     PrivacyAnnotation (..), mkLOMeta)
+                     LOMeta (..), PrivacyAnnotation (..), mkLOMeta)
 import           Cardano.BM.Data.Severity (Severity (..))
 import           Control.Tracer
 
@@ -217,5 +229,40 @@ trStructured tr = Tracer $ \arg ->
             LogObject <$> pure ""
                       <*> (mkLOMeta Debug Public)
                       <*> pure (LogStructured $ encode arg)
+
+\end{code}
+
+\subsubsection{Transformers for setting severity level}
+The log |Severity| level of a LogObject can be altered.
+\begin{code}
+setSeverity :: Tracer m (LogObject a) -> Severity -> Tracer m (LogObject a)
+setSeverity tr sev = Tracer $ \lo@(LogObject _nm meta@(LOMeta _ts _tid _sev _pr) _lc) ->
+                                traceWith tr $ lo { loMeta = meta { severity = sev } }
+
+severityDebug, severityInfo, severityNotice,
+  severityWarning, severityError, severityCritical,
+  severityAlert, severityEmergency  :: Tracer m (LogObject a) -> Tracer m (LogObject a)
+severityDebug tr = setSeverity tr Debug
+severityInfo tr = setSeverity tr Info
+severityNotice tr = setSeverity tr Notice
+severityWarning tr = setSeverity tr Warning
+severityError tr = setSeverity tr Error
+severityCritical tr = setSeverity tr Critical
+severityAlert tr = setSeverity tr Alert
+severityEmergency tr = setSeverity tr Emergency
+
+\end{code}
+
+\subsubsection{Transformers for setting privacy annotation}
+The privacy annotation (|PrivacyAnnotation|) of the LogObject can
+be altered with the following functions.
+\begin{code}
+setPrivacy :: Tracer m (LogObject a) -> PrivacyAnnotation -> Tracer m (LogObject a)
+setPrivacy tr prannot = Tracer $ \lo@(LogObject _nm meta@(LOMeta _ts _tid _sev _pr) _lc) ->
+                                traceWith tr $ lo { loMeta = meta { privacy = prannot } }
+
+annotateConfidential, annotatePublic :: Tracer m (LogObject a) -> Tracer m (LogObject a)
+annotateConfidential tr = setPrivacy tr Confidential
+annotatePublic tr = setPrivacy tr Public
 
 \end{code}
