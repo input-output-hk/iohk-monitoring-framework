@@ -46,6 +46,7 @@ executable tracer-transfomers-example2
   -- other-extensions:
   build-depends:       base
                      , contra-tracer
+                     , text
                      , tracer-transformers
   default-extensions:  OverloadedStrings
   default-language:    Haskell2010
