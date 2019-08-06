@@ -41,11 +41,11 @@ main = do
   putStrLn ""
 
   putStrLn "benchmarking run of code:"
-  otherCode $ myCodeTracersBenchmarking
+  otherCode myCodeTracersBenchmarking
   putStrLn ""
 
   putStrLn "production run of code:"
-  otherCode $ myCodeTracersProduction stdoutTracer
+  otherCode (myCodeTracersProduction stdoutTracer)
   putStrLn ""
 
 --- demo code
