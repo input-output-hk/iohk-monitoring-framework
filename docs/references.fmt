@@ -205,10 +205,12 @@
 %format Monitor = "\hyperref[code:Monitor]{Monitor}"
 %format MonitorState = "\hyperref[code:MonitorState]{MonitorState}"
 %format evalMonitoringAction = "\hyperref[code:evalMonitoringAction]{evalMonitoringAction}"
-%format Monitor = "\hyperref[code:Monitor]{Monitor}"
+%format spawnPrometheus = "\hyperref[code:spawnPrometheus]{spawnPrometheus}"
+%format passToPrometheus = "\hyperref[code:passToPrometheus]{passToPrometheus}"
 %format TraceAcceptor = "\hyperref[code:TraceAcceptor]{TraceAcceptor}"
 %format TraceForwarder = "\hyperref[code:TraceForwarder]{TraceForwarder}"
 %format Cardano.BM.Arbitrary.Aggregated = "\hyperref[code:Cardano.BM.Arbitrary.Aggregated]{Cardano.BM.Arbitrary.Aggregated}"
+%format Cardano.BM.Test.LogItem = "\hyperref[code:Cardano.BM.Test.LogItem]{Cardano.BM.Test.LogItem}"
 %format Cardano.BM.Test.Aggregated = "\hyperref[code:Cardano.BM.Test.Aggregated]{Cardano.BM.Test.Aggregated}"
 %format Cardano.BM.Test.STM = "\hyperref[code:Cardano.BM.Test.STM]{Cardano.BM.Test.STM}"
 %format Cardano.BM.Test.Trace = "\hyperref[code:Cardano.BM.Test.Trace]{Cardano.BM.Test.Trace}"
@@ -231,7 +233,8 @@
 %format propNaming = "\hyperref[code:propNaming]{propNaming}"
 %format propCleanup = "\hyperref[code:propCleanup]{propCleanup}"
 %format Cardano.BM.Test.Structured = "\hyperref[code:Cardano.BM.Test.Structured]{Cardano.BM.Test.Structured}"
-%format logText = "\hyperref[code:logText]{logText}"
+%format logSimpleText = "\hyperref[code:logSimpleText]{logSimpleText}"
+%format logStructured = "\hyperref[code:logStructured]{logStructured}"
 %format Cardano.BM.Test.Tracer = "\hyperref[code:Cardano.BM.Test.Tracer]{Cardano.BM.Test.Tracer}"
 
 %endif

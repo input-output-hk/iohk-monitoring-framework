@@ -10,6 +10,7 @@
 
 module Cardano.BM.Test.Trace (
     TraceConfiguration (..)
+  , setupTrace
   , tests
   ) where
 

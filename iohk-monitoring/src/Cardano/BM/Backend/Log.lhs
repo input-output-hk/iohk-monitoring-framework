@@ -43,6 +43,7 @@ import           Data.Text (Text, isPrefixOf, pack, unpack)
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
 import           Data.Text.Lazy.Builder (Builder, fromText, toLazyText)
+import           Data.Text.Lazy.Encoding as TL (decodeUtf8)
 import qualified Data.Text.Lazy.IO as TIO
 import           Data.Time (diffUTCTime)
 import           Data.Time.Clock (UTCTime, getCurrentTime)
@@ -292,8 +293,8 @@ passN backend katip (LogObject loname lometa loitem) = do
                                      (severity lometa, text, maylo)
                                 (LogError text) ->
                                      (severity lometa, text, Nothing)
-                                (LogStructured _) ->
-                                    (severity lometa, "", Just loitem)
+                                (LogStructured s) ->
+                                     (severity lometa, TL.toStrict $ decodeUtf8 s, Nothing {- Just loitem -})
                                 (LogValue name value) ->
                                     (severity lometa, name <> " = " <> pack (showSI value), Nothing)
                                 (ObserveDiff _) ->

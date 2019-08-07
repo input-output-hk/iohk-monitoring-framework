@@ -56,6 +56,7 @@ tests =
 
 \section{Tests}
 
+%include ../test/Cardano/BM/Test/LogItem.lhs
 %include ../test/Cardano/BM/Test/Aggregated.lhs
 %include ../test/Cardano/BM/Test/STM.lhs
 %include ../test/Cardano/BM/Test/Trace.lhs
@@ -63,3 +64,4 @@ tests =
 %include ../test/Cardano/BM/Test/Rotator.lhs
 %include ../test/Cardano/BM/Test/Structured.lhs
 %include ../test/Cardano/BM/Test/Tracer.lhs
+%include ../test/Cardano/BM/Test/Monitoring.lhs
