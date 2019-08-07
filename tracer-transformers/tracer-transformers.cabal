@@ -38,3 +38,15 @@ executable tracer-transfomers-example1
                      , tracer-transformers
   default-extensions:  OverloadedStrings
   default-language:    Haskell2010
+
+executable tracer-transfomers-example2
+  main-is:             Main.hs
+  hs-source-dirs:      example2
+  -- other-modules:
+  -- other-extensions:
+  build-depends:       base
+                     , contra-tracer
+                     , text
+                     , tracer-transformers
+  default-extensions:  OverloadedStrings
+  default-language:    Haskell2010
