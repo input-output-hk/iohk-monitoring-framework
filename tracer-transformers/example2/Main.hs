@@ -65,7 +65,7 @@ getVerbosityLimit = return Normal
 
 -- the trace transformer on verbosity
 condVerbosity :: Monad m => Verbosity -> Tracer m a -> Tracer m a
-condVerbosity v = condTracing (verbosityP v)
+condVerbosity v = condTracingM (const <$> verbosityP v)
 
 
 -- The distict message types that you want to expose. This is the set
@@ -105,8 +105,8 @@ data BlockActions = BlockAction1 | BlockAction2 deriving (Show)
 data Timing = Timing Int deriving (Show)
 
 data MyCodeTracers m = MyCodeTracers 
-    { tr1 :: MonadIO m => Tracer m (MyMessages BlockActions)
-    , tr2 :: MonadIO m => Tracer m (MyMessages Timing)
+    { tr1 :: Tracer m (MyMessages BlockActions)
+    , tr2 :: Tracer m (MyMessages Timing)
     }  -- and so forth
 
 myCodeTracersBenchmarking = MyCodeTracers
