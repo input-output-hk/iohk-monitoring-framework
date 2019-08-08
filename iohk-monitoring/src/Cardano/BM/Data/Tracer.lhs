@@ -38,6 +38,9 @@ module Cardano.BM.Data.Tracer
     -- * privacy annotation transformers
     , annotateConfidential
     , annotatePublic
+    -- * annotate context name
+    , addName
+    , setName
     ) where
 
 
@@ -45,7 +48,8 @@ import           Control.Monad.IO.Class (MonadIO (..))
 
 import           Data.Aeson (Object, ToJSON (..), Value (..), encode)
 import qualified Data.HashMap.Strict as HM
-import           Data.Text (Text, pack, unpack)
+import           Data.Text (Text)
+import qualified Data.Text as T
 import           Data.Word (Word64)
 
 import           Cardano.BM.Data.Aggregated
@@ -215,13 +219,13 @@ instance Transformable Text IO String where
         traceWith tr =<<
             LogObject <$> pure ""
                       <*> (mkLOMeta Debug Public)
-                      <*> pure (LogMessage $ pack arg)
+                      <*> pure (LogMessage $ T.pack arg)
 instance Transformable String IO Text where
     trTransformer tr = Tracer $ \arg ->
         traceWith tr =<<
             LogObject <$> pure ""
                       <*> (mkLOMeta Debug Public)
-                      <*> pure (LogMessage $ unpack arg)
+                      <*> pure (LogMessage $ T.unpack arg)
 
 trStructured :: (MonadIO m, ToJSON b) => Tracer m (LogObject a) -> Tracer m b
 trStructured tr = Tracer $ \arg ->
@@ -265,4 +269,21 @@ annotateConfidential, annotatePublic :: Tracer m (LogObject a) -> Tracer m (LogO
 annotateConfidential tr = setPrivacy tr Confidential
 annotatePublic tr = setPrivacy tr Public
 
+\end{code}
+
+\subsubsection{Transformers for adding a name to the context}
+This functions set or add names to the local context naming of |LogObject|.
+\begin{code}
+setName :: Tracer m (LogObject a) -> Text -> Tracer m (LogObject a)
+setName tr nm = Tracer $ \lo@(LogObject _nm _meta _lc) ->
+                                traceWith tr $ lo { loName = nm }
+
+addName :: Tracer m (LogObject a) -> Text -> Tracer m (LogObject a)
+addName tr nm = Tracer $ \lo@(LogObject nm0 _meta _lc) ->
+                                if (T.length nm0) > 0
+                                then
+                                    traceWith tr $ lo { loName = nm0 <> "." <> nm }
+                                else
+                                    traceWith tr $ lo { loName = nm }
+ 
 \end{code}
