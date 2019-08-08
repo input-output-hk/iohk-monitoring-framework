@@ -5,7 +5,6 @@
 
 module Main where
 
-import           Control.Concurrent (ThreadId, myThreadId)
 import           Control.Concurrent.MVar (MVar, newEmptyMVar, newMVar,
                      modifyMVar_, putMVar, readMVar, tryTakeMVar, withMVar)
 import           Control.Monad.IO.Class (MonadIO (..))

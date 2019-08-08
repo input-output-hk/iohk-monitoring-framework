@@ -167,6 +167,7 @@
 %format Cardano.BM.Data.Tracer = "\hyperref[code:Cardano.BM.Data.Tracer]{Cardano.BM.Data.Tracer}"
 %format ToLogObject = "\hyperref[code:ToLogObject]{ToLogObject}"
 %format toLogObject = "\hyperref[code:toLogObject]{toLogObject}"
+%format TracingVerbosity = "\hyperref[code:TracingVerbosity]{TracingVerbosity}"
 %format toObject = "\hyperref[code:toObject]{toObject}"
 %format Transformable = "\hyperref[code:Transformable]{Transformable}"
 %format trTransformer = "\hyperref[code:trTransformer]{trTransformer}"
@@ -254,3 +255,4 @@
 %format Cardano.BM.Test.Tracer = "\hyperref[code:Cardano.BM.Test.Tracer]{Cardano.BM.Test.Tracer}"
 
 %endif
+

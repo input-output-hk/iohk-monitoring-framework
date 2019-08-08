@@ -46,7 +46,6 @@ import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.MessageCounter (MessageCounter, resetCounters,
                      sendAndResetAfter, updateMessageCounters)
 import           Cardano.BM.Data.Severity
-import           Cardano.BM.Data.Tracer (ToObject (..))
 import qualified Cardano.BM.Trace as Trace
 
 \end{code}
@@ -110,7 +109,7 @@ instance IsEffectuator Graylog a where
 
 |Graylog| is an |IsBackend|
 \begin{code}
-instance (ToObject a, FromJSON a) => IsBackend Graylog a where
+instance (ToJSON a, FromJSON a) => IsBackend Graylog a where
     typeof _ = GraylogBK
 
     realize _ = fail "Graylog cannot be instantiated by 'realize'"
@@ -152,7 +151,7 @@ instance (ToObject a, FromJSON a) => IsBackend Graylog a where
 
 \subsubsection{Asynchronously reading log items from the queue and their processing}
 \begin{code}
-spawnDispatcher :: forall a. ToObject a
+spawnDispatcher :: forall a. ToJSON a
                 => Configuration
                 -> TBQ.TBQueue (Maybe (LogObject a))
                 -> Trace.Trace IO a
@@ -197,7 +196,7 @@ spawnDispatcher config evqueue sbtrace = do
                 mConn' <- tryConnect gltrace
                 processGraylog item (gltrace, counters, mConn')
 
-    sendLO :: ToObject a => Net.Socket -> LogObject a -> IO ()
+    sendLO :: Net.Socket -> LogObject a -> IO ()
     sendLO conn obj =
         let msg = BS8.toStrict $ encodeMessage obj
         in sendAll conn msg
@@ -218,7 +217,7 @@ spawnDispatcher config evqueue sbtrace = do
                 return Nothing
         return res
 
-    encodeMessage :: ToObject a => LogObject a -> BS8.ByteString
+    encodeMessage :: ToJSON a => LogObject a -> BS8.ByteString
     encodeMessage lo = encode $ mkGelfItem lo
 
 \end{code}

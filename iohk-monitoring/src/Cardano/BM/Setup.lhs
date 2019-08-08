@@ -23,7 +23,7 @@ module Cardano.BM.Setup
 
 import           Control.Exception.Safe (MonadMask, bracket)
 import           Control.Monad.IO.Class (MonadIO, liftIO)
-import           Data.Aeson (FromJSON)
+import           Data.Aeson (FromJSON, ToJSON)
 import           Data.Text (Text)
 import           System.IO (FilePath)
 
@@ -41,13 +41,13 @@ or a |FilePath| to a configuration file. After all tracing operations have ended
 |shutdownTrace| must be called.
 \begin{code}
 
-setupTrace :: (MonadIO m, FromJSON a, ToObject a) => Either FilePath Config.Configuration -> Text -> m (Trace m a)
+setupTrace :: (MonadIO m, ToJSON a, FromJSON a, ToObject a) => Either FilePath Config.Configuration -> Text -> m (Trace m a)
 setupTrace (Left cfgFile) name = do
     c <- liftIO $ Config.setup cfgFile
     fst <$> setupTrace_ c name
 setupTrace (Right c) name = fst <$> setupTrace_ c name
 
-setupTrace_ :: (MonadIO m, FromJSON a, ToObject a) => Config.Configuration -> Text -> m (Trace m a, Switchboard.Switchboard a)
+setupTrace_ :: (MonadIO m, ToJSON a, FromJSON a, ToObject a) => Config.Configuration -> Text -> m (Trace m a, Switchboard.Switchboard a)
 setupTrace_ c name = do
     sb <- liftIO $ Switchboard.realize c
 
@@ -59,7 +59,7 @@ setupTrace_ c name = do
 \subsubsection{shutdown}\label{code:shutdown}\index{shutdown}
 Shut down the Switchboard and all the |Trace|s related to it.
 \begin{code}
-shutdown :: (FromJSON a, ToObject a) => Switchboard.Switchboard a -> IO ()
+shutdown :: (ToJSON a, FromJSON a, ToObject a) => Switchboard.Switchboard a -> IO ()
 shutdown = Switchboard.unrealize
 
 \end{code}
@@ -68,7 +68,7 @@ shutdown = Switchboard.unrealize
 Setup a |Trace| from |Configuration| and pass it to the action. At the end,
 shutdown all the components and close the trace.
 \begin{code}
-withTrace :: (MonadIO m, MonadMask m, FromJSON a, ToObject a) =>  Config.Configuration -> Text -> (Trace m a -> m t) -> m t
+withTrace :: (MonadIO m, MonadMask m, ToJSON a, FromJSON a, ToObject a) =>  Config.Configuration -> Text -> (Trace m a -> m t) -> m t
 withTrace cfg name action =
     bracket
         (setupTrace_ cfg name)              -- aquire

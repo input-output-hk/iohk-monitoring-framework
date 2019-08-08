@@ -28,7 +28,8 @@ import           System.Posix.Types (ProcessID, CPid (..))
 #else
 import           System.Win32.Process (ProcessId)
 #endif
-import           Data.Aeson (FromJSON (..), ToJSON (..), Value (..), (.:), (.=), object, withObject)
+import           Data.Aeson (FromJSON (..), ToJSON (..), Value (..), (.:),
+                     (.=), object, withObject)
 import           Data.Text (Text, unpack)
 import           GHC.Generics (Generic)
 
@@ -105,15 +106,24 @@ instance FromJSON SubTrace where
                         other                 -> fail $ "unexpected subtrace: " ++ (unpack other)
 
 instance ToJSON SubTrace where
-    toJSON Neutral                  = object [ "subtrace" .= String "Neutral"             ]
-    toJSON UntimedTrace             = object [ "subtrace" .= String "UntimedTrace"        ]
-    toJSON NoTrace                  = object [ "subtrace" .= String "NoTrace"             ]
-    toJSON (TeeTrace name)          = object [ "subtrace" .= String "TeeTrace"            , "contents" .= toJSON name ]
-    toJSON (FilterTrace dus)        = object [ "subtrace" .= String "FilterTrace"         , "contents" .= toJSON dus  ]
-    toJSON DropOpening              = object [ "subtrace" .= String "DropOpening"         ]
-    toJSON (ObservableTraceSelf os) = object [ "subtrace" .= String "ObservableTraceSelf" , "contents" .= toJSON os   ]
-    toJSON (ObservableTrace pid os) = object [ "subtrace" .= String "ObservableTrace"     , "pid"      .= toJSON pid
-                                             , "contents" .= toJSON os                    ]
-    toJSON (SetSeverity sev)        = object [ "subtrace" .= String "SetSeverity"         , "contents" .= toJSON sev  ]
+    toJSON Neutral =
+        object [ "subtrace" .= String "Neutral"             ]
+    toJSON UntimedTrace =
+        object [ "subtrace" .= String "UntimedTrace"        ]
+    toJSON NoTrace =
+        object [ "subtrace" .= String "NoTrace"             ]
+    toJSON (TeeTrace name) =
+        object [ "subtrace" .= String "TeeTrace"            , "contents" .= toJSON name ]
+    toJSON (FilterTrace dus) =
+        object [ "subtrace" .= String "FilterTrace"         , "contents" .= toJSON dus  ]
+    toJSON DropOpening =
+        object [ "subtrace" .= String "DropOpening"         ]
+    toJSON (ObservableTraceSelf os) =
+        object [ "subtrace" .= String "ObservableTraceSelf" , "contents" .= toJSON os   ]
+    toJSON (ObservableTrace pid os) =
+        object [ "subtrace" .= String "ObservableTrace"     , "pid"      .= toJSON pid
+               , "contents" .= toJSON os                    ]
+    toJSON (SetSeverity sev) =
+        object [ "subtrace" .= String "SetSeverity"         , "contents" .= toJSON sev  ]
 
 \end{code}

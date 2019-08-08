@@ -12,9 +12,11 @@
 
 module Cardano.BM.Data.Tracer
     ( Tracer (..)
+    , TracingVerbosity (..)
     , Transformable (..)
     , ToLogObject (..)
     , ToObject (..)
+    , mkObject
     , traceWith
     -- * tracer transformers
     , natTracer
@@ -113,12 +115,28 @@ for further processing of the messages.
 The function |toLogObject| can be specialized for various environments
 \begin{code}
 class Monad m => ToLogObject m where
-    toLogObject :: (ToObject a, Transformable a m b) => Tracer m (LogObject a) -> Tracer m b
+    toLogObject :: (ToObject a, Transformable a m b)
+                => Tracer m (LogObject a) -> Tracer m b
+    toLogObject' :: (ToObject a, Transformable a m b)
+                 => TracingVerbosity -> Tracer m (LogObject a) -> Tracer m b
+    toLogObjectVerbose :: (ToObject a, Transformable a m b)
+                       => Tracer m (LogObject a) -> Tracer m b
+    default toLogObjectVerbose :: (ToObject a, Transformable a m b)
+                       => Tracer m (LogObject a) -> Tracer m b
+    toLogObjectVerbose tr = trTransformer MaximalVerbosity tr
+    toLogObjectMinimal :: (ToObject a, Transformable a m b)
+                       => Tracer m (LogObject a) -> Tracer m b
+    default toLogObjectMinimal :: (ToObject a, Transformable a m b)
+                       => Tracer m (LogObject a) -> Tracer m b
+    toLogObjectMinimal tr = trTransformer MinimalVerbosity tr
 
 instance ToLogObject IO where
-    toLogObject :: (MonadIO m, ToObject a, Transformable a m b) => Tracer m (LogObject a) -> Tracer m b
-    toLogObject tr =
-        trTransformer tr
+    toLogObject :: (MonadIO m, ToObject a, Transformable a m b)
+                => Tracer m (LogObject a) -> Tracer m b
+    toLogObject tr = trTransformer NormalVerbosity tr
+    toLogObject' :: (MonadIO m, ToObject a, Transformable a m b)
+                 => TracingVerbosity -> Tracer m (LogObject a) -> Tracer m b
+    toLogObject' verb tr = trTransformer verb tr
 
 \end{code}
 
@@ -137,6 +155,17 @@ instance (MonadFork m, MonadTimer m) => ToLogObject m where
 
 \end{spec}
 
+\subsubsection{Verbosity levels}
+\label{code:TracingVerbosity}\index{TracingVerbosity}
+\index{TracingVerbosity!MinimalVerbosity}
+\index{TracingVerbosity!NormalVerbosity}
+\index{TracingVerbosity!MaximalVerbosity}
+\begin{code}
+data TracingVerbosity = MinimalVerbosity | NormalVerbosity | MaximalVerbosity
+                        deriving (Eq, Ord)
+
+\end{code}
+
 \subsubsection{ToObject - transforms a logged item to JSON}\label{code:ToObject}\index{ToObject}\label{code:toObject}\index{ToObject!toObject}
 Katip requires JSON objects to be logged as context. This
 typeclass provides a default instance which uses |ToJSON| and
@@ -150,19 +179,23 @@ instance ToObject Foo
 \end{spec}
 
 \begin{code}
-class ToJSON a => ToObject a where
-    toObject :: a -> Object
-    default toObject :: a -> Object
-    toObject v = case toJSON v of
+class ToObject a where
+    toObject :: TracingVerbosity -> a -> Object
+    default toObject :: ToJSON a => TracingVerbosity -> a -> Object
+    toObject _ v = case toJSON v of
         Object o     -> o
         s@(String _) -> HM.singleton "string" s
         _            -> mempty
 
+mkObject :: ToObject a => [(Text, a)] -> HM.HashMap Text a
+mkObject = HM.fromList
+
 instance ToObject () where
-    toObject _ = mempty
+    toObject _ _ = mempty
 
 instance ToObject String
 instance ToObject Text
+instance ToObject Value
 instance ToJSON a => ToObject (LogObject a)
 instance ToJSON a => ToObject (LOContent a)
 
@@ -176,9 +209,9 @@ the target |Tracer| (\emph{a}).
 
 \begin{code}
 class Monad m => Transformable a m b where
-    trTransformer :: Tracer m (LogObject a) -> Tracer m b
-    default trTransformer :: Tracer m (LogObject a) -> Tracer m b
-    trTransformer _ = nullTracer
+    trTransformer :: TracingVerbosity -> Tracer m (LogObject a) -> Tracer m b
+    default trTransformer :: TracingVerbosity -> Tracer m (LogObject a) -> Tracer m b
+    trTransformer _ _ = nullTracer
 
 trFromIntegral :: (Integral b, MonadIO m) => Text -> Tracer m (LogObject a) -> Tracer m b
 trFromIntegral name tr = Tracer $ \arg ->
@@ -195,46 +228,51 @@ trFromReal name tr = Tracer $ \arg ->
                       <*> pure (LogValue name $ PureD $ realToFrac arg)
 
 instance Transformable a IO Int where
-    trTransformer = trFromIntegral "int"
+    trTransformer MinimalVerbosity = trFromIntegral ""
+    trTransformer _ = trFromIntegral "int"
 instance Transformable a IO Integer where
-    trTransformer = trFromIntegral "integer"
+    trTransformer MinimalVerbosity = trFromIntegral ""
+    trTransformer _ = trFromIntegral "integer"
 instance Transformable a IO Word64 where
-    trTransformer = trFromIntegral "word64"
+    trTransformer MinimalVerbosity = trFromIntegral ""
+    trTransformer _ = trFromIntegral "word64"
 instance Transformable a IO Double where
-    trTransformer = trFromReal "double"
+    trTransformer MinimalVerbosity = trFromReal ""
+    trTransformer _ = trFromReal "double"
 instance Transformable a IO Float where
-    trTransformer = trFromReal "float"
+    trTransformer MinimalVerbosity = trFromReal ""
+    trTransformer _ = trFromReal "float"
 instance Transformable Text IO Text where
-    trTransformer tr = Tracer $ \arg ->
+    trTransformer _ tr = Tracer $ \arg ->
         traceWith tr =<<
             LogObject <$> pure ""
                       <*> (mkLOMeta Debug Public)
                       <*> pure (LogMessage arg)
 instance Transformable String IO String where
-    trTransformer tr = Tracer $ \arg ->
+    trTransformer _ tr = Tracer $ \arg ->
         traceWith tr =<<
             LogObject <$> pure ""
                       <*> (mkLOMeta Debug Public)
                       <*> pure (LogMessage arg)
 instance Transformable Text IO String where
-    trTransformer tr = Tracer $ \arg ->
+    trTransformer _ tr = Tracer $ \arg ->
         traceWith tr =<<
             LogObject <$> pure ""
                       <*> (mkLOMeta Debug Public)
                       <*> pure (LogMessage $ T.pack arg)
 instance Transformable String IO Text where
-    trTransformer tr = Tracer $ \arg ->
+    trTransformer _ tr = Tracer $ \arg ->
         traceWith tr =<<
             LogObject <$> pure ""
                       <*> (mkLOMeta Debug Public)
                       <*> pure (LogMessage $ T.unpack arg)
 
-trStructured :: (MonadIO m, ToJSON b) => Tracer m (LogObject a) -> Tracer m b
-trStructured tr = Tracer $ \arg ->
+trStructured :: (ToObject b, MonadIO m) => TracingVerbosity -> Tracer m (LogObject a) -> Tracer m b
+trStructured verb tr = Tracer $ \arg ->
         traceWith tr =<<
             LogObject <$> pure ""
                       <*> (mkLOMeta Debug Public)
-                      <*> pure (LogStructured $ encode arg)
+                      <*> pure (LogStructured $ encode $ toObject verb arg)
 
 \end{code}
 

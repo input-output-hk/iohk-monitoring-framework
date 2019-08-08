@@ -13,14 +13,17 @@ module Cardano.BM.Test.Structured (
 
 import qualified Control.Concurrent.STM as STM
 
-import           Data.Aeson (ToJSON (..), Value (..), object, (.=))
+import           Data.Aeson (ToJSON (..), Value (..), (.=))
 import           Data.Text (Text)
 
 import           Cardano.BM.Configuration.Static
 import           Cardano.BM.Data.LogItem
-import           Cardano.BM.Data.Tracer (Tracer (..), Transformable (..),
-                     annotateConfidential, severityNotice,
-                     toLogObject, traceWith, trStructured)
+import           Cardano.BM.Data.Tracer (Tracer (..), ToObject (..),
+                     TracingVerbosity (..), Transformable (..),
+                     annotateConfidential, mkObject, severityNotice,
+                     toLogObject', toLogObject,
+                     toLogObjectMinimal, toLogObjectVerbose,
+                     traceWith, trStructured)
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.SubTrace
 import           Cardano.BM.Backend.Switchboard (MockSwitchboard (..))
@@ -38,6 +41,7 @@ tests :: TestTree
 tests = testGroup "Testing Structured Logging" [
               testCase "logging simple text" logSimpleText
             , testCase "logging data structures" logStructured
+            , testCase "logging data structures (stdout)" logStructuredStdout
             ]
 
 \end{code}
@@ -62,19 +66,20 @@ logSimpleText = do
 data Pet = Pet { name :: Text, age :: Int}
            deriving (Show)
 
-instance ToJSON Pet where
-    toJSON (Pet n a) = 
-        object [ "kind" .= String "Pet"
-               , "name" .= toJSON n
-               , "age" .= toJSON a ]
+instance ToObject Pet where
+    toObject MinimalVerbosity (Pet _ _) = 
+        mkObject [ "kind" .= String "Pet"]
+    toObject _ (Pet n a) = 
+        mkObject [ "kind" .= String "Pet"
+                 , "name" .= toJSON n
+                 , "age" .= toJSON a ]
 
 instance Transformable Text IO Pet where
-    trTransformer = trStructured  -- transform to JSON structure
+    trTransformer = trStructured  -- transform to JSON Object
 
 logStructured :: Assertion
 logStructured = do
     cfg <- defaultConfigStdout
-    -- baseTrace :: Tracer IO (LogObject Text) <- Setup.setupTrace (Right cfg) "logStructured"
     msgs <- STM.newTVarIO []
     baseTrace <- setupTrace $ TraceConfiguration cfg (MockSB msgs) "logStructured" Neutral
 
@@ -95,5 +100,22 @@ logStructured = do
     assertBool
         ("verify traced structure with privacy annotation Confidential: " ++ (show ms))
         (Confidential == privacy (loMeta (ms !! 0)))
+
+logStructuredStdout :: Assertion
+logStructuredStdout = do
+    cfg <- defaultConfigStdout
+    baseTrace :: Tracer IO (LogObject Text) <- Setup.setupTrace (Right cfg) "logStructured"
+
+    let noticeTracer = severityNotice baseTrace
+    let confidentialTracer = annotateConfidential baseTrace
+
+    traceWith (toLogObject noticeTracer) (42 :: Integer)
+    traceWith (toLogObject confidentialTracer) (Pet "bella" 8)
+    traceWith (toLogObjectVerbose confidentialTracer) (Pet "bella" 8)
+    traceWith (toLogObjectMinimal confidentialTracer) (Pet "bella" 8)
+    traceWith (toLogObject' MinimalVerbosity noticeTracer) (42 :: Integer)
+    traceWith (toLogObject' MinimalVerbosity confidentialTracer) (Pet "bella" 8)
+
+    assertBool "OK" True
 
 \end{code}

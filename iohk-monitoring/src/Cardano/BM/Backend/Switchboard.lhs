@@ -38,7 +38,7 @@ import           Control.Concurrent.STM (TVar, atomically, modifyTVar, retry)
 import qualified Control.Concurrent.STM.TBQueue as TBQ
 import           Control.Exception.Safe (throwM)
 import           Control.Monad (forM_, when, void)
-import           Data.Aeson (FromJSON)
+import           Data.Aeson (FromJSON, ToJSON)
 import           Data.Maybe (fromMaybe)
 import           Data.Text (Text)
 import qualified Data.Text.IO as TIO
@@ -55,7 +55,7 @@ import           Cardano.BM.Data.MessageCounter (resetCounters, sendAndResetAfte
                      updateMessageCounters)
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.SubTrace (SubTrace (..))
-import           Cardano.BM.Data.Tracer (Tracer (..), ToObject, traceWith)
+import           Cardano.BM.Data.Tracer (Tracer (..), traceWith)
 import qualified Cardano.BM.Backend.TraceAcceptor
 import qualified Cardano.BM.Backend.Log
 import qualified Cardano.BM.Backend.LogBuffer
@@ -166,7 +166,7 @@ instance IsEffectuator Switchboard a where
 
 |Switchboard| is an |IsBackend|
 \begin{code}
-instance (FromJSON a, ToObject a) => IsBackend Switchboard a where
+instance (FromJSON a, ToJSON a) => IsBackend Switchboard a where
     typeof _ = SwitchboardBK
 
     realize cfg = do
@@ -335,7 +335,7 @@ readLogBuffer switchboard = do
 
 \subsubsection{Realizing the backends according to configuration}\label{code:setupBackends}\index{Switchboard!setupBackends}
 \begin{code}
-setupBackends :: (FromJSON a, ToObject a)
+setupBackends :: (FromJSON a, ToJSON a)
               => [BackendKind]
               -> Configuration
               -> Switchboard a
@@ -348,7 +348,7 @@ setupBackends bes c sb = setupBackendsAcc bes []
             Nothing -> setupBackendsAcc r acc
             Just be -> setupBackendsAcc r ((bk,be) : acc)
 
-setupBackend' :: (FromJSON a, ToObject a) => BackendKind -> Configuration -> Switchboard a -> IO (Maybe (Backend a))
+setupBackend' :: (FromJSON a , ToJSON a) => BackendKind -> Configuration -> Switchboard a -> IO (Maybe (Backend a))
 setupBackend' SwitchboardBK _ _ = fail "cannot instantiate a further Switchboard"
 setupBackend' (UserDefinedBK _) _ _ = fail "cannot instantiate an user-defined backend"
 #ifdef ENABLE_MONITORING
