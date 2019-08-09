@@ -38,6 +38,9 @@ module Cardano.BM.Data.Tracer
     -- * privacy annotation transformers
     , annotateConfidential
     , annotatePublic
+    -- * annotate context name
+    , addName
+    , setName
     ) where
 
 
@@ -45,12 +48,14 @@ import           Control.Monad.IO.Class (MonadIO (..))
 
 import           Data.Aeson (Object, ToJSON (..), Value (..), encode)
 import qualified Data.HashMap.Strict as HM
-import           Data.Text (Text, pack, unpack)
+import           Data.Text (Text)
+import qualified Data.Text as T
 import           Data.Word (Word64)
 
 import           Cardano.BM.Data.Aggregated
-import           Cardano.BM.Data.LogItem (LogObject (..), LOContent (..),
-                     LOMeta (..), PrivacyAnnotation (..), mkLOMeta)
+import           Cardano.BM.Data.LogItem (LoggerName, LogObject (..),
+                     LOContent (..), LOMeta (..), PrivacyAnnotation (..),
+                     mkLOMeta)
 import           Cardano.BM.Data.Severity (Severity (..))
 import           Control.Tracer
 
@@ -164,9 +169,10 @@ instance ToJSON a => ToObject (LOContent a)
 \end{code}
 
 \subsubsection{A transformable Tracer}
-
-Parameterised over the source Tracer (\emph{b}) and
-the target Tracer (\emph{a}).
+\label{code:Transformable}\index{Transformable}
+\label{code:trTransformer}\index{Transformable!trTransformer}
+Parameterised over the source |Tracer| (\emph{b}) and
+the target |Tracer| (\emph{a}).
 
 \begin{code}
 class Monad m => Transformable a m b where
@@ -174,30 +180,30 @@ class Monad m => Transformable a m b where
     default trTransformer :: Tracer m (LogObject a) -> Tracer m b
     trTransformer _ = nullTracer
 
-trFromIntegral :: (Integral b, MonadIO m) => Tracer m (LogObject a) -> Text -> Tracer m b
-trFromIntegral tr name = Tracer $ \arg ->
+trFromIntegral :: (Integral b, MonadIO m) => Text -> Tracer m (LogObject a) -> Tracer m b
+trFromIntegral name tr = Tracer $ \arg ->
         traceWith tr =<<
             LogObject <$> pure ""
                       <*> (mkLOMeta Debug Public)
                       <*> pure (LogValue name $ PureI $ fromIntegral arg)
 
-trFromReal :: (Real b, MonadIO m) => Tracer m (LogObject a) -> Text -> Tracer m b
-trFromReal tr name = Tracer $ \arg ->
+trFromReal :: (Real b, MonadIO m) => Text -> Tracer m (LogObject a) -> Tracer m b
+trFromReal name tr = Tracer $ \arg ->
         traceWith tr =<<
             LogObject <$> pure ""
                       <*> (mkLOMeta Debug Public)
                       <*> pure (LogValue name $ PureD $ realToFrac arg)
 
 instance Transformable a IO Int where
-    trTransformer tr = trFromIntegral tr "int"
+    trTransformer = trFromIntegral "int"
 instance Transformable a IO Integer where
-    trTransformer tr = trFromIntegral tr "integer"
+    trTransformer = trFromIntegral "integer"
 instance Transformable a IO Word64 where
-    trTransformer tr = trFromIntegral tr "word64"
+    trTransformer = trFromIntegral "word64"
 instance Transformable a IO Double where
-    trTransformer tr = trFromReal tr "double"
+    trTransformer = trFromReal "double"
 instance Transformable a IO Float where
-    trTransformer tr = trFromReal tr "float"
+    trTransformer = trFromReal "float"
 instance Transformable Text IO Text where
     trTransformer tr = Tracer $ \arg ->
         traceWith tr =<<
@@ -215,13 +221,13 @@ instance Transformable Text IO String where
         traceWith tr =<<
             LogObject <$> pure ""
                       <*> (mkLOMeta Debug Public)
-                      <*> pure (LogMessage $ pack arg)
+                      <*> pure (LogMessage $ T.pack arg)
 instance Transformable String IO Text where
     trTransformer tr = Tracer $ \arg ->
         traceWith tr =<<
             LogObject <$> pure ""
                       <*> (mkLOMeta Debug Public)
-                      <*> pure (LogMessage $ unpack arg)
+                      <*> pure (LogMessage $ T.unpack arg)
 
 trStructured :: (MonadIO m, ToJSON b) => Tracer m (LogObject a) -> Tracer m b
 trStructured tr = Tracer $ \arg ->
@@ -233,36 +239,71 @@ trStructured tr = Tracer $ \arg ->
 \end{code}
 
 \subsubsection{Transformers for setting severity level}
+\label{code:setSeverity}
+\label{code:severityDebug}
+\label{code:severityInfo}
+\label{code:severityNotice}
+\label{code:severityWarning}
+\label{code:severityError}
+\label{code:severityCritical}
+\label{code:severityAlert}
+\label{code:severityEmergency}
+\index{setSeverity}\index{severityDebug}\index{severityInfo}
+\index{severityNotice}\index{severityWarning}\index{severityError}
+\index{severityCritical}\index{severityAlert}\index{severityEmergency}
 The log |Severity| level of a LogObject can be altered.
 \begin{code}
-setSeverity :: Tracer m (LogObject a) -> Severity -> Tracer m (LogObject a)
-setSeverity tr sev = Tracer $ \lo@(LogObject _nm meta@(LOMeta _ts _tid _sev _pr) _lc) ->
+setSeverity :: Severity -> Tracer m (LogObject a) -> Tracer m (LogObject a)
+setSeverity sev tr = Tracer $ \lo@(LogObject _nm meta@(LOMeta _ts _tid _sev _pr) _lc) ->
                                 traceWith tr $ lo { loMeta = meta { severity = sev } }
 
 severityDebug, severityInfo, severityNotice,
   severityWarning, severityError, severityCritical,
   severityAlert, severityEmergency  :: Tracer m (LogObject a) -> Tracer m (LogObject a)
-severityDebug tr = setSeverity tr Debug
-severityInfo tr = setSeverity tr Info
-severityNotice tr = setSeverity tr Notice
-severityWarning tr = setSeverity tr Warning
-severityError tr = setSeverity tr Error
-severityCritical tr = setSeverity tr Critical
-severityAlert tr = setSeverity tr Alert
-severityEmergency tr = setSeverity tr Emergency
+severityDebug     = setSeverity Debug
+severityInfo      = setSeverity Info
+severityNotice    = setSeverity Notice
+severityWarning   = setSeverity Warning
+severityError     = setSeverity Error
+severityCritical  = setSeverity Critical
+severityAlert     = setSeverity Alert
+severityEmergency = setSeverity Emergency
 
 \end{code}
 
 \subsubsection{Transformers for setting privacy annotation}
+\label{code:setPrivacy}
+\label{code:annotateConfidential}
+\label{code:annotatePublic}
+\index{setPrivacy}\index{annotateConfidential}\index{annotatePublic}
 The privacy annotation (|PrivacyAnnotation|) of the LogObject can
 be altered with the following functions.
 \begin{code}
-setPrivacy :: Tracer m (LogObject a) -> PrivacyAnnotation -> Tracer m (LogObject a)
-setPrivacy tr prannot = Tracer $ \lo@(LogObject _nm meta@(LOMeta _ts _tid _sev _pr) _lc) ->
+setPrivacy :: PrivacyAnnotation -> Tracer m (LogObject a) -> Tracer m (LogObject a)
+setPrivacy prannot tr = Tracer $ \lo@(LogObject _nm meta@(LOMeta _ts _tid _sev _pr) _lc) ->
                                 traceWith tr $ lo { loMeta = meta { privacy = prannot } }
 
 annotateConfidential, annotatePublic :: Tracer m (LogObject a) -> Tracer m (LogObject a)
-annotateConfidential tr = setPrivacy tr Confidential
-annotatePublic tr = setPrivacy tr Public
+annotateConfidential = setPrivacy Confidential
+annotatePublic = setPrivacy Public
 
+\end{code}
+
+\subsubsection{Transformers for adding a name to the context}
+\label{code:setName}
+\label{code:addName}\index{setName}\index{addName}
+This functions set or add names to the local context naming of |LogObject|.
+\begin{code}
+setName :: LoggerName -> Tracer m (LogObject a) -> Tracer m (LogObject a)
+setName nm tr = Tracer $ \lo@(LogObject _nm _meta _lc) ->
+                                traceWith tr $ lo { loName = nm }
+
+addName :: LoggerName -> Tracer m (LogObject a) -> Tracer m (LogObject a)
+addName nm tr = Tracer $ \lo@(LogObject nm0 _meta _lc) ->
+                                if T.null nm0
+                                then
+                                    traceWith tr $ lo { loName = nm }
+                                else
+                                    traceWith tr $ lo { loName = nm0 <> "." <> nm }
+ 
 \end{code}
