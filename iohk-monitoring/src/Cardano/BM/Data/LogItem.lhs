@@ -34,7 +34,7 @@ import           Data.Aeson (FromJSON (..), ToJSON (..), Value (..), (.=),
 import           Data.Aeson.Types (Parser)
 import qualified Data.ByteString.Lazy as BS
 import qualified Data.ByteString.Base64.Lazy as BS64
-import           Data.Text (Text, drop, isPrefixOf, pack)
+import           Data.Text (Text, pack, stripPrefix)
 import qualified Data.Text.Lazy as LT
 import           Data.Text.Lazy.Encoding (encodeUtf8, decodeUtf8)
 import           Data.Time.Clock.POSIX (utcTimeToPOSIXSeconds)
@@ -116,12 +116,10 @@ mkLOMeta sev priv =
            <*> pure sev
            <*> pure priv
   where
-    cleantid threadid =
-        let stid = pack $ show threadid
-        in
-        if (isPrefixOf "ThreadId " stid)
-        then Data.Text.drop 9 stid
-        else stid
+    cleantid threadid = do
+        let prefixText = "ThreadId "
+            condStripPrefix s = maybe s id $ stripPrefix prefixText s
+        condStripPrefix $ (pack . show) threadid
 
 \end{code}
 
