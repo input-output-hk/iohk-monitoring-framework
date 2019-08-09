@@ -58,12 +58,6 @@ renderNamedItemTracing = contramap $ \item ->
 \end{spec}
 
 \begin{code}
-appendNamed' :: LoggerName -> Tracer m (LogObject a) -> Tracer m (LogObject a)
-appendNamed' name = contramap $ (\(LogObject oldName meta item) ->
-    if oldName == ""
-    then LogObject name meta item
-    else LogObject (name <> "." <> oldName) meta item)
-
 renderNamedItemTracing' :: Show a => Tracer m String -> Tracer m (LogObject a)
 renderNamedItemTracing' = contramap $ \item ->
     unpack (loName item) ++ ": " ++ show (loContent item) ++ ", (meta): " ++ show (loMeta item)
@@ -74,7 +68,7 @@ renderNamedItemTracing' = contramap $ \item ->
 \begin{code}
 tracingInNamedContext :: Assertion
 tracingInNamedContext = do
-    let logTrace = appendNamed' "named" $ renderNamedItemTracing' $ stdoutTracer
+    let logTrace = addName "named" $ renderNamedItemTracing' $ stdoutTracer
 
     void $ callFun2 logTrace
 
@@ -82,13 +76,13 @@ tracingInNamedContext = do
 
 callFun2 :: Tracer IO (LogObject Text) -> IO Int
 callFun2 logTrace = do
-    let logTrace' = appendNamed' "fun2" logTrace
+    let logTrace' = addName "fun2" logTrace
     traceWith (toLogObject logTrace') ("in function 2" :: Text)
     callFun3 logTrace'
 
 callFun3 :: Tracer IO (LogObject Text) -> IO Int
 callFun3 logTrace = do
-    traceWith (toLogObject $ appendNamed' "fun3" $ logTrace) ("in function 3" :: Text)
+    traceWith (toLogObject $ addName "fun3" $ logTrace) ("in function 3" :: Text)
     return 42
 
 \end{code}
@@ -109,7 +103,7 @@ logObjectFromAnnotated tr = Tracer $ \(PSA sev priv a) -> do
 tracingWithPrivacyAndSeverityAnnotation :: Assertion
 tracingWithPrivacyAndSeverityAnnotation = do
     let logTrace =
-            logObjectFromAnnotated $ appendNamed' "example3" $ renderNamedItemTracing' stdoutTracer
+            logObjectFromAnnotated $ addName "example3" $ renderNamedItemTracing' stdoutTracer
 
     traceWith logTrace $ PSA Info Confidential ("Hello" :: String)
     traceWith logTrace $ PSA Warning Public "World"
@@ -124,7 +118,7 @@ filterAppendNameTracing :: Monad m
     -> LoggerName
     -> Tracer m (LogObject a)
     -> Tracer m (LogObject a)
-filterAppendNameTracing test name = (appendNamed' name) . (condTracingM test)
+filterAppendNameTracing test name = (addName name) . (condTracingM test)
 
 tracingWithPredicateFilter :: Assertion
 tracingWithPredicateFilter = do
@@ -153,7 +147,7 @@ tracingWithMonadicFilter = do
     let logTrace =
             condTracingM oracle $
                 logObjectFromAnnotated $
-                    appendNamed' "test5" $ renderNamedItemTracing' stdoutTracer
+                    addName "test5" $ renderNamedItemTracing' stdoutTracer
 
     traceWith logTrace $ PSA Debug Confidential ("Hello"::String)
     traceWith logTrace $ PSA Warning Public "World"
@@ -170,13 +164,13 @@ tracing with combined filtering for name and severity
 tracingWithComplexFiltering :: Assertion
 tracingWithComplexFiltering = do
     let logTrace0 =  -- the basis, will output using the local renderer to stdout
-            appendNamed' "test6" $ renderNamedItemTracing' stdoutTracer
+            addName "test6" $ renderNamedItemTracing' stdoutTracer
         logTrace1 =  -- the trace from |Privacy...Annotated| to |LogObject|
             condTracingM oracleSev $ logObjectFromAnnotated $ logTrace0
         logTrace2 =
-            appendNamed' "row" $ condTracingM oracleName $ logTrace0
+            addName "row" $ condTracingM oracleName $ logTrace0
         logTrace3 =  -- oracle should eliminate messages from this trace
-            appendNamed' "raw" $ condTracingM oracleName $ logTrace0
+            addName "raw" $ condTracingM oracleName $ logTrace0
 
     traceWith logTrace1 $ PSA Debug Confidential ("Hello" :: String)
     traceWith logTrace1 $ PSA Warning Public "World"
