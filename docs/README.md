@@ -1,9 +1,9 @@
 
 # Documentation
 
-In this directory, enter a `nix-shell` to have access to the required tools
+In the `docs/` directory, enter a `nix-shell` to have access to the required tools
 to generate documentation. Then, simply run `make`. This will produce the
-[IOHK-Monitoring.pdf](IOHK-Monitoring.pdf) from the source code.
+[IOHK-Monitoring.pdf](https://github.com/input-output-hk/iohk-monitoring-framework/wiki/IOHK-Monitoring.pdf) from the source code.
 
 # One-pagers
 
