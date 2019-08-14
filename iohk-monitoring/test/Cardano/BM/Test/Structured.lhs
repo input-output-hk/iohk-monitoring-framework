@@ -20,8 +20,8 @@ import           Cardano.BM.Configuration.Static
 import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.Tracer (Tracer (..), ToObject (..),
                      TracingVerbosity (..), Transformable (..),
-                     annotateConfidential, mkObject, severityNotice,
-                     toLogObject', toLogObject,
+                     annotateConfidential, emptyObject, mkObject,
+                     severityNotice, toLogObject', toLogObject,
                      toLogObjectMinimal, toLogObjectVerbose,
                      traceWith, trStructured)
 import           Cardano.BM.Data.Severity
@@ -47,6 +47,7 @@ tests = testGroup "Testing Structured Logging" [
 \end{code}
 
 \subsubsection{Simple logging of text}\label{code:logSimpleText}
+Trace textual messages. This is not structured logging and only here for reference.
 \begin{code}
 logSimpleText :: Assertion
 logSimpleText = do
@@ -61,15 +62,24 @@ logSimpleText = do
 \end{code}
 
 \subsubsection{Structured logging}\label{code:logStructured}
+This test shows how a user-defined structure \emph{Pet} can be traced.
+The |trTransformer| by default is the |nullTracer|. Therefore, an instance
+of \emph{Transformable Text IO Pet} uses the transformer |trStructured| to
+create a structured log item using the |ToObject| instance. The function
+|toObject| depends on the verbosity level and in case of |MinimalVerbosity|
+will return an |emptyObject| and not output the structure at all. The output
+in |NormalVerbosity| level will be a shortened structure with just its type.
+Only in |MaximalVerbosity| level will the complete structure be output.
 \begin{code}
 
 data Pet = Pet { name :: Text, age :: Int}
            deriving (Show)
 
 instance ToObject Pet where
-    toObject MinimalVerbosity (Pet _ _) = 
+    toObject MinimalVerbosity _ = emptyObject -- do not log
+    toObject NormalVerbosity (Pet _ _) = 
         mkObject [ "kind" .= String "Pet"]
-    toObject _ (Pet n a) = 
+    toObject MaximalVerbosity (Pet n a) = 
         mkObject [ "kind" .= String "Pet"
                  , "name" .= toJSON n
                  , "age" .= toJSON a ]
@@ -85,9 +95,11 @@ logStructured = do
 
     let noticeTracer = severityNotice baseTrace
     let confidentialTracer = annotateConfidential baseTrace
+    let pet = Pet "bella" 8
 
     traceWith (toLogObject noticeTracer) (42 :: Integer)
-    traceWith (toLogObject confidentialTracer) (Pet "bella" 8)
+    traceWith (toLogObject confidentialTracer) pet
+    traceWith (toLogObjectMinimal confidentialTracer) pet
 
     ms <- STM.readTVarIO msgs
 
