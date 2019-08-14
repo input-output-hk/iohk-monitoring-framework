@@ -24,8 +24,6 @@ cabal.project.local~
 .DS_Store
 .liquid/
 
-docs/IOHK-Monitoring-code.idx
-docs/IOHK-Monitoring-code.ilg
-docs/IOHK-Monitoring-code.ind
+docs/IOHK-Monitoring-code.*
 
 /result*
