@@ -26,7 +26,7 @@ import qualified Control.Concurrent.STM.TBQueue as TBQ
 import           Control.Exception.Safe (throwM)
 import           Control.Monad (void)
 import           Control.Monad.IO.Class (liftIO)
-import           Data.Aeson (FromJSON)
+import           Data.Aeson (FromJSON, ToJSON, encode)
 import qualified Data.HashMap.Strict as HM
 import           Data.Int (Int64)
 import           Data.Text (Text, pack, stripPrefix)
@@ -52,7 +52,7 @@ import           Cardano.BM.Data.MessageCounter (MessageCounter, resetCounters,
                      sendAndResetAfter, updateMessageCounters)
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.Trace
-import           Cardano.BM.Data.Tracer (Tracer (..), ToObject (..))
+import           Cardano.BM.Data.Tracer (Tracer (..))
 #ifdef ENABLE_PROMETHEUS
 import           Cardano.BM.Configuration (getPrometheusPort)
 import           Cardano.BM.Backend.Prometheus (spawnPrometheus)
@@ -90,11 +90,11 @@ type EKGViewMap a = HM.HashMap Text a
 This is an internal |Trace|, named "\#ekgview", which can be used to control
 the messages that are being displayed by EKG.
 \begin{code}
-ekgTrace :: ToObject a => EKGView a -> Configuration -> Trace IO a
+ekgTrace :: ToJSON a => EKGView a -> Configuration -> Trace IO a
 ekgTrace ekg _c =
     Trace.appendName "#ekgview" $ ekgTrace' ekg
   where
-    ekgTrace' :: ToObject a => EKGView a -> Tracer IO (LogObject a)
+    ekgTrace' :: ToJSON a => EKGView a -> Tracer IO (LogObject a)
     ekgTrace' ekgview = Tracer $ \lo@(LogObject loname _ _) -> do
         let setLabel :: Text -> Text -> EKGViewInternal a -> IO (Maybe (EKGViewInternal a))
             setLabel name label ekg_i@(EKGViewInternal _ labels _ server _ _) =
@@ -117,9 +117,9 @@ ekgTrace ekg _c =
                         Gauge.set ekghdl value
                         return Nothing
 
-            update :: ToObject a => LogObject a -> EKGViewInternal a -> IO (Maybe (EKGViewInternal a))
+            update :: ToJSON a => LogObject a -> EKGViewInternal a -> IO (Maybe (EKGViewInternal a))
             update (LogObject logname _ (LogMessage logitem)) ekg_i =
-                setLabel logname (pack $ show $ toObject logitem) ekg_i
+                setLabel logname (pack $ show $ encode logitem) ekg_i
             update (LogObject logname _ (LogValue iname value)) ekg_i =
                 let logname' = logname <> "." <> iname
                 in
@@ -195,7 +195,7 @@ instance IsEffectuator EKGView a where
 
 |EKGView| is an |IsBackend|
 \begin{code}
-instance (ToObject a, FromJSON a) => IsBackend EKGView a where
+instance (ToJSON a, FromJSON a) => IsBackend EKGView a where
     typeof _ = EKGViewBK
 
     realize _ = fail "EKGView cannot be instantiated by 'realize'"

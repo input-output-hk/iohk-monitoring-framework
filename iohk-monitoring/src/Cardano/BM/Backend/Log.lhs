@@ -32,7 +32,8 @@ import           Control.Concurrent.MVar (MVar, modifyMVar_, readMVar,
 import           Control.Exception.Safe (catchIO)
 import           Control.Monad (forM, forM_, void, when)
 import           Control.Lens ((^.))
-import           Data.Aeson (FromJSON, ToJSON, Result (Success), Value (..), fromJSON)
+import           Data.Aeson (FromJSON, ToJSON, Result (Success), Value (..),
+                     fromJSON, toJSON)
 import           Data.Aeson.Text (encodeToLazyText)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Map as Map
@@ -86,7 +87,6 @@ import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.Output
 import           Cardano.BM.Data.Rotation (RotationParameters (..))
 import           Cardano.BM.Data.Severity
-import           Cardano.BM.Data.Tracer (ToObject (..))
 import           Cardano.BM.Rotator (cleanupRotator, evalRotator,
                      initializeRotator, prtoutException)
 
@@ -108,7 +108,7 @@ data LogInternal = LogInternal
 
 \subsubsection{Log implements |effectuate|}\index{Log!instance of IsEffectuator}
 \begin{code}
-instance ToObject a => IsEffectuator Log a where
+instance ToJSON a => IsEffectuator Log a where
     effectuate katip item = do
         let logMVar = getK katip
         c <- configuration <$> readMVar logMVar
@@ -174,7 +174,7 @@ instance ToObject a => IsEffectuator Log a where
 
 \subsubsection{Log implements backend functions}\index{Log!instance of IsBackend}
 \begin{code}
-instance (ToObject a, FromJSON a) => IsBackend Log a where
+instance (ToJSON a, FromJSON a) => IsBackend Log a where
     typeof _ = KatipBK
 
     realize config = do
@@ -274,7 +274,7 @@ that match on their name.
 Compare start of name of scribe to |(show backend <> "::")|.
 This function is non-blocking.
 \begin{code}
-passN :: ToObject a => ScribeId -> Log a -> LogObject a -> IO ()
+passN :: ToJSON a => ScribeId -> Log a -> LogObject a -> IO ()
 passN backend katip (LogObject loname lometa loitem) = do
     env <- kLogEnv <$> readMVar (getK katip)
     forM_ (Map.toList $ K._logEnvScribes env) $
@@ -284,29 +284,29 @@ passN backend katip (LogObject loname lometa loitem) = do
                 then do
                     let (sev, msg, payload) = case loitem of
                                 (LogMessage logItem) ->
-                                     let loobj = toObject logItem
-                                         (text,maylo) = case (HM.lookup "string" loobj) of
-                                            Just (String m)  -> (m, Nothing)
-                                            Just m           -> (TL.toStrict $ encodeToLazyText m, Nothing)
-                                            Nothing          -> ("", Just loitem)
+                                     let (text,maylo) = case toJSON logItem of
+                                            (String m)  -> (m, Nothing)
+                                            m           -> (TL.toStrict $ encodeToLazyText m, Nothing)
                                      in
                                      (severity lometa, text, maylo)
                                 (LogError text) ->
                                      (severity lometa, text, Nothing)
                                 (LogStructured s) ->
-                                     (severity lometa, TL.toStrict $ decodeUtf8 s, Nothing {- Just loitem -})
+                                     (severity lometa, TL.toStrict $ decodeUtf8 s, Nothing {-Just loitem-})
                                 (LogValue name value) ->
-                                    (severity lometa, name <> " = " <> pack (showSI value), Nothing)
+                                    if name == ""
+                                    then (severity lometa, pack (showSI value), Nothing)
+                                    else (severity lometa, name <> " = " <> pack (showSI value), Nothing)
                                 (ObserveDiff _) ->
-                                     let text = TL.toStrict (encodeToLazyText (toObject loitem))
+                                     let text = TL.toStrict (encodeToLazyText loitem)
                                      in
                                      (severity lometa, text, Just loitem)
                                 (ObserveOpen _) ->
-                                     let text = TL.toStrict (encodeToLazyText (toObject loitem))
+                                     let text = TL.toStrict (encodeToLazyText loitem)
                                      in
                                      (severity lometa, text, Just loitem)
                                 (ObserveClose _) ->
-                                     let text = TL.toStrict (encodeToLazyText (toObject loitem))
+                                     let text = TL.toStrict (encodeToLazyText loitem)
                                      in
                                      (severity lometa, text, Just loitem)
                                 (AggregatedMessage aggregated) ->
@@ -315,7 +315,7 @@ passN backend katip (LogObject loname lometa loitem) = do
                                     in
                                     (severity lometa, text, Nothing)
                                 (MonitoringEffect _) ->
-                                     let text = TL.toStrict (encodeToLazyText (toObject loitem))
+                                     let text = TL.toStrict (encodeToLazyText loitem)
                                      in
                                      (severity lometa, text, Just loitem)
                                 KillPill ->

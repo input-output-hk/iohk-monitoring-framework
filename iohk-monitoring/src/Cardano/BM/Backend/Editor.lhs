@@ -21,7 +21,7 @@ import qualified Control.Concurrent.Async as Async
 import           Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar, readMVar, withMVar)
 import           Control.Exception.Safe (SomeException, catch)
 import           Control.Monad  (void, when, forM_)
-import           Data.Aeson (FromJSON, encode)
+import           Data.Aeson (FromJSON, ToJSON, encode)
 import qualified Data.ByteString.Lazy.Char8 as BS8
 import qualified Data.HashMap.Strict as HM
 import           Data.List (delete)
@@ -47,7 +47,6 @@ import           Cardano.BM.Data.Output (ScribeId)
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.SubTrace
 import           Cardano.BM.Data.Trace
-import           Cardano.BM.Data.Tracer (ToObject (..))
 import           Cardano.BM.Backend.LogBuffer
 import           Cardano.BM.Rotator (tsformat)
 
@@ -73,7 +72,7 @@ type EditorMVar a = MVar (EditorInternal a)
 newtype Editor a = Editor
     { getEd :: EditorMVar a }
 
-data {-ToObject a =>-} EditorInternal a = EditorInternal
+data EditorInternal a = EditorInternal
     { edSBtrace :: Trace IO a
     , edThread  :: Async.Async ()
     , edBuffer  :: LogBuffer a
@@ -85,7 +84,7 @@ data {-ToObject a =>-} EditorInternal a = EditorInternal
 
 |Editor| is an |IsBackend|
 \begin{code}
-instance (ToObject a, FromJSON a) => IsBackend Editor a where
+instance (ToJSON a, FromJSON a) => IsBackend Editor a where
     typeof _ = EditorBK
 
     realize _ = fail "Editor cannot be instantiated by 'realize'"
@@ -122,7 +121,7 @@ instance (ToObject a, FromJSON a) => IsBackend Editor a where
 \subsubsection{Editor is an effectuator}\index{Editor!instance of IsEffectuator}
 Function |effectuate| is called to pass in a |LogObject| for display in the GUI.
 \begin{code}
-instance ToObject a => IsEffectuator Editor a where
+instance IsEffectuator Editor a where
     effectuate editor item =
         withMVar (getEd editor) $ \ed ->
             effectuate (edBuffer ed) item
@@ -137,7 +136,7 @@ instance ToObject a => IsEffectuator Editor a where
 data Cmd = Backends | Scribes | Severities | SubTrace | Aggregation | Buffer | ExportConfiguration
            deriving (Enum, Eq, Show, Read)
 
-prepare :: ToObject a => Editor a -> Configuration -> Window -> UI ()
+prepare :: ToJSON a => Editor a -> Configuration -> Window -> UI ()
 prepare editor config window = void $ do
     let commands = [Backends .. ]
 
@@ -208,10 +207,10 @@ prepare editor config window = void $ do
         mkLinkToFile str file = UI.anchor # set (attr "href") file
                                           # set (attr "target") "_blank"
                                           #+ [ string str ]
-    let mkSimpleRow :: ToObject a => LoggerName -> LogObject a -> UI Element
+    let mkSimpleRow :: ToJSON a => LoggerName -> LogObject a -> UI Element
         mkSimpleRow n lo@(LogObject _lonm _lometa _lov) = UI.tr #. "itemrow" #+
             [ UI.td #+ [ string (unpack n) ]
-            , UI.td #+ [ string $ BS8.unpack $ {-TL.toStrict-} encode (toObject lo) ]
+            , UI.td #+ [ string $ BS8.unpack $ encode lo ]
             ]
     let mkTableRow :: Show t => Cmd -> LoggerName -> t -> UI Element
         mkTableRow cmd n v = UI.tr #. "itemrow" #+
@@ -273,7 +272,7 @@ prepare editor config window = void $ do
                 \(n,v) -> performActionOnId outputTableId $
                     \t -> void $ element t #+ [ mkTableRow cmd n v ]
 
-    let displayBuffer :: ToObject a => Cmd -> [(LoggerName, LogObject a)] -> UI ()
+    let displayBuffer :: ToJSON a => Cmd -> [(LoggerName, LogObject a)] -> UI ()
         displayBuffer cmd sel = do
             showCurrentTab cmd
             rememberCurrent cmd
