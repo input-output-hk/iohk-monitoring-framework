@@ -210,7 +210,7 @@ library
   if flag(performance-test-queue)
     cpp-options:       -DPERFORMANCE_TEST_QUEUE
 
-  ghc-options:         -Wall -O2
+  ghc-options:         -Wall -Werror -O2
                        -fno-ignore-asserts
 
 test-suite tests
@@ -266,7 +266,7 @@ test-suite tests
                        vector,
                        void,
                        yaml, libyaml
-  ghc-options:         -Wall
+  ghc-options:         -Wall -Werror
 
   if !flag(disable-aggregation)
     cpp-options:       -DENABLE_AGGREGATION

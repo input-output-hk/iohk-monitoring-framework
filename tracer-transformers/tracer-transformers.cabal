@@ -25,7 +25,7 @@ library
                      , time
   if impl(ghc < 8.5)
     build-depends:     contravariant
-  ghc-options:         -Wall
+  ghc-options:         -Wall -Werror
 
 executable tracer-transfomers-example1
   main-is:             Main.hs
