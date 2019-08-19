@@ -16,11 +16,16 @@ module Cardano.BM.Backend.ExternalAbstraction
     , UnixNamedPipe
     ) where
 
-import           Control.Exception (SomeException (..), catch, fromException,
+import           Control.Exception (SomeException (..), catch)
+#ifndef mingw32_HOST_OS
+import           Control.Exception (fromException,
                      throw)
+#endif
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as BSC
+#ifndef mingw32_HOST_OS
 import           GHC.IO.Exception (IOException (..), IOErrorType (..))
+#endif
 import           GHC.IO.Handle (hDuplicate)
 import           System.IO (IOMode (..), openFile, BufferMode (NoBuffering),
                      Handle, hClose, hSetBuffering, openFile, stderr,
