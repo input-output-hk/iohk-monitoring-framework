@@ -21,4 +21,4 @@ library
   build-depends:       base
   if impl(ghc < 8.5)
     build-depends:     contravariant
-  ghc-options:         -Wall
+  ghc-options:         -Wall -Werror
