@@ -13,9 +13,11 @@
 module Cardano.BM.Data.Tracer
     ( Tracer (..)
     , TracingVerbosity (..)
+    , TracingFormatting (..)
     , Transformable (..)
     , ToLogObject (..)
     , ToObject (..)
+    , contramap
     , mkObject, emptyObject
     , traceWith
     -- * tracer transformers
@@ -117,35 +119,37 @@ for further processing of the messages.
 \label{code:toLogObjectMinimal}\index{ToLogObject!toLogObjectMinimal}
 
 The transformer |toLogObject| accepts any type for which a |ToObject| instance
-is available and returns a |LogObject| which can be forwarded into the |Switchboard|.
-It adds a verbosity hint of |NormalVerbosity|.
+is available and returns a |LogObject| which can be forwarded into the
+|Switchboard|. It adds a verbosity hint of |NormalVerbosity|.
 \\
-A verbosity level |TracingVerbosity| can be passed to the transformer |toLogObject'|.
+A verbosity level |TracingVerbosity| and a |TracingFormatting| hint can be passed
+to the transformer |toLogObject'|.
+
 
 \begin{code}
 class Monad m => ToLogObject m where
     toLogObject :: (ToObject a, Transformable a m b)
                 => Tracer m (LogObject a) -> Tracer m b
     toLogObject' :: (ToObject a, Transformable a m b)
-                 => TracingVerbosity -> Tracer m (LogObject a) -> Tracer m b
+                 => TracingFormatting -> TracingVerbosity -> Tracer m (LogObject a) -> Tracer m b
     toLogObjectVerbose :: (ToObject a, Transformable a m b)
                        => Tracer m (LogObject a) -> Tracer m b
     default toLogObjectVerbose :: (ToObject a, Transformable a m b)
                        => Tracer m (LogObject a) -> Tracer m b
-    toLogObjectVerbose tr = trTransformer MaximalVerbosity tr
+    toLogObjectVerbose tr = trTransformer StructuredLogging MaximalVerbosity tr
     toLogObjectMinimal :: (ToObject a, Transformable a m b)
                        => Tracer m (LogObject a) -> Tracer m b
     default toLogObjectMinimal :: (ToObject a, Transformable a m b)
                        => Tracer m (LogObject a) -> Tracer m b
-    toLogObjectMinimal tr = trTransformer MinimalVerbosity tr
+    toLogObjectMinimal tr = trTransformer StructuredLogging MinimalVerbosity tr
 
 instance ToLogObject IO where
     toLogObject :: (MonadIO m, ToObject a, Transformable a m b)
                 => Tracer m (LogObject a) -> Tracer m b
-    toLogObject tr = trTransformer NormalVerbosity tr
+    toLogObject tr = trTransformer StructuredLogging NormalVerbosity tr
     toLogObject' :: (MonadIO m, ToObject a, Transformable a m b)
-                 => TracingVerbosity -> Tracer m (LogObject a) -> Tracer m b
-    toLogObject' verb tr = trTransformer verb tr
+                 => TracingFormatting -> TracingVerbosity -> Tracer m (LogObject a) -> Tracer m b
+    toLogObject' hint verb tr = trTransformer hint verb tr
 
 \end{code}
 
@@ -163,6 +167,21 @@ instance (MonadFork m, MonadTimer m) => ToLogObject m where
         traceWith tr lo
 
 \end{spec}
+
+\subsubsection{Tracing formatting hint}
+\label{code:TracingFormatting}\index{TracingFormatting}
+\label{code:StructuredLogging}\index{TracingFormatting!StructuredLogging}
+\label{code:TextualRepresentation}\index{TracingFormatting!TextualRepresentation}
+\label{code:UserdefinedFormatting}\index{TracingFormatting!UserdefinedFormatting}
+The tracing formatting hint will be passed to |Transformable| instances and can
+direct the formatting of the traced observables.
+\begin{code}
+data TracingFormatting = StructuredLogging
+                       | TextualRepresentation
+                       | UserdefinedFormatting
+                         deriving (Eq, Ord)
+
+\end{code}
 
 \subsubsection{Verbosity levels}
 \label{code:TracingVerbosity}\index{TracingVerbosity}
@@ -244,9 +263,9 @@ Depending on the input type it can create objects of |LogValue| for numerical va
 
 \begin{code}
 class Monad m => Transformable a m b where
-    trTransformer :: TracingVerbosity -> Tracer m (LogObject a) -> Tracer m b
-    default trTransformer :: TracingVerbosity -> Tracer m (LogObject a) -> Tracer m b
-    trTransformer _ _ = nullTracer
+    trTransformer :: TracingFormatting -> TracingVerbosity -> Tracer m (LogObject a) -> Tracer m b
+    default trTransformer :: TracingFormatting -> TracingVerbosity -> Tracer m (LogObject a) -> Tracer m b
+    trTransformer _ _ _ = nullTracer
 
 trFromIntegral :: (Integral b, MonadIO m) => Text -> Tracer m (LogObject a) -> Tracer m b
 trFromIntegral name tr = Tracer $ \arg ->
@@ -263,40 +282,40 @@ trFromReal name tr = Tracer $ \arg ->
                       <*> pure (LogValue name $ PureD $ realToFrac arg)
 
 instance Transformable a IO Int where
-    trTransformer MinimalVerbosity = trFromIntegral ""
-    trTransformer _ = trFromIntegral "int"
+    trTransformer StructuredLogging MinimalVerbosity = trFromIntegral ""
+    trTransformer _ _ = trFromIntegral "int"
 instance Transformable a IO Integer where
-    trTransformer MinimalVerbosity = trFromIntegral ""
-    trTransformer _ = trFromIntegral "integer"
+    trTransformer StructuredLogging MinimalVerbosity = trFromIntegral ""
+    trTransformer _ _ = trFromIntegral "integer"
 instance Transformable a IO Word64 where
-    trTransformer MinimalVerbosity = trFromIntegral ""
-    trTransformer _ = trFromIntegral "word64"
+    trTransformer StructuredLogging MinimalVerbosity = trFromIntegral ""
+    trTransformer _ _ = trFromIntegral "word64"
 instance Transformable a IO Double where
-    trTransformer MinimalVerbosity = trFromReal ""
-    trTransformer _ = trFromReal "double"
+    trTransformer _ MinimalVerbosity = trFromReal ""
+    trTransformer _ _ = trFromReal "double"
 instance Transformable a IO Float where
-    trTransformer MinimalVerbosity = trFromReal ""
-    trTransformer _ = trFromReal "float"
+    trTransformer _ MinimalVerbosity = trFromReal ""
+    trTransformer _ _ = trFromReal "float"
 instance Transformable Text IO Text where
-    trTransformer _ tr = Tracer $ \arg ->
+    trTransformer _ _ tr = Tracer $ \arg ->
         traceWith tr =<<
             LogObject <$> pure ""
                       <*> (mkLOMeta Debug Public)
                       <*> pure (LogMessage arg)
 instance Transformable String IO String where
-    trTransformer _ tr = Tracer $ \arg ->
+    trTransformer _ _ tr = Tracer $ \arg ->
         traceWith tr =<<
             LogObject <$> pure ""
                       <*> (mkLOMeta Debug Public)
                       <*> pure (LogMessage arg)
 instance Transformable Text IO String where
-    trTransformer _ tr = Tracer $ \arg ->
+    trTransformer _ _ tr = Tracer $ \arg ->
         traceWith tr =<<
             LogObject <$> pure ""
                       <*> (mkLOMeta Debug Public)
                       <*> pure (LogMessage $ T.pack arg)
 instance Transformable String IO Text where
-    trTransformer _ tr = Tracer $ \arg ->
+    trTransformer _ _ tr = Tracer $ \arg ->
         traceWith tr =<<
             LogObject <$> pure ""
                       <*> (mkLOMeta Debug Public)
@@ -388,5 +407,5 @@ addName nm tr = Tracer $ \lo@(LogObject nm0 _meta _lc) ->
                                     traceWith tr $ lo { loName = nm }
                                 else
                                     traceWith tr $ lo { loName = nm0 <> "." <> nm }
- 
+
 \end{code}
