@@ -14,15 +14,15 @@ module Cardano.BM.Test.Structured (
 import qualified Control.Concurrent.STM as STM
 
 import           Data.Aeson (ToJSON (..), Value (..), (.=))
-import           Data.Text (Text)
+import           Data.Text (Text, pack)
 
 import           Cardano.BM.Configuration.Static
 import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.Tracer (Tracer (..), ToObject (..),
-                     TracingVerbosity (..), Transformable (..),
-                     annotateConfidential, emptyObject, mkObject,
-                     severityNotice, toLogObject', toLogObject,
-                     toLogObjectMinimal, toLogObjectVerbose,
+                     TracingFormatting (..), TracingVerbosity (..),
+                     Transformable (..), annotateConfidential, emptyObject,
+                     mkObject, nullTracer, severityNotice, toLogObject',
+                     toLogObject, toLogObjectMinimal, toLogObjectVerbose,
                      traceWith, trStructured)
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.SubTrace
@@ -77,15 +77,22 @@ data Pet = Pet { name :: Text, age :: Int}
 
 instance ToObject Pet where
     toObject MinimalVerbosity _ = emptyObject -- do not log
-    toObject NormalVerbosity (Pet _ _) = 
+    toObject NormalVerbosity (Pet _ _) =
         mkObject [ "kind" .= String "Pet"]
-    toObject MaximalVerbosity (Pet n a) = 
+    toObject MaximalVerbosity (Pet n a) =
         mkObject [ "kind" .= String "Pet"
                  , "name" .= toJSON n
                  , "age" .= toJSON a ]
 
 instance Transformable Text IO Pet where
-    trTransformer = trStructured  -- transform to JSON Object
+    -- transform to JSON Object
+    trTransformer StructuredLogging verb tr = trStructured verb tr
+    -- transform to textual representation using |show|
+    trTransformer TextualRepresentation _v tr = Tracer $ \pet -> do
+        meta <- mkLOMeta Info Public
+        traceWith tr $ LogObject "pet" meta $ (LogMessage . pack . show) pet
+    trTransformer _ _verb _tr = nullTracer
+
 
 logStructured :: Assertion
 logStructured = do
@@ -121,12 +128,14 @@ logStructuredStdout = do
     let noticeTracer = severityNotice baseTrace
     let confidentialTracer = annotateConfidential baseTrace
 
+    let pet = (Pet "bella" 8)
     traceWith (toLogObject noticeTracer) (42 :: Integer)
-    traceWith (toLogObject confidentialTracer) (Pet "bella" 8)
-    traceWith (toLogObjectVerbose confidentialTracer) (Pet "bella" 8)
-    traceWith (toLogObjectMinimal confidentialTracer) (Pet "bella" 8)
-    traceWith (toLogObject' MinimalVerbosity noticeTracer) (42 :: Integer)
-    traceWith (toLogObject' MinimalVerbosity confidentialTracer) (Pet "bella" 8)
+    traceWith (toLogObject confidentialTracer) pet
+    traceWith (toLogObjectVerbose confidentialTracer) pet
+    traceWith (toLogObjectMinimal confidentialTracer) pet
+    traceWith (toLogObject' StructuredLogging MinimalVerbosity noticeTracer) (42 :: Integer)
+    traceWith (toLogObject' StructuredLogging MinimalVerbosity confidentialTracer) pet
+    traceWith (toLogObject' TextualRepresentation MaximalVerbosity noticeTracer) pet
 
     assertBool "OK" True
 
