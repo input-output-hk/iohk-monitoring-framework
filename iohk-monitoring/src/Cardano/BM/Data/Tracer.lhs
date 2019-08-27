@@ -17,6 +17,8 @@ module Cardano.BM.Data.Tracer
     , Transformable (..)
     , ToLogObject (..)
     , ToObject (..)
+    , DefinePrivacyAnnotation (..)
+    , DefineSeverity (..)
     , contramap
     , mkObject, emptyObject
     , traceWith
@@ -196,6 +198,44 @@ data TracingVerbosity = MinimalVerbosity | NormalVerbosity | MaximalVerbosity
 
 \end{code}
 
+\subsubsection{Annotations to LogObject}
+\label{code:DefinePrivacyAnnotation}\index{DefinePrivacyAnnotation}
+\label{code:definePrivacyAnnotation}\index{definePrivacyAnnotation}
+\label{code:DefineSeverity}\index{DefineSeverity}
+\label{code:defineSeverity}\index{defineSeverity}
+The tracer transformer to a |LogObject| will need to assign a default
+privacy annotation and severity depending on the traced type. Using the
+following two classes, a user may overwrite the default, severity |Debug|
+and privacy annotation |Public|, and provide her own values for annotating
+the object.
+\begin{code}
+class DefinePrivacyAnnotation a where
+    definePrivacyAnnotation :: a -> PrivacyAnnotation
+    default definePrivacyAnnotation :: a -> PrivacyAnnotation
+    definePrivacyAnnotation _ = Public
+
+class DefineSeverity a where
+    defineSeverity :: a -> Severity
+    default defineSeverity :: a -> Severity
+    defineSeverity _ = Debug
+
+-- default instances
+instance DefinePrivacyAnnotation Int
+instance DefineSeverity Int
+instance DefinePrivacyAnnotation Integer
+instance DefineSeverity Integer
+instance DefinePrivacyAnnotation Word64
+instance DefineSeverity Word64
+instance DefinePrivacyAnnotation Double
+instance DefineSeverity Double
+instance DefinePrivacyAnnotation Float
+instance DefineSeverity Float
+instance DefinePrivacyAnnotation Text
+instance DefineSeverity Text
+instance DefinePrivacyAnnotation String
+instance DefineSeverity String
+\end{code}
+
 \subsubsection{ToObject - transforms a logged item to a JSON Object}
 \label{code:ToObject}\index{ToObject}
 \label{code:toObject}\index{ToObject!toObject}
@@ -262,23 +302,25 @@ Depending on the input type it can create objects of |LogValue| for numerical va
 |ToObject| representation.
 
 \begin{code}
-class Monad m => Transformable a m b where
+class (Monad m, DefinePrivacyAnnotation b, DefineSeverity b)  => Transformable a m b where
     trTransformer :: TracingFormatting -> TracingVerbosity -> Tracer m (LogObject a) -> Tracer m b
     default trTransformer :: TracingFormatting -> TracingVerbosity -> Tracer m (LogObject a) -> Tracer m b
     trTransformer _ _ _ = nullTracer
 
-trFromIntegral :: (Integral b, MonadIO m) => Text -> Tracer m (LogObject a) -> Tracer m b
+trFromIntegral :: (Integral b, MonadIO m, DefinePrivacyAnnotation b, DefineSeverity b)
+               => Text -> Tracer m (LogObject a) -> Tracer m b
 trFromIntegral name tr = Tracer $ \arg ->
         traceWith tr =<<
             LogObject <$> pure ""
-                      <*> (mkLOMeta Debug Public)
+                      <*> (mkLOMeta (defineSeverity arg) (definePrivacyAnnotation arg))
                       <*> pure (LogValue name $ PureI $ fromIntegral arg)
 
-trFromReal :: (Real b, MonadIO m) => Text -> Tracer m (LogObject a) -> Tracer m b
+trFromReal :: (Real b, MonadIO m, DefinePrivacyAnnotation b, DefineSeverity b)
+           => Text -> Tracer m (LogObject a) -> Tracer m b
 trFromReal name tr = Tracer $ \arg ->
         traceWith tr =<<
             LogObject <$> pure ""
-                      <*> (mkLOMeta Debug Public)
+                      <*> (mkLOMeta (defineSeverity arg) (definePrivacyAnnotation arg))
                       <*> pure (LogValue name $ PureD $ realToFrac arg)
 
 instance Transformable a IO Int where
@@ -300,25 +342,25 @@ instance Transformable Text IO Text where
     trTransformer _ _ tr = Tracer $ \arg ->
         traceWith tr =<<
             LogObject <$> pure ""
-                      <*> (mkLOMeta Debug Public)
+                      <*> (mkLOMeta (defineSeverity arg) (definePrivacyAnnotation arg))
                       <*> pure (LogMessage arg)
 instance Transformable String IO String where
     trTransformer _ _ tr = Tracer $ \arg ->
         traceWith tr =<<
             LogObject <$> pure ""
-                      <*> (mkLOMeta Debug Public)
+                      <*> (mkLOMeta (defineSeverity arg) (definePrivacyAnnotation arg))
                       <*> pure (LogMessage arg)
 instance Transformable Text IO String where
     trTransformer _ _ tr = Tracer $ \arg ->
         traceWith tr =<<
             LogObject <$> pure ""
-                      <*> (mkLOMeta Debug Public)
+                      <*> (mkLOMeta (defineSeverity arg) (definePrivacyAnnotation arg))
                       <*> pure (LogMessage $ T.pack arg)
 instance Transformable String IO Text where
     trTransformer _ _ tr = Tracer $ \arg ->
         traceWith tr =<<
             LogObject <$> pure ""
-                      <*> (mkLOMeta Debug Public)
+                      <*> (mkLOMeta (defineSeverity arg) (definePrivacyAnnotation arg))
                       <*> pure (LogMessage $ T.unpack arg)
 
 \end{code}
@@ -328,14 +370,15 @@ to their |ToObject| representation and further traces them as a |LogObject| of t
 |LogStructured|. If the |ToObject| representation is empty, then no tracing happens.
 \label{code:trStructured}\index{trStructured}
 \begin{code}
-trStructured :: (ToObject b, MonadIO m) => TracingVerbosity -> Tracer m (LogObject a) -> Tracer m b
+trStructured :: (ToObject b, MonadIO m, DefinePrivacyAnnotation b, DefineSeverity b)
+             => TracingVerbosity -> Tracer m (LogObject a) -> Tracer m b
 trStructured verb tr = Tracer $ \arg ->
         let obj = toObject verb arg
             tracer = if obj == emptyObject then nullTracer else tr
         in
         traceWith tracer =<<
             LogObject <$> pure ""
-                      <*> (mkLOMeta Debug Public)
+                      <*> (mkLOMeta (defineSeverity arg) (definePrivacyAnnotation arg))
                       <*> pure (LogStructured $ encode $ obj)
 
 \end{code}

@@ -18,13 +18,9 @@ import           Data.Text (Text, pack)
 
 import           Cardano.BM.Configuration.Static
 import           Cardano.BM.Data.LogItem
-import           Cardano.BM.Data.Tracer (Tracer (..), ToObject (..),
-                     TracingFormatting (..), TracingVerbosity (..),
-                     Transformable (..), annotateConfidential, emptyObject,
-                     mkObject, nullTracer, severityNotice, toLogObject',
-                     toLogObject, toLogObjectMinimal, toLogObjectVerbose,
-                     traceWith, trStructured)
-import           Cardano.BM.Data.Severity
+import           Cardano.BM.Tracing hiding (setupTrace)
+import           Cardano.BM.Data.Tracer (annotateConfidential, emptyObject,
+                     mkObject, nullTracer, severityNotice, trStructured)
 import           Cardano.BM.Data.SubTrace
 import           Cardano.BM.Backend.Switchboard (MockSwitchboard (..))
 import qualified Cardano.BM.Setup as Setup
@@ -92,6 +88,11 @@ instance Transformable Text IO Pet where
         meta <- mkLOMeta Info Public
         traceWith tr $ LogObject "pet" meta $ (LogMessage . pack . show) pet
     trTransformer _ _verb _tr = nullTracer
+
+-- default privacy annotation: Public
+instance DefinePrivacyAnnotation Pet
+-- default severity: Debug
+instance DefineSeverity Pet
 
 
 logStructured :: Assertion
