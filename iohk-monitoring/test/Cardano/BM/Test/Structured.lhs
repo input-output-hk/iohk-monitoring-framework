@@ -89,9 +89,9 @@ instance Transformable Text IO Pet where
         traceWith tr $ LogObject "pet" meta $ (LogMessage . pack . show) pet
     trTransformer _ _verb _tr = nullTracer
 
--- | default privacy annotation: Public
+-- default privacy annotation: Public
 instance DefinePrivacyAnnotation Pet
--- | default severity: Debug
+-- default severity: Debug
 instance DefineSeverity Pet
 
 

@@ -219,7 +219,7 @@ class DefineSeverity a where
     default defineSeverity :: a -> Severity
     defineSeverity _ = Debug
 
--- | default instances
+-- default instances
 instance DefinePrivacyAnnotation Int
 instance DefineSeverity Int
 instance DefinePrivacyAnnotation Integer
