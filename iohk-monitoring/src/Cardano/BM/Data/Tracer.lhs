@@ -342,25 +342,25 @@ instance Transformable Text IO Text where
     trTransformer _ _ tr = Tracer $ \arg ->
         traceWith tr =<<
             LogObject <$> pure ""
-                      <*> (mkLOMeta Debug Public)
+                      <*> (mkLOMeta (defineSeverity arg) (definePrivacyAnnotation arg))
                       <*> pure (LogMessage arg)
 instance Transformable String IO String where
     trTransformer _ _ tr = Tracer $ \arg ->
         traceWith tr =<<
             LogObject <$> pure ""
-                      <*> (mkLOMeta Debug Public)
+                      <*> (mkLOMeta (defineSeverity arg) (definePrivacyAnnotation arg))
                       <*> pure (LogMessage arg)
 instance Transformable Text IO String where
     trTransformer _ _ tr = Tracer $ \arg ->
         traceWith tr =<<
             LogObject <$> pure ""
-                      <*> (mkLOMeta Debug Public)
+                      <*> (mkLOMeta (defineSeverity arg) (definePrivacyAnnotation arg))
                       <*> pure (LogMessage $ T.pack arg)
 instance Transformable String IO Text where
     trTransformer _ _ tr = Tracer $ \arg ->
         traceWith tr =<<
             LogObject <$> pure ""
-                      <*> (mkLOMeta Debug Public)
+                      <*> (mkLOMeta (defineSeverity arg) (definePrivacyAnnotation arg))
                       <*> pure (LogMessage $ T.unpack arg)
 
 \end{code}
@@ -370,14 +370,15 @@ to their |ToObject| representation and further traces them as a |LogObject| of t
 |LogStructured|. If the |ToObject| representation is empty, then no tracing happens.
 \label{code:trStructured}\index{trStructured}
 \begin{code}
-trStructured :: (ToObject b, MonadIO m) => TracingVerbosity -> Tracer m (LogObject a) -> Tracer m b
+trStructured :: (ToObject b, MonadIO m, DefinePrivacyAnnotation b, DefineSeverity b)
+             => TracingVerbosity -> Tracer m (LogObject a) -> Tracer m b
 trStructured verb tr = Tracer $ \arg ->
         let obj = toObject verb arg
             tracer = if obj == emptyObject then nullTracer else tr
         in
         traceWith tracer =<<
             LogObject <$> pure ""
-                      <*> (mkLOMeta Debug Public)
+                      <*> (mkLOMeta (defineSeverity arg) (definePrivacyAnnotation arg))
                       <*> pure (LogStructured $ encode $ obj)
 
 \end{code}
