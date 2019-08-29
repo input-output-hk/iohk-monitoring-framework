@@ -141,3 +141,9 @@ logStructuredStdout = do
     assertBool "OK" True
 
 \end{code}
+
+\subsubsection{Structured logging with filtering}\label{code:logFiltered}
+
+\begin{code}
+
+\end{code}
