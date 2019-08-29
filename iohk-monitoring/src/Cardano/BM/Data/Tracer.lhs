@@ -33,6 +33,7 @@ module Cardano.BM.Data.Tracer
     , condTracing
     , condTracingM
     -- * severity transformers
+    , setSeverity
     , severityDebug
     , severityInfo
     , severityNotice
