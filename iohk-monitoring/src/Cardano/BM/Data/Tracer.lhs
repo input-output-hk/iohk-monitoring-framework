@@ -8,6 +8,7 @@
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE InstanceSigs          #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TypeSynonymInstances  #-}
 
 module Cardano.BM.Data.Tracer
@@ -19,6 +20,7 @@ module Cardano.BM.Data.Tracer
     , ToObject (..)
     , DefinePrivacyAnnotation (..)
     , DefineSeverity (..)
+    , WithSeverity (..)
     , contramap
     , mkObject, emptyObject
     , traceWith
@@ -33,6 +35,8 @@ module Cardano.BM.Data.Tracer
     , condTracing
     , condTracingM
     -- * severity transformers
+    , annotateSeverity
+    , filterSeverity
     , setSeverity
     , severityDebug
     , severityInfo
@@ -417,6 +421,16 @@ severityEmergency = setSeverity Emergency
 
 \end{code}
 
+\label{code:annotateSeverity}\index{annotateSeverity}
+The |Severity| of any |Tracer| can be set with wrapping it in |WithSeverity|.
+The traced types need to be of class |DefineSeverity|.
+\begin{code}
+annotateSeverity :: DefineSeverity a => Tracer m (WithSeverity a) -> Tracer m a
+annotateSeverity tr = Tracer $ \arg ->
+    traceWith tr $ WithSeverity (defineSeverity arg) arg
+
+\end{code}
+
 \subsubsection{Transformers for setting privacy annotation}
 \label{code:setPrivacy}
 \label{code:annotateConfidential}
@@ -436,8 +450,8 @@ annotatePublic = setPrivacy Public
 \end{code}
 
 \subsubsection{Transformers for adding a name to the context}
-\label{code:setName}
-\label{code:addName}\index{setName}\index{addName}
+\label{code:setName}\index{setName}
+\label{code:addName}\index{addName}
 This functions set or add names to the local context naming of |LogObject|.
 \begin{code}
 setName :: LoggerName -> Tracer m (LogObject a) -> Tracer m (LogObject a)
@@ -451,5 +465,43 @@ addName nm tr = Tracer $ \lo@(LogObject nm0 _meta _lc) ->
                                     traceWith tr $ lo { loName = nm }
                                 else
                                     traceWith tr $ lo { loName = nm0 <> "." <> nm }
+
+\end{code}
+
+\subsubsection{Transformer for filtering based on \emph{Severity}}
+\label{code:WithSeverity}\index{WithSeverity}
+This structure wraps a |Severity| around traced observables.
+\begin{code}
+data WithSeverity a = WithSeverity Severity a
+
+\end{code}
+
+
+\label{code:filterSeverity}\index{filterSeverity}
+The traced observables with annotated severity are filtered.
+\begin{code}
+filterSeverity :: forall m a. (Monad m) => (m Severity) -> Tracer m (WithSeverity a) -> Tracer m (WithSeverity a)
+filterSeverity msevlimit tr = condTracingM oracle tr
+  where
+    oracle :: m (WithSeverity a -> Bool)
+    oracle = do
+      sevlimit <- msevlimit
+      return $ \(WithSeverity sev _) -> (sev >= sevlimit)
+
+\end{code}
+
+General instances of |WithSeverity| wrapped observable types.
+
+\begin{code}
+instance forall m a t. (Monad m, Transformable t m a) => Transformable t m (WithSeverity a) where
+    trTransformer formatter verb tr = Tracer $ \(WithSeverity sev arg) ->
+        let transformer :: Tracer m a
+            transformer = trTransformer formatter verb $ setSeverity sev tr
+        in traceWith transformer arg
+
+instance DefinePrivacyAnnotation a => DefinePrivacyAnnotation (WithSeverity a) where
+    definePrivacyAnnotation (WithSeverity _ a) = definePrivacyAnnotation a
+instance DefineSeverity (WithSeverity a) where
+    defineSeverity (WithSeverity sev _) = sev
 
 \end{code}
