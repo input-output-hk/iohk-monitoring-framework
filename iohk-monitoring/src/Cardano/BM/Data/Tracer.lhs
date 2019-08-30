@@ -58,6 +58,7 @@ module Cardano.BM.Data.Tracer
     ) where
 
 
+import           Control.Monad (when)
 import           Control.Monad.IO.Class (MonadIO (..))
 
 import           Data.Aeson (Object, ToJSON (..), Value (..), encode)
@@ -490,20 +491,17 @@ data WithSeverity a = WithSeverity Severity a
 
 \end{code}
 
-
 \label{code:filterSeverity}\index{filterSeverity}
 The traced observables with annotated severity are filtered.
 \begin{code}
-filterSeverity :: forall m a. (Monad m)
-               => (m Severity)
-               -> Tracer m (WithSeverity a)
-               -> Tracer m (WithSeverity a)
-filterSeverity msevlimit tr = condTracingM oracle tr
-  where
-    oracle :: m (WithSeverity a -> Bool)
-    oracle = do
-      sevlimit <- msevlimit
-      return $ \(WithSeverity sev _) -> (sev >= sevlimit)
+filterSeverity :: forall m a. (Monad m, HasSeverityAnnotation a)
+               => (a -> m Severity)
+               -> Tracer m a
+               -> Tracer m a
+filterSeverity msevlimit tr = Tracer $ \arg -> do
+    sevlimit <- msevlimit arg
+    when (getSeverityAnnotation arg >= sevlimit) $
+        traceWith tr arg
 
 \end{code}
 
@@ -534,16 +532,14 @@ data WithPrivacyAnnotation a = WithPrivacyAnnotation PrivacyAnnotation a
 \label{code:filterPrivacyAnnotation}\index{filterPrivacyAnnotation}
 The traced observables with annotated severity are filtered.
 \begin{code}
-filterPrivacyAnnotation :: forall m a. (Monad m)
-                        => (m PrivacyAnnotation)
-                        -> Tracer m (WithPrivacyAnnotation a)
-                        -> Tracer m (WithPrivacyAnnotation a)
-filterPrivacyAnnotation mpa tr = condTracingM oracle tr
-  where
-    oracle :: m (WithPrivacyAnnotation a -> Bool)
-    oracle = do
-      pacrit <- mpa
-      return $ \(WithPrivacyAnnotation pa _) -> (pa == pacrit)
+filterPrivacyAnnotation :: forall m a. (Monad m, HasPrivacyAnnotation a)
+                        => (a -> m PrivacyAnnotation)
+                        -> Tracer m a
+                        -> Tracer m a
+filterPrivacyAnnotation mpa tr = Tracer $ \arg -> do
+    pa <- mpa arg
+    when (getPrivacyAnnotation arg == pa) $
+        traceWith tr arg
 
 \end{code}
 
@@ -560,5 +556,37 @@ instance DefinePrivacyAnnotation (WithPrivacyAnnotation a) where
     definePrivacyAnnotation (WithPrivacyAnnotation pa _) = pa
 instance DefineSeverity a => DefineSeverity (WithPrivacyAnnotation a) where
     defineSeverity (WithPrivacyAnnotation _ a) = defineSeverity a
+
+\end{code}
+
+\subsubsection{The properties of being annotated with severity and privacy}
+\label{code:HasSeverityAnnotation}\index{HasSeverityAnnotation}
+From a type with the property of |HasSeverityAnnotation|, one will be able to
+extract its severity annotation.
+
+\begin{code}
+class HasSeverityAnnotation a where
+    getSeverityAnnotation :: a -> Severity
+
+instance HasSeverityAnnotation (WithSeverity a) where
+    getSeverityAnnotation (WithSeverity sev _) = sev
+
+instance HasSeverityAnnotation a => HasSeverityAnnotation (WithPrivacyAnnotation a) where
+    getSeverityAnnotation (WithPrivacyAnnotation _ a) = getSeverityAnnotation a
+
+\end{code}
+
+\label{code:HasPrivacyAnnotation}\index{HasPrivacyAnnotation}
+And, privacy annotation can be extracted from types with the property |HasPrivacyAnnotation|.
+
+\begin{code}
+class HasPrivacyAnnotation a where
+    getPrivacyAnnotation :: a -> PrivacyAnnotation
+
+instance HasPrivacyAnnotation (WithPrivacyAnnotation a) where
+    getPrivacyAnnotation (WithPrivacyAnnotation pva _) = pva
+
+instance HasPrivacyAnnotation a => HasPrivacyAnnotation (WithSeverity a) where
+    getPrivacyAnnotation (WithSeverity _ a) = getPrivacyAnnotation a
 
 \end{code}

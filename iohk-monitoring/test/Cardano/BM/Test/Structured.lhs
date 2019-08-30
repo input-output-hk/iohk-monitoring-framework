@@ -151,13 +151,13 @@ data Material = Material { description :: Text, weight :: Int}
 
 instance ToObject Material where
     toObject MinimalVerbosity _ = emptyObject -- do not log
-    toObject NormalVerbosity (Material n _) =
+    toObject NormalVerbosity (Material d _) =
         mkObject [ "kind" .= String "Material"
-                 , "description" .= toJSON n ]
-    toObject MaximalVerbosity (Material n a) =
+                 , "description" .= toJSON d ]
+    toObject MaximalVerbosity (Material d w) =
         mkObject [ "kind" .= String "Material"
-                 , "description" .= toJSON n
-                 , "weight" .= toJSON a ]
+                 , "description" .= toJSON d
+                 , "weight" .= toJSON w ]
 
 instance Transformable Text IO Material where
     -- transform to JSON Object
@@ -171,7 +171,10 @@ instance Transformable Text IO Material where
 instance DefinePrivacyAnnotation Material where
     definePrivacyAnnotation _ = Confidential
 instance DefineSeverity Material where
-    defineSeverity _ = Info
+    defineSeverity (Material _d w) =
+        if w < 100
+        then Debug
+        else Info
 
 logFiltered :: Assertion
 logFiltered = do
@@ -181,14 +184,16 @@ logFiltered = do
 
     let stone = Material "stone" 1400
         water = Material "H2O" 1000
+        dust  = Material "dust" 13
         confidentialTracer = annotatePrivacyAnnotation
-                             $ filterPrivacyAnnotation (pure Confidential)
+                             $ filterPrivacyAnnotation (pure . const Confidential)
                              $ toLogObject $ baseTrace
         infoTracer = annotateSeverity
-                     $ filterSeverity (pure Info)
+                     $ filterSeverity (pure . const Info)
                      $ toLogObject $ baseTrace
     traceWith confidentialTracer stone
     traceWith infoTracer water
+    traceWith infoTracer dust   -- does not pass severity filter
 
     ms <- STM.readTVarIO msgs
 
