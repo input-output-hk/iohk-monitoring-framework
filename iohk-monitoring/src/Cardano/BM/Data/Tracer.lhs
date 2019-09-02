@@ -8,6 +8,7 @@
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE InstanceSigs          #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TypeSynonymInstances  #-}
 
 module Cardano.BM.Data.Tracer
@@ -19,6 +20,8 @@ module Cardano.BM.Data.Tracer
     , ToObject (..)
     , DefinePrivacyAnnotation (..)
     , DefineSeverity (..)
+    , WithSeverity (..)
+    , WithPrivacyAnnotation (..)
     , contramap
     , mkObject, emptyObject
     , traceWith
@@ -33,6 +36,9 @@ module Cardano.BM.Data.Tracer
     , condTracing
     , condTracingM
     -- * severity transformers
+    , annotateSeverity
+    , filterSeverity
+    , setSeverity
     , severityDebug
     , severityInfo
     , severityNotice
@@ -44,12 +50,15 @@ module Cardano.BM.Data.Tracer
     -- * privacy annotation transformers
     , annotateConfidential
     , annotatePublic
+    , annotatePrivacyAnnotation
+    , filterPrivacyAnnotation
     -- * annotate context name
     , addName
     , setName
     ) where
 
 
+import           Control.Monad (when)
 import           Control.Monad.IO.Class (MonadIO (..))
 
 import           Data.Aeson (Object, ToJSON (..), Value (..), encode)
@@ -416,6 +425,16 @@ severityEmergency = setSeverity Emergency
 
 \end{code}
 
+\label{code:annotateSeverity}\index{annotateSeverity}
+The |Severity| of any |Tracer| can be set with wrapping it in |WithSeverity|.
+The traced types need to be of class |DefineSeverity|.
+\begin{code}
+annotateSeverity :: DefineSeverity a => Tracer m (WithSeverity a) -> Tracer m a
+annotateSeverity tr = Tracer $ \arg ->
+    traceWith tr $ WithSeverity (defineSeverity arg) arg
+
+\end{code}
+
 \subsubsection{Transformers for setting privacy annotation}
 \label{code:setPrivacy}
 \label{code:annotateConfidential}
@@ -434,9 +453,20 @@ annotatePublic = setPrivacy Public
 
 \end{code}
 
+\label{code:annotatePrivacyAnnotation}\index{annotatePrivacyAnnotation}
+The |PrivacyAnnotation| of any |Tracer| can be set with wrapping it in |WithPrivacyAnnotation|.
+The traced types need to be of class |DefinePrivacyAnnotation|.
+\begin{code}
+annotatePrivacyAnnotation :: DefinePrivacyAnnotation a => Tracer m (WithPrivacyAnnotation a) -> Tracer m a
+annotatePrivacyAnnotation tr = Tracer $ \arg ->
+    traceWith tr $ WithPrivacyAnnotation (definePrivacyAnnotation arg) arg
+
+\end{code}
+
+
 \subsubsection{Transformers for adding a name to the context}
-\label{code:setName}
-\label{code:addName}\index{setName}\index{addName}
+\label{code:setName}\index{setName}
+\label{code:addName}\index{addName}
 This functions set or add names to the local context naming of |LogObject|.
 \begin{code}
 setName :: LoggerName -> Tracer m (LogObject a) -> Tracer m (LogObject a)
@@ -450,5 +480,113 @@ addName nm tr = Tracer $ \lo@(LogObject nm0 _meta _lc) ->
                                     traceWith tr $ lo { loName = nm }
                                 else
                                     traceWith tr $ lo { loName = nm0 <> "." <> nm }
+
+\end{code}
+
+\subsubsection{Transformer for filtering based on \emph{Severity}}
+\label{code:WithSeverity}\index{WithSeverity}
+This structure wraps a |Severity| around traced observables.
+\begin{code}
+data WithSeverity a = WithSeverity Severity a
+
+\end{code}
+
+\label{code:filterSeverity}\index{filterSeverity}
+The traced observables with annotated severity are filtered.
+\begin{code}
+filterSeverity :: forall m a. (Monad m, HasSeverityAnnotation a)
+               => (a -> m Severity)
+               -> Tracer m a
+               -> Tracer m a
+filterSeverity msevlimit tr = Tracer $ \arg -> do
+    sevlimit <- msevlimit arg
+    when (getSeverityAnnotation arg >= sevlimit) $
+        traceWith tr arg
+
+\end{code}
+
+General instances of |WithSeverity| wrapped observable types.
+
+\begin{code}
+instance forall m a t. (Monad m, Transformable t m a) => Transformable t m (WithSeverity a) where
+    trTransformer formatter verb tr = Tracer $ \(WithSeverity sev arg) ->
+        let transformer :: Tracer m a
+            transformer = trTransformer formatter verb $ setSeverity sev tr
+        in traceWith transformer arg
+
+instance DefinePrivacyAnnotation a => DefinePrivacyAnnotation (WithSeverity a) where
+    definePrivacyAnnotation (WithSeverity _ a) = definePrivacyAnnotation a
+instance DefineSeverity (WithSeverity a) where
+    defineSeverity (WithSeverity sev _) = sev
+
+\end{code}
+
+\subsubsection{Transformer for filtering based on \emph{PrivacyAnnotation}}
+\label{code:WithPrivacyAnnotation}\index{WithPrivacyAnnotation}
+This structure wraps a |Severity| around traced observables.
+\begin{code}
+data WithPrivacyAnnotation a = WithPrivacyAnnotation PrivacyAnnotation a
+
+\end{code}
+
+\label{code:filterPrivacyAnnotation}\index{filterPrivacyAnnotation}
+The traced observables with annotated severity are filtered.
+\begin{code}
+filterPrivacyAnnotation :: forall m a. (Monad m, HasPrivacyAnnotation a)
+                        => (a -> m PrivacyAnnotation)
+                        -> Tracer m a
+                        -> Tracer m a
+filterPrivacyAnnotation mpa tr = Tracer $ \arg -> do
+    pa <- mpa arg
+    when (getPrivacyAnnotation arg == pa) $
+        traceWith tr arg
+
+\end{code}
+
+General instances of |WithPrivacyAnnotation| wrapped observable types.
+
+\begin{code}
+instance forall m a t. (Monad m, Transformable t m a) => Transformable t m (WithPrivacyAnnotation a) where
+    trTransformer formatter verb tr = Tracer $ \(WithPrivacyAnnotation pa arg) ->
+        let transformer :: Tracer m a
+            transformer = trTransformer formatter verb $ setPrivacy pa tr
+        in traceWith transformer arg
+
+instance DefinePrivacyAnnotation (WithPrivacyAnnotation a) where
+    definePrivacyAnnotation (WithPrivacyAnnotation pa _) = pa
+instance DefineSeverity a => DefineSeverity (WithPrivacyAnnotation a) where
+    defineSeverity (WithPrivacyAnnotation _ a) = defineSeverity a
+
+\end{code}
+
+\subsubsection{The properties of being annotated with severity and privacy}
+\label{code:HasSeverityAnnotation}\index{HasSeverityAnnotation}
+From a type with the property of |HasSeverityAnnotation|, one will be able to
+extract its severity annotation.
+
+\begin{code}
+class HasSeverityAnnotation a where
+    getSeverityAnnotation :: a -> Severity
+
+instance HasSeverityAnnotation (WithSeverity a) where
+    getSeverityAnnotation (WithSeverity sev _) = sev
+
+instance HasSeverityAnnotation a => HasSeverityAnnotation (WithPrivacyAnnotation a) where
+    getSeverityAnnotation (WithPrivacyAnnotation _ a) = getSeverityAnnotation a
+
+\end{code}
+
+\label{code:HasPrivacyAnnotation}\index{HasPrivacyAnnotation}
+And, privacy annotation can be extracted from types with the property |HasPrivacyAnnotation|.
+
+\begin{code}
+class HasPrivacyAnnotation a where
+    getPrivacyAnnotation :: a -> PrivacyAnnotation
+
+instance HasPrivacyAnnotation (WithPrivacyAnnotation a) where
+    getPrivacyAnnotation (WithPrivacyAnnotation pva _) = pva
+
+instance HasPrivacyAnnotation a => HasPrivacyAnnotation (WithSeverity a) where
+    getPrivacyAnnotation (WithSeverity _ a) = getPrivacyAnnotation a
 
 \end{code}

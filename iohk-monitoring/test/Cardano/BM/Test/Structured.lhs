@@ -19,8 +19,7 @@ import           Data.Text (Text, pack)
 import           Cardano.BM.Configuration.Static
 import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Tracing hiding (setupTrace)
-import           Cardano.BM.Data.Tracer (annotateConfidential, emptyObject,
-                     mkObject, nullTracer, severityNotice, trStructured)
+import           Cardano.BM.Data.Tracer
 import           Cardano.BM.Data.SubTrace
 import           Cardano.BM.Backend.Switchboard (MockSwitchboard (..))
 import qualified Cardano.BM.Setup as Setup
@@ -37,6 +36,7 @@ tests :: TestTree
 tests = testGroup "Testing Structured Logging" [
               testCase "logging simple text" logSimpleText
             , testCase "logging data structures" logStructured
+            , testCase "logging with filtering" logFiltered
             , testCase "logging data structures (stdout)" logStructuredStdout
             ]
 
@@ -139,5 +139,66 @@ logStructuredStdout = do
     traceWith (toLogObject' TextualRepresentation MaximalVerbosity noticeTracer) pet
 
     assertBool "OK" True
+
+\end{code}
+
+\subsubsection{Structured logging with filtering}\label{code:logFiltered}
+
+\begin{code}
+
+data Material = Material { description :: Text, weight :: Int}
+           deriving (Show)
+
+instance ToObject Material where
+    toObject MinimalVerbosity _ = emptyObject -- do not log
+    toObject NormalVerbosity (Material d _) =
+        mkObject [ "kind" .= String "Material"
+                 , "description" .= toJSON d ]
+    toObject MaximalVerbosity (Material d w) =
+        mkObject [ "kind" .= String "Material"
+                 , "description" .= toJSON d
+                 , "weight" .= toJSON w ]
+
+instance Transformable Text IO Material where
+    -- transform to JSON Object
+    trTransformer StructuredLogging verb tr = trStructured verb tr
+    -- transform to textual representation using |show|
+    trTransformer TextualRepresentation _v tr = Tracer $ \mat -> do
+        meta <- mkLOMeta Info Public
+        traceWith tr $ LogObject "material" meta $ (LogMessage . pack . show) mat
+    trTransformer _ _verb _tr = nullTracer
+
+instance DefinePrivacyAnnotation Material where
+    definePrivacyAnnotation _ = Confidential
+instance DefineSeverity Material where
+    defineSeverity (Material _d w) =
+        if w < 100
+        then Debug
+        else Info
+
+logFiltered :: Assertion
+logFiltered = do
+    cfg <- defaultConfigStdout
+    msgs <- STM.newTVarIO []
+    baseTrace <- setupTrace $ TraceConfiguration cfg (MockSB msgs) "logStructured" Neutral
+
+    let stone = Material "stone" 1400
+        water = Material "H2O" 1000
+        dust  = Material "dust" 13
+        confidentialTracer = annotatePrivacyAnnotation
+                             $ filterPrivacyAnnotation (pure . const Confidential)
+                             $ toLogObject $ baseTrace
+        infoTracer = annotateSeverity
+                     $ filterSeverity (pure . const Info)
+                     $ toLogObject $ baseTrace
+    traceWith confidentialTracer stone
+    traceWith infoTracer water
+    traceWith infoTracer dust   -- does not pass severity filter
+
+    ms <- STM.readTVarIO msgs
+
+    assertBool
+        ("assert number of messages traced == 2: " ++ (show $ length ms))
+        (2 == length ms)
 
 \end{code}
