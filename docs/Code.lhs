@@ -328,11 +328,6 @@ thus specializes its interface.}\label{fig:overview}
 
 %include ../iohk-monitoring/examples/performance/Main.lhs
 
-\section{Code listings - contra-tracer package}
-
-%include ../contra-tracer/src/Control/Tracer.lhs
-
-
 \section{Code listings - iohk-monitoring package}
 
 
