@@ -103,6 +103,8 @@ library
                        Cardano.BM.Trace
                        Cardano.BM.Tracer
 
+                       Control.Tracer.Observe
+
   if !flag(disable-aggregation)
     exposed-modules:   Cardano.BM.Backend.Aggregation
 

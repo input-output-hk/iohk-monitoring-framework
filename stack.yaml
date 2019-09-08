@@ -1,9 +1,10 @@
 resolver: lts-13.26
 compiler: ghc-8.6.5
 packages:
-- contra-tracer
 - iohk-monitoring
 extra-deps:
+- git: https://github.com/input-output-hk/contra-tracer
+  commit: 6c3b3072b8e3632619516a75f7309825118fc78e
 - time-units-1.0.0
 - ekg-0.4.0.15
 - ekg-json-0.1.0.6

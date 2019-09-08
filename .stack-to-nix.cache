@@ -1,2 +1,3 @@
 https://github.com/365andreas/katip-libsystemd-journal 5f8d074c617fd67e3bce377a06d22b908b8ab8d7 . 0sim2ag8ildz73bbrmm76qgdn6jr1r9ksdvkrlym95r0k36ra766 katip-libsystemd-journal katip-libsystemd-journal.nix
 https://github.com/ocharles/libsystemd-journal 16696812d6bf882fd348a54be9b573e9e115d2e3 . 09dyhy8cd22gyzw589jchpg0ixwr6iy4wl4jmm095rswga2ddrjf libsystemd-journal libsystemd-journal.nix
+https://github.com/input-output-hk/contra-tracer 6c3b3072b8e3632619516a75f7309825118fc78e . 1nn3v53chvl7zm35bb6jig2zlgc7ngz6ix6yzslrqq0amg1sq6mz contra-tracer contra-tracer.nix

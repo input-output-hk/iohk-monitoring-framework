@@ -12,8 +12,8 @@
         "containers" = (((hackage.containers)."0.5.11.0").revisions).default;
         "libsystemd-journal" = (((hackage.libsystemd-journal)."1.4.4").revisions).default;
         } // {
-        contra-tracer = ./contra-tracer.nix;
         iohk-monitoring = ./iohk-monitoring.nix;
+        contra-tracer = ./contra-tracer.nix;
         };
       compiler.version = "8.6.5";
       compiler.nix-name = "ghc865";

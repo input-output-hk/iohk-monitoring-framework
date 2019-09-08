@@ -7,10 +7,10 @@
       license = "Apache-2.0";
       copyright = "2019 IOHK";
       maintainer = "operations@iohk.io";
-      author = "Neil Davies, Alexander Diemand, Andreas Triantafyllos";
+      author = "Alexander Vieth";
       homepage = "";
       url = "";
-      synopsis = "A simple interface for logging, tracing or monitoring.";
+      synopsis = "A simple interface for logging, tracing and monitoring";
       description = "";
       buildType = "Simple";
       };
@@ -21,4 +21,10 @@
           ] ++ (pkgs.lib).optional (compiler.isGhc && (compiler.version).lt "8.5") (hsPkgs.contravariant);
         };
       };
-    } // rec { src = (pkgs.lib).mkDefault ../.././contra-tracer; }
+    } // {
+    src = (pkgs.lib).mkDefault (pkgs.fetchgit {
+      url = "https://github.com/input-output-hk/contra-tracer";
+      rev = "6c3b3072b8e3632619516a75f7309825118fc78e";
+      sha256 = "1nn3v53chvl7zm35bb6jig2zlgc7ngz6ix6yzslrqq0amg1sq6mz";
+      });
+    }
