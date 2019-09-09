@@ -8,8 +8,9 @@ packages:
 extra-deps:
   - time-units-1.0.0
   - prometheus-2.1.2
-    #  - git: https://github.com/CodiePP/ekg-prometheus-adapter
-    #    commit: 1a258b6df7d9807d4c4ff3e99722223d31a2c320
+  - libsystemd-journal-1.4.4
+  - git: https://github.com/CodiePP/ekg-prometheus-adapter
+    commit: 1a258b6df7d9807d4c4ff3e99722223d31a2c320
 
 nix:
   shell-file: scripts/nix/stack-shell.nix

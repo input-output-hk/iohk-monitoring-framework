@@ -2,16 +2,16 @@
   {
     flags = {};
     package = {
-      specVersion = "0.2";
+      specVersion = "1.10";
       identifier = { name = "ekg-prometheus-adapter"; version = "0.2.0.1"; };
       license = "MIT";
       copyright = "2016 Alfredo Di Napoli";
-      maintainer = "operations@iohk.io";
+      maintainer = "alfredo.dinapoli@gmail.com";
       author = "Alfredo Di Napoli";
-      homepage = "https://github.com/adinapoli/ekg-prometheus-adapter";
-      url = "https://github.com/CodiePP/ekg-prometheus-adapter";
-      synopsis = "tracer transformers and examples showing their use";
-      description = "Easily expose your EKG metrics to Prometheus";
+      homepage = "https://github.com/CodiePP/ekg-prometheus-adapter";
+      url = "";
+      synopsis = "Easily expose your EKG metrics to Prometheus";
+      description = "Forked from original implementation by Alfredo Di Napoli on https://github.com/adinapoli/ekg-prometheus-adapter";
       buildType = "Simple";
       };
     components = {
@@ -29,17 +29,14 @@
         };
       tests = {
         "tests" = {
-          depends = [
-            (hsPkgs.base)
-            (hsPkgs.ekg-prometheus-adapter)
-          ];
+          depends = [ (hsPkgs.base) (hsPkgs.ekg-prometheus-adapter) ];
+          };
         };
       };
-    };
     } // {
     src = (pkgs.lib).mkDefault (pkgs.fetchgit {
       url = "https://github.com/CodiePP/ekg-prometheus-adapter";
       rev = "1a258b6df7d9807d4c4ff3e99722223d31a2c320";
-      sha256 = "16arrlxjkz9f8rd8v3l0yj70f2ij51didsxcz54jdv3j14pzmb5s";
+      sha256 = "0jzr1afb4vanhcc2gzlybzr0jnh66cap8kh00fkd4c22882jqkh8";
       });
     }

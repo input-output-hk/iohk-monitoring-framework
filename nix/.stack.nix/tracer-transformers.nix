@@ -29,8 +29,8 @@
             (hsPkgs.contra-tracer)
             (hsPkgs.time)
             (hsPkgs.tracer-transformers)
-        ];
-      };
+            ];
+          };
         "tracer-transfomers-example2" = {
           depends = [
             (hsPkgs.base)
@@ -40,5 +40,5 @@
             ];
           };
         };
-    };
+      };
     } // rec { src = (pkgs.lib).mkDefault ../.././tracer-transformers; }
