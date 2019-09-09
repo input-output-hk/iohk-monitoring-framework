@@ -19,10 +19,9 @@ package tracer-transformers
   documentation: True
   haddock-hyperlink-source: True
 
-constraints:
-  network == 3.0.*
-
 source-repository-package
   type: git
-  location: https://github.com/365andreas/ekg-prometheus-adapter
-  tag: fe48327538b32de62c9bffd9d1ac517ba85c7750
+  location: https://github.com/CodiePP/ekg-prometheus-adapter
+  tag: 1a258b6df7d9807d4c4ff3e99722223d31a2c320
+
+reorder-goals: True

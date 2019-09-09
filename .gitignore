@@ -27,3 +27,4 @@ cabal.project.local~
 docs/IOHK-Monitoring-code.*
 
 /result*
+.stack-to-nix.cache

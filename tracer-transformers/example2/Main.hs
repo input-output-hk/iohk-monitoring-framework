@@ -67,7 +67,7 @@ condVerbosity :: Monad m => Verbosity -> Tracer m a -> Tracer m a
 condVerbosity v = condTracingM (const <$> verbosityP v)
 
 
--- The distict message types that you want to expose. This is the set
+-- The distinct message types that you want to expose. This is the set
 -- of observables.
 
 data MyMessages a = MyStart a | MyNormal a | MyWarning (Int, a)
@@ -103,7 +103,7 @@ otherCode trs = do
 data BlockActions = BlockAction1 | BlockAction2 deriving (Show)
 data Timing = Timing Int deriving (Show)
 
-data MyCodeTracers m = MyCodeTracers 
+data MyCodeTracers m = MyCodeTracers
     { tr1 :: Tracer m (MyMessages BlockActions)
     , tr2 :: Tracer m (MyMessages Timing)
     }  -- and so forth
