@@ -194,9 +194,8 @@ prepare_configuration = do
     CM.setBackends c "#aggregation.complex.observeIO" (Just [EKGViewBK])
     CM.setEKGport c 12790
     CM.setLogOutput c "iohk-monitoring/log-pipe"
-#ifdef ENABLE_PROMETHEUS
+
     CM.setPrometheusPort c 12800
-#endif
 #endif
 #ifdef ENABLE_GUI
     CM.setGUIport c 13790

@@ -3,6 +3,9 @@ packages:
   iohk-monitoring
   contra-tracer
   tracer-transformers
+  plugins/backend-ekg
+  plugins/backend-prometheus
+  plugins/backend-graylog
 
 package iohk-monitoring
   tests: True

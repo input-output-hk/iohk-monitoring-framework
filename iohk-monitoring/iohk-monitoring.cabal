@@ -27,11 +27,6 @@ flag disable-graylog
   default:             False
   manual:              True
 
-flag disable-prometheus
-  description:         Turn off Prometheus.
-  default:             False
-  manual:              True
-
 flag disable-gui
   description:         Turn off configuration editor GUI.
   default:             False
@@ -98,6 +93,7 @@ library
                        Cardano.BM.Backend.Switchboard
                        Cardano.BM.Backend.TraceAcceptor
                        Cardano.BM.Backend.TraceForwarder
+                       Cardano.BM.Plugin
                        Cardano.BM.Rotator
                        Cardano.BM.Setup
                        Cardano.BM.Trace
@@ -105,15 +101,6 @@ library
 
   if !flag(disable-aggregation)
     exposed-modules:   Cardano.BM.Backend.Aggregation
-
-  if !flag(disable-ekg)
-    exposed-modules:   Cardano.BM.Backend.EKGView
-
-  if !flag(disable-graylog)
-    exposed-modules:   Cardano.BM.Backend.Graylog
-
-  if !flag(disable-ekg) && !flag(disable-prometheus)
-    exposed-modules:   Cardano.BM.Backend.Prometheus
 
   if !flag(disable-gui)
     exposed-modules:   Cardano.BM.Backend.Editor
@@ -165,15 +152,6 @@ library
                        unordered-containers,
                        vector,
                        yaml, libyaml
-  if !flag(disable-ekg)
-     build-depends:    ekg,
-                       ekg-core
-  if !flag(disable-ekg) && !flag(disable-prometheus)
-     build-depends:    ekg-prometheus-adapter,
-                       prometheus,
-                       warp
-  if !flag(disable-graylog)
-     build-depends:    network
   if !flag(disable-gui)
      build-depends:    threepenny-gui
   if os(windows)
@@ -188,15 +166,6 @@ library
 
   if !flag(disable-aggregation)
     cpp-options:       -DENABLE_AGGREGATION
-
-  if !flag(disable-ekg)
-    cpp-options:       -DENABLE_EKG
-
-  if !flag(disable-graylog)
-    cpp-options:       -DENABLE_GRAYLOG
-
-  if !flag(disable-ekg) && !flag(disable-prometheus)
-    cpp-options:       -DENABLE_PROMETHEUS
 
   if !flag(disable-gui)
     cpp-options:       -DENABLE_GUI
@@ -274,12 +243,6 @@ test-suite tests
   if !flag(disable-ekg)
     cpp-options:       -DENABLE_EKG
 
-  if !flag(disable-graylog)
-    cpp-options:       -DENABLE_GRAYLOG
-
-  if !flag(disable-ekg) && !flag(disable-prometheus)
-    cpp-options:       -DENABLE_PROMETHEUS
-
   if !flag(disable-gui)
     cpp-options:       -DENABLE_GUI
 
@@ -337,12 +300,6 @@ executable example-complex
 
   if !flag(disable-ekg)
     cpp-options:       -DENABLE_EKG
-
-  if !flag(disable-graylog)
-    cpp-options:       -DENABLE_GRAYLOG
-
-  if !flag(disable-ekg) && !flag(disable-prometheus)
-    cpp-options:       -DENABLE_PROMETHEUS
 
   if !flag(disable-gui)
     cpp-options:       -DENABLE_GUI

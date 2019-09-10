@@ -28,6 +28,7 @@ module Cardano.BM.Backend.Switchboard
     , waitForTermination
     -- * integrate external backend
     , addExternalBackend
+    , addExternalScribe
     ) where
 
 import qualified Control.Concurrent.Async as Async
@@ -43,6 +44,7 @@ import           Data.Maybe (fromMaybe)
 import           Data.Text (Text)
 import qualified Data.Text.IO as TIO
 import           Data.Time.Clock (getCurrentTime)
+import qualified Katip as K
 import           System.IO (stderr)
 
 import           Cardano.BM.Configuration (Configuration)
@@ -104,6 +106,7 @@ data SwitchboardInternal a = SwitchboardInternal
     { sbQueue     :: TBQ.TBQueue (LogObject a)
     , sbDispatch  :: Async.Async ()
     , sbLogBuffer :: Cardano.BM.Backend.LogBuffer.LogBuffer a
+    , sbLogBE     :: Cardano.BM.Backend.Log.Log a
     , sbBackends  :: NamedBackends a
     }
 
@@ -172,6 +175,7 @@ instance (FromJSON a, ToJSON a) => IsBackend Switchboard a where
     realize cfg = do
         -- we setup |LogBuffer| explicitly so we can access it as a |Backend| and as |LogBuffer|
         logbuf :: Cardano.BM.Backend.LogBuffer.LogBuffer a <- Cardano.BM.Backend.LogBuffer.realize cfg
+        katipBE :: Cardano.BM.Backend.Log.Log a <- Cardano.BM.Backend.Log.realize cfg
         let spawnDispatcher
                 :: Switchboard a
                 -> TBQ.TBQueue (LogObject a)
@@ -285,6 +289,7 @@ instance (FromJSON a, ToJSON a) => IsBackend Switchboard a where
                             sbQueue = q,
                             sbDispatch = dispatcher,
                             sbLogBuffer = logbuf,
+                            sbLogBE = katipBE,
                             sbBackends = bs }
 
         return sb
@@ -306,12 +311,20 @@ instance (FromJSON a, ToJSON a) => IsBackend Switchboard a where
 
 \end{code}
 
-\subsubsection{Integrate with external backend}\label{code:addBackend}\index{addBackend}
+\subsubsection{Integrate with external backend}\label{code:addExternalBackend}\index{addExternalBackend}
 \begin{code}
 addExternalBackend :: Switchboard a -> Backend a -> Text -> IO ()
 addExternalBackend switchboard be name =
     modifyMVar_ (getSB switchboard) $ \sb ->
         return $ sb { sbBackends = (UserDefinedBK name, be) : sbBackends sb }
+\end{code}
+
+\subsubsection{Integrate with external \emph{katip} scribe}\label{code:addExternalScribe}\index{addExternalScribe}
+\begin{code}
+addExternalScribe :: Switchboard a -> K.Scribe -> Text -> IO ()
+addExternalScribe switchboard sc name =
+    withMVar (getSB switchboard) $ \sb ->
+        Cardano.BM.Backend.Log.registerScribe (sbLogBE sb) sc name
 \end{code}
 
 \subsubsection{Waiting for the switchboard to terminate}\label{code:waitForTermination}\index{waitForTermination}
@@ -429,12 +442,7 @@ setupBackend' GraylogBK _ _ = do
     TIO.hPutStrLn stderr "disabled! will not setup backend 'Graylog'"
     return Nothing
 #endif
-setupBackend' KatipBK c _ = do
-    be :: Cardano.BM.Backend.Log.Log a <- Cardano.BM.Backend.Log.realize c
-    return $ Just MkBackend
-        { bEffectuate = Cardano.BM.Backend.Log.effectuate be
-        , bUnrealize = Cardano.BM.Backend.Log.unrealize be
-        }
+setupBackend' KatipBK _ _ = return Nothing
 setupBackend' LogBufferBK _ _ = return Nothing
 setupBackend' (TraceAcceptorBK pipePath) c sb = do
     let basetrace = mainTraceConditionally c sb

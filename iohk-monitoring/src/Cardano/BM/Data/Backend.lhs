@@ -12,12 +12,14 @@
 module Cardano.BM.Data.Backend
   ( Backend (..)
   , BackendKind (..)
+  , BackendId
   , IsBackend (..)
   , IsEffectuator (..)
   )
   where
 
 import           Data.Aeson (FromJSON)
+import           Data.Text (Text)
 
 import           Cardano.BM.Data.BackendKind
 import           Cardano.BM.Data.LogItem
@@ -26,6 +28,13 @@ import           Cardano.BM.Configuration.Model (Configuration)
 
 \end{code}
 %endif
+
+\subsubsection{BackendId}\label{code:BackendId}\index{BackendId}
+A backend is identified by |BackendKind x Name|
+\begin{code}
+type BackendId = Text
+
+\end{code}
 
 \subsubsection{Accepts a |LogObject|}\label{code:IsEffectuator}\index{IsEffectuator}
 Instances of this type class accept a |LogObject| and deal with it.

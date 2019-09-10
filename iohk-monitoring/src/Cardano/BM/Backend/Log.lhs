@@ -23,6 +23,9 @@ module Cardano.BM.Backend.Log
     , effectuate
     , realize
     , unrealize
+    , registerScribe
+    -- * re-exports
+    , K.Scribe
     ) where
 
 import           Control.AutoUpdate (UpdateSettings (..), defaultUpdateSettings,
@@ -181,36 +184,6 @@ instance (ToJSON a, FromJSON a) => IsBackend Log a where
         let updateEnv :: K.LogEnv -> IO UTCTime -> K.LogEnv
             updateEnv le timer =
                 le { K._logEnvTimer = timer, K._logEnvHost = "hostname" }
-            register :: [ScribeDefinition] -> K.LogEnv -> IO K.LogEnv
-            register [] le = return le
-            register (defsc : dscs) le = do
-                let kind      = scKind     defsc
-                    sctype    = scFormat   defsc
-                    name      = scName     defsc
-                    rotParams = scRotation defsc
-                    name'     = pack (show kind) <> "::" <> name
-                scr <- createScribe kind sctype name rotParams
-                register dscs =<< K.registerScribe name' scr scribeSettings le
-            scribeSettings :: KC.ScribeSettings
-            scribeSettings =
-                let bufferSize = 5000  -- size of the queue (in log items)
-                in
-                KC.ScribeSettings bufferSize
-            createScribe FileSK ScText name rotParams = mkTextFileScribe
-                                                            rotParams
-                                                            (FileDescription $ unpack name)
-                                                            False
-            createScribe FileSK ScJson name rotParams = mkJsonFileScribe
-                                                            rotParams
-                                                            (FileDescription $ unpack name)
-                                                            False
-#if defined(ENABLE_SYSTEMD)
-            createScribe JournalSK _ _ _ = mkJournalScribe
-#endif
-            createScribe StdoutSK sctype _ _ = mkStdoutScribe sctype
-            createScribe StderrSK sctype _ _ = mkStderrScribe sctype
-            createScribe DevNullSK _ _ _ = mkDevNullScribe
-
         cfoKey <- Config.getOptionOrDefault config (pack "cfokey") (pack "<unknown>")
         le0 <- K.initLogEnv
                     (K.Namespace ["iohk"])
@@ -219,7 +192,7 @@ instance (ToJSON a, FromJSON a) => IsBackend Log a where
         timer <- mkAutoUpdate defaultUpdateSettings { updateAction = getCurrentTime, updateFreq = 10000 }
         let le1 = updateEnv le0 timer
         scribes <- getSetupScribes config
-        le <- register scribes le1
+        le <- registerScribes scribes le1
 
         messageCounters <- resetCounters <$> getCurrentTime
 
@@ -232,6 +205,48 @@ instance (ToJSON a, FromJSON a) => IsBackend Log a where
         void $ K.closeScribes le
 
 \end{code}
+
+\subsubsection{Create and register \emph{katip} scribes}
+\begin{code}
+registerScribe :: Log a -> K.Scribe -> ScribeId -> IO ()
+registerScribe = undefined
+\end{code}
+
+\begin{code}
+registerScribes :: [ScribeDefinition] -> K.LogEnv -> IO K.LogEnv
+registerScribes [] le = return le
+registerScribes (defsc : dscs) le = do
+    let kind      = scKind     defsc
+        sctype    = scFormat   defsc
+        name      = scName     defsc
+        rotParams = scRotation defsc
+        name'     = pack (show kind) <> "::" <> name
+    scr <- createScribe kind sctype name rotParams
+    registerScribes dscs =<< K.registerScribe name' scr scribeSettings le
+  where
+    scribeSettings :: KC.ScribeSettings
+    scribeSettings =
+        let bufferSize = 5000  -- size of the queue (in log items)
+        in
+        KC.ScribeSettings bufferSize
+    createScribe FileSK ScText name rotParams = mkTextFileScribe
+                                                    rotParams
+                                                    (FileDescription $ unpack name)
+                                                    False
+    createScribe FileSK ScJson name rotParams = mkJsonFileScribe
+                                                    rotParams
+                                                    (FileDescription $ unpack name)
+                                                    False
+#if defined(ENABLE_SYSTEMD)
+    createScribe JournalSK _ _ _ = mkJournalScribe
+#endif
+    createScribe StdoutSK sctype _ _ = mkStdoutScribe sctype
+    createScribe StderrSK sctype _ _ = mkStderrScribe sctype
+    createScribe DevNullSK _ _ _ = mkDevNullScribe
+    createScribe UserDefinedSK ty nm rot = createScribe FileSK ty nm rot
+
+\end{code}
+
 
 \begin{spec}
 example :: IO ()
