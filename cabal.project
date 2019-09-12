@@ -9,7 +9,7 @@ packages:
   plugins/backend-graylog
   plugins/backend-monitoring
   plugins/backend-prometheus
-  lobemo-examples
+  examples
 
 package iohk-monitoring
   tests: True
