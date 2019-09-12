@@ -66,14 +66,6 @@ import           Cardano.BM.Backend.ExternalAbstraction (UnixNamedPipe)
 import           Cardano.BM.Backend.ExternalAbstraction (NoPipe)
 #endif
 
-#ifdef ENABLE_AGGREGATION
-import qualified Cardano.BM.Backend.Aggregation
-#endif
-
-#ifdef ENABLE_MONITORING
-import qualified Cardano.BM.Backend.Monitoring
-#endif
-
 \end{code}
 %endif
 
@@ -350,34 +342,8 @@ setupBackends bes c sb = setupBackendsAcc bes []
 setupBackend' :: (FromJSON a , ToJSON a) => BackendKind -> Configuration -> Switchboard a -> IO (Maybe (Backend a))
 setupBackend' SwitchboardBK _ _ = fail "cannot instantiate a further Switchboard"
 setupBackend' (UserDefinedBK _) _ _ = fail "cannot instantiate an user-defined backend"
-#ifdef ENABLE_MONITORING
-setupBackend' MonitoringBK c sb = do
-    let basetrace = mainTraceConditionally c sb
-
-    be :: Cardano.BM.Backend.Monitoring.Monitor a <- Cardano.BM.Backend.Monitoring.realizefrom c basetrace sb
-    return $ Just MkBackend
-      { bEffectuate = Cardano.BM.Backend.Monitoring.effectuate be
-      , bUnrealize = Cardano.BM.Backend.Monitoring.unrealize be
-      }
-#else
-setupBackend' MonitoringBK _ _ = do
-    TIO.hPutStrLn stderr "disabled! will not setup backend 'Monitoring'"
-    return Nothing
-#endif
-#ifdef ENABLE_AGGREGATION
-setupBackend' AggregationBK c sb = do
-    let basetrace = mainTraceConditionally c sb
-
-    be :: Cardano.BM.Backend.Aggregation.Aggregation a <- Cardano.BM.Backend.Aggregation.realizefrom c basetrace sb
-    return $ Just MkBackend
-      { bEffectuate = Cardano.BM.Backend.Aggregation.effectuate be
-      , bUnrealize = Cardano.BM.Backend.Aggregation.unrealize be
-      }
-#else
-setupBackend' AggregationBK _ _ = do
-    TIO.hPutStrLn stderr "disabled! will not setup backend 'Aggregation'"
-    return Nothing
-#endif
+setupBackend' MonitoringBK _ _ = return Nothing
+setupBackend' AggregationBK _ _ = return Nothing
 setupBackend' EditorBK _ _ = return Nothing
 setupBackend' GraylogBK _ _ = return Nothing
 setupBackend' EKGViewBK _ _ = return Nothing

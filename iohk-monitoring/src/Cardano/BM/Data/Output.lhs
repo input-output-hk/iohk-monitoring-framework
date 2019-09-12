@@ -47,7 +47,7 @@ data ScribeKind = FileSK
                 | JournalSK
 #endif
                 | DevNullSK
-                | UserDefinedSK ScribeId
+                | UserDefinedSK
                 deriving (Generic, Eq, Ord, Show, Read, FromJSON, ToJSON)
 
 \end{code}

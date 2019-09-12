@@ -3,10 +3,12 @@ packages:
   iohk-monitoring
   contra-tracer
   tracer-transformers
-  plugins/backend-ekg
-  plugins/backend-prometheus
-  plugins/backend-graylog
+  plugins/backend-aggregation
   plugins/backend-editor
+  plugins/backend-ekg
+  plugins/backend-graylog
+  plugins/backend-monitoring
+  plugins/backend-prometheus
   lobemo-examples
 
 package iohk-monitoring

@@ -52,7 +52,7 @@ prepare_configuration = do
 \begin{code}
 monitoringThr :: Trace IO Text -> Int -> IO (Async.Async ())
 monitoringThr trace objNumber = do
-  trace' <- appendName "monitoring" trace
+  let trace' = appendName "monitoring" trace
   obj <- (,) <$> (mkLOMeta Warning Public) <*> pure (LogValue "monitMe" (PureD 123.45))
   proc <- Async.async (loop trace' obj)
   return proc
