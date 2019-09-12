@@ -9,7 +9,7 @@ license:             Apache-2.0
 license-file:        LICENSE
 author:              Alexander Diemand
 maintainer:          operations@iohk.io
--- copyright:
+copyright:           2019 IOHK
 category:            Benchmarking
 build-type:          Simple
 extra-source-files:  CHANGELOG.md

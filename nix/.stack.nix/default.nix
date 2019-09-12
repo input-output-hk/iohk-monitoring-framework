@@ -9,6 +9,8 @@
         contra-tracer = ./contra-tracer.nix;
         iohk-monitoring = ./iohk-monitoring.nix;
         tracer-transformers = ./tracer-transformers.nix;
+        lobemo-examples = ./lobemo-examples.nix;
+        lobemo-backend-editor = ./lobemo-backend-editor.nix;
         ekg-prometheus-adapter = ./ekg-prometheus-adapter.nix;
         };
       compiler.version = "8.6.5";

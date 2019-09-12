@@ -4,6 +4,8 @@ packages:
   - contra-tracer
   - iohk-monitoring
   - tracer-transformers
+  - examples
+  - plugins/backend-editor
 
 extra-deps:
   - time-units-1.0.0
