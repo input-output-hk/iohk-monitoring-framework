@@ -18,9 +18,7 @@
 module Cardano.BM.Backend.Switchboard
     (
       Switchboard
-    , MockSwitchboard (..)
     , mainTraceConditionally
-    , traceMock
     , readLogBuffer
     , effectuate
     , realize
@@ -35,12 +33,11 @@ import qualified Control.Concurrent.Async as Async
 import           Control.Concurrent.MVar (MVar, newEmptyMVar, newMVar,
                      modifyMVar_, putMVar, readMVar, tryReadMVar, tryTakeMVar,
                      withMVar)
-import           Control.Concurrent.STM (TVar, atomically, modifyTVar, retry)
+import           Control.Concurrent.STM (atomically, retry)
 import qualified Control.Concurrent.STM.TBQueue as TBQ
 import           Control.Exception.Safe (throwM)
 import           Control.Monad (forM_, when, void)
 import           Data.Aeson (FromJSON, ToJSON)
-import           Data.Maybe (fromMaybe)
 import           Data.Text (Text)
 import qualified Data.Text.IO as TIO
 import           Data.Time.Clock (getCurrentTime)
@@ -57,7 +54,7 @@ import           Cardano.BM.Data.MessageCounter (resetCounters, sendAndResetAfte
                      updateMessageCounters)
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.SubTrace (SubTrace (..))
-import           Cardano.BM.Data.Tracer (Tracer (..), traceWith)
+import           Cardano.BM.Data.Tracer (Tracer (..))
 import qualified Cardano.BM.Backend.TraceAcceptor
 import qualified Cardano.BM.Backend.Log
 import qualified Cardano.BM.Backend.LogBuffer
@@ -73,20 +70,8 @@ import           Cardano.BM.Backend.ExternalAbstraction (NoPipe)
 import qualified Cardano.BM.Backend.Aggregation
 #endif
 
-#ifdef ENABLE_EKG
-import qualified Cardano.BM.Backend.EKGView
-#endif
-
-#ifdef ENABLE_GRAYLOG
-import qualified Cardano.BM.Backend.Graylog
-#endif
-
 #ifdef ENABLE_MONITORING
 import qualified Cardano.BM.Backend.Monitoring
-#endif
-
-#ifdef ENABLE_GUI
-import qualified Cardano.BM.Backend.Editor
 #endif
 
 \end{code}
@@ -346,7 +331,8 @@ readLogBuffer switchboard = do
 
 \end{code}
 
-\subsubsection{Realizing the backends according to configuration}\label{code:setupBackends}\index{Switchboard!setupBackends}
+\subsubsection{Realizing the backends according to configuration}
+\label{code:setupBackends}\index{Switchboard!setupBackends}
 \begin{code}
 setupBackends :: (FromJSON a, ToJSON a)
               => [BackendKind]
@@ -378,20 +364,6 @@ setupBackend' MonitoringBK _ _ = do
     TIO.hPutStrLn stderr "disabled! will not setup backend 'Monitoring'"
     return Nothing
 #endif
-#ifdef ENABLE_EKG
-setupBackend' EKGViewBK c sb = do
-    let basetrace = mainTraceConditionally c sb
-
-    be :: Cardano.BM.Backend.EKGView.EKGView a <- Cardano.BM.Backend.EKGView.realizefrom c basetrace sb
-    return $ Just MkBackend
-      { bEffectuate = Cardano.BM.Backend.EKGView.effectuate be
-      , bUnrealize = Cardano.BM.Backend.EKGView.unrealize be
-      }
-#else
-setupBackend' EKGViewBK _ _ = do
-    TIO.hPutStrLn stderr "disabled! will not setup backend 'EKGView'"
-    return Nothing
-#endif
 #ifdef ENABLE_AGGREGATION
 setupBackend' AggregationBK c sb = do
     let basetrace = mainTraceConditionally c sb
@@ -406,42 +378,9 @@ setupBackend' AggregationBK _ _ = do
     TIO.hPutStrLn stderr "disabled! will not setup backend 'Aggregation'"
     return Nothing
 #endif
-#ifdef ENABLE_GUI
-setupBackend' EditorBK c sb = do
-    port <- Config.getGUIport c
-    if port > 0
-    then do
-        let trace = mainTraceConditionally c sb
-        be :: Cardano.BM.Backend.Editor.Editor a <- Cardano.BM.Backend.Editor.realizefrom c trace sb
-        return $ Just MkBackend
-            { bEffectuate = Cardano.BM.Backend.Editor.effectuate be
-            , bUnrealize = Cardano.BM.Backend.Editor.unrealize be
-            }
-    else
-        return Nothing
-#else
-setupBackend' EditorBK _ _ = do
-    TIO.hPutStrLn stderr "disabled! will not setup backend 'Editor'"
-    return Nothing
-#endif
-#ifdef ENABLE_GRAYLOG
-setupBackend' GraylogBK c sb = do
-    port <- Config.getGraylogPort c
-    if port > 0
-    then do
-        let trace = mainTraceConditionally c sb
-        be :: Cardano.BM.Backend.Graylog.Graylog a <- Cardano.BM.Backend.Graylog.realizefrom c trace sb
-        return $ Just MkBackend
-            { bEffectuate = Cardano.BM.Backend.Graylog.effectuate be
-            , bUnrealize = Cardano.BM.Backend.Graylog.unrealize be
-            }
-    else
-        return Nothing
-#else
-setupBackend' GraylogBK _ _ = do
-    TIO.hPutStrLn stderr "disabled! will not setup backend 'Graylog'"
-    return Nothing
-#endif
+setupBackend' EditorBK _ _ = return Nothing
+setupBackend' GraylogBK _ _ = return Nothing
+setupBackend' EKGViewBK _ _ = return Nothing
 setupBackend' KatipBK _ _ = return Nothing
 setupBackend' LogBufferBK _ _ = return Nothing
 setupBackend' (TraceAcceptorBK pipePath) c sb = do
@@ -467,37 +406,5 @@ type PipeType =
 #else
     NoPipe
 #endif
-
-\end{code}
-
-\subsubsection{MockSwitchboard}\label{code:MockSwitchboard}\index{MockSwitchboard}
-|MockSwitchboard| is useful for tests since it keeps the |LogObject|s
-to be output in a list.
-
-\begin{code}
-newtype MockSwitchboard a = MockSB (TVar [LogObject a])
-
-instance IsEffectuator MockSwitchboard a where
-    effectuate (MockSB tvar) item = atomically $ modifyTVar tvar ((:) item)
-    handleOverflow _ = pure ()
-
-\end{code}
-
-\subsubsection{traceMock}\label{code:traceMock}\index{traceMock}
-A |Tracer| which forwards |LogObject|s to |MockSwitchboard| simulating
-functionality of |mainTraceConditionally|.
-
-\begin{code}
-traceMock :: MockSwitchboard a -> Config.Configuration -> Tracer IO (LogObject a)
-traceMock ms config =
-    Tracer $ \item@(LogObject loggername _ _) -> do
-        traceWith mainTrace item
-        subTrace <- fromMaybe Neutral <$> Config.findSubTrace config loggername
-        case subTrace of
-            TeeTrace secName ->
-                traceWith mainTrace item{ loName = secName }
-            _ -> return ()
-  where
-    mainTrace = mainTraceConditionally config ms
 
 \end{code}

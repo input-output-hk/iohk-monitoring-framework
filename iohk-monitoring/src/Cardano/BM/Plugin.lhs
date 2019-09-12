@@ -4,6 +4,7 @@
 
 %if style == newcode
 \begin{code}
+{-# LANGUAGE MultiParamTypeClasses #-}
 module Cardano.BM.Plugin
   ( Plugin (..)
   , loadPlugin
@@ -27,6 +28,7 @@ data Plugin a = BackendPlugin (Backend a) BackendId
               | ScribePlugin Scribe ScribeId
 \end{code}
 
+\subsubsection{Plugin behaviour}
 
 \subsubsection{Integrating plugins}
 \begin{code}

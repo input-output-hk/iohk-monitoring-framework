@@ -14,6 +14,8 @@ module Cardano.BM.Backend.Editor
     , effectuate
     , realizefrom
     , unrealize
+    -- * Plugin
+    , plugin
     ) where
 
 import           Prelude hiding (lookup)
@@ -48,6 +50,7 @@ import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.SubTrace
 import           Cardano.BM.Data.Trace
 import           Cardano.BM.Backend.LogBuffer
+import           Cardano.BM.Plugin (Plugin (..))
 import           Cardano.BM.Rotator (tsformat)
 
 \end{code}
@@ -65,6 +68,17 @@ of log messages.
 \subsubsection{links}
 The GUI is built on top of \emph{Threepenny-GUI} (\url{http://hackage.haskell.org/package/threepenny-gui}).
 The appearance is due to \emph{w3-css} (\url{https://www.w3schools.com/w3css}).
+
+
+\subsubsection{Plugin definition}
+\begin{code}
+plugin :: (IsEffectuator s a, ToJSON a, FromJSON a) => Configuration -> Trace IO a -> s a -> IO (Plugin a)
+plugin config trace sb = do
+    be :: Cardano.BM.Backend.Editor.Editor a <- realizefrom config trace sb
+    return $ BackendPlugin
+               (MkBackend { bEffectuate = effectuate be, bUnrealize = unrealize be })
+               "editor"
+\end{code}
 
 \subsubsection{Structure of Editor}\label{code:Editor}\index{Editor}
 \begin{code}

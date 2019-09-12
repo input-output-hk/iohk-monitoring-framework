@@ -45,7 +45,6 @@ import           Cardano.BM.Data.Observable
 import           Cardano.BM.Data.Output
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.SubTrace
-import           Cardano.BM.Backend.Switchboard (MockSwitchboard (..))
 #ifdef ENABLE_OBSERVABLES
 import           Cardano.BM.Counters (getMonoClock)
 import           Cardano.BM.Data.Aggregated
@@ -53,11 +52,11 @@ import           Cardano.BM.Data.Counter
 import qualified Cardano.BM.Observer.Monadic as MonadicObserver
 import qualified Cardano.BM.Observer.STM as STMObserver
 #endif
-import           Cardano.BM.Backend.Switchboard (traceMock)
 import qualified Cardano.BM.Setup as Setup
 import           Cardano.BM.Trace (Trace, appendName, logDebug, logInfo,
                      logInfoS, logNotice, logWarning, logError, logCritical,
                      logAlert, logEmergency)
+import           Cardano.BM.Test.Mock (MockSwitchboard (..), traceMock)
 
 import           Test.Tasty (TestTree, testGroup)
 import           Test.Tasty.HUnit (Assertion, assertBool, testCase,

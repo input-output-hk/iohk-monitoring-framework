@@ -6,6 +6,8 @@ packages:
   plugins/backend-ekg
   plugins/backend-prometheus
   plugins/backend-graylog
+  plugins/backend-editor
+  lobemo-examples
 
 package iohk-monitoring
   tests: True
@@ -13,13 +15,13 @@ package iohk-monitoring
 package contra-tracer
    -- Currently does not have tests, but set it True in case any are added.
   tests: True
-  documentation: True
+  documentation: False
   haddock-hyperlink-source: True
 
 package tracer-transformers
    -- Currently does not have tests, but set it True in case any are added.
   tests: True
-  documentation: True
+  documentation: False
   haddock-hyperlink-source: True
 
 source-repository-package

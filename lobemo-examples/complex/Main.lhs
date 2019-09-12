@@ -35,7 +35,7 @@ import qualified Data.HashMap.Strict as HM
 import           Data.Text (Text, pack)
 import           System.Random
 
-import           Cardano.BM.Configuration (Configuration)
+import           Cardano.BM.Backend.Editor
 import qualified Cardano.BM.Configuration.Model as CM
 import           Cardano.BM.Data.Aggregated (Measurable (..))
 import           Cardano.BM.Data.AggregatedKind
@@ -51,6 +51,7 @@ import           Cardano.BM.Data.Observable
 import           Cardano.BM.Observer.Monadic (bracketObserveIO)
 import qualified Cardano.BM.Observer.STM as STM
 #endif
+import           Cardano.BM.Plugin
 import           Cardano.BM.Setup
 import           Cardano.BM.Trace
 
@@ -68,12 +69,6 @@ prepare_configuration = do
     CM.setSetupBackends c [ KatipBK
 #ifdef ENABLE_AGGREGATION
                           , AggregationBK
-#endif
-#ifdef ENABLE_EKG
-                          , EKGViewBK
-#endif
-#ifdef ENABLE_GUI
-                          , EditorBK
 #endif
                           , MonitoringBK
                           , TraceForwarderBK
@@ -181,13 +176,10 @@ prepare_configuration = do
     CM.setAggregatedKind c "complex.random.rr" (Just StatsAK)
     CM.setAggregatedKind c "complex.random.ewma.rr" (Just (EwmaAK 0.42))
 
-#ifdef ENABLE_GUI
     CM.setBackends c "#aggregation.complex.random" (Just [EditorBK])
     CM.setBackends c "#aggregation.complex.random.ewma" (Just [EditorBK])
     CM.setBackends c "#messagecounters.switchboard" (Just [EditorBK, KatipBK])
-#endif
 
-#ifdef ENABLE_EKG
     CM.setSubTrace c "#messagecounters.monitoring" $ (Just Neutral)
     CM.setBackends c "#aggregation.complex.message" (Just [EKGViewBK, MonitoringBK])
     CM.setBackends c "#aggregation.complex.monitoring" (Just [MonitoringBK])
@@ -196,10 +188,7 @@ prepare_configuration = do
     CM.setLogOutput c "iohk-monitoring/log-pipe"
 
     CM.setPrometheusPort c 12800
-#endif
-#ifdef ENABLE_GUI
     CM.setGUIport c 13790
-#endif
     CM.setMonitors c $ HM.fromList
         [ ( "complex.monitoring"
           , ( Just (Compare "monitMe" (GE, (OpMeasurable 10)))
@@ -374,7 +363,10 @@ main = do
     c <- prepare_configuration
 
     -- create initial top-level Trace
-    (tr :: Trace IO Text, _sb) <- setupTrace_ c "complex"
+    (tr :: Trace IO Text, sb) <- setupTrace_ c "complex"
+
+    -- load plugins
+    _ <- loadPlugin <$> Cardano.BM.Backend.Editor.plugin c tr sb
 
     logNotice tr "starting program; hit CTRL-C to terminate"
 -- user can watch the progress only if EKG is enabled.
