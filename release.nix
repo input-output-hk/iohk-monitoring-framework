@@ -61,11 +61,11 @@ commonLib.pkgs.lib.mapAttrsRecursiveCond
     # targets are specified using above nomenclature:
     jobs.nix-tools.tests.iohk-monitoring.tests.x86_64-linux
 
-    jobs.nix-tools.exes.iohk-monitoring.x86_64-linux
+    jobs.nix-tools.exes.lobemo-examples.x86_64-linux
 
     # Linux "minimal" cabal flags builds
     jobs.nix-tools.libs.iohk-monitoring-minimal.x86_64-linux
-    jobs.nix-tools.exes.iohk-monitoring-minimal.x86_64-linux
+    #jobs.nix-tools.exes.iohk-monitoring-minimal.x86_64-linux
 
     # Disabled due to: https://github.com/psibi/download/issues/17:
     #jobs.nix-tools.exes.x86_64-pc-mingw32-iohk-monitoring.x86_64-linux
