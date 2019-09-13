@@ -34,7 +34,10 @@
           depends = ([
             (hsPkgs.base)
             (hsPkgs.iohk-monitoring)
+            (hsPkgs.lobemo-backend-aggregation)
             (hsPkgs.lobemo-backend-editor)
+            (hsPkgs.lobemo-backend-ekg)
+            (hsPkgs.lobemo-backend-monitoring)
             (hsPkgs.async)
             (hsPkgs.bytestring)
             (hsPkgs.mtl)

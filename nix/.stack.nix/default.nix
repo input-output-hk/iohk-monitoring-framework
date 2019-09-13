@@ -7,10 +7,15 @@
         "libsystemd-journal" = (((hackage.libsystemd-journal)."1.4.4").revisions).default;
         } // {
         contra-tracer = ./contra-tracer.nix;
-        iohk-monitoring = ./iohk-monitoring.nix;
         tracer-transformers = ./tracer-transformers.nix;
-        lobemo-examples = ./lobemo-examples.nix;
+        iohk-monitoring = ./iohk-monitoring.nix;
+        lobemo-backend-aggregation = ./lobemo-backend-aggregation.nix;
         lobemo-backend-editor = ./lobemo-backend-editor.nix;
+        lobemo-backend-ekg = ./lobemo-backend-ekg.nix;
+        lobemo-backend-graylog = ./lobemo-backend-graylog.nix;
+        lobemo-backend-monitoring = ./lobemo-backend-monitoring.nix;
+        lobemo-backend-prometheus = ./lobemo-backend-prometheus.nix;
+        lobemo-examples = ./lobemo-examples.nix;
         ekg-prometheus-adapter = ./ekg-prometheus-adapter.nix;
         };
       compiler.version = "8.6.5";
