@@ -8,6 +8,7 @@
 {-# LANGUAGE BangPatterns          #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
 
 {-@ embed GHC.Natural.Natural as int @-}
 
@@ -16,8 +17,9 @@ module Cardano.BM.Backend.Aggregation
       Aggregation
     , effectuate
     , realizefrom
-    , updateAggregation
     , unrealize
+    -- * Plugin
+    , plugin
     ) where
 
 import qualified Control.Concurrent.Async as Async
@@ -28,7 +30,7 @@ import qualified Control.Concurrent.STM.TBQueue as TBQ
 import           Control.Exception.Safe (throwM)
 import           Control.Monad (unless, void)
 import           Control.Monad.IO.Class (liftIO)
-import           Data.Aeson (FromJSON)
+import           Data.Aeson (FromJSON, ToJSON)
 import qualified Data.HashMap.Strict as HM
 import           Data.Text (Text, pack)
 import qualified Data.Text.IO as TIO
@@ -40,8 +42,9 @@ import           System.IO (stderr)
 import           Cardano.BM.Backend.ProcessQueue (processQueue)
 import           Cardano.BM.Configuration.Model (Configuration, getAggregatedKind)
 import           Cardano.BM.Data.Aggregated (Aggregated (..), BaseStats (..),
-                     EWMA (..), Measurable (..), Stats (..), getDouble,
-                     getInteger, singletonStats, subtractMeasurable)
+                     EWMA (..), Measurable (..), Stats (..), ewma, getDouble,
+                     getInteger, singletonStats, subtractMeasurable,
+                     updateAggregation)
 import           Cardano.BM.Data.AggregatedKind (AggregatedKind (..))
 import           Cardano.BM.Data.Backend
 import           Cardano.BM.Data.Counter (Counter (..), CounterState (..),
@@ -50,10 +53,22 @@ import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.MessageCounter (resetCounters, sendAndResetAfter,
                      updateMessageCounters)
 import           Cardano.BM.Data.Severity (Severity (..))
+import           Cardano.BM.Plugin
 import qualified Cardano.BM.Trace as Trace
 
 \end{code}
 %endif
+
+\subsubsection{Plugin definition}
+\begin{code}
+plugin :: (IsEffectuator s a, ToJSON a, FromJSON a)
+       => Configuration -> Trace.Trace IO a -> s a -> IO (Plugin a)
+plugin config trace sb = do
+    be :: Cardano.BM.Backend.Aggregation.Aggregation a <- realizefrom config trace sb
+    return $ BackendPlugin
+               (MkBackend { bEffectuate = effectuate be, bUnrealize = unrealize be })
+               (typeof be)
+\end{code}
 
 \subsubsection{Internal representation}\label{code:Aggregation}\index{Aggregation}
 \begin{code}
@@ -131,8 +146,7 @@ instance FromJSON a => IsBackend Aggregation a where
         return $ Aggregation aggref
 
     unrealize aggregation = do
-        let clearMVar :: MVar a -> IO ()
-            clearMVar = void . tryTakeMVar
+        let clearMVar = void . tryTakeMVar
 
         (dispatcher, queue) <- withMVar (getAg aggregation) (\ag ->
                             return (agDispatch ag, agQueue ag))
@@ -195,7 +209,7 @@ spawnDispatcher conf aggMap aggregationQueue basetrace = do
                     EwmaAK aEWMA -> do
                         let initEWMA = EmptyEWMA aEWMA
                         return $ AggregatedEWMA <$> ewma initEWMA value
-            Just a -> return $ updateAggregation value (aeAggregated a) lme (aeResetAfter a)
+            Just a -> return $ updateAggregation value (aeAggregated a) (utc2ns $ tstamp lme) (aeResetAfter a)
 
     update :: LogObject a
            -> AggregationMap
@@ -293,93 +307,5 @@ spawnDispatcher conf aggMap aggregationQueue basetrace = do
         liftIO $ Trace.traceNamedObject trace' (meta, v)
     -- ingnore every other message
     sendAggregated _ _ = return ()
-
-\end{code}
-
-\subsubsection{Update aggregation}\label{code:updateAggregation}\index{updateAggregation}
-We distinguish an unitialized from an already initialized aggregation. The latter is properly initialized.
-\\
-We use Welford's online algorithm to update the estimation of mean and variance of the sample statistics.
-(see \url{https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford's_Online_algorithm})
-
-\begin{code}
-updateAggregation :: Measurable -> Aggregated -> LOMeta -> Maybe Word64 -> Either Text Aggregated
-updateAggregation v (AggregatedStats s) lme resetAfter =
-    let count = fcount (fbasic s)
-        reset = maybe False (count >=) resetAfter
-    in
-    if reset
-    then
-        Right $ singletonStats v
-    else
-        Right $ AggregatedStats $! Stats { flast  = v
-                                         , fold = mkTimestamp
-                                         , fbasic = updateBaseStats 1 v (fbasic s)
-                                         , fdelta = updateBaseStats 2 deltav (fdelta s)
-                                         , ftimed = updateBaseStats 2 timediff (ftimed s)
-                                         }
-  where
-    deltav = subtractMeasurable v (flast s)
-    mkTimestamp = Nanoseconds $ utc2ns (tstamp lme)
-    timediff = Nanoseconds $ fromInteger $ (getInteger mkTimestamp) - (getInteger $ fold s)
-
-updateAggregation v (AggregatedEWMA e) _ _ =
-    let !eitherAvg = ewma e v
-    in
-        AggregatedEWMA <$> eitherAvg
-
-updateBaseStats :: Word64 -> Measurable -> BaseStats -> BaseStats
-updateBaseStats startAt v s =
-    let newcount = fcount s + 1 in
-    if (startAt > newcount)
-    then s {fcount = fcount s + 1}
-    else
-        let newcountRel = newcount - startAt + 1
-            newvalue = getDouble v
-            delta = newvalue - fsum_A s
-            dincr = (delta / fromIntegral newcountRel)
-            delta2 = newvalue - fsum_A s - dincr
-            (minim, maxim) =
-                if startAt == newcount
-                then (v, v)
-                else (min v (fmin s), max v (fmax s))
-        in
-        BaseStats { fmin   = minim
-                  , fmax   = maxim
-                  , fcount = newcount
-                  , fsum_A = fsum_A s + dincr
-                  , fsum_B = fsum_B s + (delta * delta2)
-                  }
-
-\end{code}
-
-\subsubsection{Calculation of EWMA}\label{code:ewma}\index{ewma}
-Following \url{https://en.wikipedia.org/wiki/Moving_average#Exponential_moving_average} we calculate
-the exponential moving average for a series of values $ Y_t $ according to:
-
-$$
-S_t =
-\begin{cases}
-  Y_1,       & t = 1 \\
-  \alpha \cdot Y_t + (1 - \alpha) \cdot S_{t-1},    & t > 1
-\end{cases}
-$$
-\\
-The pattern matching below ensures that the |EWMA| will start with the first value passed in,
-and will not change type, once determined.
-\begin{code}
-ewma :: EWMA -> Measurable -> Either Text EWMA
-ewma (EmptyEWMA a) v = Right $ EWMA a v
-ewma (EWMA a s@(Microseconds _)) y@(Microseconds _) =
-    Right $ EWMA a $ Microseconds $ round $ a * (getDouble y) + (1 - a) * (getDouble s)
-ewma (EWMA a s@(Seconds _)) y@(Seconds _) =
-    Right $ EWMA a $ Seconds $ round $ a * (getDouble y) + (1 - a) * (getDouble s)
-ewma (EWMA a s@(Bytes _)) y@(Bytes _) =
-    Right $ EWMA a $ Bytes $ round $ a * (getDouble y) + (1 - a) * (getDouble s)
-ewma (EWMA a (PureI s)) (PureI y) =
-    Right $ EWMA a $ PureI $ round $ a * (fromInteger y) + (1 - a) * (fromInteger s)
-ewma (EWMA a (PureD s)) (PureD y) =
-    Right $ EWMA a $ PureD $ a * y + (1 - a) * s
-ewma _ _ = Left "EWMA: Cannot compute average on values of different types"
 
 \end{code}

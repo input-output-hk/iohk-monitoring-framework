@@ -21,6 +21,8 @@ module Cardano.BM.Backend.Monitoring
     , effectuate
     , realizefrom
     , unrealize
+    -- * Plugin
+    , plugin
     ) where
 
 import qualified Control.Concurrent.Async as Async
@@ -30,7 +32,7 @@ import           Control.Concurrent.STM (atomically)
 import qualified Control.Concurrent.STM.TBQueue as TBQ
 import           Control.Exception.Safe (throwM)
 import           Control.Monad (void)
-import           Data.Aeson (FromJSON)
+import           Data.Aeson (FromJSON, ToJSON)
 import qualified Data.HashMap.Strict as HM
 import           Data.Maybe (catMaybes)
 import           Data.Text (Text, pack)
@@ -39,6 +41,7 @@ import           Data.Time.Clock (getCurrentTime)
 import           GHC.Clock (getMonotonicTimeNSec)
 import           System.IO (stderr)
 
+import           Cardano.BM.Backend.LogBuffer
 import           Cardano.BM.Backend.ProcessQueue (processQueue)
 import           Cardano.BM.Configuration.Model (Configuration, getMonitors)
 import           Cardano.BM.Data.Aggregated
@@ -50,11 +53,22 @@ import           Cardano.BM.Data.MessageCounter (resetCounters, sendAndResetAfte
                      updateMessageCounters)
 import           Cardano.BM.Data.MonitoringEval
 import           Cardano.BM.Data.Severity (Severity (..))
-import           Cardano.BM.Backend.LogBuffer
+import           Cardano.BM.Plugin (Plugin (..))
 import qualified Cardano.BM.Trace as Trace
 
 \end{code}
 %endif
+
+\subsubsection{Plugin definition}
+\begin{code}
+plugin :: (IsEffectuator s a, ToJSON a, FromJSON a)
+       => Configuration -> Trace.Trace IO a -> s a -> IO (Plugin a)
+plugin config trace sb = do
+    be :: Cardano.BM.Backend.Monitoring.Monitor a <- realizefrom config trace sb
+    return $ BackendPlugin
+               (MkBackend { bEffectuate = effectuate be, bUnrealize = unrealize be })
+               (typeof be)
+\end{code}
 
 \subsubsection{Structure of Monitoring}\label{code:Monitor}\index{Monitor}
 \begin{code}
@@ -181,6 +195,7 @@ spawnDispatcher mqueue config sbtrace monitor = do
         mbuf <- accessBufferMap
         let sbtraceWithMonitoring = Trace.appendName "#monitoring" sbtrace
         valuesForMonitoring <- getVarValuesForMonitoring config mbuf
+        TIO.hPutStrLn stderr "processMonitoring\n"
         state' <- evalMonitoringAction sbtraceWithMonitoring
                                         state
                                         lo

@@ -44,7 +44,10 @@ executable example-complex
   other-modules:
   build-depends:       base,
                        iohk-monitoring,
+                       lobemo-backend-aggregation,
                        lobemo-backend-editor,
+                       lobemo-backend-ekg,
+                       lobemo-backend-monitoring,
                        async,
                        bytestring,
                        mtl,

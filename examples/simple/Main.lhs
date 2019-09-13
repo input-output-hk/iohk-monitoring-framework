@@ -16,7 +16,7 @@ import           Control.Concurrent (threadDelay)
 import           Control.Concurrent.MVar (MVar, newMVar, modifyMVar_, withMVar)
 import           Data.Aeson (FromJSON)
 
-import           Cardano.BM.Backend.Switchboard (addExternalBackend)
+import           Cardano.BM.Backend.Switchboard (addUserDefinedBackend)
 import           Cardano.BM.Data.Backend
 import qualified Cardano.BM.Configuration.Model as CM
 import           Cardano.BM.Configuration.Static (defaultConfigStdout)
@@ -90,7 +90,7 @@ main = do
     (tr :: Trace IO String, sb) <- setupTrace_ c "simple"
     be :: MyBackend String <- realize c
     let mybe = MkBackend { bEffectuate = effectuate be, bUnrealize = unrealize be }
-    addExternalBackend sb mybe "MyBackend"
+    addUserDefinedBackend sb mybe "MyBackend"
     let trText = appendName "text" tr
         trJson = appendName "json" tr
 #ifdef LINUX

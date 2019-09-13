@@ -13,7 +13,15 @@ commonLib.pkgs.lib.mapAttrsRecursiveCond
 
   # packages from our stack.yaml or plan file (via nix/pkgs.nix) we
   # are interested in building on CI via nix-tools.
-  packages = [ "iohk-monitoring" "iohk-monitoring-minimal" ];
+  packages = [ "iohk-monitoring" "iohk-monitoring-minimal"
+               "lobemo-examples"
+               "lobemo-backend-aggregation"
+               "lobemo-backend-editor"
+               "lobemo-backend-ekg"
+               "lobemo-backend-graylog"
+               "lobemo-backend-monitoring"
+               "lobemo-backend-prometheus"
+             ];
 
   # The set of jobs we consider crutial for each CI run.
   # if a single one of these fails, the build will be marked

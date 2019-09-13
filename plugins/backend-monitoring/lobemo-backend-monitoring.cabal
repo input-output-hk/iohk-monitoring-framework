@@ -35,3 +35,45 @@ library
 
   hs-source-dirs:      src
   default-language:    Haskell2010
+
+test-suite tests
+  type:                exitcode-stdio-1.0
+  hs-source-dirs:      test
+  main-is:             Test.lhs
+  other-modules:       Cardano.BM.Test.Monitoring
+
+  default-language:    Haskell2010
+  default-extensions:  OverloadedStrings
+  build-depends:       base,
+                       contra-tracer,
+                       iohk-monitoring,
+                       lobemo-backend-monitoring,
+                       aeson >= 1.4.4,
+                       array,
+                       async,
+                       bytestring,
+                       clock,
+                       containers,
+                       directory,
+                       filepath,
+                       mtl,
+                       process,
+                       QuickCheck,
+                       random,
+                       semigroups,
+                       split,
+                       stm,
+                       tasty,
+                       tasty-hunit,
+                       tasty-quickcheck,
+                       temporary,
+                       text,
+                       time,
+                       time-units,
+                       transformers,
+                       unordered-containers,
+                       vector,
+                       void,
+                       yaml, libyaml
+  ghc-options:         -Wall -Werror
+

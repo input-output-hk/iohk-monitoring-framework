@@ -12,12 +12,14 @@ import           Control.Concurrent (threadDelay)
 import qualified Data.HashMap.Strict as HM
 import           Data.Text (Text)
 
+import           Cardano.BM.Backend.Monitoring
 import qualified Cardano.BM.Configuration.Model as CM
 import           Cardano.BM.Data.Aggregated
 import           Cardano.BM.Data.BackendKind
 import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.MonitoringEval
 import           Cardano.BM.Data.Severity
+import           Cardano.BM.Plugin
 import           Cardano.BM.Setup
 import           Cardano.BM.Trace
 
@@ -225,7 +227,8 @@ testSetGlobalMinimalSeverity = do
           )
         ]
 
-    tr' <- setupTrace (Right c) "complex"
+    (tr', sb) <- setupTrace_ c "complex"
+    _ <- loadPlugin <$> Cardano.BM.Backend.Monitoring.plugin c tr' sb
 
     procMonitoring <- monitoringThr tr'
     _ <- Async.waitCatch procMonitoring
@@ -256,7 +259,8 @@ testAlterSeverity = do
           )
         ]
 
-    tr' <- setupTrace (Right c) "complex"
+    (tr', sb) <- setupTrace_ c "complex"
+    _ <- loadPlugin <$> Cardano.BM.Backend.Monitoring.plugin c tr' sb
 
     procMonitoring <- monitoringThr tr'
     _ <- Async.waitCatch procMonitoring

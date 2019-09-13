@@ -72,12 +72,13 @@ The appearance is due to \emph{w3-css} (\url{https://www.w3schools.com/w3css}).
 
 \subsubsection{Plugin definition}
 \begin{code}
-plugin :: (IsEffectuator s a, ToJSON a, FromJSON a) => Configuration -> Trace IO a -> s a -> IO (Plugin a)
+plugin :: (IsEffectuator s a, ToJSON a, FromJSON a)
+       => Configuration -> Trace IO a -> s a -> IO (Plugin a)
 plugin config trace sb = do
     be :: Cardano.BM.Backend.Editor.Editor a <- realizefrom config trace sb
     return $ BackendPlugin
                (MkBackend { bEffectuate = effectuate be, bUnrealize = unrealize be })
-               "editor"
+               (typeof be)
 \end{code}
 
 \subsubsection{Structure of Editor}\label{code:Editor}\index{Editor}

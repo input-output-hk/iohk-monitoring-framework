@@ -35,7 +35,10 @@ import qualified Data.HashMap.Strict as HM
 import           Data.Text (Text, pack)
 import           System.Random
 
+import           Cardano.BM.Backend.Aggregation
 import           Cardano.BM.Backend.Editor
+import           Cardano.BM.Backend.EKGView
+import           Cardano.BM.Backend.Monitoring
 import qualified Cardano.BM.Configuration.Model as CM
 import           Cardano.BM.Data.Aggregated (Measurable (..))
 import           Cardano.BM.Data.AggregatedKind
@@ -367,6 +370,9 @@ main = do
 
     -- load plugins
     _ <- loadPlugin <$> Cardano.BM.Backend.Editor.plugin c tr sb
+    _ <- loadPlugin <$> Cardano.BM.Backend.EKGView.plugin c tr sb
+    _ <- loadPlugin <$> Cardano.BM.Backend.Aggregation.plugin c tr sb
+    _ <- loadPlugin <$> Cardano.BM.Backend.Monitoring.plugin c tr sb
 
     logNotice tr "starting program; hit CTRL-C to terminate"
 -- user can watch the progress only if EKG is enabled.

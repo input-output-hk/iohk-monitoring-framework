@@ -1,8 +1,8 @@
 
 packages:
-  iohk-monitoring
   contra-tracer
   tracer-transformers
+  iohk-monitoring
   plugins/backend-aggregation
   plugins/backend-editor
   plugins/backend-ekg

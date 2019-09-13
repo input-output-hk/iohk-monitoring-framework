@@ -8,6 +8,7 @@
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
 
 module Cardano.BM.Backend.EKGView
     (
@@ -15,6 +16,8 @@ module Cardano.BM.Backend.EKGView
     , effectuate
     , realizefrom
     , unrealize
+    -- * Plugin
+    , plugin
     ) where
 
 import           Control.Concurrent (killThread)
@@ -57,10 +60,22 @@ import           Cardano.BM.Data.Tracer (Tracer (..))
 import           Cardano.BM.Configuration (getPrometheusPort)
 import           Cardano.BM.Backend.Prometheus (spawnPrometheus)
 #endif
+import           Cardano.BM.Plugin
 import qualified Cardano.BM.Trace as Trace
 
 \end{code}
 %endif
+
+\subsubsection{Plugin definition}
+\begin{code}
+plugin :: (IsEffectuator s a, ToJSON a, FromJSON a) 
+       => Configuration -> Trace.Trace IO a -> s a -> IO (Plugin a)
+plugin config trace sb = do
+    be :: Cardano.BM.Backend.EKGView.EKGView a <- realizefrom config trace sb
+    return $ BackendPlugin
+               (MkBackend { bEffectuate = effectuate be, bUnrealize = unrealize be })
+               (typeof be)
+\end{code}
 
 \subsubsection{Structure of EKGView}\label{code:EKGView}\index{EKGView}
 \begin{code}

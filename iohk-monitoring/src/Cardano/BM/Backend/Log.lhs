@@ -512,7 +512,7 @@ mkFileScribe (Just rotParams) fdesc formatter colorize = do
 mkFileScribe Nothing fdesc formatter colorize = do
     let prefixDir = prefixPath fdesc
     (createDirectoryIfMissing True prefixDir)
-        `catchIO` (prtoutException ("cannot log prefix directory: " ++ prefixDir))
+        `catchIO` (prtoutException ("cannot create prefix directory: " ++ prefixDir))
     let fpath = filePath fdesc
     h <- catchIO (openFile fpath WriteMode) $
                         \e -> do

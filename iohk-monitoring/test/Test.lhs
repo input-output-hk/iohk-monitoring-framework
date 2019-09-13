@@ -22,9 +22,6 @@ import qualified Cardano.BM.Test.Rotator (tests)
 import qualified Cardano.BM.Test.Routing (tests)
 import qualified Cardano.BM.Test.Structured (tests)
 import qualified Cardano.BM.Test.Tracer (tests)
-#ifdef ENABLE_MONITORING
-import qualified Cardano.BM.Test.Monitoring (tests)
-#endif
 
 main :: IO ()
 main = defaultMain tests
@@ -45,9 +42,6 @@ tests =
   , Cardano.BM.Test.Routing.tests
   , Cardano.BM.Test.Structured.tests
   , Cardano.BM.Test.Tracer.tests
-#ifdef ENABLE_MONITORING
-  , Cardano.BM.Test.Monitoring.tests
-#endif
   ]
 \end{code}
 
@@ -64,4 +58,3 @@ tests =
 %include ../test/Cardano/BM/Test/Rotator.lhs
 %include ../test/Cardano/BM/Test/Structured.lhs
 %include ../test/Cardano/BM/Test/Tracer.lhs
-%include ../test/Cardano/BM/Test/Monitoring.lhs

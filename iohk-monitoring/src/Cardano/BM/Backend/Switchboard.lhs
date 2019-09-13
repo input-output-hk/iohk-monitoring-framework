@@ -25,6 +25,7 @@ module Cardano.BM.Backend.Switchboard
     , unrealize
     , waitForTermination
     -- * integrate external backend
+    , addUserDefinedBackend
     , addExternalBackend
     , addExternalScribe
     ) where
@@ -255,8 +256,12 @@ instance (FromJSON a, ToJSON a) => IsBackend Switchboard a where
                             { bEffectuate = Cardano.BM.Backend.LogBuffer.effectuate logbuf
                             , bUnrealize = Cardano.BM.Backend.LogBuffer.unrealize logbuf
                             })
+        bs2 <- return (KatipBK, MkBackend
+                            { bEffectuate = Cardano.BM.Backend.Log.effectuate katipBE
+                            , bUnrealize = Cardano.BM.Backend.Log.unrealize katipBE
+                            })
 
-        let bs = bs1 : bs0
+        let bs = bs2 : bs1 : bs0
         dispatcher <- spawnDispatcher sb q
         -- link the given Async to the current thread, such that if the Async
         -- raises an exception, that exception will be re-thrown in the current
@@ -288,12 +293,20 @@ instance (FromJSON a, ToJSON a) => IsBackend Switchboard a where
 
 \end{code}
 
-\subsubsection{Integrate with external backend}\label{code:addExternalBackend}\index{addExternalBackend}
+\subsubsection{Integrate with external backend}\label{code:addUserDefinedBackend}\index{addUserDefinedBackend}
 \begin{code}
-addExternalBackend :: Switchboard a -> Backend a -> Text -> IO ()
-addExternalBackend switchboard be name =
+addUserDefinedBackend :: Switchboard a -> Backend a -> Text -> IO ()
+addUserDefinedBackend switchboard be name =
     modifyMVar_ (getSB switchboard) $ \sb ->
         return $ sb { sbBackends = (UserDefinedBK name, be) : sbBackends sb }
+\end{code}
+
+\subsubsection{Integrate with external backend}\label{code:addExternalBackend}\index{addExternalBackend}
+\begin{code}
+addExternalBackend :: Switchboard a -> Backend a -> BackendKind -> IO ()
+addExternalBackend switchboard be bk =
+    modifyMVar_ (getSB switchboard) $ \sb ->
+        return $ sb { sbBackends = (bk, be) : sbBackends sb }
 \end{code}
 
 \subsubsection{Integrate with external \emph{katip} scribe}\label{code:addExternalScribe}\index{addExternalScribe}
@@ -351,7 +364,6 @@ setupBackend' KatipBK _ _ = return Nothing
 setupBackend' LogBufferBK _ _ = return Nothing
 setupBackend' (TraceAcceptorBK pipePath) c sb = do
     let basetrace = mainTraceConditionally c sb
-
     be :: Cardano.BM.Backend.TraceAcceptor.TraceAcceptor PipeType a
             <- Cardano.BM.Backend.TraceAcceptor.realizefrom basetrace pipePath
     return $ Just MkBackend

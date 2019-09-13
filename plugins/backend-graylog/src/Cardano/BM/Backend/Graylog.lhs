@@ -17,6 +17,8 @@ module Cardano.BM.Backend.Graylog
     , effectuate
     , realizefrom
     , unrealize
+    -- * Plugin
+    , plugin
     ) where
 
 import           Control.Concurrent (threadDelay)
@@ -46,10 +48,22 @@ import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.MessageCounter (MessageCounter, resetCounters,
                      sendAndResetAfter, updateMessageCounters)
 import           Cardano.BM.Data.Severity
+import           Cardano.BM.Plugin
 import qualified Cardano.BM.Trace as Trace
 
 \end{code}
 %endif
+
+\subsubsection{Plugin definition}
+\begin{code}
+plugin :: (IsEffectuator s a, ToJSON a, FromJSON a)
+       => Configuration -> Trace.Trace IO a -> s a -> IO (Plugin a)
+plugin config trace sb = do
+    be :: Cardano.BM.Backend.Graylog.Graylog a <- realizefrom config trace sb
+    return $ BackendPlugin
+               (MkBackend { bEffectuate = effectuate be, bUnrealize = unrealize be })
+               (typeof be)
+\end{code}            
 
 \subsubsection{Structure of Graylog}\label{code:Graylog}\index{Graylog}
 \begin{code}

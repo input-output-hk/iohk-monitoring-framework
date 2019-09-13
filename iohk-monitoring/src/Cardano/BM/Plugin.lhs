@@ -15,6 +15,7 @@ import           Cardano.BM.Backend.Log (Scribe)
 import           Cardano.BM.Backend.Switchboard (Switchboard,
                      addExternalBackend, addExternalScribe)
 import           Cardano.BM.Data.Backend
+import           Cardano.BM.Data.BackendKind ()
 import           Cardano.BM.Data.Output
 
 \end{code}
@@ -24,7 +25,7 @@ import           Cardano.BM.Data.Output
 A |Plugin| has a name and is either a |Backend| or a |Scribe|.
 \begin{code}
 
-data Plugin a = BackendPlugin (Backend a) BackendId
+data Plugin a = BackendPlugin (Backend a) BackendKind
               | ScribePlugin Scribe ScribeId
 \end{code}
 
@@ -33,8 +34,8 @@ data Plugin a = BackendPlugin (Backend a) BackendId
 \subsubsection{Integrating plugins}
 \begin{code}
 loadPlugin :: Plugin a -> Switchboard a -> IO ()
-loadPlugin (BackendPlugin be nm) sb = do
-    addExternalBackend sb be nm
+loadPlugin (BackendPlugin be bk) sb = do
+    addExternalBackend sb be bk
 loadPlugin (ScribePlugin sc nm) sb = do
     addExternalScribe sb sc nm
 

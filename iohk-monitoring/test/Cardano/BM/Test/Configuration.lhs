@@ -19,10 +19,6 @@ import           Data.ByteString (intercalate)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Vector as V
 import           Data.Yaml
-#ifdef ENABLE_EKG
-import           System.Directory (getTemporaryDirectory)
-import           System.FilePath ((</>))
-#endif
 import           System.IO.Temp (withSystemTempFile)
 
 import           Cardano.BM.Data.Configuration
@@ -69,8 +65,6 @@ unitTests = testGroup "Unit tests" [
       , testCase "parsed representation" unitConfigurationParsedRepresentation
       , testCase "parsed configuration" unitConfigurationParsed
       , testCase "export configuration" unitConfigurationExport
-      , testCase "include EKG if defined" unitConfigurationCheckEKGpositive
-      , testCase "not include EKG if not def" unitConfigurationCheckEKGnegative
       , testCase "check scribe caching" unitConfigurationCheckScribeCache
       , testCase "test ops on Configuration" unitConfigurationOps
     ]
@@ -85,90 +79,6 @@ prop_Configuration_minimal = True
 \end{code}
 
 \subsubsection{Unit tests}
-
-The configuration file only indicates that EKG is listening on port nnnnn. Infer that
-|EKGViewBK| needs to be started as a backend.
-
-\begin{code}
-unitConfigurationCheckEKGpositive :: Assertion
-unitConfigurationCheckEKGpositive = do
-#ifndef ENABLE_EKG
-    return ()
-#else
-    tmp <- getTemporaryDirectory
-    let c = [ "rotation:"
-            , "  rpLogLimitBytes: 5000000"
-            , "  rpKeepFilesNum: 10"
-            , "  rpMaxAgeHours: 24"
-            , "minSeverity: Info"
-            , "defaultBackends:"
-            , "  - KatipBK"
-            , "setupBackends:"
-            , "  - KatipBK"
-            , "defaultScribes:"
-            , "- - StdoutSK"
-            , "  - stdout"
-            , "setupScribes:"
-            , "- scName: stdout"
-            , "  scRotation: null"
-            , "  scKind: StdoutSK"
-            , "hasEKG: 18321"
-            , "options:"
-            , "  test:"
-            , "    value: nothing"
-            ]
-        fp = tmp </> "test_ekgv_config.yaml"
-    writeFile fp $ unlines c
-    repr <- parseRepresentation fp
-
-    assertBool "expecting EKGViewBK to be setup" $
-        EKGViewBK `elem` (setupBackends repr)
-#endif
-
-\end{code}
-
-If there is no port defined for EKG, then do not start it even if present in the config.
-\begin{code}
-unitConfigurationCheckEKGnegative :: Assertion
-unitConfigurationCheckEKGnegative = do
-#ifndef ENABLE_EKG
-    return ()
-#else
-    tmp <- getTemporaryDirectory
-    let c = [ "rotation:"
-            , "  rpLogLimitBytes: 5000000"
-            , "  rpKeepFilesNum: 10"
-            , "  rpMaxAgeHours: 24"
-            , "minSeverity: Info"
-            , "defaultBackends:"
-            , "  - KatipBK"
-            , "  - EKGViewBK"
-            , "setupBackends:"
-            , "  - KatipBK"
-            , "  - EKGViewBK"
-            , "defaultScribes:"
-            , "- - StdoutSK"
-            , "  - stdout"
-            , "setupScribes:"
-            , "- scName: stdout"
-            , "  scRotation: null"
-            , "  scKind: StdoutSK"
-            , "###hasEKG: 18321"
-            , "options:"
-            , "  test:"
-            , "    value: nothing"
-            ]
-        fp = tmp </> "test_ekgv_config.yaml"
-    writeFile fp $ unlines c
-    repr <- parseRepresentation fp
-
-    assertBool "EKGViewBK shall not be setup" $
-        not $ EKGViewBK `elem` (setupBackends repr)
-    assertBool "EKGViewBK shall not receive messages" $
-        not $ EKGViewBK `elem` (defaultBackends repr)
-#endif
-
-\end{code}
 
 \begin{code}
 unitConfigurationStaticRepresentation :: Assertion

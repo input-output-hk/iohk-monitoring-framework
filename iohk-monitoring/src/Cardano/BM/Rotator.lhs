@@ -75,7 +75,7 @@ evalRotator rotation filename = do
     fpath <- nameLogFile filename
     hdl <- catchIO (openFile fpath WriteMode) $
                \e -> do
-                   prtoutException ("error while opening log: " ++ fpath) e
+                   prtoutException ("rot: error while opening log: " ++ fpath) e
                    return stdout    -- fallback to standard output in case of exception
     hSetBuffering hdl LineBuffering
 
