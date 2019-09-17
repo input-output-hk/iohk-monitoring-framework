@@ -148,16 +148,13 @@ instance IsEffectuator Switchboard a where
 |Switchboard| is an |IsBackend|
 \begin{code}
 instance (FromJSON a, ToJSON a) => IsBackend Switchboard a where
-    typeof _ = SwitchboardBK
+    bekind _ = SwitchboardBK
 
     realize cfg = do
         -- we setup |LogBuffer| explicitly so we can access it as a |Backend| and as |LogBuffer|
         logbuf :: Cardano.BM.Backend.LogBuffer.LogBuffer a <- Cardano.BM.Backend.LogBuffer.realize cfg
         katipBE :: Cardano.BM.Backend.Log.Log a <- Cardano.BM.Backend.Log.realize cfg
-        let spawnDispatcher
-                :: Switchboard a
-                -> TBQ.TBQueue (LogObject a)
-                -> IO (Async.Async ())
+        let spawnDispatcher :: Switchboard a -> TBQ.TBQueue (LogObject a) -> IO (Async.Async ())
             spawnDispatcher switchboard queue = do
                 now <- getCurrentTime
                 let messageCounters = resetCounters now
@@ -187,9 +184,11 @@ instance (FromJSON a, ToJSON a) => IsBackend Switchboard a where
                                     loname <> "." <> valueName
                                 LogObject loname _ _ -> loname
                         selectedBackends <- getBackends cfg name
+                        putStrLn $ "selected backends: " ++ show selectedBackends
                         let selBEs = befilter selectedBackends
                         withMVar (getSB switchboard) $ \sb ->
-                            forM_ (sbBackends sb) $ \(bek, be) ->
+                            forM_ (sbBackends sb) $ \(bek, be) -> do
+                                putStrLn $ "have be: " ++ show bek
                                 when (bek `elem` selBEs) (bEffectuate be nli)
 
                     qProc counters = do
@@ -304,7 +303,8 @@ addUserDefinedBackend switchboard be name =
 \subsubsection{Integrate with external backend}\label{code:addExternalBackend}\index{addExternalBackend}
 \begin{code}
 addExternalBackend :: Switchboard a -> Backend a -> BackendKind -> IO ()
-addExternalBackend switchboard be bk =
+addExternalBackend switchboard be bk = do
+    putStrLn $ "add external backend: " ++ show bk
     modifyMVar_ (getSB switchboard) $ \sb ->
         return $ sb { sbBackends = (bk, be) : sbBackends sb }
 \end{code}

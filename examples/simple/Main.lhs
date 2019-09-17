@@ -39,9 +39,9 @@ data MyBackendInternal a = MyBackendInternal {
                          }
 
 instance (FromJSON a) => IsBackend MyBackend a where
-    typeof _ = UserDefinedBK "MyBackend"
+    bekind _ = UserDefinedBK "MyBackend"
     realize _ = MyBackend <$> newMVar (MyBackendInternal 0)
-    unrealize be = putStrLn $ "unrealize " <> show (typeof be)
+    unrealize be = putStrLn $ "unrealize " <> show (bekind be)
 
 instance IsEffectuator MyBackend a where
     effectuate be _item = do

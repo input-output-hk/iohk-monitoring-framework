@@ -178,7 +178,7 @@ instance ToJSON a => IsEffectuator Log a where
 \subsubsection{Log implements backend functions}\index{Log!instance of IsBackend}
 \begin{code}
 instance (ToJSON a, FromJSON a) => IsBackend Log a where
-    typeof _ = KatipBK
+    bekind _ = KatipBK
 
     realize config = do
         let updateEnv :: K.LogEnv -> IO UTCTime -> K.LogEnv

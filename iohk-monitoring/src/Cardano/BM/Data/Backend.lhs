@@ -52,7 +52,7 @@ class IsEffectuator t a where
 A backend is life-cycle managed, thus can be |realize|d and |unrealize|d.
 \begin{code}
 class (IsEffectuator t a, FromJSON a) => IsBackend t a where
-    typeof      :: t a -> BackendKind
+    bekind      :: t a -> BackendKind
     realize     :: Configuration -> IO (t a)
     realizefrom :: forall s . (IsEffectuator s a) => Configuration -> Trace IO a -> s a -> IO (t a)
     default realizefrom :: forall s . (IsEffectuator s a) => Configuration -> Trace IO a -> s a -> IO (t a)

@@ -78,7 +78,7 @@ plugin config trace sb = do
     be :: Cardano.BM.Backend.Editor.Editor a <- realizefrom config trace sb
     return $ BackendPlugin
                (MkBackend { bEffectuate = effectuate be, bUnrealize = unrealize be })
-               (typeof be)
+               (bekind be)
 \end{code}
 
 \subsubsection{Structure of Editor}\label{code:Editor}\index{Editor}
@@ -100,7 +100,7 @@ data EditorInternal a = EditorInternal
 |Editor| is an |IsBackend|
 \begin{code}
 instance (ToJSON a, FromJSON a) => IsBackend Editor a where
-    typeof _ = EditorBK
+    bekind _ = EditorBK
 
     realize _ = fail "Editor cannot be instantiated by 'realize'"
 
@@ -303,7 +303,7 @@ prepare editor config window = void $ do
                         , UI.th #+ [ string "" ]
                         ]
                     ]
-            forM_ (sel) $
+            forM_ sel $
                 \(n,v) -> performActionOnId outputTableId $
                     \t -> void $ element t #+ [ mkSimpleRow n v ]
 
@@ -338,11 +338,11 @@ prepare editor config window = void $ do
             cleanOutputTable
             exportConfiguration
 
-    let switchToTab c@Backends            = displayItems c $ CM.cgMapBackend
-        switchToTab c@Severities          = displayItems c $ CM.cgMapSeverity
-        switchToTab c@Scribes             = displayItems c $ CM.cgMapScribe
-        switchToTab c@SubTrace            = displayItems c $ CM.cgMapSubtrace
-        switchToTab c@Aggregation         = displayItems c $ CM.cgMapAggregatedKind
+    let switchToTab c@Backends            = displayItems c CM.cgMapBackend
+        switchToTab c@Severities          = displayItems c CM.cgMapSeverity
+        switchToTab c@Scribes             = displayItems c CM.cgMapScribe
+        switchToTab c@SubTrace            = displayItems c CM.cgMapSubtrace
+        switchToTab c@Aggregation         = displayItems c CM.cgMapAggregatedKind
         switchToTab c@Buffer              = accessBufferMap >>= displayBuffer c
         switchToTab c@ExportConfiguration = displayExport c
 
@@ -405,7 +405,7 @@ prepare editor config window = void $ do
 
                 mkSevOption sev = UI.option # set UI.text (show sev)
                                             # set UI.value (show sev)
-                                            # if (confMinSev == sev) then set UI.selected True else id
+                                            # if confMinSev == sev then set UI.selected True else id
 
             minsev <- UI.select #. "minsevfield" #+
                          map mkSevOption (enumFrom Debug)

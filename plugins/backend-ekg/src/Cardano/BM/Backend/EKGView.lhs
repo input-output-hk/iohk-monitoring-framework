@@ -6,7 +6,6 @@
 \begin{code}
 {-# LANGUAGE CPP                   #-}
 {-# LANGUAGE FlexibleInstances     #-}
-{-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 
@@ -68,13 +67,13 @@ import qualified Cardano.BM.Trace as Trace
 
 \subsubsection{Plugin definition}
 \begin{code}
-plugin :: (IsEffectuator s a, ToJSON a, FromJSON a) 
+plugin :: (IsEffectuator s a, ToJSON a, FromJSON a)
        => Configuration -> Trace.Trace IO a -> s a -> IO (Plugin a)
 plugin config trace sb = do
     be :: Cardano.BM.Backend.EKGView.EKGView a <- realizefrom config trace sb
     return $ BackendPlugin
                (MkBackend { bEffectuate = effectuate be, bUnrealize = unrealize be })
-               (typeof be)
+               (bekind be)
 \end{code}
 
 \subsubsection{Structure of EKGView}\label{code:EKGView}\index{EKGView}
@@ -151,12 +150,8 @@ ekgTrace ekg _c =
 
         modifyMVar_ (getEV ekgview) $ \ekgup -> do
             let -- strip off some prefixes not necessary for display
-                lognam1 = case stripPrefix "#ekgview.#aggregation." loname of
-                        Nothing -> loname
-                        Just ln' -> ln'
-                logname = case stripPrefix "#ekgview." lognam1 of
-                        Nothing -> lognam1
-                        Just ln' -> ln'
+                lognam1 = fromMaybe loname $ stripPrefix "#ekgview.#aggregation." loname
+                logname = fromMaybe logname1 $ stripPrefix "#ekgview." lognam1
             upd <- update lo{ loName = logname } ekgup
             case upd of
                 Nothing     -> return ekgup
@@ -211,7 +206,7 @@ instance IsEffectuator EKGView a where
 |EKGView| is an |IsBackend|
 \begin{code}
 instance (ToJSON a, FromJSON a) => IsBackend EKGView a where
-    typeof _ = EKGViewBK
+    bekind _ = EKGViewBK
 
     realize _ = fail "EKGView cannot be instantiated by 'realize'"
 
@@ -265,9 +260,7 @@ instance (ToJSON a, FromJSON a) => IsBackend EKGView a where
         -- wait for the dispatcher to exit
         res <- Async.waitCatch dispatcher
         either throwM return res
-        case prometheusDispatcher of
-            Just d  -> Async.cancel d
-            Nothing -> return ()
+        forM_ prometheusDispatcher Async.cancel d
         withMVar (getEV ekgview) $ \ekg ->
             killThread $ serverThreadId $ evServer ekg
         clearMVar $ getEV ekgview
@@ -296,7 +289,7 @@ spawnDispatcher config evqueue sbtrace ekgtrace = do
   where
     {-@ lazy qProc @-}
     qProc :: MVar MessageCounter -> IO ()
-    qProc counters = do
+    qProc counters =
         processQueue
             evqueue
             processEKGView

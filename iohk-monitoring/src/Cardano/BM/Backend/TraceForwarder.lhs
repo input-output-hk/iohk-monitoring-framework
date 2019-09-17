@@ -76,7 +76,7 @@ jsonToBS a =
 |TraceForwarder| is an |IsBackend|
 \begin{code}
 instance (Pipe p, FromJSON a, ToJSON a) => IsBackend (TraceForwarder p) a where
-    typeof _ = TraceForwarderBK
+    bekind _ = TraceForwarderBK
 
     realize cfg = do
         ltpref <- newEmptyMVar

@@ -67,7 +67,7 @@ plugin config trace sb = do
     be :: Cardano.BM.Backend.Aggregation.Aggregation a <- realizefrom config trace sb
     return $ BackendPlugin
                (MkBackend { bEffectuate = effectuate be, bUnrealize = unrealize be })
-               (typeof be)
+               (bekind be)
 \end{code}
 
 \subsubsection{Internal representation}\label{code:Aggregation}\index{Aggregation}
@@ -125,7 +125,7 @@ instance IsEffectuator Aggregation a where
 |Aggregation| is an |IsBackend|
 \begin{code}
 instance FromJSON a => IsBackend Aggregation a where
-    typeof _ = AggregationBK
+    bekind _ = AggregationBK
 
     realize _ = fail "Aggregation cannot be instantiated by 'realize'"
 

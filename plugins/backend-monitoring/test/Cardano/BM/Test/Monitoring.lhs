@@ -13,12 +13,14 @@ import qualified Data.HashMap.Strict as HM
 import           Data.Text (Text)
 
 import           Cardano.BM.Backend.Monitoring
+import           Cardano.BM.Configuration (Configuration)
 import qualified Cardano.BM.Configuration.Model as CM
 import           Cardano.BM.Data.Aggregated
 import           Cardano.BM.Data.BackendKind
 import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.MonitoringEval
 import           Cardano.BM.Data.Severity
+import           Cardano.BM.Data.SubTrace
 import           Cardano.BM.Plugin
 import           Cardano.BM.Setup
 import           Cardano.BM.Trace
@@ -41,13 +43,13 @@ unitTests :: TestTree
 unitTests = testGroup "Unit tests" [
                   testCase
                       "parse and eval simple expression; must return False" $
-                      parseEvalExpression "(time > (19 s))" False $ HM.fromList [("some", (Seconds 22))]
+                      parseEvalExpression "(time > (19 s))" False $ HM.fromList [("some", Seconds 22)]
                 , testCase
                       "parse and eval simple expression; must return True" $
-                      parseEvalExpression "(time > (19 s))" True $ HM.fromList [("time", (Seconds 20))]
+                      parseEvalExpression "(time > (19 s))" True $ HM.fromList [("time", Seconds 20)]
                 , testCase
                       "parse and eval OR expression; must return True" $
-                      parseEvalExpression "((time > (22 s)) Or (time < (18 s)))" True $ HM.fromList [("time", (Seconds 16))]
+                      parseEvalExpression "((time > (22 s)) Or (time < (18 s)))" True $ HM.fromList [("time", Seconds 16)]
                 , testCase
                       "parse and eval OR expression; must return True" $
                       parseEvalExpression "((time > (22 s)) Or (time < (18 s)))"
@@ -170,10 +172,10 @@ unitTests = testGroup "Unit tests" [
 actionsTests :: TestTree
 actionsTests = testGroup "Actions tests" [
                      testCase
-                         "test SetGlobalMinimalSeverity" $
+                         "test SetGlobalMinimalSeverity"
                          testSetGlobalMinimalSeverity
                    , testCase
-                         "test AlterSeverity" $
+                         "test AlterSeverity"
                          testAlterSeverity
                ]
 \end{code}
@@ -198,13 +200,18 @@ parseEvalExpression t res env =
 monitoringThr :: Trace IO Text -> IO (Async.Async ())
 monitoringThr trace = do
     let trace' = appendName "monitoring" trace
-    proc <- Async.async $ sendTo trace'
-    return proc
+    Async.async $ sendTo trace'
   where
-    sendTo tr = do
-        (,) <$> (mkLOMeta Warning Public)
+    sendTo tr =
+        (,) <$> mkLOMeta Warning Public
             <*> pure (LogValue "monitMe" (PureI 100))
         >>= traceNamedObject tr
+
+startupTraceWithPlugin :: Configuration -> Text -> IO (Trace IO Text)
+startupTraceWithPlugin c nm = do
+    (tr, sb) <- setupTrace_ c nm
+    _ <- loadPlugin <$> Cardano.BM.Backend.Monitoring.plugin c tr sb
+    return tr
 
 testSetGlobalMinimalSeverity :: Assertion
 testSetGlobalMinimalSeverity = do
@@ -221,14 +228,13 @@ testSetGlobalMinimalSeverity = do
     CM.setMonitors c $ HM.fromList
         [ ( "complex.monitoring"
           , ( Nothing
-            , Compare "monitMe" (GE, (OpMeasurable 10))
+            , Compare "monitMe" (GE, OpMeasurable 10)
             , [SetGlobalMinimalSeverity targetGlobalSeverity]
             )
           )
         ]
 
-    (tr', sb) <- setupTrace_ c "complex"
-    _ <- loadPlugin <$> Cardano.BM.Backend.Monitoring.plugin c tr' sb
+    tr' <- startupTraceWithPlugin c "complex"
 
     procMonitoring <- monitoringThr tr'
     _ <- Async.waitCatch procMonitoring
@@ -240,33 +246,38 @@ testSetGlobalMinimalSeverity = do
 
 testAlterSeverity :: Assertion
 testAlterSeverity = do
-    let initialSeverity = Debug
-        targetSeverity  = Info
+    let initialSeverity = Warning
+        targetSeverity  = Debug
 
     c <- CM.empty
+    CM.setSubTrace c "complex" (Just Neutral)
+    CM.setSeverity c "complex.monitoring" (Just Debug)
     CM.setSeverity c "complex.monitoring.monitMe" (Just initialSeverity)
-    CM.setDefaultBackends c [MonitoringBK]
-    CM.setSetupBackends c [MonitoringBK]
+    CM.setDefaultBackends c [KatipBK, MonitoringBK]
+    CM.setSetupBackends c [KatipBK, MonitoringBK]
 
     CM.setBackends c "complex.monitoring.monitMe" (Just [MonitoringBK])
 
     CM.setMonitors c $ HM.fromList
         [ ( "complex.monitoring"
           , ( Nothing
-            , Compare "monitMe" (GE, (OpMeasurable 10))
+            , Compare "monitMe" (GE, OpMeasurable 10)
             , [AlterSeverity "complex.monitoring.monitMe" targetSeverity]
             )
           )
         ]
 
-    (tr', sb) <- setupTrace_ c "complex"
-    _ <- loadPlugin <$> Cardano.BM.Backend.Monitoring.plugin c tr' sb
+    tr' <- startupTraceWithPlugin c "complex"
 
-    procMonitoring <- monitoringThr tr'
-    _ <- Async.waitCatch procMonitoring
+    let tr = appendName "monitoring" tr'
+    meta <- mkLOMeta Warning Public
+    traceNamedObject tr (meta, LogValue "monitMe" (PureI 100))
+
+--     procMonitoring <- monitoringThr tr'
+--     _ <- Async.waitCatch procMonitoring
 
     threadDelay 10000  -- 10 ms
     Just currentSeverity <- CM.inspectSeverity c "complex.monitoring.monitMe"
-    assertBool "Severity didn't change!" $ targetSeverity == currentSeverity
+    assertBool ("Severity didn't change! " ++ show currentSeverity) $ targetSeverity == currentSeverity
 
 \end{code}

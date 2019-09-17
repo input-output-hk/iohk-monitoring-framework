@@ -6,7 +6,6 @@
 \begin{code}
 {-# LANGUAGE CPP                   #-}
 {-# LANGUAGE FlexibleInstances     #-}
-{-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TypeApplications      #-}
@@ -62,8 +61,8 @@ plugin config trace sb = do
     be :: Cardano.BM.Backend.Graylog.Graylog a <- realizefrom config trace sb
     return $ BackendPlugin
                (MkBackend { bEffectuate = effectuate be, bUnrealize = unrealize be })
-               (typeof be)
-\end{code}            
+               (bekind be)
+\end{code}
 
 \subsubsection{Structure of Graylog}\label{code:Graylog}\index{Graylog}
 \begin{code}
@@ -124,7 +123,7 @@ instance IsEffectuator Graylog a where
 |Graylog| is an |IsBackend|
 \begin{code}
 instance (ToJSON a, FromJSON a) => IsBackend Graylog a where
-    typeof _ = GraylogBK
+    bekind _ = GraylogBK
 
     realize _ = fail "Graylog cannot be instantiated by 'realize'"
 
@@ -194,7 +193,7 @@ spawnDispatcher config evqueue sbtrace = do
             (\(_, _, c) -> closeConn c)
 
     processGraylog :: LogObject a -> (Trace.Trace IO a, MVar MessageCounter, Maybe Net.Socket) -> IO (Trace.Trace IO a, MVar MessageCounter, Maybe Net.Socket)
-    processGraylog item (gltrace, counters, mConn) = do
+    processGraylog item (gltrace, counters, mConn) =
         case mConn of
             (Just conn) -> do
                 sendLO conn item
@@ -223,13 +222,12 @@ spawnDispatcher config evqueue sbtrace = do
         let hints = Net.defaultHints { Net.addrSocketType = Net.Datagram }
         (addr:_) <- Net.getAddrInfo (Just hints) (Just "127.0.0.1") (Just $ show port)
         sock <- Net.socket (Net.addrFamily addr) (Net.addrSocketType addr) (Net.addrProtocol addr)
-        res <- Net.connect sock (Net.addrAddress addr) >> return (Just sock)
+        Net.connect sock (Net.addrAddress addr) >> return (Just sock)
             `catch` \(e :: SomeException) -> do
                 let trace' = Trace.appendName "connecting" gltrace
                 mle <- mkLOMeta Error Public
                 Trace.traceNamedObject trace' (mle, LogError (pack $ show e))
                 return Nothing
-        return res
 
     encodeMessage :: ToJSON a => LogObject a -> BS8.ByteString
     encodeMessage lo = encode $ mkGelfItem lo
@@ -256,8 +254,8 @@ mkGelfItem (LogObject loname lometa locontent) = GelfItem {
         host = "hostname",
         short_message = loname,
         full_message = toJSON locontent,
-        timestamp = (fromInteger . toInteger $ (utc2ns $ tstamp lometa) :: Double) / 1000000000,
-        level = (fromEnum $ maxBound @Severity) - (fromEnum $ severity lometa),
+        timestamp = (fromInteger . toInteger $ utc2ns (tstamp lometa) :: Double) / 1000000000,
+        level = fromEnum (maxBound @Severity) - fromEnum (severity lometa),
         _tid = tid lometa,
         _privacy = pack $ show $ privacy lometa
     }

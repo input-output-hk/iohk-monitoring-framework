@@ -8,7 +8,6 @@
 \begin{code}
 {-# LANGUAGE CPP                   #-}
 {-# LANGUAGE FlexibleInstances     #-}
-{-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 
@@ -39,7 +38,7 @@ import           Data.Text (Text, pack)
 import qualified Data.Text.IO as TIO
 import           Data.Time.Clock (getCurrentTime)
 import           GHC.Clock (getMonotonicTimeNSec)
-import           System.IO (stderr)
+import           System.IO (stderr, stdout)
 
 import           Cardano.BM.Backend.LogBuffer
 import           Cardano.BM.Backend.ProcessQueue (processQueue)
@@ -67,7 +66,7 @@ plugin config trace sb = do
     be :: Cardano.BM.Backend.Monitoring.Monitor a <- realizefrom config trace sb
     return $ BackendPlugin
                (MkBackend { bEffectuate = effectuate be, bUnrealize = unrealize be })
-               (typeof be)
+               (bekind be)
 \end{code}
 
 \subsubsection{Structure of Monitoring}\label{code:Monitor}\index{Monitor}
@@ -103,6 +102,7 @@ Function |effectuate| is called to pass in a |LogObject| for monitoring.
 instance IsEffectuator Monitor a where
     effectuate monitor item = do
         mon <- readMVar (getMon monitor)
+        putStrLn "effectuate!"
         effectuate (monBuffer mon) item
         nocapacity <- atomically $ TBQ.isFullTBQueue (monQueue mon)
         if nocapacity
@@ -118,7 +118,7 @@ instance IsEffectuator Monitor a where
 |Monitor| is an |IsBackend|
 \begin{code}
 instance FromJSON a => IsBackend Monitor a where
-    typeof _ = MonitoringBK
+    bekind _ = MonitoringBK
 
     realize _ = fail "Monitoring cannot be instantiated by 'realize'"
 
@@ -179,14 +179,14 @@ spawnDispatcher mqueue config sbtrace monitor = do
     Async.async (initMap >>= qProc countersMVar)
   where
     {-@ lazy qProc @-}
-    qProc counters state = do
+    qProc counters state =
         processQueue
             mqueue
             processMonitoring
             (counters, state)
             (\_ -> pure ())
 
-    processMonitoring lo@(LogObject _ _ _) (counters, state) = do
+    processMonitoring lo@LogObject{} (counters, state) = do
         let accessBufferMap = do
                 mon <- tryReadMVar (getMon monitor)
                 case mon of
@@ -195,7 +195,7 @@ spawnDispatcher mqueue config sbtrace monitor = do
         mbuf <- accessBufferMap
         let sbtraceWithMonitoring = Trace.appendName "#monitoring" sbtrace
         valuesForMonitoring <- getVarValuesForMonitoring config mbuf
-        TIO.hPutStrLn stderr "processMonitoring\n"
+        TIO.hPutStrLn stdout "processMonitoring\n"
         state' <- evalMonitoringAction sbtraceWithMonitoring
                                         state
                                         lo
@@ -227,17 +227,13 @@ getVarValuesForMonitoring config mbuf = do
         NOT     e     -> extractVarNames e
 
     getVNnVal varNames logObj = case logObj of
-        (_, LogObject _ _ (LogValue vn val))       -> if vn `elem` varNames
-                                                      then [Just (vn, val)]
-                                                      else []
-        (_, LogObject _ _ (AggregatedMessage agg)) -> concat $ map getMeasurable agg
+        (_, LogObject _ _ (LogValue vn val))       -> [Just (vn, val) | vn `elem` varNames]
+        (_, LogObject _ _ (AggregatedMessage agg)) -> concatMap getMeasurable agg
         (_, _)                                     -> []
       where
         getMeasurable :: (Text, Aggregated) -> [Maybe (VarName, Measurable)]
         getMeasurable agg = case agg of
-            (vn, AggregatedEWMA (EWMA _ val)) -> if vn `elem` varNames
-                                                 then [Just (vn <> ".ewma.avg", val)]
-                                                 else []
+            (vn, AggregatedEWMA (EWMA _ val)) -> [Just (vn <> ".ewma.avg", val) | vn `elem` varNames]
             (vn, AggregatedStats st)          -> if vn `elem` varNames
                                                  then stValues vn st
                                                  else []
@@ -319,16 +315,14 @@ evalMonitoringAction sbtrace mmap logObj@(LogObject logname0 _ content) variable
         in
         HM.union addenv env
     updateEnv env (LogObject _ lometa (LogValue vn val)) =
-        let addenv = HM.fromList $ [ (vn, val)
-                                   , ("timestamp", Nanoseconds $ utc2ns (tstamp lometa))
-                                   ]
+        let addenv = HM.fromList [ (vn, val)
+                                 , ("timestamp", Nanoseconds $ utc2ns (tstamp lometa))
+                                 ]
         in
         HM.union addenv env
     updateEnv env (LogObject _ lometa (LogMessage _logitem)) =
-        let addenv = HM.fromList [ ("severity", (Severity (severity lometa)))
-                                --  , ("selection", (liSelection logitem))
-                                --  , ("message", (liPayload logitem))
-                                 , ("timestamp", Nanoseconds $ utc2ns (tstamp lometa))
+        let addenv = HM.fromList [ ("severity", Severity (severity lometa))
+                                , ("timestamp", Nanoseconds $ utc2ns (tstamp lometa))
                                  ]
         in
         HM.union addenv env
@@ -338,7 +332,7 @@ evalMonitoringAction sbtrace mmap logObj@(LogObject logname0 _ content) variable
         HM.union (HM.fromList addenv) env
       where
         aggs2measurables [] acc = acc
-        aggs2measurables ((n, AggregatedEWMA ewma):r) acc = aggs2measurables r $ (n <> ".avg", avg ewma) : acc
+        aggs2measurables ((n, AggregatedEWMA vewma):r) acc = aggs2measurables r $ (n <> ".avg", avg vewma) : acc
         aggs2measurables ((n, AggregatedStats s):r) acc = aggs2measurables r $
               (n <> ".mean", PureD . meanOfStats $ fbasic s)
             : (n <> ".flast", flast s)
@@ -348,7 +342,7 @@ evalMonitoringAction sbtrace mmap logObj@(LogObject logname0 _ content) variable
     updateEnv env _ = env
 
     countersEnvPairs loggerName = map $ \counter ->
-        let name = loggerName <> "." <> (nameCounter counter) <> "." <> cName counter
+        let name = loggerName <> "." <> nameCounter counter <> "." <> cName counter
             value = cValue counter
         in
             (name, value)
