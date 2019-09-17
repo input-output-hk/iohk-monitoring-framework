@@ -210,7 +210,8 @@ monitoringThr trace = do
 startupTraceWithPlugin :: Configuration -> Text -> IO (Trace IO Text)
 startupTraceWithPlugin c nm = do
     (tr, sb) <- setupTrace_ c nm
-    _ <- loadPlugin <$> Cardano.BM.Backend.Monitoring.plugin c tr sb
+    Cardano.BM.Backend.Monitoring.plugin c tr sb
+      >>= loadPlugin sb
     return tr
 
 testSetGlobalMinimalSeverity :: Assertion

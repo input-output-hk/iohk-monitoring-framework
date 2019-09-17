@@ -33,11 +33,11 @@ data Plugin a = BackendPlugin (Backend a) BackendKind
 
 \subsubsection{Integrating plugins}
 \begin{code}
-loadPlugin :: Plugin a -> Switchboard a -> IO ()
-loadPlugin (BackendPlugin be bk) sb = do
+loadPlugin :: Switchboard a -> Plugin a -> IO ()
+loadPlugin sb (BackendPlugin be bk) = do
     putStrLn $ "load backend: " ++ show bk
     addExternalBackend sb be bk
-loadPlugin (ScribePlugin sc nm) sb = do
+loadPlugin sb (ScribePlugin sc nm) = do
   putStrLn $ "load scribe: " ++ show nm
   addExternalScribe sb sc nm
 

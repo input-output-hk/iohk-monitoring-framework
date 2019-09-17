@@ -102,7 +102,6 @@ Function |effectuate| is called to pass in a |LogObject| for monitoring.
 instance IsEffectuator Monitor a where
     effectuate monitor item = do
         mon <- readMVar (getMon monitor)
-        putStrLn "effectuate!"
         effectuate (monBuffer mon) item
         nocapacity <- atomically $ TBQ.isFullTBQueue (monQueue mon)
         if nocapacity
@@ -195,7 +194,6 @@ spawnDispatcher mqueue config sbtrace monitor = do
         mbuf <- accessBufferMap
         let sbtraceWithMonitoring = Trace.appendName "#monitoring" sbtrace
         valuesForMonitoring <- getVarValuesForMonitoring config mbuf
-        TIO.hPutStrLn stdout "processMonitoring\n"
         state' <- evalMonitoringAction sbtraceWithMonitoring
                                         state
                                         lo

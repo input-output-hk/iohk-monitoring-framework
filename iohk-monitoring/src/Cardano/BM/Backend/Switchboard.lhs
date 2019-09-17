@@ -168,7 +168,7 @@ instance (FromJSON a, ToJSON a) => IsBackend Switchboard a where
                                     when passSevFilter $ do
                                         nocapacity <- atomically $ TBQ.isFullTBQueue q
                                         if nocapacity
-                                        then putStrLn "Error: Switchboard's queue full, dropping log items!"
+                                        then TIO.hPutStrLn stderr "Error: Switchboard's queue full, dropping log items!"
                                         else atomically $ TBQ.writeTBQueue q obj
                                 Nothing -> pure ()
                 _timer <- Async.async $ sendAndResetAfter
@@ -184,11 +184,9 @@ instance (FromJSON a, ToJSON a) => IsBackend Switchboard a where
                                     loname <> "." <> valueName
                                 LogObject loname _ _ -> loname
                         selectedBackends <- getBackends cfg name
-                        putStrLn $ "selected backends: " ++ show selectedBackends
                         let selBEs = befilter selectedBackends
                         withMVar (getSB switchboard) $ \sb ->
                             forM_ (sbBackends sb) $ \(bek, be) -> do
-                                putStrLn $ "have be: " ++ show bek
                                 when (bek `elem` selBEs) (bEffectuate be nli)
 
                     qProc counters = do
@@ -304,9 +302,9 @@ addUserDefinedBackend switchboard be name =
 \begin{code}
 addExternalBackend :: Switchboard a -> Backend a -> BackendKind -> IO ()
 addExternalBackend switchboard be bk = do
-    putStrLn $ "add external backend: " ++ show bk
     modifyMVar_ (getSB switchboard) $ \sb ->
         return $ sb { sbBackends = (bk, be) : sbBackends sb }
+
 \end{code}
 
 \subsubsection{Integrate with external \emph{katip} scribe}\label{code:addExternalScribe}\index{addExternalScribe}
@@ -315,6 +313,7 @@ addExternalScribe :: Switchboard a -> K.Scribe -> Text -> IO ()
 addExternalScribe switchboard sc name =
     withMVar (getSB switchboard) $ \sb ->
         Cardano.BM.Backend.Log.registerScribe (sbLogBE sb) sc name
+
 \end{code}
 
 \subsubsection{Waiting for the switchboard to terminate}\label{code:waitForTermination}\index{waitForTermination}

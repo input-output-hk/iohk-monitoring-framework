@@ -26,11 +26,12 @@ import           Control.Concurrent.MVar (MVar, newEmptyMVar, newMVar,
 import           Control.Concurrent.STM (atomically)
 import qualified Control.Concurrent.STM.TBQueue as TBQ
 import           Control.Exception.Safe (throwM)
-import           Control.Monad (void)
+import           Control.Monad (void, forM_)
 import           Control.Monad.IO.Class (liftIO)
 import           Data.Aeson (FromJSON, ToJSON, encode)
 import qualified Data.HashMap.Strict as HM
 import           Data.Int (Int64)
+import           Data.Maybe (fromMaybe)
 import           Data.Text (Text, pack, stripPrefix)
 import qualified Data.Text.IO as TIO
 import           Data.Time (getCurrentTime)
@@ -151,7 +152,7 @@ ekgTrace ekg _c =
         modifyMVar_ (getEV ekgview) $ \ekgup -> do
             let -- strip off some prefixes not necessary for display
                 lognam1 = fromMaybe loname $ stripPrefix "#ekgview.#aggregation." loname
-                logname = fromMaybe logname1 $ stripPrefix "#ekgview." lognam1
+                logname = fromMaybe lognam1 $ stripPrefix "#ekgview." lognam1
             upd <- update lo{ loName = logname } ekgup
             case upd of
                 Nothing     -> return ekgup
@@ -260,7 +261,7 @@ instance (ToJSON a, FromJSON a) => IsBackend EKGView a where
         -- wait for the dispatcher to exit
         res <- Async.waitCatch dispatcher
         either throwM return res
-        forM_ prometheusDispatcher Async.cancel d
+        forM_ prometheusDispatcher Async.cancel
         withMVar (getEV ekgview) $ \ekg ->
             killThread $ serverThreadId $ evServer ekg
         clearMVar $ getEV ekgview

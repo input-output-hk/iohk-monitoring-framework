@@ -24,7 +24,7 @@ import           Data.Text (Text)
 import           Cardano.BM.Data.BackendKind
 import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.Trace
-import           Cardano.BM.Configuration.Model (Configuration)
+import           Cardano.BM.Configuration (Configuration)
 
 \end{code}
 %endif

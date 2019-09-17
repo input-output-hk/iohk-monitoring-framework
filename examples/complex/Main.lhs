@@ -369,10 +369,14 @@ main = do
     (tr :: Trace IO Text, sb) <- setupTrace_ c "complex"
 
     -- load plugins
-    _ <- loadPlugin <$> Cardano.BM.Backend.Editor.plugin c tr sb
-    _ <- loadPlugin <$> Cardano.BM.Backend.EKGView.plugin c tr sb
-    _ <- loadPlugin <$> Cardano.BM.Backend.Aggregation.plugin c tr sb
-    _ <- loadPlugin <$> Cardano.BM.Backend.Monitoring.plugin c tr sb
+    Cardano.BM.Backend.Editor.plugin c tr sb
+      >>= loadPlugin sb
+    Cardano.BM.Backend.EKGView.plugin c tr sb
+      >>= loadPlugin sb
+    Cardano.BM.Backend.Aggregation.plugin c tr sb
+      >>= loadPlugin sb
+    Cardano.BM.Backend.Monitoring.plugin c tr sb
+      >>= loadPlugin sb
 
     logNotice tr "starting program; hit CTRL-C to terminate"
 -- user can watch the progress only if EKG is enabled.
