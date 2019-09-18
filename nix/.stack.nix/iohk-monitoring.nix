@@ -1,8 +1,6 @@
 { system, compiler, flags, pkgs, hsPkgs, pkgconfPkgs, ... }:
   {
     flags = {
-      disable-graylog = false;
-      disable-gui = false;
       disable-monitoring = false;
       disable-observables = false;
       disable-systemd = false;

@@ -42,9 +42,6 @@ let
 
         # Add a variant of iohk-monitoring to test disabling of flags
         packages.iohk-monitoring-minimal.flags = {
-          disable-graylog = true;
-          disable-prometheus = true;
-          disable-gui = true;
           disable-monitoring = true;
           disable-observables = true;
           disable-syslog = true;

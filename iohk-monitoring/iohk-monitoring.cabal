@@ -12,16 +12,6 @@ build-type:          Simple
 extra-source-files:  README.md
 cabal-version:       >=1.10
 
-flag disable-graylog
-  description:         Turn off Graylog.
-  default:             False
-  manual:              True
-
-flag disable-gui
-  description:         Turn off configuration editor GUI.
-  default:             False
-  manual:              True
-
 flag disable-monitoring
   description:         Turn off monitoring subsystem.
   default:             False
@@ -144,9 +134,6 @@ library
      build-depends:    hsyslog,
                        libsystemd-journal
 
-  if !flag(disable-gui)
-    cpp-options:       -DENABLE_GUI
-
   if !flag(disable-monitoring)
     cpp-options:       -DENABLE_MONITORING
 
@@ -208,9 +195,6 @@ test-suite tests
                        void,
                        yaml, libyaml
   ghc-options:         -Wall -Werror
-
-  if !flag(disable-gui)
-    cpp-options:       -DENABLE_GUI
 
   if !flag(disable-monitoring)
     cpp-options:       -DENABLE_MONITORING
