@@ -42,9 +42,8 @@ let
 
         # Add a variant of iohk-monitoring to test disabling of flags
         packages.iohk-monitoring-minimal.flags = {
-          disable-monitoring = true;
           disable-observables = true;
-          disable-syslog = true;
+          disable-systemd = true;
           # Keep examples, to see if they build
           disable-examples = false;
         };

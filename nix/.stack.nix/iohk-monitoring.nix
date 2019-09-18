@@ -1,7 +1,6 @@
 { system, compiler, flags, pkgs, hsPkgs, pkgconfPkgs, ... }:
   {
     flags = {
-      disable-monitoring = false;
       disable-observables = false;
       disable-systemd = false;
       disable-examples = false;

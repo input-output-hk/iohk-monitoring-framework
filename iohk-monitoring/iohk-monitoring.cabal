@@ -12,11 +12,6 @@ build-type:          Simple
 extra-source-files:  README.md
 cabal-version:       >=1.10
 
-flag disable-monitoring
-  description:         Turn off monitoring subsystem.
-  default:             False
-  manual:              True
-
 flag disable-observables
   description:         Turn off observables, observers.
   default:             False
@@ -134,9 +129,6 @@ library
      build-depends:    hsyslog,
                        libsystemd-journal
 
-  if !flag(disable-monitoring)
-    cpp-options:       -DENABLE_MONITORING
-
   if !flag(disable-observables)
     cpp-options:       -DENABLE_OBSERVABLES
 
@@ -195,9 +187,6 @@ test-suite tests
                        void,
                        yaml, libyaml
   ghc-options:         -Wall -Werror
-
-  if !flag(disable-monitoring)
-    cpp-options:       -DENABLE_MONITORING
 
   if !flag(disable-observables)
     cpp-options:       -DENABLE_OBSERVABLES
