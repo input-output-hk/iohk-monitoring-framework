@@ -375,9 +375,7 @@ main = do
 
     logNotice tr "starting program; hit CTRL-C to terminate"
 -- user can watch the progress only if EKG is enabled.
-#ifdef ENABLE_EKG
     logInfo tr "watch its progress on http://localhost:12789"
-#endif
 
 #ifdef RUN_ProcBufferDump
     procDump <- dumpBuffer sb tr

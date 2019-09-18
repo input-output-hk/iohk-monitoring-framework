@@ -12,11 +12,6 @@ build-type:          Simple
 extra-source-files:  README.md
 cabal-version:       >=1.10
 
-flag disable-ekg
-  description:         Turn off EKG.
-  default:             False
-  manual:              True
-
 flag disable-graylog
   description:         Turn off Graylog.
   default:             False
@@ -213,9 +208,6 @@ test-suite tests
                        void,
                        yaml, libyaml
   ghc-options:         -Wall -Werror
-
-  if !flag(disable-ekg)
-    cpp-options:       -DENABLE_EKG
 
   if !flag(disable-gui)
     cpp-options:       -DENABLE_GUI
