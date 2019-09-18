@@ -70,9 +70,7 @@ prepare_configuration = do
     c <- CM.empty
     CM.setMinSeverity c Warning
     CM.setSetupBackends c [ KatipBK
-#ifdef ENABLE_AGGREGATION
                           , AggregationBK
-#endif
                           , MonitoringBK
                           , TraceForwarderBK
                           ]
@@ -159,19 +157,16 @@ prepare_configuration = do
         (Just $ ObservableTraceSelf [GhcRtsStats,MemoryStats])
 #endif
 
-#ifdef ENABLE_AGGREGATION
     CM.setBackends c "complex.message" (Just [AggregationBK, KatipBK, TraceForwarderBK])
     CM.setBackends c "complex.random" (Just [KatipBK, EKGViewBK])
     CM.setBackends c "complex.random.ewma" (Just [KatipBK])
     CM.setBackends c "complex.observeIO" (Just [AggregationBK, MonitoringBK])
     CM.setSubTrace c "#messagecounters.aggregation" $ Just NoTrace
-#endif
+
     forM_ [(1::Int)..10] $ \x -> do
-#ifdef ENABLE_AGGREGATION
       CM.setBackends c
         ("complex.observeSTM." <> (pack $ show x))
         (Just [AggregationBK])
-#endif
       CM.setBackends c
         ("#aggregation.complex.observeSTM." <> (pack $ show x))
         (Just [KatipBK])

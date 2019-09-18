@@ -1,7 +1,6 @@
 { system, compiler, flags, pkgs, hsPkgs, pkgconfPkgs, ... }:
   {
     flags = {
-      disable-aggregation = false;
       disable-ekg = false;
       disable-graylog = false;
       disable-gui = false;

@@ -55,13 +55,8 @@ defaultConfigTesting :: IO CM.Configuration
 defaultConfigTesting = do
     c <- CM.empty
     CM.setMinSeverity c Debug
-#ifdef ENABLE_AGGREGATION
     CM.setSetupBackends c [KatipBK, AggregationBK]
     CM.setDefaultBackends c [KatipBK, AggregationBK]
-#else
-    CM.setSetupBackends c [KatipBK]
-    CM.setDefaultBackends c [KatipBK]
-#endif
     CM.setSetupScribes c [ ScribeDefinition {
                               scName = "nooutput"
                             , scFormat = ScText

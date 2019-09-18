@@ -12,11 +12,6 @@ build-type:          Simple
 extra-source-files:  README.md
 cabal-version:       >=1.10
 
-flag disable-aggregation
-  description:         Turn off complete aggregation subsystem.
-  default:             False
-  manual:              True
-
 flag disable-ekg
   description:         Turn off EKG.
   default:             False
@@ -154,9 +149,6 @@ library
      build-depends:    hsyslog,
                        libsystemd-journal
 
-  if !flag(disable-aggregation)
-    cpp-options:       -DENABLE_AGGREGATION
-
   if !flag(disable-gui)
     cpp-options:       -DENABLE_GUI
 
@@ -185,9 +177,7 @@ test-suite tests
                        Cardano.BM.Test.Routing
                        Cardano.BM.Test.Structured
                        Cardano.BM.Test.Tracer
-
-  if !flag(disable-aggregation)
-    other-modules:     Cardano.BM.Test.Aggregated
+                       Cardano.BM.Test.Aggregated
                        Cardano.BM.Arbitrary.Aggregated
 
   default-language:    Haskell2010
@@ -223,9 +213,6 @@ test-suite tests
                        void,
                        yaml, libyaml
   ghc-options:         -Wall -Werror
-
-  if !flag(disable-aggregation)
-    cpp-options:       -DENABLE_AGGREGATION
 
   if !flag(disable-ekg)
     cpp-options:       -DENABLE_EKG
