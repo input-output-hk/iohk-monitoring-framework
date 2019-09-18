@@ -24,6 +24,7 @@ module Cardano.BM.Backend.Log
     , realize
     , unrealize
     , registerScribe
+    , sev2klog
     -- * re-exports
     , K.Scribe
     ) where
@@ -59,26 +60,11 @@ import           System.Directory (createDirectoryIfMissing)
 import           System.FilePath (takeDirectory)
 import           System.IO (BufferMode (LineBuffering), Handle, hClose,
                      hSetBuffering, stderr, stdout, openFile, IOMode (WriteMode))
-#ifdef ENABLE_SYSTEMD
-import           Data.Aeson (encode)
-import qualified Data.ByteString.Lazy as BL (toStrict)
-import qualified Data.Text.Encoding as T (encodeUtf8)
-import           Language.Haskell.TH.Syntax (Loc(Loc, loc_filename, loc_start))
-import           Systemd.Journal (JournalFields, codeFile, codeLine, message,
-                     mkJournalField, priority, sendJournalFields,
-                     syslogFacility, syslogIdentifier)
-import qualified Systemd.Journal as J
-import           System.Posix.Syslog (Facility)
-#endif
-
 import           Paths_iohk_monitoring (version)
 
 import qualified Katip as K
 import qualified Katip.Core as KC
 import           Katip.Scribes.Handle (brackets)
-#ifdef ENABLE_SYSTEMD
-import           Katip.Format.Time (formatAsIso8601)
-#endif
 
 import qualified Cardano.BM.Configuration as Config
 import           Cardano.BM.Configuration.Model (getScribes, getSetupScribes)
@@ -209,10 +195,19 @@ instance (ToJSON a, FromJSON a) => IsBackend Log a where
 \subsubsection{Create and register \emph{katip} scribes}
 \begin{code}
 registerScribe :: Log a -> K.Scribe -> ScribeId -> IO ()
-registerScribe = undefined
-\end{code}
+registerScribe katip scr name =
+    modifyMVar_ (getK katip) $ \k -> do
+        newenv <- K.registerScribe name scr scribeSettings (kLogEnv k)
 
-\begin{code}
+        return $ k { kLogEnv = newenv }
+
+
+scribeSettings :: KC.ScribeSettings
+scribeSettings =
+    let bufferSize = 5000  -- size of the queue (in log items)
+    in
+    KC.ScribeSettings bufferSize
+
 registerScribes :: [ScribeDefinition] -> K.LogEnv -> IO K.LogEnv
 registerScribes [] le = return le
 registerScribes (defsc : dscs) le = do
@@ -224,11 +219,6 @@ registerScribes (defsc : dscs) le = do
     scr <- createScribe kind sctype name rotParams
     registerScribes dscs =<< K.registerScribe name' scr scribeSettings le
   where
-    scribeSettings :: KC.ScribeSettings
-    scribeSettings =
-        let bufferSize = 5000  -- size of the queue (in log items)
-        in
-        KC.ScribeSettings bufferSize
     createScribe FileSK ScText name rotParams = mkTextFileScribe
                                                     rotParams
                                                     (FileDescription $ unpack name)
@@ -237,9 +227,7 @@ registerScribes (defsc : dscs) le = do
                                                     rotParams
                                                     (FileDescription $ unpack name)
                                                     False
-#if defined(ENABLE_SYSTEMD)
-    createScribe JournalSK _ _ _ = mkJournalScribe
-#endif
+    -- createScribe JournalSK _ _ _ = mkJournalScribe
     createScribe StdoutSK sctype _ _ = mkStdoutScribe sctype
     createScribe StderrSK sctype _ _ = mkStderrScribe sctype
     createScribe DevNullSK _ _ _ = mkDevNullScribe
@@ -293,7 +281,7 @@ passN :: ToJSON a => ScribeId -> Log a -> LogObject a -> IO ()
 passN backend katip (LogObject loname lometa loitem) = do
     env <- kLogEnv <$> readMVar (getK katip)
     forM_ (Map.toList $ K._logEnvScribes env) $
-          \(scName, (KC.ScribeHandle _ shChan)) ->
+          \(scName, (KC.ScribeHandle _ shChan)) -> do
               -- check start of name to match |ScribeKind|
                 if backend `isPrefixOf` scName
                 then do
@@ -586,79 +574,5 @@ data FileDescription = FileDescription {
 
 prefixPath :: FileDescription -> FilePath
 prefixPath = takeDirectory . filePath
-
-\end{code}
-
-\begin{code}
-#ifdef ENABLE_SYSTEMD
-mkJournalScribe :: IO K.Scribe
-mkJournalScribe = return $ journalScribe Nothing (sev2klog Debug) K.V3
-
--- taken from https://github.com/haskell-service/katip-libsystemd-journal
-journalScribe :: Maybe Facility
-              -> K.Severity
-              -> K.Verbosity
-              -> K.Scribe
-journalScribe facility severity verbosity = K.Scribe liPush scribeFinalizer
-  where
-    liPush :: K.LogItem a => K.Item a -> IO ()
-    liPush i = when (K.permitItem severity i) $
-        sendJournalFields $ itemToJournalFields facility verbosity i
-
-    scribeFinalizer :: IO ()
-    scribeFinalizer = pure ()
-
-\end{code}
-
-Converts a |Katip Item| into a libsystemd-journal |JournalFields| map.
-\begin{code}
-itemToJournalFields :: K.LogItem a
-                    => Maybe Facility
-                    -> K.Verbosity
-                    -> K.Item a
-                    -> JournalFields
-itemToJournalFields facility verbosity item = mconcat [ defaultFields item
-                                                      , maybe HM.empty facilityFields facility
-                                                      , maybe HM.empty locFields (K._itemLoc item)
-                                                      ]
-  where
-    defaultFields kItem =
-        mconcat [ message (TL.toStrict $ toLazyText $ KC.unLogStr (KC._itemMessage kItem))
-                , priority (mapSeverity (KC._itemSeverity kItem))
-                , syslogIdentifier (unNS (KC._itemApp kItem))
-                , HM.fromList [ (environment, T.encodeUtf8 $ KC.getEnvironment (KC._itemEnv kItem))
-                              , (namespace, T.encodeUtf8 $ unNS (KC._itemNamespace kItem))
-                              , (payload, BL.toStrict $ encode $ KC.payloadObject verbosity (KC._itemPayload kItem))
-                              , (thread, T.encodeUtf8 $ KC.getThreadIdText (KC._itemThread kItem))
-                              , (time, T.encodeUtf8 $ formatAsIso8601 (KC._itemTime kItem))
-                              ]
-                ]
-    facilityFields = syslogFacility
-    locFields Loc{..} = mconcat [ codeFile loc_filename
-                                , codeLine (fst loc_start)
-                                ]
-
-    environment = mkJournalField "environment"
-    namespace = mkJournalField "namespace"
-    payload = mkJournalField "payload"
-    thread = mkJournalField "thread"
-    time = mkJournalField "time"
-
-    unNS ns = case K.unNamespace ns of
-        []  -> T.empty
-        [p] -> p
-        parts -> T.intercalate "." parts
-
-    mapSeverity s = case s of
-        K.DebugS     -> J.Debug
-        K.InfoS      -> J.Info
-        K.NoticeS    -> J.Notice
-        K.WarningS   -> J.Warning
-        K.ErrorS     -> J.Error
-        K.CriticalS  -> J.Critical
-        K.AlertS     -> J.Alert
-        K.EmergencyS -> J.Emergency
-
-#endif
 
 \end{code}

@@ -12,7 +12,7 @@ maintainer:          operations@iohk.io
 copyright:           2019 IOHK
 category:            Benchmarking
 build-type:          Simple
-extra-source-files:  CHANGELOG.md
+extra-source-files:
 
 executable example-simple
   main-is:             Main.lhs
@@ -27,6 +27,7 @@ executable example-simple
                        aeson,
                        iohk-monitoring,
                        lobemo-backend-editor,
+                       lobemo-scribe-systemd,
                        async,
                        bytestring,
                        mtl

@@ -10,6 +10,7 @@ packages:
   - plugins/backend-graylog
   - plugins/backend-monitoring
   - plugins/backend-prometheus
+  - plugins/scribe-systemd
   - examples
 
 extra-deps:

@@ -15,6 +15,7 @@
         lobemo-backend-graylog = ./lobemo-backend-graylog.nix;
         lobemo-backend-monitoring = ./lobemo-backend-monitoring.nix;
         lobemo-backend-prometheus = ./lobemo-backend-prometheus.nix;
+        lobemo-scribe-systemd = ./lobemo-scribe-systemd.nix;
         lobemo-examples = ./lobemo-examples.nix;
         ekg-prometheus-adapter = ./ekg-prometheus-adapter.nix;
         };

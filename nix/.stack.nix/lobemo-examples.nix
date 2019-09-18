@@ -23,6 +23,7 @@
             (hsPkgs.aeson)
             (hsPkgs.iohk-monitoring)
             (hsPkgs.lobemo-backend-editor)
+            (hsPkgs.lobemo-scribe-systemd)
             (hsPkgs.async)
             (hsPkgs.bytestring)
             (hsPkgs.mtl)

@@ -16,14 +16,17 @@ import           Control.Concurrent (threadDelay)
 import           Control.Concurrent.MVar (MVar, newMVar, modifyMVar_, withMVar)
 import           Data.Aeson (FromJSON)
 
+-- import           Cardano.BM.Backend.Editor (plugin)
 import           Cardano.BM.Backend.Switchboard (addUserDefinedBackend)
 import           Cardano.BM.Data.Backend
 import qualified Cardano.BM.Configuration.Model as CM
 import           Cardano.BM.Configuration.Static (defaultConfigStdout)
 #ifdef LINUX
+import           Cardano.BM.Scribe.Systemd (plugin)
 import           Cardano.BM.Data.Output (ScribeDefinition (..),
                      ScribePrivacy (..), ScribeKind (..), ScribeFormat (..))
 #endif
+import           Cardano.BM.Plugin (loadPlugin)
 import           Cardano.BM.Setup (setupTrace_)
 import           Cardano.BM.Trace (Trace, appendName, logDebug, logError,
                      logInfo, logNotice, logWarning)
@@ -76,21 +79,22 @@ main = do
                             , scPrivacy = ScPublic
                             , scRotation = Nothing
                             }
-                         ,  ScribeDefinition {
-                              scName = "systemd"
-                            , scFormat = ScText
-                            , scKind = JournalSK
-                            , scPrivacy = ScPublic
-                            , scRotation = Nothing
-                            }
                          ]
-    CM.setScribes c "simple.systemd" (Just ["JournalSK::systemd"])
+    CM.setScribes c "simple.systemd" (Just ["JournalSK"])
 #endif
     CM.setScribes c "simple.json" (Just ["StdoutSK::json"])
     (tr :: Trace IO String, sb) <- setupTrace_ c "simple"
     be :: MyBackend String <- realize c
     let mybe = MkBackend { bEffectuate = effectuate be, bUnrealize = unrealize be }
     addUserDefinedBackend sb mybe "MyBackend"
+    -- load plugins
+    -- Cardano.BM.Backend.Editor.plugin c tr sb
+    --   >>= loadPlugin sb
+#ifdef LINUX
+    Cardano.BM.Scribe.Systemd.plugin c tr sb
+      >>= loadPlugin sb
+#endif
+
     let trText = appendName "text" tr
         trJson = appendName "json" tr
 #ifdef LINUX

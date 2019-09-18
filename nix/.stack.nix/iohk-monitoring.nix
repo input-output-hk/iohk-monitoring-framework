@@ -1,11 +1,6 @@
 { system, compiler, flags, pkgs, hsPkgs, pkgconfPkgs, ... }:
   {
-    flags = {
-      disable-observables = false;
-      disable-systemd = false;
-      disable-examples = false;
-      performance-test-queue = false;
-      };
+    flags = { disable-observables = false; performance-test-queue = false; };
     package = {
       specVersion = "1.10";
       identifier = { name = "iohk-monitoring"; version = "0.1.10.1"; };
@@ -21,7 +16,7 @@
       };
     components = {
       "library" = {
-        depends = ([
+        depends = [
           (hsPkgs.base)
           (hsPkgs.contra-tracer)
           (hsPkgs.aeson)
@@ -55,12 +50,7 @@
           (hsPkgs.libyaml)
           ] ++ (if system.isWindows
           then [ (hsPkgs.Win32) ]
-          else [
-            (hsPkgs.unix)
-            ])) ++ (pkgs.lib).optionals (system.isLinux && !flags.disable-systemd) [
-          (hsPkgs.hsyslog)
-          (hsPkgs.libsystemd-journal)
-          ];
+          else [ (hsPkgs.unix) ]);
         };
       tests = {
         "tests" = {

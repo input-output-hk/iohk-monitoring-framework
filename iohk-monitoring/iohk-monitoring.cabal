@@ -17,16 +17,6 @@ flag disable-observables
   default:             False
   manual:              True
 
-flag disable-systemd
-  description:         Turn off systemd journal scribe.
-  default:             False
-  manual:              True
-
-flag disable-examples
-  description:         Turn off building of examples.
-  default:             False
-  manual:              True
-
 flag performance-test-queue
   description:         Set the huge size for backends' queues.
   default:             False
@@ -90,7 +80,7 @@ library
   other-extensions:    OverloadedStrings
   build-depends:       base >= 4.11,
                        contra-tracer,
-                       aeson >= 1.4.4,
+                       aeson >= 1.4.2,
                        array,
                        async,
                        async-timer,
@@ -124,11 +114,6 @@ library
   else
      build-depends:    unix
 
-  if os(linux) && !flag(disable-systemd)
-     cpp-options:      -DENABLE_SYSTEMD
-     build-depends:    hsyslog,
-                       libsystemd-journal
-
   if !flag(disable-observables)
     cpp-options:       -DENABLE_OBSERVABLES
 
@@ -159,7 +144,7 @@ test-suite tests
   build-depends:       base,
                        contra-tracer,
                        iohk-monitoring,
-                       aeson >= 1.4.4,
+                       aeson >= 1.4.2,
                        array,
                        async,
                        bytestring,
