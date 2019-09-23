@@ -16,7 +16,6 @@ import           Control.Concurrent (threadDelay)
 import           Control.Concurrent.MVar (MVar, newMVar, modifyMVar_, withMVar)
 import           Data.Aeson (FromJSON)
 
--- import           Cardano.BM.Backend.Editor (plugin)
 import           Cardano.BM.Backend.Switchboard (addUserDefinedBackend)
 import           Cardano.BM.Data.Backend
 import qualified Cardano.BM.Configuration.Model as CM
@@ -87,9 +86,6 @@ main = do
     be :: MyBackend String <- realize c
     let mybe = MkBackend { bEffectuate = effectuate be, bUnrealize = unrealize be }
     addUserDefinedBackend sb mybe "MyBackend"
-    -- load plugins
-    -- Cardano.BM.Backend.Editor.plugin c tr sb
-    --   >>= loadPlugin sb
 #ifdef LINUX
     Cardano.BM.Scribe.Systemd.plugin c tr sb
       >>= loadPlugin sb
