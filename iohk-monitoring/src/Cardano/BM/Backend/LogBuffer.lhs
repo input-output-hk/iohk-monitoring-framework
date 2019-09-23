@@ -78,7 +78,7 @@ instance IsEffectuator LogBuffer a where
 |LogBuffer| is an |IsBackend|
 \begin{code}
 instance FromJSON a => IsBackend LogBuffer a where
-    typeof _ = LogBufferBK
+    bekind _ = LogBufferBK
 
     realize _ = do
         let emptyBuffer = LogBufferInternal HM.empty

@@ -21,9 +21,9 @@ import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Tracing hiding (setupTrace)
 import           Cardano.BM.Data.Tracer
 import           Cardano.BM.Data.SubTrace
-import           Cardano.BM.Backend.Switchboard (MockSwitchboard (..))
 import qualified Cardano.BM.Setup as Setup
 
+import           Cardano.BM.Test.Mock (MockSwitchboard (..))
 import           Cardano.BM.Test.Trace (TraceConfiguration (..), setupTrace)
 import           Test.Tasty (TestTree, testGroup)
 import           Test.Tasty.HUnit (Assertion , assertBool, testCase)

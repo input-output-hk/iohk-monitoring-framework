@@ -18,15 +18,9 @@ module Cardano.BM.Configuration
     , CM.getOption
     , CM.findSubTrace
     , CM.setSubTrace
-#ifdef ENABLE_EKG
     , CM.getEKGport
-#endif
-#ifdef ENABLE_GRAYLOG
     , CM.getGraylogPort
-#endif
-#ifdef ENABLE_PROMETHEUS
     , CM.getPrometheusPort
-#endif
     , CM.getGUIport
     , CM.getMonitors
     , getOptionOrDefault

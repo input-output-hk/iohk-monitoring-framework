@@ -18,31 +18,31 @@
 module Cardano.BM.Backend.Switchboard
     (
       Switchboard
-    , MockSwitchboard (..)
     , mainTraceConditionally
-    , traceMock
     , readLogBuffer
     , effectuate
     , realize
     , unrealize
     , waitForTermination
     -- * integrate external backend
+    , addUserDefinedBackend
     , addExternalBackend
+    , addExternalScribe
     ) where
 
 import qualified Control.Concurrent.Async as Async
 import           Control.Concurrent.MVar (MVar, newEmptyMVar, newMVar,
                      modifyMVar_, putMVar, readMVar, tryReadMVar, tryTakeMVar,
                      withMVar)
-import           Control.Concurrent.STM (TVar, atomically, modifyTVar, retry)
+import           Control.Concurrent.STM (atomically, retry)
 import qualified Control.Concurrent.STM.TBQueue as TBQ
 import           Control.Exception.Safe (throwM)
 import           Control.Monad (forM_, when, void)
 import           Data.Aeson (FromJSON, ToJSON)
-import           Data.Maybe (fromMaybe)
 import           Data.Text (Text)
 import qualified Data.Text.IO as TIO
 import           Data.Time.Clock (getCurrentTime)
+import qualified Katip as K
 import           System.IO (stderr)
 
 import           Cardano.BM.Configuration (Configuration)
@@ -55,7 +55,7 @@ import           Cardano.BM.Data.MessageCounter (resetCounters, sendAndResetAfte
                      updateMessageCounters)
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.SubTrace (SubTrace (..))
-import           Cardano.BM.Data.Tracer (Tracer (..), traceWith)
+import           Cardano.BM.Data.Tracer (Tracer (..))
 import qualified Cardano.BM.Backend.TraceAcceptor
 import qualified Cardano.BM.Backend.Log
 import qualified Cardano.BM.Backend.LogBuffer
@@ -65,26 +65,6 @@ import qualified Cardano.BM.Backend.TraceForwarder
 import           Cardano.BM.Backend.ExternalAbstraction (UnixNamedPipe)
 #else
 import           Cardano.BM.Backend.ExternalAbstraction (NoPipe)
-#endif
-
-#ifdef ENABLE_AGGREGATION
-import qualified Cardano.BM.Backend.Aggregation
-#endif
-
-#ifdef ENABLE_EKG
-import qualified Cardano.BM.Backend.EKGView
-#endif
-
-#ifdef ENABLE_GRAYLOG
-import qualified Cardano.BM.Backend.Graylog
-#endif
-
-#ifdef ENABLE_MONITORING
-import qualified Cardano.BM.Backend.Monitoring
-#endif
-
-#ifdef ENABLE_GUI
-import qualified Cardano.BM.Backend.Editor
 #endif
 
 \end{code}
@@ -104,6 +84,7 @@ data SwitchboardInternal a = SwitchboardInternal
     { sbQueue     :: TBQ.TBQueue (LogObject a)
     , sbDispatch  :: Async.Async ()
     , sbLogBuffer :: Cardano.BM.Backend.LogBuffer.LogBuffer a
+    , sbLogBE     :: Cardano.BM.Backend.Log.Log a
     , sbBackends  :: NamedBackends a
     }
 
@@ -167,15 +148,13 @@ instance IsEffectuator Switchboard a where
 |Switchboard| is an |IsBackend|
 \begin{code}
 instance (FromJSON a, ToJSON a) => IsBackend Switchboard a where
-    typeof _ = SwitchboardBK
+    bekind _ = SwitchboardBK
 
     realize cfg = do
         -- we setup |LogBuffer| explicitly so we can access it as a |Backend| and as |LogBuffer|
         logbuf :: Cardano.BM.Backend.LogBuffer.LogBuffer a <- Cardano.BM.Backend.LogBuffer.realize cfg
-        let spawnDispatcher
-                :: Switchboard a
-                -> TBQ.TBQueue (LogObject a)
-                -> IO (Async.Async ())
+        katipBE :: Cardano.BM.Backend.Log.Log a <- Cardano.BM.Backend.Log.realize cfg
+        let spawnDispatcher :: Switchboard a -> TBQ.TBQueue (LogObject a) -> IO (Async.Async ())
             spawnDispatcher switchboard queue = do
                 now <- getCurrentTime
                 let messageCounters = resetCounters now
@@ -189,7 +168,7 @@ instance (FromJSON a, ToJSON a) => IsBackend Switchboard a where
                                     when passSevFilter $ do
                                         nocapacity <- atomically $ TBQ.isFullTBQueue q
                                         if nocapacity
-                                        then putStrLn "Error: Switchboard's queue full, dropping log items!"
+                                        then TIO.hPutStrLn stderr "Error: Switchboard's queue full, dropping log items!"
                                         else atomically $ TBQ.writeTBQueue q obj
                                 Nothing -> pure ()
                 _timer <- Async.async $ sendAndResetAfter
@@ -207,7 +186,7 @@ instance (FromJSON a, ToJSON a) => IsBackend Switchboard a where
                         selectedBackends <- getBackends cfg name
                         let selBEs = befilter selectedBackends
                         withMVar (getSB switchboard) $ \sb ->
-                            forM_ (sbBackends sb) $ \(bek, be) ->
+                            forM_ (sbBackends sb) $ \(bek, be) -> do
                                 when (bek `elem` selBEs) (bEffectuate be nli)
 
                     qProc counters = do
@@ -274,8 +253,12 @@ instance (FromJSON a, ToJSON a) => IsBackend Switchboard a where
                             { bEffectuate = Cardano.BM.Backend.LogBuffer.effectuate logbuf
                             , bUnrealize = Cardano.BM.Backend.LogBuffer.unrealize logbuf
                             })
+        bs2 <- return (KatipBK, MkBackend
+                            { bEffectuate = Cardano.BM.Backend.Log.effectuate katipBE
+                            , bUnrealize = Cardano.BM.Backend.Log.unrealize katipBE
+                            })
 
-        let bs = bs1 : bs0
+        let bs = bs2 : bs1 : bs0
         dispatcher <- spawnDispatcher sb q
         -- link the given Async to the current thread, such that if the Async
         -- raises an exception, that exception will be re-thrown in the current
@@ -285,6 +268,7 @@ instance (FromJSON a, ToJSON a) => IsBackend Switchboard a where
                             sbQueue = q,
                             sbDispatch = dispatcher,
                             sbLogBuffer = logbuf,
+                            sbLogBE = katipBE,
                             sbBackends = bs }
 
         return sb
@@ -306,12 +290,30 @@ instance (FromJSON a, ToJSON a) => IsBackend Switchboard a where
 
 \end{code}
 
-\subsubsection{Integrate with external backend}\label{code:addBackend}\index{addBackend}
+\subsubsection{Integrate with external backend}\label{code:addUserDefinedBackend}\index{addUserDefinedBackend}
 \begin{code}
-addExternalBackend :: Switchboard a -> Backend a -> Text -> IO ()
-addExternalBackend switchboard be name =
+addUserDefinedBackend :: Switchboard a -> Backend a -> Text -> IO ()
+addUserDefinedBackend switchboard be name =
     modifyMVar_ (getSB switchboard) $ \sb ->
         return $ sb { sbBackends = (UserDefinedBK name, be) : sbBackends sb }
+\end{code}
+
+\subsubsection{Integrate with external backend}\label{code:addExternalBackend}\index{addExternalBackend}
+\begin{code}
+addExternalBackend :: Switchboard a -> Backend a -> BackendKind -> IO ()
+addExternalBackend switchboard be bk = do
+    modifyMVar_ (getSB switchboard) $ \sb ->
+        return $ sb { sbBackends = (bk, be) : sbBackends sb }
+
+\end{code}
+
+\subsubsection{Integrate with external \emph{katip} scribe}\label{code:addExternalScribe}\index{addExternalScribe}
+\begin{code}
+addExternalScribe :: Switchboard a -> K.Scribe -> Text -> IO ()
+addExternalScribe switchboard sc name =
+    withMVar (getSB switchboard) $ \sb ->
+        Cardano.BM.Backend.Log.registerScribe (sbLogBE sb) sc name
+
 \end{code}
 
 \subsubsection{Waiting for the switchboard to terminate}\label{code:waitForTermination}\index{waitForTermination}
@@ -333,7 +335,8 @@ readLogBuffer switchboard = do
 
 \end{code}
 
-\subsubsection{Realizing the backends according to configuration}\label{code:setupBackends}\index{Switchboard!setupBackends}
+\subsubsection{Realizing the backends according to configuration}
+\label{code:setupBackends}\index{Switchboard!setupBackends}
 \begin{code}
 setupBackends :: (FromJSON a, ToJSON a)
               => [BackendKind]
@@ -351,94 +354,15 @@ setupBackends bes c sb = setupBackendsAcc bes []
 setupBackend' :: (FromJSON a , ToJSON a) => BackendKind -> Configuration -> Switchboard a -> IO (Maybe (Backend a))
 setupBackend' SwitchboardBK _ _ = fail "cannot instantiate a further Switchboard"
 setupBackend' (UserDefinedBK _) _ _ = fail "cannot instantiate an user-defined backend"
-#ifdef ENABLE_MONITORING
-setupBackend' MonitoringBK c sb = do
-    let basetrace = mainTraceConditionally c sb
-
-    be :: Cardano.BM.Backend.Monitoring.Monitor a <- Cardano.BM.Backend.Monitoring.realizefrom c basetrace sb
-    return $ Just MkBackend
-      { bEffectuate = Cardano.BM.Backend.Monitoring.effectuate be
-      , bUnrealize = Cardano.BM.Backend.Monitoring.unrealize be
-      }
-#else
-setupBackend' MonitoringBK _ _ = do
-    TIO.hPutStrLn stderr "disabled! will not setup backend 'Monitoring'"
-    return Nothing
-#endif
-#ifdef ENABLE_EKG
-setupBackend' EKGViewBK c sb = do
-    let basetrace = mainTraceConditionally c sb
-
-    be :: Cardano.BM.Backend.EKGView.EKGView a <- Cardano.BM.Backend.EKGView.realizefrom c basetrace sb
-    return $ Just MkBackend
-      { bEffectuate = Cardano.BM.Backend.EKGView.effectuate be
-      , bUnrealize = Cardano.BM.Backend.EKGView.unrealize be
-      }
-#else
-setupBackend' EKGViewBK _ _ = do
-    TIO.hPutStrLn stderr "disabled! will not setup backend 'EKGView'"
-    return Nothing
-#endif
-#ifdef ENABLE_AGGREGATION
-setupBackend' AggregationBK c sb = do
-    let basetrace = mainTraceConditionally c sb
-
-    be :: Cardano.BM.Backend.Aggregation.Aggregation a <- Cardano.BM.Backend.Aggregation.realizefrom c basetrace sb
-    return $ Just MkBackend
-      { bEffectuate = Cardano.BM.Backend.Aggregation.effectuate be
-      , bUnrealize = Cardano.BM.Backend.Aggregation.unrealize be
-      }
-#else
-setupBackend' AggregationBK _ _ = do
-    TIO.hPutStrLn stderr "disabled! will not setup backend 'Aggregation'"
-    return Nothing
-#endif
-#ifdef ENABLE_GUI
-setupBackend' EditorBK c sb = do
-    port <- Config.getGUIport c
-    if port > 0
-    then do
-        let trace = mainTraceConditionally c sb
-        be :: Cardano.BM.Backend.Editor.Editor a <- Cardano.BM.Backend.Editor.realizefrom c trace sb
-        return $ Just MkBackend
-            { bEffectuate = Cardano.BM.Backend.Editor.effectuate be
-            , bUnrealize = Cardano.BM.Backend.Editor.unrealize be
-            }
-    else
-        return Nothing
-#else
-setupBackend' EditorBK _ _ = do
-    TIO.hPutStrLn stderr "disabled! will not setup backend 'Editor'"
-    return Nothing
-#endif
-#ifdef ENABLE_GRAYLOG
-setupBackend' GraylogBK c sb = do
-    port <- Config.getGraylogPort c
-    if port > 0
-    then do
-        let trace = mainTraceConditionally c sb
-        be :: Cardano.BM.Backend.Graylog.Graylog a <- Cardano.BM.Backend.Graylog.realizefrom c trace sb
-        return $ Just MkBackend
-            { bEffectuate = Cardano.BM.Backend.Graylog.effectuate be
-            , bUnrealize = Cardano.BM.Backend.Graylog.unrealize be
-            }
-    else
-        return Nothing
-#else
-setupBackend' GraylogBK _ _ = do
-    TIO.hPutStrLn stderr "disabled! will not setup backend 'Graylog'"
-    return Nothing
-#endif
-setupBackend' KatipBK c _ = do
-    be :: Cardano.BM.Backend.Log.Log a <- Cardano.BM.Backend.Log.realize c
-    return $ Just MkBackend
-        { bEffectuate = Cardano.BM.Backend.Log.effectuate be
-        , bUnrealize = Cardano.BM.Backend.Log.unrealize be
-        }
+setupBackend' MonitoringBK _ _ = return Nothing
+setupBackend' AggregationBK _ _ = return Nothing
+setupBackend' EditorBK _ _ = return Nothing
+setupBackend' GraylogBK _ _ = return Nothing
+setupBackend' EKGViewBK _ _ = return Nothing
+setupBackend' KatipBK _ _ = return Nothing
 setupBackend' LogBufferBK _ _ = return Nothing
 setupBackend' (TraceAcceptorBK pipePath) c sb = do
     let basetrace = mainTraceConditionally c sb
-
     be :: Cardano.BM.Backend.TraceAcceptor.TraceAcceptor PipeType a
             <- Cardano.BM.Backend.TraceAcceptor.realizefrom basetrace pipePath
     return $ Just MkBackend
@@ -459,37 +383,5 @@ type PipeType =
 #else
     NoPipe
 #endif
-
-\end{code}
-
-\subsubsection{MockSwitchboard}\label{code:MockSwitchboard}\index{MockSwitchboard}
-|MockSwitchboard| is useful for tests since it keeps the |LogObject|s
-to be output in a list.
-
-\begin{code}
-newtype MockSwitchboard a = MockSB (TVar [LogObject a])
-
-instance IsEffectuator MockSwitchboard a where
-    effectuate (MockSB tvar) item = atomically $ modifyTVar tvar ((:) item)
-    handleOverflow _ = pure ()
-
-\end{code}
-
-\subsubsection{traceMock}\label{code:traceMock}\index{traceMock}
-A |Tracer| which forwards |LogObject|s to |MockSwitchboard| simulating
-functionality of |mainTraceConditionally|.
-
-\begin{code}
-traceMock :: MockSwitchboard a -> Config.Configuration -> Tracer IO (LogObject a)
-traceMock ms config =
-    Tracer $ \item@(LogObject loggername _ _) -> do
-        traceWith mainTrace item
-        subTrace <- fromMaybe Neutral <$> Config.findSubTrace config loggername
-        case subTrace of
-            TeeTrace secName ->
-                traceWith mainTrace item{ loName = secName }
-            _ -> return ()
-  where
-    mainTrace = mainTraceConditionally config ms
 
 \end{code}

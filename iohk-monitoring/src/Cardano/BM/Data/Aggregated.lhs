@@ -4,6 +4,7 @@
 
 %if style == newcode
 \begin{code}
+{-# LANGUAGE BangPatterns       #-}
 {-# LANGUAGE DeriveAnyClass     #-}
 {-# LANGUAGE DeriveGeneric      #-}
 {-# LANGUAGE StandaloneDeriving #-}
@@ -23,6 +24,8 @@ module Cardano.BM.Data.Aggregated
   , stdevOfStats
   , stats2Text
   , singletonStats
+  , updateAggregation
+  , ewma
   ) where
 
 import           GHC.Generics (Generic)
@@ -362,5 +365,93 @@ instance Show Aggregated where
     show (AggregatedStats astats) =
         "{ stats = " ++ show astats ++ " }"
     show (AggregatedEWMA a) = show a
+
+\end{code}
+
+\subsubsection{Update aggregation}\label{code:updateAggregation}\index{updateAggregation}
+We distinguish an unitialized from an already initialized aggregation. The latter is properly initialized.
+\\
+We use Welford's online algorithm to update the estimation of mean and variance of the sample statistics.
+(see \url{https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford's_Online_algorithm})
+
+\begin{code}
+updateAggregation :: Measurable -> Aggregated -> Word64 -> Maybe Word64 -> Either Text Aggregated
+updateAggregation v (AggregatedStats s) tstamp resetAfter =
+    let count = fcount (fbasic s)
+        reset = maybe False (count >=) resetAfter
+    in
+    if reset
+    then
+        Right $ singletonStats v
+    else
+        Right $ AggregatedStats $! Stats { flast  = v
+                                         , fold = mkTimestamp
+                                         , fbasic = updateBaseStats 1 v (fbasic s)
+                                         , fdelta = updateBaseStats 2 deltav (fdelta s)
+                                         , ftimed = updateBaseStats 2 timediff (ftimed s)
+                                         }
+  where
+    deltav = subtractMeasurable v (flast s)
+    mkTimestamp = Nanoseconds $ tstamp
+    timediff = Nanoseconds $ fromInteger $ (getInteger mkTimestamp) - (getInteger $ fold s)
+
+updateAggregation v (AggregatedEWMA e) _ _ =
+    let !eitherAvg = ewma e v
+    in
+        AggregatedEWMA <$> eitherAvg
+
+updateBaseStats :: Word64 -> Measurable -> BaseStats -> BaseStats
+updateBaseStats startAt v s =
+    let newcount = fcount s + 1 in
+    if (startAt > newcount)
+    then s {fcount = fcount s + 1}
+    else
+        let newcountRel = newcount - startAt + 1
+            newvalue = getDouble v
+            delta = newvalue - fsum_A s
+            dincr = (delta / fromIntegral newcountRel)
+            delta2 = newvalue - fsum_A s - dincr
+            (minim, maxim) =
+                if startAt == newcount
+                then (v, v)
+                else (min v (fmin s), max v (fmax s))
+        in
+        BaseStats { fmin   = minim
+                  , fmax   = maxim
+                  , fcount = newcount
+                  , fsum_A = fsum_A s + dincr
+                  , fsum_B = fsum_B s + (delta * delta2)
+                  }
+
+\end{code}
+
+\subsubsection{Calculation of EWMA}\label{code:ewma}\index{ewma}
+Following \url{https://en.wikipedia.org/wiki/Moving_average#Exponential_moving_average} we calculate
+the exponential moving average for a series of values $ Y_t $ according to:
+
+$$
+S_t =
+\begin{cases}
+  Y_1,       & t = 1 \\
+  \alpha \cdot Y_t + (1 - \alpha) \cdot S_{t-1},    & t > 1
+\end{cases}
+$$
+\\
+The pattern matching below ensures that the |EWMA| will start with the first value passed in,
+and will not change type, once determined.
+\begin{code}
+ewma :: EWMA -> Measurable -> Either Text EWMA
+ewma (EmptyEWMA a) v = Right $ EWMA a v
+ewma (EWMA a s@(Microseconds _)) y@(Microseconds _) =
+    Right $ EWMA a $ Microseconds $ round $ a * (getDouble y) + (1 - a) * (getDouble s)
+ewma (EWMA a s@(Seconds _)) y@(Seconds _) =
+    Right $ EWMA a $ Seconds $ round $ a * (getDouble y) + (1 - a) * (getDouble s)
+ewma (EWMA a s@(Bytes _)) y@(Bytes _) =
+    Right $ EWMA a $ Bytes $ round $ a * (getDouble y) + (1 - a) * (getDouble s)
+ewma (EWMA a (PureI s)) (PureI y) =
+    Right $ EWMA a $ PureI $ round $ a * (fromInteger y) + (1 - a) * (fromInteger s)
+ewma (EWMA a (PureD s)) (PureD y) =
+    Right $ EWMA a $ PureD $ a * y + (1 - a) * s
+ewma _ _ = Left "EWMA: Cannot compute average on values of different types"
 
 \end{code}

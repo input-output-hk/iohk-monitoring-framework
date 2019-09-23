@@ -1,8 +1,16 @@
 
 packages:
-  iohk-monitoring
   contra-tracer
   tracer-transformers
+  iohk-monitoring
+  plugins/backend-aggregation
+  plugins/backend-editor
+  plugins/backend-ekg
+  plugins/backend-graylog
+  plugins/backend-monitoring
+  plugins/backend-prometheus
+  plugins/scribe-systemd
+  examples
 
 package iohk-monitoring
   tests: True
@@ -10,13 +18,13 @@ package iohk-monitoring
 package contra-tracer
    -- Currently does not have tests, but set it True in case any are added.
   tests: True
-  documentation: True
+  documentation: False
   haddock-hyperlink-source: True
 
 package tracer-transformers
    -- Currently does not have tests, but set it True in case any are added.
   tests: True
-  documentation: True
+  documentation: False
   haddock-hyperlink-source: True
 
 source-repository-package

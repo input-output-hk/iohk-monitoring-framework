@@ -2,8 +2,16 @@ resolver: lts-13.26
 compiler: ghc-8.6.5
 packages:
   - contra-tracer
-  - iohk-monitoring
   - tracer-transformers
+  - iohk-monitoring
+  - plugins/backend-aggregation
+  - plugins/backend-editor
+  - plugins/backend-ekg
+  - plugins/backend-graylog
+  - plugins/backend-monitoring
+  - plugins/backend-prometheus
+  - plugins/scribe-systemd
+  - examples
 
 extra-deps:
   - time-units-1.0.0

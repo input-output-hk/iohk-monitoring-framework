@@ -18,13 +18,6 @@ steps:
     branches: "master"
     timeout: 30
 
-  - label: "make TeX documentation"
-    command: "cd docs; nix-shell --run make"
-    agents:
-      "system=x86_64-linux"
-    artifact_paths: "docs/IOHK-Monitoring.pdf ; docs/IOHK-Monitoring.log"
-    timeout: 5
-
   - label: 'check-hydra'
     command: 'ci/check-hydra.sh'
     agents:

@@ -24,7 +24,7 @@ cabal.project.local~
 .DS_Store
 .liquid/
 
-docs/IOHK-Monitoring-code.*
+/docs/*
 
 /result*
 .stack-to-nix.cache

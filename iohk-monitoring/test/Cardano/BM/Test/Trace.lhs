@@ -45,7 +45,6 @@ import           Cardano.BM.Data.Observable
 import           Cardano.BM.Data.Output
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.SubTrace
-import           Cardano.BM.Backend.Switchboard (MockSwitchboard (..))
 #ifdef ENABLE_OBSERVABLES
 import           Cardano.BM.Counters (getMonoClock)
 import           Cardano.BM.Data.Aggregated
@@ -53,11 +52,11 @@ import           Cardano.BM.Data.Counter
 import qualified Cardano.BM.Observer.Monadic as MonadicObserver
 import qualified Cardano.BM.Observer.STM as STMObserver
 #endif
-import           Cardano.BM.Backend.Switchboard (traceMock)
 import qualified Cardano.BM.Setup as Setup
 import           Cardano.BM.Trace (Trace, appendName, logDebug, logInfo,
                      logInfoS, logNotice, logWarning, logError, logCritical,
                      logAlert, logEmergency)
+import           Cardano.BM.Test.Mock (MockSwitchboard (..), traceMock)
 
 import           Test.Tasty (TestTree, testGroup)
 import           Test.Tasty.HUnit (Assertion, assertBool, testCase,
@@ -80,9 +79,11 @@ tests = testGroup "Testing Trace" [
 
 unit_tests :: TestTree
 unit_tests = testGroup "Unit tests" [
-        testCase "opening messages should not be traced" unitNoOpeningTrace
+        testCase "forked traces" unitTraceInFork
+#ifdef ENABLE_OBSERVABLES
+      , testCase "opening messages should not be traced" unitNoOpeningTrace
+#endif
     --   , testCase "hierarchy of traces" unitHierarchy
-      , testCase "forked traces" unitTraceInFork
       , testCase "hierarchy of traces with NoTrace" $
             unitHierarchy' [Neutral, NoTrace, (ObservableTraceSelf observablesSet)]
                 onlyLevelOneMessage
@@ -506,18 +507,18 @@ stressTraceInFork = do
 
 \subsubsection{Dropping |ObserveOpen| messages in a subtrace}\label{code:unitNoOpeningTrace}
 \begin{code}
+#ifdef ENABLE_OBSERVABLES
 unitNoOpeningTrace :: Assertion
 unitNoOpeningTrace = do
     cfg <- defaultConfigTesting
     msgs <- STM.newTVarIO []
-#ifdef ENABLE_OBSERVABLES
     logTrace <- setupTrace $ TraceConfiguration cfg (MockSB msgs) "test" DropOpening
     _ <- STMObserver.bracketObserveIO cfg logTrace Debug "setTVar" setVar_
-#endif
     res <- STM.readTVarIO msgs
     assertBool
         ("Found non-expected ObserveOpen message: " ++ show res)
         (all (\case {LogObject _ _ (ObserveOpen _) -> False; _ -> True}) res)
+#endif
 
 \end{code}
 

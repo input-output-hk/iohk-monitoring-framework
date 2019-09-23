@@ -1,5 +1,5 @@
 name:                iohk-monitoring
-version:             0.1.10.0
+version:             0.1.10.1
 synopsis:            logging, benchmarking and monitoring framework
 -- description:
 license:             Apache-2.0
@@ -12,48 +12,8 @@ build-type:          Simple
 extra-source-files:  README.md
 cabal-version:       >=1.10
 
-flag disable-aggregation
-  description:         Turn off complete aggregation subsystem.
-  default:             False
-  manual:              True
-
-flag disable-ekg
-  description:         Turn off EKG.
-  default:             False
-  manual:              True
-
-flag disable-graylog
-  description:         Turn off Graylog.
-  default:             False
-  manual:              True
-
-flag disable-prometheus
-  description:         Turn off Prometheus.
-  default:             False
-  manual:              True
-
-flag disable-gui
-  description:         Turn off configuration editor GUI.
-  default:             False
-  manual:              True
-
-flag disable-monitoring
-  description:         Turn off monitoring subsystem.
-  default:             False
-  manual:              True
-
 flag disable-observables
   description:         Turn off observables, observers.
-  default:             False
-  manual:              True
-
-flag disable-systemd
-  description:         Turn off systemd journal scribe.
-  default:             False
-  manual:              True
-
-flag disable-examples
-  description:         Turn off building of examples.
   default:             False
   manual:              True
 
@@ -98,32 +58,15 @@ library
                        Cardano.BM.Backend.Switchboard
                        Cardano.BM.Backend.TraceAcceptor
                        Cardano.BM.Backend.TraceForwarder
+                       Cardano.BM.Plugin
                        Cardano.BM.Rotator
                        Cardano.BM.Setup
                        Cardano.BM.Trace
                        Cardano.BM.Tracer
 
-  if !flag(disable-aggregation)
-    exposed-modules:   Cardano.BM.Backend.Aggregation
-
-  if !flag(disable-ekg)
-    exposed-modules:   Cardano.BM.Backend.EKGView
-
-  if !flag(disable-graylog)
-    exposed-modules:   Cardano.BM.Backend.Graylog
-
-  if !flag(disable-ekg) && !flag(disable-prometheus)
-    exposed-modules:   Cardano.BM.Backend.Prometheus
-
-  if !flag(disable-gui)
-    exposed-modules:   Cardano.BM.Backend.Editor
-
   if !flag(disable-observables)
     exposed-modules:   Cardano.BM.Observer.Monadic
                        Cardano.BM.Observer.STM
-
-  if !flag(disable-monitoring)
-    exposed-modules:   Cardano.BM.Backend.Monitoring
 
   if os(linux)
     exposed-modules:   Cardano.BM.Counters.Linux
@@ -137,7 +80,7 @@ library
   other-extensions:    OverloadedStrings
   build-depends:       base >= 4.11,
                        contra-tracer,
-                       aeson,
+                       aeson >= 1.4.2,
                        array,
                        async,
                        async-timer,
@@ -165,44 +108,11 @@ library
                        unordered-containers,
                        vector,
                        yaml, libyaml
-  if !flag(disable-ekg)
-     build-depends:    ekg,
-                       ekg-core
-  if !flag(disable-ekg) && !flag(disable-prometheus)
-     build-depends:    ekg-prometheus-adapter,
-                       prometheus,
-                       warp
-  if !flag(disable-graylog)
-     build-depends:    network
-  if !flag(disable-gui)
-     build-depends:    threepenny-gui
+
   if os(windows)
      build-depends:    Win32
   else
      build-depends:    unix
-
-  if os(linux) && !flag(disable-systemd)
-     cpp-options:      -DENABLE_SYSTEMD
-     build-depends:    hsyslog,
-                       libsystemd-journal
-
-  if !flag(disable-aggregation)
-    cpp-options:       -DENABLE_AGGREGATION
-
-  if !flag(disable-ekg)
-    cpp-options:       -DENABLE_EKG
-
-  if !flag(disable-graylog)
-    cpp-options:       -DENABLE_GRAYLOG
-
-  if !flag(disable-ekg) && !flag(disable-prometheus)
-    cpp-options:       -DENABLE_PROMETHEUS
-
-  if !flag(disable-gui)
-    cpp-options:       -DENABLE_GUI
-
-  if !flag(disable-monitoring)
-    cpp-options:       -DENABLE_MONITORING
 
   if !flag(disable-observables)
     cpp-options:       -DENABLE_OBSERVABLES
@@ -221,25 +131,20 @@ test-suite tests
                        Cardano.BM.Test.STM
                        Cardano.BM.Test.Configuration
                        Cardano.BM.Test.LogItem
+                       Cardano.BM.Test.Mock
                        Cardano.BM.Test.Rotator
                        Cardano.BM.Test.Routing
                        Cardano.BM.Test.Structured
                        Cardano.BM.Test.Tracer
-
-  if !flag(disable-aggregation)
-    other-modules:     Cardano.BM.Test.Aggregated
+                       Cardano.BM.Test.Aggregated
                        Cardano.BM.Arbitrary.Aggregated
-
-  if !flag(disable-monitoring)
-    other-modules:     Cardano.BM.Test.Monitoring
 
   default-language:    Haskell2010
   default-extensions:  OverloadedStrings
   build-depends:       base,
                        contra-tracer,
                        iohk-monitoring,
-
-                       aeson,
+                       aeson >= 1.4.2,
                        array,
                        async,
                        bytestring,
@@ -268,107 +173,6 @@ test-suite tests
                        yaml, libyaml
   ghc-options:         -Wall -Werror
 
-  if !flag(disable-aggregation)
-    cpp-options:       -DENABLE_AGGREGATION
-
-  if !flag(disable-ekg)
-    cpp-options:       -DENABLE_EKG
-
-  if !flag(disable-graylog)
-    cpp-options:       -DENABLE_GRAYLOG
-
-  if !flag(disable-ekg) && !flag(disable-prometheus)
-    cpp-options:       -DENABLE_PROMETHEUS
-
-  if !flag(disable-gui)
-    cpp-options:       -DENABLE_GUI
-
-  if !flag(disable-monitoring)
-    cpp-options:       -DENABLE_MONITORING
-
   if !flag(disable-observables)
     cpp-options:       -DENABLE_OBSERVABLES
 
-executable example-simple
-  hs-source-dirs:      examples/simple
-  main-is:             Main.lhs
-  default-language:    Haskell2010
-  default-extensions:  OverloadedStrings
-  ghc-options:         -threaded -Wall -O2 "-with-rtsopts=-T"
-  other-modules:
-  build-depends:       base,
-                       aeson,
-                       iohk-monitoring,
-                       async,
-                       bytestring,
-                       mtl
-  if os(windows)
-     build-depends:    Win32
-  else
-     build-depends:    unix
-  if flag(disable-examples)
-    buildable:         False
-
-executable example-complex
-  hs-source-dirs:      examples/complex
-  main-is:             Main.lhs
-  default-language:    Haskell2010
-  default-extensions:  OverloadedStrings
-  ghc-options:         -threaded -Wall -O2 "-with-rtsopts=-T"
-  other-modules:
-  build-depends:       base,
-                       iohk-monitoring,
-                       async,
-                       bytestring,
-                       mtl,
-                       random,
-                       text,
-                       unordered-containers
-  if os(windows)
-     build-depends:    Win32
-  else
-     build-depends:    unix
-
-  if os(linux)
-     build-depends:    download
-
-  if !flag(disable-aggregation)
-    cpp-options:       -DENABLE_AGGREGATION
-
-  if !flag(disable-ekg)
-    cpp-options:       -DENABLE_EKG
-
-  if !flag(disable-graylog)
-    cpp-options:       -DENABLE_GRAYLOG
-
-  if !flag(disable-ekg) && !flag(disable-prometheus)
-    cpp-options:       -DENABLE_PROMETHEUS
-
-  if !flag(disable-gui)
-    cpp-options:       -DENABLE_GUI
-
-  if !flag(disable-monitoring)
-    cpp-options:       -DENABLE_MONITORING
-
-  if !flag(disable-observables)
-    cpp-options:       -DENABLE_OBSERVABLES
-
-  if flag(disable-examples)
-    buildable:         False
-
-executable example-performance
-  hs-source-dirs:      examples/performance
-  main-is:             Main.lhs
-  default-language:    Haskell2010
-  default-extensions:  OverloadedStrings
-  ghc-options:         -threaded -Wall -O2 -with-rtsopts=-T
-  other-modules:
-  build-depends:       base,
-                       iohk-monitoring,
-                       async,
-                       criterion,
-                       text,
-                       unordered-containers
-
-  if flag(disable-examples) || !flag(performance-test-queue)
-    buildable:         False
