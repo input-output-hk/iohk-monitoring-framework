@@ -35,10 +35,8 @@ data Plugin a = BackendPlugin (Backend a) BackendKind
 \begin{code}
 loadPlugin :: Switchboard a -> Plugin a -> IO ()
 loadPlugin sb (BackendPlugin be bk) = do
-    putStrLn $ "load backend: " ++ show bk
     addExternalBackend sb be bk
 loadPlugin sb (ScribePlugin sc nm) = do
-  putStrLn $ "load scribe: " ++ show nm
   addExternalScribe sb sc nm
 
 \end{code}
