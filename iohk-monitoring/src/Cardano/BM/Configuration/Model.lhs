@@ -14,6 +14,7 @@ module Cardano.BM.Configuration.Model
     ( Configuration (..)
     , ConfigurationInternal (..)
     , setup
+    , nullSetup
     , setupFromRepresentation
     , toRepresentation
     , exportConfiguration
@@ -423,6 +424,9 @@ setup :: FilePath -> IO Configuration
 setup fp = do
     r <- R.parseRepresentation fp
     setupFromRepresentation r
+
+nullSetup :: IO Configuration
+nullSetup = setupFromRepresentation R.nullRepresentation
 
 parseMonitors :: Maybe (HM.HashMap Text Value) -> HM.HashMap LoggerName (MEvPreCond, MEvExpr, [MEvAction])
 parseMonitors Nothing = HM.empty

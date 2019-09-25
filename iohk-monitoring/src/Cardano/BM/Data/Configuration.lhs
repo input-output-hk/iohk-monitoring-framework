@@ -17,6 +17,7 @@ module Cardano.BM.Data.Configuration
   (
     Representation (..)
   , Port
+  , nullRepresentation
   , parseRepresentation
   )
   where
@@ -54,6 +55,27 @@ data Representation = Representation
     }
     deriving (Generic, Show, ToJSON, FromJSON)
 
+\end{code}
+
+\subsubsection{nullRepresentation}\label{code:nullRepresentation}\index{nullRepresentation}
+
+Represent a mute logging configuration.
+\begin{code}
+nullRepresentation :: Representation
+nullRepresentation = Representation
+    { minSeverity     = Emergency -- Perhaps we want a 'Mute' severity?
+    , rotation        = Nothing
+    , setupScribes    = []
+    , defaultScribes  = []
+    , setupBackends   = []
+    , defaultBackends = []
+    , hasEKG          = Nothing
+    , hasGraylog      = Nothing
+    , hasPrometheus   = Nothing
+    , hasGUI          = Nothing
+    , logOutput       = Nothing
+    , options         = mempty
+    }
 \end{code}
 
 \subsubsection{parseRepresentation}\label{code:parseRepresentation}\index{parseRepresentation}
