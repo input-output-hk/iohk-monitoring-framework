@@ -46,8 +46,9 @@ import           System.Remote.Monitoring (Server, forkServer,
 import           Paths_iohk_monitoring (version)
 
 import           Cardano.BM.Backend.ProcessQueue (processQueue)
+import           Cardano.BM.Backend.Prometheus (spawnPrometheus)
 import           Cardano.BM.Configuration (Configuration, getEKGport,
-                     testSubTrace)
+                     getPrometheusPort, testSubTrace)
 import           Cardano.BM.Data.Aggregated
 import           Cardano.BM.Data.Backend
 import           Cardano.BM.Data.LogItem
@@ -56,10 +57,6 @@ import           Cardano.BM.Data.MessageCounter (MessageCounter, resetCounters,
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.Trace
 import           Cardano.BM.Data.Tracer (Tracer (..))
-#ifdef ENABLE_PROMETHEUS
-import           Cardano.BM.Configuration (getPrometheusPort)
-import           Cardano.BM.Backend.Prometheus (spawnPrometheus)
-#endif
 import           Cardano.BM.Plugin
 import qualified Cardano.BM.Trace as Trace
 
@@ -230,22 +227,22 @@ instance (ToJSON a, FromJSON a) => IsBackend EKGView a where
         -- raises an exception, that exception will be re-thrown in the current
         -- thread, wrapped in ExceptionInLinkedThread.
         Async.link dispatcher
-#ifdef ENABLE_PROMETHEUS
         prometheusPort <- getPrometheusPort config
-        prometheusDispatcher <- spawnPrometheus ehdl prometheusPort
-        Async.link prometheusDispatcher
-#endif
+        prometheusDispatcher <-
+                if prometheusPort > 0
+                    then do
+                        pd <- spawnPrometheus ehdl prometheusPort
+                        Async.link pd
+                        return (Just pd)
+                    else
+                        return Nothing
         putMVar evref $ EKGViewInternal
                         { evLabels = HM.empty
                         , evGauges = HM.empty
                         , evServer = ehdl
                         , evQueue = queue
                         , evDispatch = dispatcher
-#ifdef ENABLE_PROMETHEUS
-                        , evPrometheusDispatch = Just prometheusDispatcher
-#else
-                        , evPrometheusDispatch = Nothing
-#endif
+                        , evPrometheusDispatch = prometheusDispatcher
                         }
         return ekgview
 
