@@ -14,7 +14,7 @@
 #define RUN_ProcObseveDownload
 #define RUN_ProcRandom
 #define RUN_ProcMonitoring
-#undef RUN_ProcBufferDump
+#define RUN_ProcBufferDump
 
 module Main
   ( main )
@@ -39,6 +39,7 @@ import           Cardano.BM.Backend.Aggregation
 import           Cardano.BM.Backend.Editor
 import           Cardano.BM.Backend.EKGView
 import           Cardano.BM.Backend.Monitoring
+import           Cardano.BM.Backend.Switchboard (Switchboard, readLogBuffer)
 import qualified Cardano.BM.Configuration.Model as CM
 import           Cardano.BM.Data.Aggregated (Measurable (..))
 import           Cardano.BM.Data.AggregatedKind
@@ -61,14 +62,15 @@ import           Cardano.BM.Trace
 \end{code}
 
 \subsubsection{Define configuration}
-Selected values can be viewed in EKG on \url{http://localhost:12789}.
+Selected values can be viewed in EKG on \url{http://localhost:12790}.
+And, the \emph{Prometheus} interface is accessible at \url{http://localhost:12800/metrics}
 \\
-The configuration editor listens on \url{http://localhost:13789}.
+The configuration editor listens on \url{http://localhost:13790}.
 \begin{code}
 prepare_configuration :: IO CM.Configuration
 prepare_configuration = do
     c <- CM.empty
-    CM.setMinSeverity c Warning
+    CM.setMinSeverity c Info
     CM.setSetupBackends c [ KatipBK
                           , AggregationBK
                           , MonitoringBK
@@ -121,33 +123,37 @@ prepare_configuration = do
     forM_ [(1::Int)..10] $ \x ->
       if odd x
       then
-        CM.setScribes c ("#aggregation.complex.observeSTM." <> (pack $ show x)) $ Just [ "FileSK::logs/out.odd.json" ]
+        CM.setScribes c ("complex.#aggregation.complex.observeSTM." <> (pack $ show x)) $ Just [ "FileSK::logs/out.odd.json" ]
       else
-        CM.setScribes c ("#aggregation.complex.observeSTM." <> (pack $ show x)) $ Just [ "FileSK::logs/out.even.json" ]
+        CM.setScribes c ("complex.#aggregation.complex.observeSTM." <> (pack $ show x)) $ Just [ "FileSK::logs/out.even.json" ]
 
 #ifdef LINUX
 #ifdef ENABLE_OBSERVABLES
     CM.setSubTrace c "complex.observeDownload" (Just $ ObservableTraceSelf [IOStats,NetStats])
 #endif
     CM.setBackends c "complex.observeDownload" (Just [KatipBK])
-    CM.setScribes c "complex.observeDownload" (Just ["StdoutSK::stdout", "FileSK::logs/downloading.json"])
+    CM.setScribes c "complex.observeDownload" (Just ["FileSK::logs/downloading.json"])
 #endif
     CM.setSubTrace c "#messagecounters.switchboard" $ Just NoTrace
     CM.setSubTrace c "#messagecounters.katip"       $ Just NoTrace
+    CM.setSubTrace c "#messagecounters.aggregation" $ Just NoTrace
+    CM.setSubTrace c "#messagecounters.ekgview"     $ Just Neutral
+    CM.setBackends c "#messagecounters.switchboard" $ Just [EditorBK, KatipBK]
+    CM.setSubTrace c "#messagecounters.monitoring"  $ Just NoTrace
+
     CM.setSubTrace c "complex.random" (Just $ TeeTrace "ewma")
     CM.setSubTrace c "#ekgview"
-      (Just $ FilterTrace [ (Drop (StartsWith "#ekgview.#aggregation.complex.random"),
+      (Just $ FilterTrace [ (Drop (StartsWith "#ekgview.complex.#aggregation.complex.random"),
                              Unhide [(EndsWith ".count"),
                                      (EndsWith ".avg"),
                                      (EndsWith ".mean")]),
-                            (Drop (StartsWith "#ekgview.#aggregation.complex.observeIO"),
+                            (Drop (StartsWith "#ekgview.complex.#aggregation.complex.observeIO"),
                              Unhide [(Contains "diff.RTS.cpuNs.timed.")]),
-                            (Drop (StartsWith "#ekgview.#aggregation.complex.observeSTM"),
+                            (Drop (StartsWith "#ekgview.complex.#aggregation.complex.observeSTM"),
                              Unhide [(Contains "diff.RTS.gcNum.timed.")]),
-                            (Drop (StartsWith "#ekgview.#aggregation.complex.message"),
+                            (Drop (StartsWith "#ekgview.complex.#aggregation.complex.message"),
                              Unhide [(Contains ".timed.m")])
                           ])
-    CM.setSubTrace c "#messagecounters.ekgview" $ Just NoTrace
 #ifdef ENABLE_OBSERVABLES
     CM.setSubTrace c "complex.observeIO" (Just $ ObservableTraceSelf [GhcRtsStats,MemoryStats])
     forM_ [(1::Int)..10] $ \x ->
@@ -159,29 +165,25 @@ prepare_configuration = do
 
     CM.setBackends c "complex.message" (Just [AggregationBK, KatipBK, TraceForwarderBK])
     CM.setBackends c "complex.random" (Just [KatipBK, EKGViewBK])
-    CM.setBackends c "complex.random.ewma" (Just [KatipBK])
+    CM.setBackends c "complex.random.ewma" (Just [AggregationBK])
     CM.setBackends c "complex.observeIO" (Just [AggregationBK, MonitoringBK])
-    CM.setSubTrace c "#messagecounters.aggregation" $ Just NoTrace
 
     forM_ [(1::Int)..10] $ \x -> do
       CM.setBackends c
         ("complex.observeSTM." <> (pack $ show x))
         (Just [AggregationBK])
       CM.setBackends c
-        ("#aggregation.complex.observeSTM." <> (pack $ show x))
+        ("complex.#aggregation.complex.observeSTM." <> (pack $ show x))
         (Just [KatipBK])
 
     CM.setAggregatedKind c "complex.random.rr" (Just StatsAK)
-    CM.setAggregatedKind c "complex.random.ewma.rr" (Just (EwmaAK 0.42))
+    CM.setAggregatedKind c "complex.random.ewma.rr" (Just (EwmaAK 0.22))
 
-    CM.setBackends c "#aggregation.complex.random" (Just [EditorBK])
-    CM.setBackends c "#aggregation.complex.random.ewma" (Just [EditorBK])
-    CM.setBackends c "#messagecounters.switchboard" (Just [EditorBK, KatipBK])
-
-    CM.setSubTrace c "#messagecounters.monitoring" $ (Just Neutral)
-    CM.setBackends c "#aggregation.complex.message" (Just [EKGViewBK, MonitoringBK])
-    CM.setBackends c "#aggregation.complex.monitoring" (Just [MonitoringBK])
-    CM.setBackends c "#aggregation.complex.observeIO" (Just [EKGViewBK])
+    CM.setBackends c "complex.#aggregation.complex.random" (Just [EditorBK])
+    CM.setBackends c "complex.#aggregation.complex.random.ewma" (Just [EKGViewBK, EditorBK])
+    CM.setBackends c "complex.#aggregation.complex.message" (Just [EKGViewBK, MonitoringBK])
+    CM.setBackends c "complex.#aggregation.complex.monitoring" (Just [MonitoringBK])
+    CM.setBackends c "complex.#aggregation.complex.observeIO" (Just [EKGViewBK])
     CM.setEKGport c 12790
     CM.setLogOutput c "iohk-monitoring/log-pipe"
 
@@ -194,10 +196,10 @@ prepare_configuration = do
             , [CreateMessage Warning "MonitMe is greater than 42!"]
             )
           )
-        , ( "#aggregation.complex.monitoring"
+        , ( "complex.#aggregation.complex.monitoring"
           , ( Just (Compare "monitMe.fcount" (GE, (OpMeasurable 8)))
-            , Compare "monitMe.mean" (GE, (OpMeasurable 25))
-            , [CreateMessage Warning "MonitMe.mean is greater than 25!"]
+            , Compare "monitMe.mean" (GE, (OpMeasurable 41))
+            , [CreateMessage Warning "MonitMe.mean is greater than 41!"]
             )
           )
         , ( "complex.observeIO.close"
@@ -213,7 +215,7 @@ prepare_configuration = do
 \end{code}
 
 \subsubsection{Dump the log buffer periodically}
-\begin{spec}
+\begin{code}
 dumpBuffer :: Switchboard Text -> Trace IO Text -> IO (Async.Async ())
 dumpBuffer sb trace = do
   logInfo trace "starting buffer dump"
@@ -227,7 +229,7 @@ dumpBuffer sb trace = do
             let tr' = modifyName (\n -> "#buffer." <> n <> logname) tr
             traceNamedObject tr' (lometa, locontent)
         loop tr
-\end{spec}
+\end{code}
 
 \subsubsection{Thread that outputs a random number to a |Trace|}
 \begin{code}
@@ -241,7 +243,7 @@ randomThr trace = do
     loop tr = do
         threadDelay 500000  -- 0.5 second
         num <- randomRIO (42-42, 42+42) :: IO Double
-        lo <- (,) <$> (mkLOMeta Debug Public) <*> pure (LogValue "rr" (PureD num))
+        lo <- (,) <$> (mkLOMeta Info Public) <*> pure (LogValue "rr" (PureD num))
         traceNamedObject tr lo
         loop tr
 
@@ -338,6 +340,7 @@ observeDownload config trace = do
 
 \subsubsection{Thread that periodically outputs a message}
 \begin{code}
+#ifdef RUN_ProcMessageOutput
 msgThr :: Trace IO Text -> IO (Async.Async ())
 msgThr trace = do
   logInfo trace "start messaging .."
@@ -350,6 +353,7 @@ msgThr trace = do
         logDebug tr "a detailed debug message."
         logError tr "Boooommm .."
         loop tr
+#endif
 
 \end{code}
 
@@ -375,7 +379,7 @@ main = do
 
     logNotice tr "starting program; hit CTRL-C to terminate"
 -- user can watch the progress only if EKG is enabled.
-    logInfo tr "watch its progress on http://localhost:12789"
+    logInfo tr "watch its progress on http://localhost:12790"
 
 #ifdef RUN_ProcBufferDump
     procDump <- dumpBuffer sb tr

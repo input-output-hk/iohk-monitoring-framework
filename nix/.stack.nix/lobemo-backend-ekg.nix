@@ -23,11 +23,14 @@
           (hsPkgs.async)
           (hsPkgs.ekg)
           (hsPkgs.ekg-core)
+          (hsPkgs.ekg-prometheus-adapter)
+          (hsPkgs.prometheus)
           (hsPkgs.safe-exceptions)
           (hsPkgs.stm)
           (hsPkgs.text)
           (hsPkgs.time)
           (hsPkgs.unordered-containers)
+          (hsPkgs.warp)
           ];
         };
       };
