@@ -227,7 +227,6 @@ registerScribes (defsc : dscs) le = do
                                                     rotParams
                                                     (FileDescription $ unpack name)
                                                     False
-    -- createScribe JournalSK _ _ _ = mkJournalScribe
     createScribe StdoutSK sctype _ _ = mkStdoutScribe sctype
     createScribe StderrSK sctype _ _ = mkStderrScribe sctype
     createScribe DevNullSK _ _ _ = mkDevNullScribe
