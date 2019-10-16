@@ -1,4 +1,4 @@
-# backend implementation to EKG
+# backend implementation to Graylog
 
-https://hackage.haskell.org/package/ekg
+https://www.graylog.org/
 
