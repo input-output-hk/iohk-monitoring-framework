@@ -48,7 +48,7 @@ test-suite tests
                        contra-tracer,
                        iohk-monitoring,
                        lobemo-backend-monitoring,
-                       aeson >= 1.4.4,
+                       aeson,
                        array,
                        async,
                        bytestring,
