@@ -9,7 +9,6 @@ Monitor log files for max age and max size. This test only works on POSIX platfo
 \begin{code}
 
 {-# LANGUAGE CPP             #-}
-{-# LANGUAGE RecordWildCards #-}
 
 #if !defined(mingw32_HOST_OS)
 #define POSIX
@@ -34,13 +33,15 @@ import           Data.Time (UTCTime, addUTCTime, diffUTCTime, getCurrentTime,
                      parseTimeM)
 import           Data.Time.Format (defaultTimeLocale, formatTime)
 import           System.Directory (listDirectory, removeFile)
-import           System.FilePath ((</>), takeDirectory, takeFileName)
+import           System.FilePath ((</>), splitExtension, takeBaseName,
+                     takeDirectory, takeExtension)
 import           System.IO (BufferMode (LineBuffering), Handle,
                      IOMode (AppendMode, WriteMode), hFileSize, hSetBuffering,
                      openFile, stdout)
 
 #ifdef POSIX
 import           System.Directory (createFileLink)
+import           System.FilePath (takeFileName)
 #endif
 
 import           Cardano.BM.Data.Rotation (RotationParameters (..))
@@ -58,9 +59,10 @@ tsformat = "%Y%m%d%H%M%S"
 \begin{code}
 nameLogFile :: FilePath -> IO FilePath
 nameLogFile filename = do
+    let (fstem, fext) = splitExtension filename
     now <- getCurrentTime
     let tsnow = formatTime defaultTimeLocale tsformat now
-    return $ filename ++ "-" ++ tsnow
+    return $ fstem ++ "-" ++ tsnow ++ fext
 
 \end{code}
 
@@ -111,11 +113,13 @@ listLogFiles file = do
     return $ NE.nonEmpty $ map (directoryPath </> ) $ sort $ filter fpredicate files
   where
     tslen = 14  -- length of a timestamp
-    filename = takeFileName  file
+    filename = takeWhile (/= '-') $ takeBaseName file  -- only stem of filename
+    fext = takeExtension file  -- only file extension
     fplen = length filename
+    fxlen = length fext
     fpredicate path = take fplen path == filename
                       && take 1 (drop fplen path) == "-"
-                      && length (drop (fplen + 1) path) == tslen
+                      && take fxlen (drop (fplen + tslen + 1) path) == fext
 
 \end{code}
 
@@ -145,8 +149,9 @@ initializeRotator rotation filename = do
         Just fname -> do
             -- check date
             now <- getCurrentTime
-            tsfp <- parseTimeM True defaultTimeLocale tsformat $ drop (fplen + 1) $ takeFileName fname
-            if (round $ diffUTCTime now tsfp) > (3600 * maxAge)
+            tsfp <- parseTimeM True defaultTimeLocale tsformat (timestamp fname)
+            let age = round $ diffUTCTime now tsfp
+            if age > (3600 * maxAge)
                then do  -- file is too old, return new
                   evalRotator rotation filename
                else do
@@ -159,7 +164,8 @@ initializeRotator rotation filename = do
                   let rotationTime = addUTCTime (fromInteger $ maxAge * 3600) tsfp
                   return (hdl, (maxSize - cursize), rotationTime)
   where
-    fplen = length $ takeFileName filename
+    tslen = 14  -- length of timestamp
+    timestamp fname = take tslen $ tail $ dropWhile (/= '-') $ takeBaseName fname
 
 \end{code}
 
