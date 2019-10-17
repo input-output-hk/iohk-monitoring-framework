@@ -5,7 +5,6 @@
 %if style == newcode
 \begin{code}
 {-# LANGUAGE CPP        #-}
-{-# LANGUAGE LambdaCase #-}
 
 #if !defined(mingw32_HOST_OS)
 #define POSIX

@@ -9,7 +9,6 @@ Monitor log files for max age and max size. This test only works on POSIX platfo
 \begin{code}
 
 {-# LANGUAGE CPP             #-}
-{-# LANGUAGE RecordWildCards #-}
 
 #if !defined(mingw32_HOST_OS)
 #define POSIX
@@ -35,13 +34,14 @@ import           Data.Time (UTCTime, addUTCTime, diffUTCTime, getCurrentTime,
 import           Data.Time.Format (defaultTimeLocale, formatTime)
 import           System.Directory (listDirectory, removeFile)
 import           System.FilePath ((</>), splitExtension, takeBaseName,
-                     takeDirectory, takeExtension, takeFileName)
+                     takeDirectory, takeExtension)
 import           System.IO (BufferMode (LineBuffering), Handle,
                      IOMode (AppendMode, WriteMode), hFileSize, hSetBuffering,
                      openFile, stdout)
 
 #ifdef POSIX
 import           System.Directory (createFileLink)
+import           System.FilePath (takeFileName)
 #endif
 
 import           Cardano.BM.Data.Rotation (RotationParameters (..))
