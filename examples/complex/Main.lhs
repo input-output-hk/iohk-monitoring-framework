@@ -74,9 +74,9 @@ prepare_configuration = do
     CM.setSetupBackends c [ KatipBK
                           , AggregationBK
                           , MonitoringBK
-                          , TraceForwarderBK
+                          -- , TraceForwarderBK -- testing for pipe
                           ]
-    CM.setDefaultBackends c [KatipBK, TraceForwarderBK]
+    CM.setDefaultBackends c [KatipBK]
     CM.setSetupScribes c [ ScribeDefinition {
                               scName = "stdout"
                             , scKind = StdoutSK
@@ -185,7 +185,10 @@ prepare_configuration = do
     CM.setBackends c "complex.#aggregation.complex.monitoring" (Just [MonitoringBK])
     CM.setBackends c "complex.#aggregation.complex.observeIO" (Just [EKGViewBK])
     CM.setEKGport c 12790
-    CM.setLogOutput c "iohk-monitoring/log-pipe"
+
+    -- if the TraceForwarderBK backend is started
+    -- then it will try to open this pipe to forward messages to another process
+    CM.setLogOutput c "logs/log-pipe"
 
     CM.setPrometheusPort c 12800
     CM.setGUIport c 13790

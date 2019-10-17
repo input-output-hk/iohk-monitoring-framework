@@ -16,28 +16,27 @@ module Cardano.BM.Backend.ExternalAbstraction
     , UnixNamedPipe
     ) where
 
-import           Control.Exception (SomeException (..), catch)
 #ifndef mingw32_HOST_OS
-import           Control.Exception (fromException,
+import           Control.Monad (when)
+import           Control.Exception (SomeException (..), catch, fromException,
                      throw)
 #endif
 import qualified Data.ByteString as BS
-import qualified Data.ByteString.Char8 as BSC
 #ifndef mingw32_HOST_OS
+import qualified Data.ByteString.Char8 as BSC
 import           GHC.IO.Exception (IOException (..), IOErrorType (..))
-#endif
 import           GHC.IO.Handle (hDuplicate)
 import           System.IO (IOMode (..), openFile, BufferMode (NoBuffering),
                      Handle, hClose, hSetBuffering, openFile, stderr,
                      hPutStrLn)
-#ifndef mingw32_HOST_OS
-import           System.Posix.Files (createNamedPipe, stdFileMode)
+import           System.IO.Error (mkIOError, doesNotExistErrorType)
+import           System.Posix.Files (createNamedPipe, fileExist, stdFileMode)
 #endif
 
 \end{code}
 %endif
 
-Abstraction for the communication between |ExternalLogBK| and |LogToPipeBK| backends.
+Abstraction for the communication between |TraceAcceptorBK| and |TraceForwarderBK| backends.
 
 \begin{code}
 class Pipe p where
@@ -63,9 +62,9 @@ instance Pipe NoPipe where
     write   = \_ _ -> pure ()
     getLine = \_ -> pure ""
 
+#ifndef mingw32_HOST_OS
 instance Pipe UnixNamedPipe where
     data PipeHandler UnixNamedPipe = P Handle
-#ifndef mingw32_HOST_OS
     create pipePath =
         (createNamedPipe pipePath stdFileMode >> (P <$> openFile pipePath ReadWriteMode))
         -- use of ReadWriteMode instead of ReadMode in order
@@ -77,10 +76,10 @@ instance Pipe UnixNamedPipe where
                             _                                      -> do
                                 hPutStrLn stderr $ "Creating pipe threw: " ++ show e
                                 throw e)
-#else
-    create _ = error "UnixNamedPipe not supported on Windows"
-#endif
     open pipePath = do
+        exists <- fileExist pipePath
+        when (not exists) $
+            throw $ mkIOError doesNotExistErrorType "cannot find pipe to open, reason" Nothing (Just pipePath)
         h <- openFile pipePath WriteMode
                 `catch` (\(e :: SomeException) -> do
                     hPutStrLn stderr $ "Opening pipe threw: " ++ show e
@@ -91,5 +90,15 @@ instance Pipe UnixNamedPipe where
     close (P h) = hClose h `catch` (\(_ :: SomeException) -> pure ())
     getLine (P h) = BS.hGetLine h
     write (P h) bs = BSC.hPutStrLn h $! bs
+
+#else
+instance Pipe UnixNamedPipe where
+    data PipeHandler UnixNamedPipe = P ()
+    create _ = error "UnixNamedPipe not supported on Windows"
+    open _ = return (P ())
+    close _ = error "UnixNamedPipe not supported on Windows"
+    getLine _ = error "UnixNamedPipe not supported on Windows"
+    write _ = error "UnixNamedPipe not supported on Windows"
+#endif
 
 \end{code}
