@@ -78,11 +78,13 @@ journalScribe :: Maybe Facility
               -> K.Severity
               -> K.Verbosity
               -> K.Scribe
-journalScribe facility severity verbosity = K.Scribe liPush scribeFinalizer
+journalScribe facility severity verbosity = K.Scribe liPush scribeFinalizer (pure . const True)
   where
     liPush :: K.LogItem a => K.Item a -> IO ()
-    liPush i = when (K.permitItem severity i) $
-        sendJournalFields $ itemToJournalFields facility verbosity i
+    liPush i = do
+        permit <- K.permitItem severity i
+        when permit $
+            sendJournalFields $ itemToJournalFields facility verbosity i
 
     scribeFinalizer :: IO ()
     scribeFinalizer = pure ()
