@@ -17,6 +17,7 @@
         lobemo-scribe-systemd = ./lobemo-scribe-systemd.nix;
         lobemo-examples = ./lobemo-examples.nix;
         ekg-prometheus-adapter = ./ekg-prometheus-adapter.nix;
+        katip = ./katip.nix;
         };
       compiler.version = "8.6.5";
       compiler.nix-name = "ghc865";

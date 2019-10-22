@@ -93,7 +93,7 @@ library
                        contravariant,
                        directory,
                        filepath,
-                       katip < 0.8,
+                       katip,
                        lens,
                        mtl,
                        safe,

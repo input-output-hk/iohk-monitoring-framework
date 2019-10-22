@@ -371,7 +371,7 @@ mkStderrScribe ScJson = do
 mkDevNullScribe :: IO K.Scribe
 mkDevNullScribe = do
     let logger _ = pure ()
-    pure $ K.Scribe logger (pure ())
+    pure $ K.Scribe logger (pure ()) (pure . const True)
 
 mkTextFileScribeH :: Handle -> Bool -> IO K.Scribe
 mkTextFileScribeH handler color = do
@@ -399,7 +399,7 @@ mkFileScribeH h formatter colorize = do
     let logger :: forall a. K.LogItem a =>  K.Item a -> IO ()
         logger item = withMVar locklocal $ \_ ->
                         formatter h (Rendering colorize K.V0 item)
-    pure $ K.Scribe logger (hClose h)
+    pure $ K.Scribe logger (hClose h) (pure . const True)
 
 data Rendering a = Rendering { colorize  :: Bool
                              , verbosity :: K.Verbosity
@@ -494,7 +494,7 @@ mkFileScribe (Just rotParams) fdesc formatter colorize = do
                         return (h2, bytes2, rottime2)
                     else
                         return (h, bytes', rottime)
-    return $ K.Scribe logger finalizer
+    return $ K.Scribe logger finalizer (pure . const True)
 -- log rotation disabled.
 mkFileScribe Nothing fdesc formatter colorize = do
     let prefixDir = prefixPath fdesc
@@ -514,7 +514,7 @@ mkFileScribe Nothing fdesc formatter colorize = do
         logger item =
             withMVar scribestate $ \handler ->
                 void $ formatter handler (Rendering colorize K.V0 item)
-    return $ K.Scribe logger finalizer
+    return $ K.Scribe logger finalizer (pure . const True)
 
 \end{code}
 
