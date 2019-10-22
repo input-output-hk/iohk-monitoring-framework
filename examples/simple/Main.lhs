@@ -24,8 +24,8 @@ import           Cardano.BM.Configuration.Static (defaultConfigStdout)
 import           Cardano.BM.Scribe.Systemd (plugin)
 import           Cardano.BM.Data.Output (ScribeDefinition (..),
                      ScribePrivacy (..), ScribeKind (..), ScribeFormat (..))
-#endif
 import           Cardano.BM.Plugin (loadPlugin)
+#endif
 import           Cardano.BM.Setup (setupTrace_)
 import           Cardano.BM.Trace (Trace, appendName, logDebug, logError,
                      logInfo, logNotice, logWarning)

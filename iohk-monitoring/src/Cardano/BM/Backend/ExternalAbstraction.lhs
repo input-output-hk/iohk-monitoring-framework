@@ -29,8 +29,10 @@ import           GHC.IO.Handle (hDuplicate)
 import           System.IO (IOMode (..), openFile, BufferMode (NoBuffering),
                      Handle, hClose, hSetBuffering, openFile, stderr,
                      hPutStrLn)
-import           System.IO.Error (mkIOError, doesNotExistErrorType)
-import           System.Posix.Files (createNamedPipe, fileExist, stdFileMode)
+import           System.IO.Error (mkIOError, doesNotExistErrorType,
+                     userErrorType)
+import           System.Posix.Files (createNamedPipe, fileExist, getFileStatus,
+                     isNamedPipe, stdFileMode)
 #endif
 
 \end{code}
@@ -66,13 +68,21 @@ instance Pipe NoPipe where
 instance Pipe UnixNamedPipe where
     data PipeHandler UnixNamedPipe = P Handle
     create pipePath =
-        (createNamedPipe pipePath stdFileMode >> (P <$> openFile pipePath ReadWriteMode))
+        let open_pipe = openFile pipePath ReadWriteMode
+        in
+        (createNamedPipe pipePath stdFileMode >> (P <$> open_pipe))
         -- use of ReadWriteMode instead of ReadMode in order
         -- EOF not to be written at the end of file
             `catch` (\(e :: SomeException) ->
                         case fromException e of
-                            Just (IOError _ AlreadyExists _ _ _ _) ->
-                                P <$> openFile pipePath ReadWriteMode
+                            Just (IOError _ AlreadyExists _ _ _ _) -> do
+                                exists <- fileExist pipePath
+                                fstatus <- getFileStatus pipePath
+                                if exists && isNamedPipe fstatus
+                                then
+                                    P <$> open_pipe
+                                else
+                                    throw $ mkIOError userErrorType "cannot open pipe; it's a file" Nothing (Just pipePath)
                             _                                      -> do
                                 hPutStrLn stderr $ "Creating pipe threw: " ++ show e
                                 throw e)
@@ -80,25 +90,22 @@ instance Pipe UnixNamedPipe where
         exists <- fileExist pipePath
         when (not exists) $
             throw $ mkIOError doesNotExistErrorType "cannot find pipe to open, reason" Nothing (Just pipePath)
-        h <- openFile pipePath WriteMode
+        fstatus <- getFileStatus pipePath
+        if isNamedPipe fstatus
+        then do
+            h <- openFile pipePath WriteMode
                 `catch` (\(e :: SomeException) -> do
                     hPutStrLn stderr $ "Opening pipe threw: " ++ show e
                                     ++ "\nForwarding its objects to stderr"
                     hDuplicate stderr)
-        hSetBuffering h NoBuffering
-        return $ P h
+            hSetBuffering h NoBuffering
+            return $ P h
+        else
+            throw $ mkIOError userErrorType "cannot open pipe; it's a file" Nothing (Just pipePath)
     close (P h) = hClose h `catch` (\(_ :: SomeException) -> pure ())
     getLine (P h) = BS.hGetLine h
     write (P h) bs = BSC.hPutStrLn h $! bs
 
-#else
-instance Pipe UnixNamedPipe where
-    data PipeHandler UnixNamedPipe = P ()
-    create _ = error "UnixNamedPipe not supported on Windows"
-    open _ = return (P ())
-    close _ = error "UnixNamedPipe not supported on Windows"
-    getLine _ = error "UnixNamedPipe not supported on Windows"
-    write _ = error "UnixNamedPipe not supported on Windows"
 #endif
 
 \end{code}
