@@ -136,13 +136,13 @@ ekgTrace ekg _c =
                 let logname' = logname <> "." <> iname
                 in
                 case value of
-                    (Microseconds x) -> setGauge ("us:"   <> logname') (fromIntegral x) ekg_i
-                    (Nanoseconds  x) -> setGauge ("ns:"   <> logname') (fromIntegral x) ekg_i
-                    (Seconds      x) -> setGauge ("s:"    <> logname') (fromIntegral x) ekg_i
-                    (Bytes        x) -> setGauge ("B:"    <> logname') (fromIntegral x) ekg_i
-                    (PureI        x) -> setGauge ("int:"  <> logname') (fromIntegral x) ekg_i
-                    (PureD        _) -> setLabel ("real:" <> logname') (pack $ show value) ekg_i
-                    (Severity     _) -> setLabel ("sev:"  <> logname') (pack $ show value) ekg_i
+                    (Microseconds x) -> setGauge (logname' <> ".us") (fromIntegral x) ekg_i
+                    (Nanoseconds  x) -> setGauge (logname' <> ".ns") (fromIntegral x) ekg_i
+                    (Seconds      x) -> setGauge (logname' <> ".s") (fromIntegral x) ekg_i
+                    (Bytes        x) -> setGauge (logname' <> ".B") (fromIntegral x) ekg_i
+                    (PureI        x) -> setGauge (logname' <> ".int") (fromIntegral x) ekg_i
+                    (PureD        _) -> setLabel (logname' <> ".real") (pack $ show value) ekg_i
+                    (Severity     _) -> setLabel (logname' <> ".sev") (pack $ show value) ekg_i
 
             update _ _ = return Nothing
 
