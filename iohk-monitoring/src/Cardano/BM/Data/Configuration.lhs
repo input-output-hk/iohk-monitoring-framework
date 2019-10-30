@@ -38,7 +38,8 @@ import           Cardano.BM.Data.Rotation
 \subsubsection{Representation}\label{code:Representation}\index{Representation}\label{code:Port}\index{Port}
 \begin{code}
 type Port = Int
-data Representation = Representation
+data Representation tracerName tracerVerbosity =
+  Representation
     { minSeverity     :: Severity
     , rotation        :: Maybe RotationParameters
     , setupScribes    :: [ScribeDefinition]
@@ -51,23 +52,50 @@ data Representation = Representation
     , hasGUI          :: Maybe Port
     , logOutput       :: Maybe FilePath
     , options         :: HM.HashMap Text Object
+    , tracers         :: [(tracerName, tracerVerbosity)]
     }
     deriving (Generic, Show, ToJSON, FromJSON)
+
+data TracingVerbosityVal = Max | Med | Low deriving (Generic, Show, FromJSON, ToJSON)
+data TracerName = TraceIpSubscription
+                | TraceChainDb
+                | TraceMux
+                | TraceChainSyncClient
+                | TraceChainSyncHeaderServer
+                | TraceChainSyncBlockServer
+                | TraceBlockFetchDecisions
+                | TraceBlockFetchClient
+                | TraceBlockFetchServer
+                | TraceTxInbound
+                | TraceTxOutbound
+                | TraceLocalTxSubmissionServer
+                | TraceMempool
+                | TraceForge
+                | TraceChainSyncProtocol
+                | TraceBlockFetchProtocol
+                | TraceTxSubmissionProtocol
+                | TraceLocalChainSyncProtocol
+                | TraceLocalTxSubmissionProtocol
+                | TraceDnsSubscription
+                | TraceDnsResolver
+                deriving (Generic, Show, FromJSON, ToJSON)
 
 \end{code}
 
 \subsubsection{parseRepresentation}\label{code:parseRepresentation}\index{parseRepresentation}
 \begin{code}
-parseRepresentation :: FilePath -> IO Representation
+parseRepresentation
+  :: (FromJSON tracerName, FromJSON tracerVerbosity)
+  => FilePath -> IO (Representation tracerName tracerVerbosity)
 parseRepresentation fp = do
-    repr :: Representation <- decodeFileThrow fp
+    repr :: (Representation tracerName tracerVerbosity) <- decodeFileThrow fp
     return $ implicit_fill_representation repr
 
 \end{code}
 
 after parsing the configuration representation we implicitly correct it.
 \begin{code}
-implicit_fill_representation :: Representation -> Representation
+implicit_fill_representation :: (Representation tracerName tracerVerbosity) -> (Representation tracerName tracerVerbosity)
 implicit_fill_representation =
     remove_ekgview_if_not_defined .
     filter_duplicates_from_backends .

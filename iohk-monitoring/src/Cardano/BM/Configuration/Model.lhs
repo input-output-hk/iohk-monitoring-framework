@@ -4,9 +4,11 @@
 
 %if style == newcode
 \begin{code}
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE CPP               #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 {-@ LIQUID "--max-case-expand=4" @-}
 
@@ -419,9 +421,11 @@ setMonitors configuration monitors =
 Parse the configuration into an internal representation first. Then, fill in |Configuration|
 after refinement.
 \begin{code}
-setup :: FilePath -> IO Configuration
+setup
+  :: forall tracerName tracerVerbosity. (FromJSON tracerName, FromJSON tracerVerbosity)
+  => FilePath -> IO Configuration
 setup fp = do
-    r <- R.parseRepresentation fp
+    r :: R.Representation tracerName tracerVerbosity <- R.parseRepresentation fp
     setupFromRepresentation r
 
 parseMonitors :: Maybe (HM.HashMap Text Value) -> HM.HashMap LoggerName (MEvPreCond, MEvExpr, [MEvAction])
@@ -436,7 +440,7 @@ parseMonitors (Just hmv) = HM.mapMaybe mkMonitor hmv
                              <*> o .:  "actions") v
                     <|> parseJSON v
 
-setupFromRepresentation :: R.Representation -> IO Configuration
+setupFromRepresentation :: (R.Representation tracerName tracerVerbosity) -> IO Configuration
 setupFromRepresentation r = do
     let mapseverities0     = HM.lookup "mapSeverity"        (R.options r)
         mapbackends        = HM.lookup "mapBackends"        (R.options r)
@@ -574,7 +578,7 @@ empty = do
 
 \subsubsection{toRepresentation}\label{code:toRepresentation}\index{toRepresentation}
 \begin{code}
-toRepresentation :: Configuration -> IO R.Representation
+toRepresentation :: Configuration -> IO (R.Representation tracerName tracerVerbosity)
 toRepresentation (Configuration c) = do
     cfg <- readMVar c
     let portEKG = cgPortEKG cfg
@@ -634,6 +638,7 @@ toRepresentation (Configuration c) = do
                                   mapScribes    `HM.union`
                                   mapMonitors   `HM.union`
                                   otherOptions
+            , R.tracers         = []
             }
 
 \end{code}
@@ -642,10 +647,12 @@ toRepresentation (Configuration c) = do
 Converts |Configuration| into the form of |Representation| and writes it to
 the given file.
 \begin{code}
-exportConfiguration :: Configuration -> FilePath -> IO ()
+exportConfiguration
+  :: forall tracerName tracerVerbosity. (ToJSON tracerName, ToJSON tracerVerbosity)
+  => Configuration -> FilePath -> IO ()
 exportConfiguration cfg file = do
     representation <- toRepresentation cfg
-    Yaml.encodeFile file representation
+    Yaml.encodeFile file (representation :: R.Representation tracerName tracerVerbosity)
 
 \end{code}
 

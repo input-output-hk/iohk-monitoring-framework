@@ -108,6 +108,7 @@ unitConfigurationStaticRepresentation =
             , options =
                 HM.fromList [ ("test1", (HM.singleton "value" "object1"))
                             , ("test2", (HM.singleton "value" "object2")) ]
+            , tracers = []
             }
     in
     encode r @?=
