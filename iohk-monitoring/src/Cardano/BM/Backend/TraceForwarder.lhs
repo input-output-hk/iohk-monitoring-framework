@@ -24,10 +24,12 @@ import           Data.Aeson (FromJSON, ToJSON, encode)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BL
 import           Data.Maybe (fromMaybe)
+import           Data.Text.Encoding (encodeUtf8)
 
 import           Cardano.BM.Backend.ExternalAbstraction (Pipe (..))
 import           Cardano.BM.Configuration.Model (getLogOutput)
 import           Cardano.BM.Data.Backend
+import           Cardano.BM.Data.LogItem (LOMeta (..), LogObject (..))
 
 \end{code}
 %endif
@@ -56,11 +58,13 @@ Every |LogObject| before being written to the given handler is converted to
 |ByteString| through its |JSON| represantation.
 \begin{code}
 instance (Pipe p, ToJSON a) => IsEffectuator (TraceForwarder p) a where
-    effectuate tf lo  =
-        withMVar (getTF tf) $ \(TraceForwarderInternal h) ->
+    effectuate tf lo =
+        withMVar (getTF tf) $ \(TraceForwarderInternal hdl) ->
             let (_, bs) = jsonToBS lo
-            in
-                write h bs
+                hn = hostname $ loMeta lo
+            in do
+                write hdl $ encodeUtf8 hn
+                write hdl bs
     handleOverflow _ = return ()
 
 jsonToBS :: ToJSON a => a -> (Int, BS.ByteString)
