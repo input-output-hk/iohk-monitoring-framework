@@ -22,12 +22,14 @@ import           Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar,
                      withMVar)
 import           Data.Aeson (FromJSON, decodeStrict)
 import qualified Data.ByteString as BS
+import           Data.Text.Encoding (decodeUtf8)
 
 import qualified Cardano.BM.Backend.ExternalAbstraction as CH
 import           Cardano.BM.Backend.ExternalAbstraction (Pipe (..))
 import           Cardano.BM.Data.Tracer (traceWith)
 import           Cardano.BM.Data.LogItem (LOContent (LogError),
-                     LogObject (..), PrivacyAnnotation (Public),mkLOMeta)
+                     LogObject (..), LOMeta (..), PrivacyAnnotation (Public),
+                     mkLOMeta)
 import           Cardano.BM.Data.Severity (Severity (..))
 import qualified Cardano.BM.Trace as Trace
 
@@ -89,16 +91,20 @@ spawnDispatcher hPipe sbtrace = do
   where
     {-@ lazy pProc @-}
     pProc h = do
-        bs <- CH.getLine h
+        hn <- CH.getLine h -- hostname
+        bs <- CH.getLine h -- payload
         if not (BS.null bs)
         then do
+            let hname = decodeUtf8 hn
             case decodeStrict bs of
                 Just lo ->
                     traceWith sbtrace lo
                 Nothing -> do
+                    lometa0 <- mkLOMeta Warning Public
                     let trace = Trace.appendName "#external" sbtrace
+                        lometa = lometa0 { hostname = hname }
                     Trace.traceNamedObject trace =<<
-                        (,) <$> (mkLOMeta Warning Public)
+                        (,) <$> pure lometa
                             <*> pure (LogError "Could not parse external log objects.")
             pProc h
         else return ()  -- stop here

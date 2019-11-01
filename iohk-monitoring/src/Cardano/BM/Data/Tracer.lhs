@@ -55,6 +55,8 @@ module Cardano.BM.Data.Tracer
     -- * annotate context name
     , addName
     , setName
+    -- * other transformers
+    , setHostname
     ) where
 
 
@@ -408,7 +410,7 @@ trStructured verb tr = Tracer $ \arg ->
 The log |Severity| level of a |LogObject| can be altered.
 \begin{code}
 setSeverity :: Severity -> Tracer m (LogObject a) -> Tracer m (LogObject a)
-setSeverity sev tr = Tracer $ \lo@(LogObject _nm meta@(LOMeta _ts _tid _sev _pr) _lc) ->
+setSeverity sev tr = Tracer $ \lo@(LogObject _nm meta@(LOMeta _ts _tid _hn _sev _pr) _lc) ->
                                 traceWith tr $ lo { loMeta = meta { severity = sev } }
 
 severityDebug, severityInfo, severityNotice,
@@ -444,7 +446,7 @@ The privacy annotation (|PrivacyAnnotation|) of the |LogObject| can
 be altered with the following functions.
 \begin{code}
 setPrivacy :: PrivacyAnnotation -> Tracer m (LogObject a) -> Tracer m (LogObject a)
-setPrivacy prannot tr = Tracer $ \lo@(LogObject _nm meta@(LOMeta _ts _tid _sev _pr) _lc) ->
+setPrivacy prannot tr = Tracer $ \lo@(LogObject _nm meta _lc) ->
                                 traceWith tr $ lo { loMeta = meta { privacy = prannot } }
 
 annotateConfidential, annotatePublic :: Tracer m (LogObject a) -> Tracer m (LogObject a)
@@ -588,5 +590,16 @@ instance HasPrivacyAnnotation (WithPrivacyAnnotation a) where
 
 instance HasPrivacyAnnotation a => HasPrivacyAnnotation (WithSeverity a) where
     getPrivacyAnnotation (WithSeverity _ a) = getPrivacyAnnotation a
+
+\end{code}
+
+\subsubsection{Transformer for setting hostname annotation}
+\label{code:setHostname}
+\index{setHostname}
+The hostname annotation of the |LogObject| can be altered.
+\begin{code}
+setHostname :: Text -> Tracer m (LogObject a) -> Tracer m (LogObject a)
+setHostname hn tr = Tracer $ \lo@(LogObject _nm meta _lc) ->
+                                traceWith tr $ lo { loMeta = meta { hostname = hn } }
 
 \end{code}

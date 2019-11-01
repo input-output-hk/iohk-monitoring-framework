@@ -91,14 +91,16 @@ instance.
 data LOMeta = LOMeta {
                   tstamp   :: {-# UNPACK #-} !UTCTime
                 , tid      :: {-# UNPACK #-} !Text
+                , hostname :: {-# UNPACK #-} !Text
                 , severity :: !Severity
                 , privacy  :: !PrivacyAnnotation
                 } deriving (Show, Eq)
 
 instance ToJSON LOMeta where
-    toJSON (LOMeta _tstamp _tid _sev _priv) =
+    toJSON (LOMeta _tstamp _tid _hn _sev _priv) =
         object [ "tstamp"   .= _tstamp
                , "tid"      .= _tid
+               , "hostname" .= _hn
                , "severity" .= show _sev
                , "privacy"  .= show _priv
                ]
@@ -106,6 +108,7 @@ instance FromJSON LOMeta where
     parseJSON = withObject "LOMeta" $ \v ->
                     LOMeta <$> v .: "tstamp"
                            <*> v .: "tid"
+                           <*> v .: "hostname"
                            <*> v .: "severity"
                            <*> v .: "privacy"
 
@@ -113,6 +116,7 @@ mkLOMeta :: MonadIO m => Severity -> PrivacyAnnotation -> m LOMeta
 mkLOMeta sev priv =
     LOMeta <$> liftIO getCurrentTime
            <*> (cleantid <$> liftIO myThreadId)
+           <*> pure ""
            <*> pure sev
            <*> pure priv
   where

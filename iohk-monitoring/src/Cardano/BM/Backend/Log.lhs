@@ -105,7 +105,7 @@ instance ToJSON a => IsEffectuator Log a where
         selscribes <- getScribes c (loName item)
         let selscribesFiltered =
                 case item of
-                    LogObject _ (LOMeta _ _ _ Confidential) (LogMessage _)
+                    LogObject _ (LOMeta _ _ _ _ Confidential) (LogMessage _)
                         -> removePublicScribes setupScribes selscribes
                     _   -> selscribes
         forM_ selscribesFiltered $ \sc -> passN sc katip item
@@ -335,7 +335,7 @@ passN backend katip (LogObject loname lometa loitem) = do
                                 , _itemEnv       = env ^. KC.logEnvEnv
                                 , _itemSeverity  = sev2klog sev
                                 , _itemThread    = threadIdText
-                                , _itemHost      = env ^. KC.logEnvHost
+                                , _itemHost      = unpack $ hostname lometa
                                 , _itemProcess   = env ^. KC.logEnvPid
                                 , _itemPayload   = payload
                                 , _itemMessage   = K.logStr msg
@@ -528,7 +528,9 @@ formatItem withColor _verb K.Item{..} =
     KC.unLogStr _itemMessage
   where
     header = colorBySeverity _itemSeverity $
-             "[" <> mconcat namedcontext <> ":" <> severity <> ":" <> threadid <> "]"
+             "[" <> hostname <> mconcat namedcontext <> ":" <> severity <> ":" <> threadid <> "]"
+    hostname | _itemHost == "" = ""
+             | otherwise = pack _itemHost <> ":"
     namedcontext = KC.intercalateNs _itemNamespace
     severity = KC.renderSeverity _itemSeverity
     threadid = KC.getThreadIdText _itemThread
