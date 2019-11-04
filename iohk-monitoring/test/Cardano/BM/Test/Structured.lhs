@@ -86,7 +86,7 @@ instance Transformable Text IO Pet where
     -- transform to textual representation using |show|
     trTransformer TextualRepresentation _v tr = Tracer $ \pet -> do
         meta <- mkLOMeta Info Public
-        traceWith tr $ LogObject "pet" meta $ (LogMessage . pack . show) pet
+        traceWith tr $ LogObject ["pet"] meta $ (LogMessage . pack . show) pet
     trTransformer _ _verb _tr = nullTracer
 
 -- default privacy annotation: Public
@@ -165,7 +165,7 @@ instance Transformable Text IO Material where
     -- transform to textual representation using |show|
     trTransformer TextualRepresentation _v tr = Tracer $ \mat -> do
         meta <- mkLOMeta Info Public
-        traceWith tr $ LogObject "material" meta $ (LogMessage . pack . show) mat
+        traceWith tr $ LogObject ["material"] meta $ (LogMessage . pack . show) mat
     trTransformer _ _verb _tr = nullTracer
 
 instance DefinePrivacyAnnotation Material where

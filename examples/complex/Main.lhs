@@ -229,7 +229,7 @@ dumpBuffer sb trace = do
         threadDelay 25000000  -- 25 seconds
         buf <- readLogBuffer sb
         forM_ buf $ \(logname, LogObject _ lometa locontent) -> do
-            let tr' = modifyName (\n -> "#buffer." <> n <> logname) tr
+            let tr' = modifyName (\n -> ["#buffer"] <> n <> [logname]) tr
             traceNamedObject tr' (lometa, locontent)
         loop tr
 \end{code}

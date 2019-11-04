@@ -45,7 +45,7 @@ unit_tests = testGroup "Unit tests" [
                 []
                 5
       , testCase
-            "set_scribe_must_log" $
+            "set_backend_must_log" $
             unit_generic_scribe_backend
                 []
                 [("test.one.alpha", Just [KatipBK])]
@@ -141,10 +141,11 @@ unit_generic_scribe_backend defaultBackends setBackends defaultScribes setScribe
     removeFile "out-test.txt"
 
     assertBool
-        ("defaultBackends: " ++ show defaultBackends ++
-         "setBackends: " ++ show setBackends ++
-         "defaultScribe: " ++ show defaultScribes ++
-         "setScribes: " ++ show setScribes)
+        (" defaultBackends: " ++ show defaultBackends ++
+         " setBackends: " ++ show setBackends ++
+         " defaultScribe: " ++ show defaultScribes ++
+         " setScribes: " ++ show setScribes ++
+         " numMsgs: " ++ show numMsgs)
         (numMsgs == expectedLines)
 
 \end{code}

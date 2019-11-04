@@ -23,6 +23,8 @@ module Cardano.BM.Data.LogItem
   , utc2ns
   , mapLogObject
   , mapLOContent
+  , lo2name
+  , loname2text
   )
   where
 
@@ -63,7 +65,7 @@ type LoggerName = Text
 
 \begin{code}
 data LogObject a = LogObject
-                     { loName    :: LoggerName
+                     { loName    :: [LoggerName]
                      , loMeta    :: !LOMeta
                      , loContent :: (LOContent a)
                      } deriving (Show, Eq)
@@ -358,4 +360,21 @@ mapLOContent f = \case
     Command v            -> Command v
     KillPill             -> KillPill
 
+\end{code}
+
+\subsubsection{Render context name as text}
+\label{code:loname2text}\index{loname2text}
+\label{code:lo2name}\index{lo2name}
+\begin{code}
+lo2name :: LogObject a -> Text
+lo2name (LogObject loname _ _) = loname2text loname
+loname2text :: [LoggerName] -> Text
+loname2text [] = ""
+loname2text (nm : nms) = intercalate nm "." nms
+  where
+    intercalate :: Text -> Text -> [Text] -> Text
+    intercalate acc _ [] = acc
+    intercalate acc sep (a : as) = intercalate
+        (acc <> sep <> a)
+        sep as
 \end{code}
