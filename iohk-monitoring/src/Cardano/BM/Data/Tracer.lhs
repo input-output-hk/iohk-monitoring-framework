@@ -322,7 +322,7 @@ trFromIntegral :: (Integral b, MonadIO m, DefinePrivacyAnnotation b, DefineSever
                => Text -> Tracer m (LogObject a) -> Tracer m b
 trFromIntegral name tr = Tracer $ \arg ->
         traceWith tr =<<
-            LogObject <$> pure ""
+            LogObject <$> pure mempty
                       <*> (mkLOMeta (defineSeverity arg) (definePrivacyAnnotation arg))
                       <*> pure (LogValue name $ PureI $ fromIntegral arg)
 
@@ -330,7 +330,7 @@ trFromReal :: (Real b, MonadIO m, DefinePrivacyAnnotation b, DefineSeverity b)
            => Text -> Tracer m (LogObject a) -> Tracer m b
 trFromReal name tr = Tracer $ \arg ->
         traceWith tr =<<
-            LogObject <$> pure ""
+            LogObject <$> pure mempty
                       <*> (mkLOMeta (defineSeverity arg) (definePrivacyAnnotation arg))
                       <*> pure (LogValue name $ PureD $ realToFrac arg)
 
@@ -352,25 +352,25 @@ instance Transformable a IO Float where
 instance Transformable Text IO Text where
     trTransformer _ _ tr = Tracer $ \arg ->
         traceWith tr =<<
-            LogObject <$> pure ""
+            LogObject <$> pure mempty
                       <*> (mkLOMeta (defineSeverity arg) (definePrivacyAnnotation arg))
                       <*> pure (LogMessage arg)
 instance Transformable String IO String where
     trTransformer _ _ tr = Tracer $ \arg ->
         traceWith tr =<<
-            LogObject <$> pure ""
+            LogObject <$> pure mempty
                       <*> (mkLOMeta (defineSeverity arg) (definePrivacyAnnotation arg))
                       <*> pure (LogMessage arg)
 instance Transformable Text IO String where
     trTransformer _ _ tr = Tracer $ \arg ->
         traceWith tr =<<
-            LogObject <$> pure ""
+            LogObject <$> pure mempty
                       <*> (mkLOMeta (defineSeverity arg) (definePrivacyAnnotation arg))
                       <*> pure (LogMessage $ T.pack arg)
 instance Transformable String IO Text where
     trTransformer _ _ tr = Tracer $ \arg ->
         traceWith tr =<<
-            LogObject <$> pure ""
+            LogObject <$> pure mempty
                       <*> (mkLOMeta (defineSeverity arg) (definePrivacyAnnotation arg))
                       <*> pure (LogMessage $ T.unpack arg)
 
@@ -388,7 +388,7 @@ trStructured verb tr = Tracer $ \arg ->
             tracer = if obj == emptyObject then nullTracer else tr
         in
         traceWith tracer =<<
-            LogObject <$> pure ""
+            LogObject <$> pure mempty
                       <*> (mkLOMeta (defineSeverity arg) (definePrivacyAnnotation arg))
                       <*> pure (LogStructured $ encode $ obj)
 
@@ -469,19 +469,15 @@ annotatePrivacyAnnotation tr = Tracer $ \arg ->
 \subsubsection{Transformers for adding a name to the context}
 \label{code:setName}\index{setName}
 \label{code:addName}\index{addName}
-This functions set or add names to the local context naming of |LogObject|.
+This functions sets a new context name or adds names to the local context naming of |LogObject|.
 \begin{code}
 setName :: LoggerName -> Tracer m (LogObject a) -> Tracer m (LogObject a)
 setName nm tr = Tracer $ \lo@(LogObject _nm _meta _lc) ->
-                                traceWith tr $ lo { loName = nm }
+                                traceWith tr $ lo { loName = [nm] }
 
 addName :: LoggerName -> Tracer m (LogObject a) -> Tracer m (LogObject a)
 addName nm tr = Tracer $ \lo@(LogObject nm0 _meta _lc) ->
-                                if T.null nm0
-                                then
-                                    traceWith tr $ lo { loName = nm }
-                                else
-                                    traceWith tr $ lo { loName = nm0 <> "." <> nm }
+                                traceWith tr $ lo { loName = nm0 <> [nm] }
 
 \end{code}
 

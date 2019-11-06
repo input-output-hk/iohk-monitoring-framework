@@ -107,7 +107,7 @@ ekgTrace ekg _c =
     Trace.appendName "#ekgview" $ ekgTrace' ekg
   where
     ekgTrace' :: ToJSON a => EKGView a -> Tracer IO (LogObject a)
-    ekgTrace' ekgview = Tracer $ \lo@(LogObject loname _ _) -> do
+    ekgTrace' ekgview = Tracer $ \lo@(LogObject outerloname _ _) -> do
         let setLabel :: Text -> Text -> EKGViewInternal a -> IO (Maybe (EKGViewInternal a))
             setLabel name label ekg_i@(EKGViewInternal _ labels _ server _ _) =
                 case HM.lookup name labels of
@@ -130,27 +130,30 @@ ekgTrace ekg _c =
                         return Nothing
 
             update :: ToJSON a => LogObject a -> EKGViewInternal a -> IO (Maybe (EKGViewInternal a))
-            update (LogObject logname _ (LogMessage logitem)) ekg_i =
-                setLabel logname (pack $ show $ encode logitem) ekg_i
-            update (LogObject logname _ (LogValue iname value)) ekg_i =
-                let logname' = logname <> "." <> iname
+            update (LogObject loname _ (LogMessage logitem)) ekg_i =
+                setLabel (loname2text loname) (pack $ show $ encode logitem) ekg_i
+            update (LogObject loname _ (LogValue iname value)) ekg_i =
+                let logname = loname2text $ loname <> [iname]
                 in
                 case value of
-                    (Microseconds x) -> setGauge (logname' <> ".us") (fromIntegral x) ekg_i
-                    (Nanoseconds  x) -> setGauge (logname' <> ".ns") (fromIntegral x) ekg_i
-                    (Seconds      x) -> setGauge (logname' <> ".s") (fromIntegral x) ekg_i
-                    (Bytes        x) -> setGauge (logname' <> ".B") (fromIntegral x) ekg_i
-                    (PureI        x) -> setGauge (logname' <> ".int") (fromIntegral x) ekg_i
-                    (PureD        _) -> setLabel (logname' <> ".real") (pack $ show value) ekg_i
-                    (Severity     _) -> setLabel (logname' <> ".sev") (pack $ show value) ekg_i
+                    (Microseconds x) -> setGauge (logname <> ".us") (fromIntegral x) ekg_i
+                    (Nanoseconds  x) -> setGauge (logname <> ".ns") (fromIntegral x) ekg_i
+                    (Seconds      x) -> setGauge (logname <> ".s") (fromIntegral x) ekg_i
+                    (Bytes        x) -> setGauge (logname <> ".B") (fromIntegral x) ekg_i
+                    (PureI        x) -> setGauge (logname <> ".int") (fromIntegral x) ekg_i
+                    (PureD        _) -> setLabel (logname <> ".real") (pack $ show value) ekg_i
+                    (Severity     _) -> setLabel (logname <> ".sev") (pack $ show value) ekg_i
 
             update _ _ = return Nothing
 
         modifyMVar_ (getEV ekgview) $ \ekgup -> do
             let -- strip off some prefixes not necessary for display
-                lognam1 = fromMaybe loname $ stripPrefix "#ekgview.#aggregation." loname
-                logname = fromMaybe lognam1 $ stripPrefix "#ekgview." lognam1
-            upd <- update lo{ loName = logname } ekgup
+                stripLPrefix _ [] = Nothing
+                stripLPrefix a (b:bs) | a == b    = Just bs
+                                      | otherwise = Nothing
+                loname1 = fromMaybe outerloname $ stripLPrefix "#ekgview" outerloname
+                loname = fromMaybe loname1 $ stripLPrefix "#aggregation" loname1
+            upd <- update lo{ loName = loname } ekgup
             case upd of
                 Nothing     -> return ekgup
                 Just ekgup' -> return ekgup'
@@ -171,14 +174,14 @@ instance IsEffectuator EKGView a where
                         then handleOverflow ekgview
                         else atomically $ TBQ.writeTBQueue (evQueue ekg) (Just a)
         case item of
-            (LogObject logname lometa (AggregatedMessage ags)) -> liftIO $ do
+            (LogObject loname lometa (AggregatedMessage ags)) -> liftIO $ do
                 let traceAgg :: [(Text,Aggregated)] -> IO ()
                     traceAgg [] = return ()
                     traceAgg ((n,AggregatedEWMA ewma):r) = do
-                        enqueue $ LogObject (logname <> "." <> n) lometa (LogValue "avg" $ avg ewma)
+                        enqueue $ LogObject (loname <> [n]) lometa (LogValue "avg" $ avg ewma)
                         traceAgg r
                     traceAgg ((n,AggregatedStats stats):r) = do
-                        let statsname = logname <> "." <> n
+                        let statsname = loname <> [n]
                             qbasestats s' nm = do
                                 enqueue $ LogObject nm lometa (LogValue "mean" (PureD $ meanOfStats s'))
                                 enqueue $ LogObject nm lometa (LogValue "min" $ fmin s')
@@ -186,9 +189,9 @@ instance IsEffectuator EKGView a where
                                 enqueue $ LogObject nm lometa (LogValue "count" $ PureI $ fromIntegral $ fcount s')
                                 enqueue $ LogObject nm lometa (LogValue "stdev" (PureD $ stdevOfStats s'))
                         enqueue $ LogObject statsname lometa (LogValue "last" $ flast stats)
-                        qbasestats (fbasic stats) $ statsname <> ".basic"
-                        qbasestats (fdelta stats) $ statsname <> ".delta"
-                        qbasestats (ftimed stats) $ statsname <> ".timed"
+                        qbasestats (fbasic stats) $ statsname <> ["basic"]
+                        qbasestats (fdelta stats) $ statsname <> ["delta"]
+                        qbasestats (ftimed stats) $ statsname <> ["timed"]
                         traceAgg r
                 traceAgg ags
             (LogObject _ _ (LogMessage _)) -> enqueue item
@@ -294,11 +297,11 @@ spawnDispatcher config evqueue sbtrace ekgtrace = do
             counters
             (\_ -> pure ())
 
-    processEKGView obj@(LogObject logname _ _) counters = do
-        obj' <- testSubTrace config ("#ekgview." <> logname) obj
+    processEKGView obj@(LogObject _ _ _) counters = do
+        obj' <- testSubTrace config ("#ekgview." <> lo2name obj) obj
         case obj' of
-            Just lo@(LogObject logname' meta content) -> do
-                let trace = Trace.appendName logname' ekgtrace
+            Just lo@(LogObject loname meta content) -> do
+                let trace = Trace.appendName (loname2text loname) ekgtrace
                 Trace.traceNamedObject trace (meta, content)
                 -- increase the counter for the type of message
                 modifyMVar_ counters $ \cnt -> return $ updateMessageCounters cnt lo

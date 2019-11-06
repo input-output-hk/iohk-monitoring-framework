@@ -60,7 +60,7 @@ renderNamedItemTracing = contramap $ \item ->
 \begin{code}
 renderNamedItemTracing' :: Show a => Tracer m String -> Tracer m (LogObject a)
 renderNamedItemTracing' = contramap $ \item ->
-    unpack (loName item) ++ ": " ++ show (loContent item) ++ ", (meta): " ++ show (loMeta item)
+    unpack (lo2name item) ++ ": " ++ show (loContent item) ++ ", (meta): " ++ show (loMeta item)
 
 \end{code}
 
@@ -95,7 +95,7 @@ logObjectFromAnnotated :: Show a
     -> Tracer IO (PrivacyAndSeverityAnnotated a)
 logObjectFromAnnotated tr = Tracer $ \(PSA sev priv a) -> do
     lometa <- mkLOMeta sev priv
-    traceWith tr $ LogObject "" lometa (LogMessage a)
+    traceWith tr $ LogObject mempty lometa (LogMessage a)
 
 \end{code}
 
@@ -136,7 +136,7 @@ tracingWithPredicateFilter = do
     assertBool "OK" True
   where
     oracle :: Monad m => m (LogObject a -> Bool)
-    oracle = return $ ((/=) "example4.inner.") . loName
+    oracle = return $ ((/=) ["example4","inner"]) . loName
 
 \end{code}
 
@@ -175,14 +175,14 @@ tracingWithComplexFiltering = do
     traceWith logTrace1 $ PSA Debug Confidential ("Hello" :: String)
     traceWith logTrace1 $ PSA Warning Public "World"
     lometa <- mkLOMeta Info Public
-    traceWith logTrace2 $ LogObject "" lometa (LogMessage ", RoW!")
-    traceWith logTrace3 $ LogObject "" lometa (LogMessage ", RoW!")
+    traceWith logTrace2 $ LogObject mempty lometa (LogMessage ", RoW!")
+    traceWith logTrace3 $ LogObject mempty lometa (LogMessage ", RoW!")
 
     assertBool "OK" True
   where
     oracleSev :: Monad m => m (PrivacyAndSeverityAnnotated a -> Bool)
     oracleSev = return $ \(PSA sev _priv _) -> (sev > Debug)
     oracleName :: Monad m => m (LogObject a -> Bool)
-    oracleName = return $ \(LogObject name _ _) -> (name == "row")  -- we only see the names from us to the leaves
+    oracleName = return $ \(LogObject names _ _) -> (names == ["row"])
 
 \end{code}

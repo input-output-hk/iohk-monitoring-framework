@@ -272,11 +272,12 @@ evalMonitoringAction :: Trace.Trace IO a
                      -> [(VarName, Measurable)]
                      -> IO MonitorMap
 evalMonitoringAction sbtrace mmap logObj@(LogObject logname0 _ content) variables = do
-    let logname = case content of
-                    ObserveOpen  _ -> logname0 <> ".open"
-                    ObserveDiff  _ -> logname0 <> ".diff"
-                    ObserveClose _ -> logname0 <> ".close"
-                    _              -> logname0
+    let logname1 = loname2text logname0
+        logname = case content of
+                    ObserveOpen  _ -> logname1 <> ".open"
+                    ObserveDiff  _ -> logname1 <> ".diff"
+                    ObserveClose _ -> logname1 <> ".close"
+                    _              -> logname1
     let sbtrace' = Trace.appendName logname sbtrace
     case HM.lookup logname mmap of
         Nothing -> return mmap
@@ -297,19 +298,20 @@ evalMonitoringAction sbtrace mmap logObj@(LogObject logname0 _ content) variable
                 return $ HM.insert logname mon{_environment=env''} mmap
             else return mmap
   where
+    updateEnv :: Environment -> LogObject a -> Environment
     updateEnv env (LogObject loname lometa (ObserveOpen (CounterState counters))) =
         let addenv = HM.fromList $ ("timestamp", Nanoseconds $ utc2ns (tstamp lometa))
-                                 : countersEnvPairs (loname <> ".open") counters
+                                 : countersEnvPairs ((loname2text loname) <> ".open") counters
         in
         HM.union addenv env
     updateEnv env (LogObject loname lometa (ObserveDiff (CounterState counters))) =
         let addenv = HM.fromList $ ("timestamp", Nanoseconds $ utc2ns (tstamp lometa))
-                                 : countersEnvPairs (loname <> ".diff") counters
+                                 : countersEnvPairs ((loname2text loname) <> ".diff") counters
         in
         HM.union addenv env
     updateEnv env (LogObject loname lometa (ObserveClose (CounterState counters))) =
         let addenv = HM.fromList $ ("timestamp", Nanoseconds $ utc2ns (tstamp lometa))
-                                 : countersEnvPairs (loname <> ".close") counters
+                                 : countersEnvPairs ((loname2text loname) <> ".close") counters
         in
         HM.union addenv env
     updateEnv env (LogObject _ lometa (LogValue vn val)) =
@@ -320,7 +322,7 @@ evalMonitoringAction sbtrace mmap logObj@(LogObject logname0 _ content) variable
         HM.union addenv env
     updateEnv env (LogObject _ lometa (LogMessage _logitem)) =
         let addenv = HM.fromList [ ("severity", Severity (severity lometa))
-                                , ("timestamp", Nanoseconds $ utc2ns (tstamp lometa))
+                                 , ("timestamp", Nanoseconds $ utc2ns (tstamp lometa))
                                  ]
         in
         HM.union addenv env

@@ -190,10 +190,10 @@ spawnDispatcher conf aggMap aggregationQueue basetrace = do
             (trace, counters, aggregatedMap)
             (\_ -> pure ())
 
-    processAggregated lo@(LogObject logname lm _) (trace, counters, aggregatedMap) = do
+    processAggregated lo@(LogObject loname lm _) (trace, counters, aggregatedMap) = do
         (updatedMap, aggregations) <- update lo aggregatedMap trace
         unless (null aggregations) $
-            sendAggregated trace (LogObject logname lm (AggregatedMessage aggregations))
+            sendAggregated trace (LogObject loname lm (AggregatedMessage aggregations))
         -- increase the counter for the specific severity and message type
         modifyMVar_ counters $ \cnt -> return $ updateMessageCounters cnt lo
         return (trace, counters, updatedMap)
@@ -215,8 +215,8 @@ spawnDispatcher conf aggMap aggregationQueue basetrace = do
            -> AggregationMap
             -> Trace.Trace IO a
            -> IO (AggregationMap, [(Text, Aggregated)])
-    update (LogObject logname lme (LogValue iname value)) agmap trace = do
-        let fullname = logname <> "." <> iname
+    update (LogObject loname lme (LogValue iname value)) agmap trace = do
+        let fullname = loname2text loname <> "." <> iname
         eitherAggregated <- createNupdate fullname value lme agmap
         case eitherAggregated of
             Right aggregated -> do
@@ -236,16 +236,16 @@ spawnDispatcher conf aggMap aggregationQueue basetrace = do
                         <*> pure (LogError w)
                 return (agmap, [])
 
-    update (LogObject logname lme (ObserveDiff counterState)) agmap trace =
-        updateCounters (csCounters counterState) lme (logname, "diff") agmap [] trace
-    update (LogObject logname lme (ObserveOpen counterState)) agmap trace =
-        updateCounters (csCounters counterState) lme (logname, "open") agmap [] trace
-    update (LogObject logname lme (ObserveClose counterState)) agmap trace =
-        updateCounters (csCounters counterState) lme (logname, "close") agmap [] trace
+    update (LogObject loname lme (ObserveDiff counterState)) agmap trace =
+        updateCounters (csCounters counterState) lme (loname2text loname, "diff") agmap [] trace
+    update (LogObject loname lme (ObserveOpen counterState)) agmap trace =
+        updateCounters (csCounters counterState) lme (loname2text loname, "open") agmap [] trace
+    update (LogObject loname lme (ObserveClose counterState)) agmap trace =
+        updateCounters (csCounters counterState) lme (loname2text loname, "close") agmap [] trace
 
-    update (LogObject logname lme (LogMessage _)) agmap trace = do
+    update (LogObject loname lme (LogMessage _)) agmap trace = do
         let iname  = pack $ show (severity lme)
-        let fullname = logname <> "." <> iname
+        let fullname = (loname2text loname) <> "." <> iname
         eitherAggregated <- createNupdate fullname (PureI 0) lme agmap
         case eitherAggregated of
             Right aggregated -> do
@@ -301,9 +301,9 @@ spawnDispatcher conf aggMap aggregationQueue basetrace = do
                 updateCounters cs lme (logname, msgname) aggrMap aggs trace
 
     sendAggregated :: Trace.Trace IO a -> LogObject a -> IO ()
-    sendAggregated trace (LogObject logname meta v@(AggregatedMessage _)) = do
+    sendAggregated trace (LogObject loname meta v@(AggregatedMessage _)) = do
         -- enter the aggregated message into the |Trace|
-        let trace' = Trace.appendName logname trace
+        let trace' = Trace.appendName (loname2text loname) trace
         liftIO $ Trace.traceNamedObject trace' (meta, v)
     -- ingnore every other message
     sendAggregated _ _ = return ()

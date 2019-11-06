@@ -54,12 +54,12 @@ functionality of |mainTraceConditionally|.
 \begin{code}
 traceMock :: MockSwitchboard a -> Config.Configuration -> Tracer IO (LogObject a)
 traceMock ms config =
-    Tracer $ \item@(LogObject loggername _ _) -> do
+    Tracer $ \item@(LogObject loname _ _) -> do
         traceWith mainTrace item
-        subTrace <- fromMaybe Neutral <$> Config.findSubTrace config loggername
+        subTrace <- fromMaybe Neutral <$> Config.findSubTrace config (loname2text loname)
         case subTrace of
             TeeTrace secName ->
-                traceWith mainTrace item{ loName = secName }
+                traceWith mainTrace item{ loName = [secName] }
             _ -> return ()
   where
     mainTrace = mainTraceConditionally config ms

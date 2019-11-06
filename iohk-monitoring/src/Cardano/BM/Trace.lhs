@@ -65,13 +65,7 @@ A new context name is added.
 \begin{code}
 appendName :: LoggerName -> Trace m a -> Trace m a
 appendName name =
-    modifyName (\prevLoggerName -> appendWithDot name prevLoggerName)
-
-
-appendWithDot :: LoggerName -> LoggerName -> LoggerName
-appendWithDot "" newName = newName
-appendWithDot xs ""      = xs
-appendWithDot xs newName = xs <> "." <> newName
+    modifyName (\prev -> [name] <> prev)
 
 \end{code}
 
@@ -79,7 +73,7 @@ appendWithDot xs newName = xs <> "." <> newName
 The context name is overwritten.
 \begin{code}
 modifyName
-    :: (LoggerName -> LoggerName)
+    :: ([LoggerName] -> [LoggerName])
     -> Tracer m (LogObject a)
     -> Tracer m (LogObject a)
 modifyName k = contramap f
@@ -127,15 +121,15 @@ locallock = unsafePerformIO $ newMVar ()
 
 \begin{code}
 stdoutTrace :: Tracer IO (LogObject T.Text)
-stdoutTrace = Tracer $ \(LogObject logname _ lc) ->
+stdoutTrace = Tracer $ \(LogObject loname _ lc) ->
     withMVar locallock $ \_ ->
         case lc of
             (LogMessage logItem) ->
-                    output logname $ logItem
+                    output loname logItem
             obj ->
-                    output logname $ toStrict (encodeToLazyText obj)
+                    output loname $ toStrict (encodeToLazyText obj)
   where
-    output nm msg = TIO.putStrLn $ nm <> " :: " <> msg
+    output nm msg = TIO.putStrLn $ loname2text nm <> " :: " <> msg
 
 \end{code}
 

@@ -102,7 +102,7 @@ instance ToJSON a => IsEffectuator Log a where
         let logMVar = getK katip
         c <- configuration <$> readMVar logMVar
         setupScribes <- getSetupScribes c
-        selscribes <- getScribes c (loName item)
+        selscribes <- getScribes c (lo2name item)
         let selscribesFiltered =
                 case item of
                     LogObject _ (LOMeta _ _ _ _ Confidential) (LogMessage _)
@@ -130,7 +130,8 @@ instance ToJSON a => IsEffectuator Log a where
                         LogObject _ meta _ -> tstamp meta
                 diffTime = round $ diffUTCTime now start
             when (diffTime > interval) $ do
-                let counterName = "#messagecounters.katip"
+                let counterName = ["#messagecounters", "katip"]
+                    cname = loname2text counterName
                 countersObjects <- forM (HM.toList $ mcCountersMap counters) $ \(key, count) ->
                         LogObject
                             <$> pure counterName
@@ -143,10 +144,10 @@ instance ToJSON a => IsEffectuator Log a where
                         <*> pure (LogValue "time_interval_(s)" (PureI diffTime))
                 let namedCounters = countersObjects ++ [intervalObject]
                 namedCountersFiltered <- catMaybes <$> (forM namedCounters $ \obj -> do
-                    mayObj <- Config.testSubTrace cfg counterName obj
+                    mayObj <- Config.testSubTrace cfg cname obj
                     case mayObj of
                         Just o -> do
-                            passSevFilter <- Config.testSeverity cfg counterName $ loMeta o
+                            passSevFilter <- Config.testSeverity cfg cname $ loMeta o
                             if passSevFilter
                             then return $ Just o
                             else return Nothing
@@ -172,7 +173,7 @@ instance (ToJSON a, FromJSON a) => IsBackend Log a where
                 le { K._logEnvTimer = timer, K._logEnvHost = "hostname" }
         cfoKey <- Config.getOptionOrDefault config (pack "cfokey") (pack "<unknown>")
         le0 <- K.initLogEnv
-                    (K.Namespace ["iohk"])
+                    (K.Namespace mempty)
                     (fromString $ (unpack cfoKey) <> ":" <> showVersion version)
         -- request a new time 'getCurrentTime' at most 100 times a second
         timer <- mkAutoUpdate defaultUpdateSettings { updateAction = getCurrentTime, updateFreq = 10000 }
@@ -242,13 +243,13 @@ example = do
     k <- setup config
     meta <- mkLOMeta Info Public
     passN (pack (show StdoutSK)) k $ LogObject
-                                            { loName = "test"
+                                            { loName = ["test"]
                                             , loMeta = meta
                                             , loContent = LogMessage "Hello!"
                                             }
     meta' <- mkLOMeta Info Public
     passN (pack (show StdoutSK)) k $ LogObject
-                                            { loName = "test"
+                                            { loName = ["test"]
                                             , loMeta = meta'
                                             , loContent = LogValue "cpu-no" 1
                                             }
@@ -329,7 +330,7 @@ passN backend katip (LogObject loname lometa loitem) = do
                     else do
                         let threadIdText = KC.ThreadIdText $ tid lometa
                         let itemTime = tstamp lometa
-                        let localname = T.split (== '.') loname
+                        let localname = loname
                         let itemKatip = K.Item {
                                   _itemApp       = env ^. KC.logEnvApp
                                 , _itemEnv       = env ^. KC.logEnvEnv
