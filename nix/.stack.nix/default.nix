@@ -5,6 +5,7 @@
         "time-units" = (((hackage.time-units)."1.0.0").revisions).default;
         "prometheus" = (((hackage.prometheus)."2.1.2").revisions).default;
         "libsystemd-journal" = (((hackage.libsystemd-journal)."1.4.4").revisions).default;
+        "katip" = (((hackage.katip)."0.8.3.0").revisions).default;
         } // {
         contra-tracer = ./contra-tracer.nix;
         tracer-transformers = ./tracer-transformers.nix;
@@ -17,7 +18,6 @@
         lobemo-scribe-systemd = ./lobemo-scribe-systemd.nix;
         lobemo-examples = ./lobemo-examples.nix;
         ekg-prometheus-adapter = ./ekg-prometheus-adapter.nix;
-        katip = ./katip.nix;
         };
       compiler.version = "8.6.5";
       compiler.nix-name = "ghc865";
