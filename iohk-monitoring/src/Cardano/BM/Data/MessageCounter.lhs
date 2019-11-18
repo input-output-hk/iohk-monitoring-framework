@@ -20,7 +20,7 @@ import           Control.Concurrent.MVar (MVar, modifyMVar_)
 import           Control.Monad (forM_, forever)
 import qualified Data.HashMap.Strict as HM
 import           Data.Text (Text, pack)
-import           Data.Time.Clock (UTCTime, diffUTCTime, getCurrentTime)
+import           Data.Time.Clock (UTCTime, getCurrentTime)
 import           Data.Word (Word64)
 
 import           Cardano.BM.Data.Aggregated (Measurable (PureI))
@@ -86,15 +86,10 @@ sendAndReset
     -> IO MessageCounter
 sendAndReset trace counters sev = do
     now <- getCurrentTime
-    let start = mcStart counters
-        diffTime = round $ diffUTCTime now start
-
     lometa <- mkLOMeta sev Confidential
     forM_ (HM.toList $ mcCountersMap counters) $ \(key, count) ->
         Trace.traceNamedObject trace (lometa, LogValue key (PureI $ toInteger count))
-    Trace.traceNamedObject trace (lometa, LogValue "time_interval_(s)" (PureI diffTime))
     return $ resetCounters now
-
 \end{code}
 
 \subsubsection{Send counters to Switchboard after specific amount of time.}
@@ -102,14 +97,14 @@ Send counters to |Switchboard| and reset them after a given interval in millisec
 \begin{code}
 sendAndResetAfter
     :: Trace IO a
-    -> LoggerName
+    -> [LoggerName]
     -> MVar MessageCounter
     -> Int
     -> Severity
     -> IO ()
-sendAndResetAfter trace name counters interval sev = do
+sendAndResetAfter trace names counters interval sev = do
     let timerConf = setInterval interval defaultConf
-        trace' = Trace.appendName name trace
+        trace' = Trace.modifyName (\_-> names) trace
     withAsyncTimer timerConf $ \ timer -> do
         forever $ do
             wait timer

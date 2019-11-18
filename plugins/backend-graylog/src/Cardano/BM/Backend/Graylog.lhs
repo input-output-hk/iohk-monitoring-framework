@@ -175,7 +175,7 @@ spawnDispatcher config evqueue sbtrace = do
     countersMVar <- newMVar messageCounters
     _timer <- Async.async $ sendAndResetAfter
                                 sbtrace
-                                "#messagecounters.graylog"
+                                ["#messagecounters","graylog"]
                                 countersMVar
                                 60000   -- 60000 ms = 1 min
                                 Debug

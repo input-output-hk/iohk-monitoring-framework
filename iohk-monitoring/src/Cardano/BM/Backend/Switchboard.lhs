@@ -173,7 +173,7 @@ instance (FromJSON a, ToJSON a) => IsBackend Switchboard a where
                                 Nothing -> pure ()
                 _timer <- Async.async $ sendAndResetAfter
                                             (traceInQueue queue)
-                                            "#messagecounters.switchboard"
+                                            ["#messagecounters","switchboard"]
                                             countersMVar
                                             60000   -- 60000 ms = 1 min
                                             Debug

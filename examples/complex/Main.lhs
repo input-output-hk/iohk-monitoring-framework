@@ -137,8 +137,7 @@ prepare_configuration = do
     CM.setSubTrace c "#messagecounters.switchboard" $ Just NoTrace
     CM.setSubTrace c "#messagecounters.katip"       $ Just NoTrace
     CM.setSubTrace c "#messagecounters.aggregation" $ Just NoTrace
-    CM.setSubTrace c "#messagecounters.ekgview"     $ Just Neutral
-    CM.setBackends c "#messagecounters.switchboard" $ Just [EditorBK, KatipBK]
+    CM.setSubTrace c "#messagecounters.ekgview"     $ Just NoTrace
     CM.setSubTrace c "#messagecounters.monitoring"  $ Just NoTrace
 
     CM.setSubTrace c "complex.random" (Just $ TeeTrace "ewma")

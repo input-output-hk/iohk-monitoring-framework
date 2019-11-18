@@ -281,7 +281,7 @@ spawnDispatcher config evqueue sbtrace ekgtrace = do
     countersMVar <- newMVar messageCounters
     _timer <- Async.async $ sendAndResetAfter
                                 sbtrace
-                                "#messagecounters.ekgview"
+                                ["#messagecounters","ekgview"]
                                 countersMVar
                                 60000   -- 60000 ms = 1 min
                                 Debug

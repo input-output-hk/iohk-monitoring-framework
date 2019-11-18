@@ -170,12 +170,12 @@ spawnDispatcher :: Configuration
                 -> IO (Async.Async ())
 spawnDispatcher conf aggMap aggregationQueue basetrace = do
     now <- getCurrentTime
-    let trace = Trace.appendName "#aggregation" basetrace
+    let trace = Trace.modifyName (\prev -> ["#aggregation"] ++ prev) basetrace
     let messageCounters = resetCounters now
     countersMVar <- newMVar messageCounters
     _timer <- Async.async $ sendAndResetAfter
                                 basetrace
-                                "#messagecounters.aggregation"
+                                ["#messagecounters","aggregation"]
                                 countersMVar
                                 60000   -- 60000 ms = 1 min
                                 Debug

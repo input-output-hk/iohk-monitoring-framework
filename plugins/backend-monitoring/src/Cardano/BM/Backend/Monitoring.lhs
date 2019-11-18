@@ -171,7 +171,7 @@ spawnDispatcher mqueue config sbtrace monitor = do
     countersMVar <- newMVar messageCounters
     _timer <- Async.async $ sendAndResetAfter
                                 sbtrace
-                                "#messagecounters.monitoring"
+                                ["#messagecounters","monitoring"]
                                 countersMVar
                                 60000   -- 60000 ms = 1 min
                                 Debug
@@ -192,7 +192,7 @@ spawnDispatcher mqueue config sbtrace monitor = do
                     Nothing        -> return []
                     Just actualMon -> readBuffer $ monBuffer actualMon
         mbuf <- accessBufferMap
-        let sbtraceWithMonitoring = Trace.appendName "#monitoring" sbtrace
+        let sbtraceWithMonitoring = Trace.modifyName (\prev -> ["#monitoring1"] ++ prev) sbtrace
         valuesForMonitoring <- getVarValuesForMonitoring config mbuf
         state' <- evalMonitoringAction sbtraceWithMonitoring
                                         state
