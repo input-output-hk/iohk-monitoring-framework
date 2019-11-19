@@ -421,7 +421,7 @@ after refinement.
 \begin{code}
 setup :: FilePath -> IO Configuration
 setup fp = do
-    r <- R.parseRepresentation fp
+    r <- R.readRepresentation fp
     setupFromRepresentation r
 
 parseMonitors :: Maybe (HM.HashMap Text Value) -> HM.HashMap LoggerName (MEvPreCond, MEvExpr, [MEvAction])

@@ -147,7 +147,7 @@ unitConfigurationStaticRepresentation =
 
 unitConfigurationParsedRepresentation :: Assertion
 unitConfigurationParsedRepresentation = do
-    repr <- parseRepresentation "test/config.yaml"
+    repr <- readRepresentation "test/config.yaml"
     encode repr @?=
         (intercalate "\n"
             [ "rotation:"
@@ -370,7 +370,8 @@ unitConfigurationExport :: Assertion
 unitConfigurationExport = do
     cfg  <- setup "test/config.yaml"
 
-    cfg' <- withSystemTempFile "config.yaml-1213" $ \file _ -> do
+    cfg' <- withSystemTempFile "config.yaml-1213" $ \file0 _ -> do
+                let file = file0 <> "-copy"
                 exportConfiguration cfg file
                 setup file
 
