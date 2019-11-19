@@ -17,6 +17,7 @@ module Cardano.BM.Data.Configuration
   (
     Representation (..)
   , Port
+  , parseRepresentation
   , readRepresentation
   )
   where
