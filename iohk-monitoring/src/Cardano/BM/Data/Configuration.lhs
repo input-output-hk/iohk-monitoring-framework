@@ -18,9 +18,13 @@ module Cardano.BM.Data.Configuration
     Representation (..)
   , Port
   , parseRepresentation
+  , readRepresentation
   )
   where
 
+import           Control.Exception (throwIO)
+import           Data.ByteString.Char8 (ByteString)
+import qualified Data.ByteString.Char8 as BS
 import qualified Data.HashMap.Strict as HM
 import           Data.Text (Text)
 import qualified Data.Set as Set
@@ -56,14 +60,22 @@ data Representation = Representation
 
 \end{code}
 
-\subsubsection{parseRepresentation}\label{code:parseRepresentation}\index{parseRepresentation}
+\subsubsection{readRepresentation}\label{code:parseRepresentation}\index{readRepresentation}
 \begin{code}
-parseRepresentation :: FilePath -> IO Representation
-parseRepresentation fp = do
-    repr :: Representation <- decodeFileThrow fp
-    return $ implicit_fill_representation repr
+readRepresentation :: FilePath -> IO Representation
+readRepresentation fp =
+    either throwIO pure =<< parseRepresentation <$> BS.readFile fp
 
 \end{code}
+
+\subsubsection{parseRepresentation}\label{code:parseRepresentation}\index{parseRepresentation}
+\begin{code}
+parseRepresentation :: ByteString -> Either ParseException Representation
+parseRepresentation =
+    fmap implicit_fill_representation . decodeEither'
+
+\end{code}
+
 
 after parsing the configuration representation we implicitly correct it.
 \begin{code}

@@ -147,7 +147,7 @@ unitConfigurationStaticRepresentation =
 
 unitConfigurationParsedRepresentation :: Assertion
 unitConfigurationParsedRepresentation = do
-    repr <- parseRepresentation "test/config.yaml"
+    repr <- readRepresentation "test/config.yaml"
     encode repr @?=
         (intercalate "\n"
             [ "rotation:"
