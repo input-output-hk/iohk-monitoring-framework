@@ -17,7 +17,6 @@ module Cardano.BM.Data.Configuration
   (
     Representation (..)
   , Port
-  , parseRepresentation
   , readRepresentation
   )
   where
@@ -60,7 +59,7 @@ data Representation = Representation
 
 \end{code}
 
-\subsubsection{readRepresentation}\label{code:parseRepresentation}\index{readRepresentation}
+\subsubsection{readRepresentation}\label{code:readRepresentation}\index{readRepresentation}
 \begin{code}
 readRepresentation :: FilePath -> IO Representation
 readRepresentation fp =
