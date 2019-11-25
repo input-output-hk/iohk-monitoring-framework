@@ -47,8 +47,8 @@ module Cardano.BM.Configuration.Model
     , setEKGport
     , getGraylogPort
     , setGraylogPort
-    , getPrometheusPort
-    , setPrometheusPort
+    , getPrometheusBindAddr
+    , setPrometheusBindAddr
     , getGUIport
     , setGUIport
     , getLogOutput
@@ -137,8 +137,8 @@ data ConfigurationInternal = ConfigurationInternal
     -- port for EKG server
     , cgPortGraylog       :: Int
     -- port to Graylog server
-    , cgPortPrometheus    :: Int
-    -- port for Prometheus server
+    , cgBindAddrPrometheus :: Maybe (String, Int)
+    -- host/port to bind Prometheus server at
     , cgPortGUI           :: Int
     -- port for changes at runtime
     , cgLogOutput         :: Maybe FilePath
@@ -301,14 +301,14 @@ setGraylogPort configuration port =
     modifyMVar_ (getCG configuration) $ \cg ->
         return cg { cgPortGraylog = port }
 
-getPrometheusPort :: Configuration -> IO Int
-getPrometheusPort configuration =
-    cgPortPrometheus <$> (readMVar $ getCG configuration)
+getPrometheusBindAddr :: Configuration -> IO (Maybe (String, Int))
+getPrometheusBindAddr configuration =
+    cgBindAddrPrometheus <$> (readMVar $ getCG configuration)
 
-setPrometheusPort :: Configuration -> Int -> IO ()
-setPrometheusPort configuration port =
+setPrometheusBindAddr :: Configuration -> Maybe (String, Int) -> IO ()
+setPrometheusBindAddr configuration mHostPort =
     modifyMVar_ (getCG configuration) $ \cg ->
-        return cg { cgPortPrometheus = port }
+        return cg { cgBindAddrPrometheus = mHostPort }
 
 getGUIport :: Configuration -> IO Int
 getGUIport configuration =
@@ -466,7 +466,7 @@ setupFromRepresentation r = do
         , cgMonitors          = parseMonitors mapmonitors
         , cgPortEKG           = r_hasEKG r
         , cgPortGraylog       = r_hasGraylog r
-        , cgPortPrometheus    = r_hasPrometheus r
+        , cgBindAddrPrometheus = r_hasPrometheus r
         , cgPortGUI           = r_hasGUI r
         , cgLogOutput         = R.logOutput r
         }
@@ -518,9 +518,10 @@ setupFromRepresentation r = do
     r_hasGraylog repr = case (R.hasGraylog repr) of
                        Nothing -> 0
                        Just p  -> p
-    r_hasPrometheus repr = case (R.hasPrometheus repr) of
-                       Nothing -> 12799 -- default port for Prometheus
-                       Just p  -> p
+    r_hasPrometheus repr = Just $ fromMaybe
+                           ( "127.0.0.1"
+                           , 12799) -- default port for Prometheus
+                           (R.hasPrometheus repr)
     r_hasGUI repr = case (R.hasGUI repr) of
                        Nothing -> 0
                        Just p  -> p
@@ -564,7 +565,7 @@ empty = do
                            , cgMonitors          = HM.empty
                            , cgPortEKG           = 0
                            , cgPortGraylog       = 0
-                           , cgPortPrometheus    = 12799
+                           , cgBindAddrPrometheus = Nothing
                            , cgPortGUI           = 0
                            , cgLogOutput         = Nothing
                            }
@@ -579,7 +580,6 @@ toRepresentation (Configuration c) = do
     cfg <- readMVar c
     let portEKG = cgPortEKG cfg
         portGraylog = cgPortGraylog cfg
-        portPrometheus = cgPortPrometheus cfg
         portGUI = cgPortGUI cfg
         otherOptions = cgOptions cfg
         defScribes = cgDefScribes cfg
@@ -624,7 +624,7 @@ toRepresentation (Configuration c) = do
             , R.defaultBackends = cgDefBackendKs cfg
             , R.hasEKG          = if portEKG == 0 then Nothing else Just portEKG
             , R.hasGraylog      = if portGraylog == 0 then Nothing else Just portGraylog
-            , R.hasPrometheus   = if portPrometheus == 0 then Nothing else Just portPrometheus
+            , R.hasPrometheus   = cgBindAddrPrometheus cfg
             , R.hasGUI          = if portGUI == 0 then Nothing else Just portGUI
             , R.logOutput       = cgLogOutput cfg
             , R.options         = mapSeverities `HM.union`

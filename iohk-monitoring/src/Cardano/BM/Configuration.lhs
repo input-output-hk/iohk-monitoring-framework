@@ -20,7 +20,7 @@ module Cardano.BM.Configuration
     , CM.setSubTrace
     , CM.getEKGport
     , CM.getGraylogPort
-    , CM.getPrometheusPort
+    , CM.getPrometheusBindAddr
     , CM.getGUIport
     , CM.getMonitors
     , getOptionOrDefault

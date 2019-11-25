@@ -32,6 +32,7 @@ import           Data.Aeson (FromJSON, ToJSON, encode)
 import qualified Data.HashMap.Strict as HM
 import           Data.Int (Int64)
 import           Data.Maybe (fromMaybe)
+import           Data.String (fromString)
 import           Data.Text (Text, pack, stripPrefix)
 import qualified Data.Text.IO as TIO
 import           Data.Time (getCurrentTime)
@@ -48,7 +49,7 @@ import           Paths_iohk_monitoring (version)
 import           Cardano.BM.Backend.ProcessQueue (processQueue)
 import           Cardano.BM.Backend.Prometheus (spawnPrometheus)
 import           Cardano.BM.Configuration (Configuration, getEKGport,
-                     getPrometheusPort, testSubTrace)
+                     getPrometheusBindAddr, testSubTrace)
 import           Cardano.BM.Data.Aggregated
 import           Cardano.BM.Data.Backend
 import           Cardano.BM.Data.LogItem
@@ -230,15 +231,15 @@ instance (ToJSON a, FromJSON a) => IsBackend EKGView a where
         -- raises an exception, that exception will be re-thrown in the current
         -- thread, wrapped in ExceptionInLinkedThread.
         Async.link dispatcher
-        prometheusPort <- getPrometheusPort config
+        prometheusBindAddr <- getPrometheusBindAddr config
         prometheusDispatcher <-
-                if prometheusPort > 0
-                    then do
-                        pd <- spawnPrometheus ehdl prometheusPort
-                        Async.link pd
-                        return (Just pd)
-                    else
-                        return Nothing
+                case prometheusBindAddr of
+                  Just (host, port) -> do
+                    pd <- spawnPrometheus ehdl (fromString host) port
+                    Async.link pd
+                    return (Just pd)
+                  Nothing ->
+                    return Nothing
         putMVar evref $ EKGViewInternal
                         { evLabels = HM.empty
                         , evGauges = HM.empty

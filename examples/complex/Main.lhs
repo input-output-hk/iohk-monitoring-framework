@@ -190,7 +190,7 @@ prepare_configuration = do
     -- then it will try to open this pipe to forward messages to another process
     CM.setLogOutput c "logs/log-pipe"
 
-    CM.setPrometheusPort c 12800
+    CM.setPrometheusBindAddr c $ Just ("localhost", 12800)
     CM.setGUIport c 13790
     CM.setMonitors c $ HM.fromList
         [ ( "complex.monitoring"

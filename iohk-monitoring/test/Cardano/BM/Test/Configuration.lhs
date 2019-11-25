@@ -103,7 +103,7 @@ unitConfigurationStaticRepresentation =
             , hasGUI = Just 12789
             , hasGraylog = Just 12788
             , hasEKG = Just 18321
-            , hasPrometheus = Just 12799
+            , hasPrometheus = Just ("localhost", 12799)
             , logOutput = Nothing
             , options =
                 HM.fromList [ ("test1", (HM.singleton "value" "object1"))
@@ -121,7 +121,9 @@ unitConfigurationStaticRepresentation =
             , "setupBackends:"
             , "- EKGViewBK"
             , "- KatipBK"
-            , "hasPrometheus: 12799"
+            , "hasPrometheus:"
+            , "- localhost"
+            , "- 12799"
             , "hasGraylog: 12788"
             , "hasGUI: 12789"
             , "defaultScribes:"
@@ -361,7 +363,7 @@ unitConfigurationParsed = do
                                             ]
         , cgPortEKG           = 12789
         , cgPortGraylog       = 12788
-        , cgPortPrometheus    = 12799 -- the default value
+        , cgBindAddrPrometheus = Just ("127.0.0.1", 12799) -- the default value
         , cgPortGUI           = 0
         , cgLogOutput         = Nothing
         }
