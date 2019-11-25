@@ -205,7 +205,7 @@ The tracing verbosity will be passed to instances of |ToObject| for rendering
 the traced item accordingly.
 \begin{code}
 data TracingVerbosity = MinimalVerbosity | NormalVerbosity | MaximalVerbosity
-                        deriving (Eq, Ord)
+                        deriving (Eq, Read, Ord)
 
 \end{code}
 
