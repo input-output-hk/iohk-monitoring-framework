@@ -12,7 +12,7 @@ module Cardano.BM.Backend.Prometheus
 
 import qualified Control.Concurrent.Async as Async
 import           Control.Monad.IO.Class (MonadIO (..))
-import           Network.Wai.Handler.Warp (Port, defaultSettings, runSettings,
+import           Network.Wai.Handler.Warp (Port, HostPreference, defaultSettings, runSettings,
                    setHost, setPort)
 import           System.Metrics.Prometheus.Http.Scrape (prometheusApp)
 import           System.Metrics.Prometheus.Registry (RegistrySample, sample)
@@ -29,17 +29,17 @@ import           System.Remote.Monitoring.Prometheus (registerEKGStore,
 \label{code:passToPrometheus}\index{passToPrometheus}
 \begin{code}
 
-spawnPrometheus :: EKG.Server -> Port -> IO (Async.Async ())
-spawnPrometheus s p = Async.async $ passToPrometheus s p
+spawnPrometheus :: EKG.Server -> HostPreference -> Port -> IO (Async.Async ())
+spawnPrometheus s h p = Async.async $ passToPrometheus s h p
 
-passToPrometheus :: EKG.Server -> Port -> IO ()
-passToPrometheus server port =
+passToPrometheus :: EKG.Server -> HostPreference -> Port -> IO ()
+passToPrometheus server host port =
     let store = EKG.serverMetricStore server
         reg = execRegistryT $ registerEKGStore store $ AdapterOptions mempty Nothing 1
     in serveMetrics (reg >>= sample)
   where
     serveMetrics :: MonadIO m => IO RegistrySample -> m ()
     serveMetrics = liftIO . runSettings settings . prometheusApp ["metrics"]
-    settings = setPort port . setHost "127.0.0.1" $ defaultSettings
+    settings = setPort port . setHost host $ defaultSettings
 
 \end{code}

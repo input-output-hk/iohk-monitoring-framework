@@ -17,6 +17,7 @@ module Cardano.BM.Data.Configuration
   (
     Representation (..)
   , Port
+  , HostPort
   , parseRepresentation
   , readRepresentation
   )
@@ -42,6 +43,7 @@ import           Cardano.BM.Data.Rotation
 \subsubsection{Representation}\label{code:Representation}\index{Representation}\label{code:Port}\index{Port}
 \begin{code}
 type Port = Int
+type HostPort = (String, Port)
 data Representation = Representation
     { minSeverity     :: Severity
     , rotation        :: Maybe RotationParameters
@@ -51,7 +53,7 @@ data Representation = Representation
     , defaultBackends :: [BackendKind]
     , hasEKG          :: Maybe Port
     , hasGraylog      :: Maybe Port
-    , hasPrometheus   :: Maybe Port
+    , hasPrometheus   :: Maybe HostPort
     , hasGUI          :: Maybe Port
     , logOutput       :: Maybe FilePath
     , options         :: HM.HashMap Text Object

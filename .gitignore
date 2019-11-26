@@ -1,7 +1,9 @@
-logs/
+>logs/
 dist
 dist-*
 cabal-dev
+*~
+\#*
 *.o
 *.hi
 *.chi
@@ -23,8 +25,11 @@ cabal.project.local~
 .ghc.environment.*
 .DS_Store
 .liquid/
+/logs
 
 /docs/*
 
 /result*
 .stack-to-nix.cache
+
+.dir-locals.el
