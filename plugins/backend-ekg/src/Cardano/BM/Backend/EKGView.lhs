@@ -8,6 +8,7 @@
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE TypeFamilies          #-}
 
 module Cardano.BM.Backend.EKGView
     (
@@ -25,6 +26,7 @@ import           Control.Concurrent.MVar (MVar, newEmptyMVar, newMVar,
                      putMVar, readMVar, withMVar, modifyMVar_, tryTakeMVar)
 import           Control.Concurrent.STM (atomically)
 import qualified Control.Concurrent.STM.TBQueue as TBQ
+import           Control.Exception (Exception, SomeException, catch, throwIO)
 import           Control.Exception.Safe (throwM)
 import           Control.Monad (void, forM_)
 import           Control.Monad.IO.Class (liftIO)
@@ -208,6 +210,8 @@ instance IsEffectuator EKGView a where
 |EKGView| is an |IsBackend|
 \begin{code}
 instance (ToJSON a, FromJSON a) => IsBackend EKGView a where
+    type BackendFailure EKGView = GenericBackendFailure
+
     bekind _ = EKGViewBK
 
     realize _ = fail "EKGView cannot be instantiated by 'realize'"
@@ -217,6 +221,7 @@ instance (ToJSON a, FromJSON a) => IsBackend EKGView a where
         let ekgview = EKGView evref
         evport <- getEKGport config
         ehdl <- forkServer "127.0.0.1" evport
+          `catch` mkHandler EKGServerStartupError
         ekghdl <- getLabel "iohk-monitoring version" ehdl
         Label.set ekghdl $ pack (showVersion version)
         let ekgtrace = ekgTrace ekgview config
@@ -227,6 +232,7 @@ instance (ToJSON a, FromJSON a) => IsBackend EKGView a where
 #endif
         queue <- atomically $ TBQ.newTBQueue qSize
         dispatcher <- spawnDispatcher config queue sbtrace ekgtrace
+          `catch` mkHandler EKGDispatcherStartupError
         -- link the given Async to the current thread, such that if the Async
         -- raises an exception, that exception will be re-thrown in the current
         -- thread, wrapped in ExceptionInLinkedThread.
@@ -236,6 +242,7 @@ instance (ToJSON a, FromJSON a) => IsBackend EKGView a where
                 case prometheusBindAddr of
                   Just (host, port) -> do
                     pd <- spawnPrometheus ehdl (fromString host) port
+                      `catch` mkHandler EKGPrometheusStartupError
                     Async.link pd
                     return (Just pd)
                   Nothing ->
@@ -249,6 +256,9 @@ instance (ToJSON a, FromJSON a) => IsBackend EKGView a where
                         , evPrometheusDispatch = prometheusDispatcher
                         }
         return ekgview
+     where
+       mkHandler :: (String -> EKGBackendFailure) -> SomeException -> IO b
+       mkHandler mkFailure e = throwIO $ mkFailure (show e)
 
     unrealize ekgview = do
         let clearMVar :: MVar b -> IO ()
@@ -266,6 +276,14 @@ instance (ToJSON a, FromJSON a) => IsBackend EKGView a where
         withMVar (getEV ekgview) $ \ekg ->
             killThread $ serverThreadId $ evServer ekg
         clearMVar $ getEV ekgview
+
+data EKGBackendFailure
+  = EKGServerStartupError String
+  | EKGDispatcherStartupError String
+  | EKGPrometheusStartupError String
+  deriving Show
+
+instance Exception EKGBackendFailure
 
 \end{code}
 
