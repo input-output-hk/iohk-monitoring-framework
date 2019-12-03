@@ -24,6 +24,7 @@ let
 in
 default.nix-tools._raw.shellFor {
   packages    = ps: with ps; [
+    iohk-monitoring
     lobemo-backend-aggregation
     lobemo-backend-editor
     lobemo-backend-ekg
