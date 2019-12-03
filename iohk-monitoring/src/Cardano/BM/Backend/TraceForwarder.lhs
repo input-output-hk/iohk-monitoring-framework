@@ -8,7 +8,7 @@
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
-
+{-# LANGUAGE TypeFamilies          #-}
 
 module Cardano.BM.Backend.TraceForwarder
     ( TraceForwarder (..)
@@ -19,15 +19,16 @@ module Cardano.BM.Backend.TraceForwarder
 
 import           Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar,
                      withMVar)
-import           Control.Exception (SomeException, catch)
+import           Control.Exception (Exception, SomeException, catch, throwIO)
 import           Data.Aeson (FromJSON, ToJSON, encode)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BL
 import           Data.Maybe (fromMaybe)
 import           Data.Text.Encoding (encodeUtf8)
+import           Data.Typeable (Typeable)
 
 import           Cardano.BM.Backend.ExternalAbstraction (Pipe (..))
-import           Cardano.BM.Configuration.Model (getLogOutput)
+import           Cardano.BM.Configuration.Model
 import           Cardano.BM.Data.Backend
 import           Cardano.BM.Data.LogItem (LOMeta (..), LogObject (..))
 
@@ -79,7 +80,9 @@ jsonToBS a =
 
 |TraceForwarder| is an |IsBackend|
 \begin{code}
-instance (Pipe p, FromJSON a, ToJSON a) => IsBackend (TraceForwarder p) a where
+instance (Pipe p, FromJSON a, ToJSON a, Typeable p) => IsBackend (TraceForwarder p) a where
+    type BackendFailure (TraceForwarder p) = TraceForwarderBackendFailure
+
     bekind _ = TraceForwarderBK
 
     realize cfg = do
@@ -87,6 +90,11 @@ instance (Pipe p, FromJSON a, ToJSON a) => IsBackend (TraceForwarder p) a where
         let logToPipe = TraceForwarder ltpref
         pipePath <- fromMaybe "log-pipe" <$> getLogOutput cfg
         h <- open pipePath
+          `catch` (\(e :: SomeException) ->
+                     throwIO
+                     . (TraceForwarderPipeError
+                        :: String -> BackendFailure (TraceForwarder p))
+                     . show $ e)
         putMVar ltpref $ TraceForwarderInternal
                             { tfPipeHandler = h
                             }
@@ -96,5 +104,11 @@ instance (Pipe p, FromJSON a, ToJSON a) => IsBackend (TraceForwarder p) a where
         -- close the pipe
         close h
             `catch` (\(_ :: SomeException) -> pure ()))
+
+data TraceForwarderBackendFailure
+  = TraceForwarderPipeError String
+  deriving (Show, Typeable)
+
+instance Exception TraceForwarderBackendFailure
 
 \end{code}

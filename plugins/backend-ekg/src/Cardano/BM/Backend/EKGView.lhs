@@ -8,6 +8,7 @@
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE TypeFamilies          #-}
 
 module Cardano.BM.Backend.EKGView
     (
@@ -19,12 +20,13 @@ module Cardano.BM.Backend.EKGView
     , plugin
     ) where
 
-import           Control.Concurrent (killThread)
+import           Control.Concurrent (killThread, threadDelay)
 import qualified Control.Concurrent.Async as Async
 import           Control.Concurrent.MVar (MVar, newEmptyMVar, newMVar,
                      putMVar, readMVar, withMVar, modifyMVar_, tryTakeMVar)
 import           Control.Concurrent.STM (atomically)
 import qualified Control.Concurrent.STM.TBQueue as TBQ
+import           Control.Exception (Exception, SomeException, catch, throwIO)
 import           Control.Exception.Safe (throwM)
 import           Control.Monad (void, forM_)
 import           Control.Monad.IO.Class (liftIO)
@@ -57,7 +59,7 @@ import           Cardano.BM.Data.MessageCounter (MessageCounter, resetCounters,
                      sendAndResetAfter, updateMessageCounters)
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.Trace
-import           Cardano.BM.Data.Tracer (Tracer (..))
+import           Cardano.BM.Data.Tracer (Tracer (..), showTracing, severityError, traceWith)
 import           Cardano.BM.Plugin
 import qualified Cardano.BM.Trace as Trace
 
@@ -82,11 +84,11 @@ newtype EKGView a = EKGView
     { getEV :: EKGViewMVar a }
 
 data EKGViewInternal a = EKGViewInternal
-    { evQueue              :: TBQ.TBQueue (Maybe (LogObject a))
+    { evQueue              :: Maybe (TBQ.TBQueue (Maybe (LogObject a)))
     , evLabels             :: EKGViewMap Label.Label
     , evGauges             :: EKGViewMap Gauge.Gauge
-    , evServer             :: Server
-    , evDispatch           :: Async.Async ()
+    , evServer             :: Maybe Server
+    , evDispatch           :: Maybe (Async.Async ())
     , evPrometheusDispatch :: Maybe (Async.Async ())
     }
 
@@ -110,25 +112,29 @@ ekgTrace ekg _c =
     ekgTrace' :: ToJSON a => EKGView a -> Tracer IO (LogObject a)
     ekgTrace' ekgview = Tracer $ \lo@(LogObject outerloname _ _) -> do
         let setLabel :: Text -> Text -> EKGViewInternal a -> IO (Maybe (EKGViewInternal a))
-            setLabel name label ekg_i@(EKGViewInternal _ labels _ server _ _) =
-                case HM.lookup name labels of
-                    Nothing -> do
+            setLabel name label ekg_i@(EKGViewInternal _ labels _ mserver _ _) =
+                case (HM.lookup name labels, mserver) of
+                    (Nothing, Just server) -> do
                         ekghdl <- getLabel name server
                         Label.set ekghdl label
                         return $ Just $ ekg_i { evLabels = HM.insert name ekghdl labels}
-                    Just ekghdl -> do
+                    (Just ekghdl, _) -> do
                         Label.set ekghdl label
                         return Nothing
+                    (Nothing, Nothing) ->
+                        pure Nothing
             setGauge :: Text -> Int64 -> EKGViewInternal a -> IO (Maybe (EKGViewInternal a))
-            setGauge name value ekg_i@(EKGViewInternal _ _ gauges server _ _) =
-                case HM.lookup name gauges of
-                    Nothing -> do
+            setGauge name value ekg_i@(EKGViewInternal _ _ gauges mserver _ _) =
+                case (HM.lookup name gauges, mserver) of
+                    (Nothing, Just server) -> do
                         ekghdl <- getGauge name server
                         Gauge.set ekghdl value
                         return $ Just $ ekg_i { evGauges = HM.insert name ekghdl gauges}
-                    Just ekghdl -> do
+                    (Just ekghdl, _) -> do
                         Gauge.set ekghdl value
                         return Nothing
+                    (Nothing, Nothing) ->
+                        pure Nothing
 
             update :: ToJSON a => LogObject a -> EKGViewInternal a -> IO (Maybe (EKGViewInternal a))
             update (LogObject loname _ (LogMessage logitem)) ekg_i =
@@ -169,35 +175,41 @@ put into the queue. In case the queue is full, all new items are dropped.
 instance IsEffectuator EKGView a where
     effectuate ekgview item = do
         ekg <- readMVar (getEV ekgview)
-        let enqueue a = do
-                        nocapacity <- atomically $ TBQ.isFullTBQueue (evQueue ekg)
-                        if nocapacity
-                        then handleOverflow ekgview
-                        else atomically $ TBQ.writeTBQueue (evQueue ekg) (Just a)
-        case item of
-            (LogObject loname lometa (AggregatedMessage ags)) -> liftIO $ do
-                let traceAgg :: [(Text,Aggregated)] -> IO ()
-                    traceAgg [] = return ()
-                    traceAgg ((n,AggregatedEWMA ewma):r) = do
-                        enqueue $ LogObject (loname <> [n]) lometa (LogValue "avg" $ avg ewma)
-                        traceAgg r
-                    traceAgg ((n,AggregatedStats stats):r) = do
-                        let statsname = loname <> [n]
-                            qbasestats s' nm = do
-                                enqueue $ LogObject nm lometa (LogValue "mean" (PureD $ meanOfStats s'))
-                                enqueue $ LogObject nm lometa (LogValue "min" $ fmin s')
-                                enqueue $ LogObject nm lometa (LogValue "max" $ fmax s')
-                                enqueue $ LogObject nm lometa (LogValue "count" $ PureI $ fromIntegral $ fcount s')
-                                enqueue $ LogObject nm lometa (LogValue "stdev" (PureD $ stdevOfStats s'))
-                        enqueue $ LogObject statsname lometa (LogValue "last" $ flast stats)
-                        qbasestats (fbasic stats) $ statsname <> ["basic"]
-                        qbasestats (fdelta stats) $ statsname <> ["delta"]
-                        qbasestats (ftimed stats) $ statsname <> ["timed"]
-                        traceAgg r
-                traceAgg ags
-            (LogObject _ _ (LogMessage _)) -> enqueue item
-            (LogObject _ _ (LogValue _ _)) -> enqueue item
-            _                              -> return ()
+        case evQueue ekg of
+          Nothing -> pure ()
+          Just queue -> doEnqueue ekg queue
+     where
+       doEnqueue :: EKGViewInternal a -> TBQ.TBQueue (Maybe (LogObject a)) -> IO ()
+       doEnqueue ekg queue = do
+         let enqueue a = do
+                         nocapacity <- atomically $ TBQ.isFullTBQueue queue
+                         if nocapacity
+                         then handleOverflow ekgview
+                         else atomically $ TBQ.writeTBQueue queue (Just a)
+         case item of
+             (LogObject loname lometa (AggregatedMessage ags)) -> liftIO $ do
+                 let traceAgg :: [(Text,Aggregated)] -> IO ()
+                     traceAgg [] = return ()
+                     traceAgg ((n,AggregatedEWMA ewma):r) = do
+                         enqueue $ LogObject (loname <> [n]) lometa (LogValue "avg" $ avg ewma)
+                         traceAgg r
+                     traceAgg ((n,AggregatedStats stats):r) = do
+                         let statsname = loname <> [n]
+                             qbasestats s' nm = do
+                                 enqueue $ LogObject nm lometa (LogValue "mean" (PureD $ meanOfStats s'))
+                                 enqueue $ LogObject nm lometa (LogValue "min" $ fmin s')
+                                 enqueue $ LogObject nm lometa (LogValue "max" $ fmax s')
+                                 enqueue $ LogObject nm lometa (LogValue "count" $ PureI $ fromIntegral $ fcount s')
+                                 enqueue $ LogObject nm lometa (LogValue "stdev" (PureD $ stdevOfStats s'))
+                         enqueue $ LogObject statsname lometa (LogValue "last" $ flast stats)
+                         qbasestats (fbasic stats) $ statsname <> ["basic"]
+                         qbasestats (fdelta stats) $ statsname <> ["delta"]
+                         qbasestats (ftimed stats) $ statsname <> ["timed"]
+                         traceAgg r
+                 traceAgg ags
+             (LogObject _ _ (LogMessage _)) -> enqueue item
+             (LogObject _ _ (LogValue _ _)) -> enqueue item
+             _                              -> return ()
 
     handleOverflow _ = TIO.hPutStrLn stderr "Notice: EKGViews's queue full, dropping log items!"
 
@@ -208,6 +220,8 @@ instance IsEffectuator EKGView a where
 |EKGView| is an |IsBackend|
 \begin{code}
 instance (ToJSON a, FromJSON a) => IsBackend EKGView a where
+    type BackendFailure EKGView = EKGBackendFailure
+
     bekind _ = EKGViewBK
 
     realize _ = fail "EKGView cannot be instantiated by 'realize'"
@@ -216,7 +230,10 @@ instance (ToJSON a, FromJSON a) => IsBackend EKGView a where
         evref <- newEmptyMVar
         let ekgview = EKGView evref
         evport <- getEKGport config
-        ehdl <- forkServer "127.0.0.1" evport
+        ehdl <- (forkServer "127.0.0.1" evport
+                 -- This unfortunate delay is to catch the async exception.
+                 <* threadDelay 300000)
+            `catch` mkHandler EKGServerStartupError
         ekghdl <- getLabel "iohk-monitoring version" ehdl
         Label.set ekghdl $ pack (showVersion version)
         let ekgtrace = ekgTrace ekgview config
@@ -227,6 +244,7 @@ instance (ToJSON a, FromJSON a) => IsBackend EKGView a where
 #endif
         queue <- atomically $ TBQ.newTBQueue qSize
         dispatcher <- spawnDispatcher config queue sbtrace ekgtrace
+          `catch` mkHandler EKGDispatcherStartupError
         -- link the given Async to the current thread, such that if the Async
         -- raises an exception, that exception will be re-thrown in the current
         -- thread, wrapped in ExceptionInLinkedThread.
@@ -236,6 +254,7 @@ instance (ToJSON a, FromJSON a) => IsBackend EKGView a where
                 case prometheusBindAddr of
                   Just (host, port) -> do
                     pd <- spawnPrometheus ehdl (fromString host) port
+                      `catch` mkHandler EKGPrometheusStartupError
                     Async.link pd
                     return (Just pd)
                   Nothing ->
@@ -243,29 +262,77 @@ instance (ToJSON a, FromJSON a) => IsBackend EKGView a where
         putMVar evref $ EKGViewInternal
                         { evLabels = HM.empty
                         , evGauges = HM.empty
-                        , evServer = ehdl
-                        , evQueue = queue
-                        , evDispatch = dispatcher
+                        , evServer = Just ehdl
+                        , evQueue = Just queue
+                        , evDispatch = Just dispatcher
                         , evPrometheusDispatch = prometheusDispatcher
                         }
         return ekgview
+      `catch` -- Try to catch specific errors first.
+      nullSetup sbtrace
+      `catch` -- ..if that fails, catch everything.
+      (nullSetup sbtrace . EKGUnknownStartupError . (show :: SomeException -> String))
+     where
+       mkHandler
+         :: (String -> EKGBackendFailure)
+         -> SomeException
+         -> IO b
+       mkHandler ctor = throwIO . ctor . show
+
+       nullSetup
+         :: Trace IO a
+         -> EKGBackendFailure
+         -> IO (EKGView a)
+       nullSetup trace e = do
+         meta <- mkLOMeta Error Public
+         traceWith trace $ LogObject ["#ekgview", "realizeFrom"] meta $
+           LogError $ "EKGView backend disabled due to initialisation error: " <> (pack $ show e)
+         queue <- atomically $ TBQ.newTBQueue 0
+         ref <- newEmptyMVar
+         putMVar ref $ EKGViewInternal
+           { evLabels = HM.empty
+           , evGauges = HM.empty
+           , evServer = Nothing
+           , evQueue = Nothing
+           , evDispatch = Nothing
+           , evPrometheusDispatch = Nothing
+           }
+         pure $ EKGView ref
 
     unrealize ekgview = do
         let clearMVar :: MVar b -> IO ()
             clearMVar = void . tryTakeMVar
 
-        (dispatcher, queue, prometheusDispatcher) <-
-            withMVar (getEV ekgview) (\ev ->
-                return (evDispatch ev, evQueue ev, evPrometheusDispatch ev))
-        -- send terminating item to the queue
-        atomically $ TBQ.writeTBQueue queue Nothing
-        -- wait for the dispatcher to exit
-        res <- Async.waitCatch dispatcher
-        either throwM return res
-        forM_ prometheusDispatcher Async.cancel
+        withMVar (getEV ekgview) $ \ev -> do
+
+            forM_ (evQueue ev) $
+                -- send terminating item to the queue
+                \queue ->
+                    atomically $ TBQ.writeTBQueue queue Nothing
+
+            forM_ (evDispatch ev) $
+                -- wait for the dispatcher to exit
+                \dispatcher -> do
+                    res <- Async.waitCatch dispatcher
+                    either throwM return res
+
+            forM_ (evPrometheusDispatch ev) $
+                Async.cancel
+
         withMVar (getEV ekgview) $ \ekg ->
-            killThread $ serverThreadId $ evServer ekg
+            forM_ (evServer ekg) $
+                \server -> killThread $ serverThreadId server
+
         clearMVar $ getEV ekgview
+
+data EKGBackendFailure
+  = EKGUnknownStartupError String
+  | EKGServerStartupError String
+  | EKGDispatcherStartupError String
+  | EKGPrometheusStartupError String
+  deriving Show
+
+instance Exception EKGBackendFailure
 
 \end{code}
 

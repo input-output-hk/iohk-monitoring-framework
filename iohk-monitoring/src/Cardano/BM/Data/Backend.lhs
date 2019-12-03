@@ -5,9 +5,11 @@
 %if style == newcode
 \begin{code}
 {-# LANGUAGE DefaultSignatures     #-}
+{-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes            #-}
+{-# LANGUAGE TypeFamilies          #-}
 
 module Cardano.BM.Data.Backend
   ( Backend (..)
@@ -15,9 +17,11 @@ module Cardano.BM.Data.Backend
   , BackendId
   , IsBackend (..)
   , IsEffectuator (..)
+  , GenericBackendFailure (..)
   )
   where
 
+import           Control.Exception (Exception)
 import           Data.Aeson (FromJSON)
 import           Data.Text (Text)
 
@@ -51,7 +55,12 @@ class IsEffectuator t a where
 \subsubsection{Declaration of a |Backend|}\label{code:IsBackend}\index{IsBackend}
 A backend is life-cycle managed, thus can be |realize|d and |unrealize|d.
 \begin{code}
-class (IsEffectuator t a, FromJSON a) => IsBackend t a where
+class ( IsEffectuator t a
+      , FromJSON a
+      , Exception (BackendFailure t)
+      ) => IsBackend t a where
+    type BackendFailure t :: *
+    type BackendFailure t = GenericBackendFailure
     bekind      :: t a -> BackendKind
     realize     :: Configuration -> IO (t a)
     realizefrom :: forall s . (IsEffectuator s a) => Configuration -> Trace IO a -> s a -> IO (t a)
@@ -70,5 +79,18 @@ data Backend a = MkBackend
     { bEffectuate :: LogObject a -> IO ()
     , bUnrealize  :: IO ()
     }
+
+\end{code}
+
+\subsubsection{GenericBackendFailure}\label{code:GenericBackendFailure}\index{GenericBackendFailure}
+A default type for backend-specific failures, when they
+wouldn't care to define their own.
+\begin{code}
+newtype GenericBackendFailure =
+  GenericBackendFailure { unGenericBackendFailure :: String }
+
+instance Exception GenericBackendFailure
+instance Show GenericBackendFailure where
+  show x = "Generic backend failure: " <> unGenericBackendFailure x
 
 \end{code}
