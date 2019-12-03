@@ -63,6 +63,8 @@ library
                        Cardano.BM.Trace
                        Cardano.BM.Tracer
 
+                       Control.Tracer.Transformers.Synopsizer
+
   if !flag(disable-observables)
     exposed-modules:   Cardano.BM.Observer.Monadic
                        Cardano.BM.Observer.STM
@@ -174,4 +176,3 @@ test-suite tests
 
   if !flag(disable-observables)
     cpp-options:       -DENABLE_OBSERVABLES
-

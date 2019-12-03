@@ -13,8 +13,10 @@ module Cardano.BM.Data.LogItem
   ( LogObject (..)
   , loType
   , loType2Name
+  , loTypeEq
   , LOMeta (..), mkLOMeta
   , LOContent (..)
+  , locTypeEq
   , CommandValue (..)
   , LoggerName
   , MonitorAction (..)
@@ -23,6 +25,7 @@ module Cardano.BM.Data.LogItem
   , utc2ns
   , mapLogObject
   , mapLOContent
+  , loContentEq
   , lo2name
   , loname2text
   )
@@ -36,6 +39,7 @@ import           Data.Aeson (FromJSON (..), ToJSON (..), Value (..), (.=),
 import           Data.Aeson.Types (Parser)
 import qualified Data.ByteString.Lazy as BS
 import qualified Data.ByteString.Base64.Lazy as BS64
+import           Data.Function (on)
 import           Data.Text (Text, pack, stripPrefix)
 import qualified Data.Text.Lazy as LT
 import           Data.Text.Lazy.Encoding (encodeUtf8, decodeUtf8)
@@ -189,6 +193,7 @@ Payload of a |LogObject|:
 \begin{code}
 data LOContent a = LogMessage a
                  | LogError Text
+                 | LogRepeats Int
                  | LogValue Text Measurable
                  | LogStructured BS.ByteString
                  | ObserveOpen CounterState
@@ -207,6 +212,9 @@ instance ToJSON a => ToJSON (LOContent a) where
     toJSON (LogError m) =
         object [ "kind" .= String "LogError"
                , "message" .= toJSON m]
+    toJSON (LogRepeats n) =
+        object [ "kind" .= String "LogRepeats"
+               , "elided-count" .= toJSON n]
     toJSON (LogValue n v) =
         object [ "kind" .= String "LogValue"
                , "name" .= toJSON n
@@ -241,6 +249,7 @@ instance (FromJSON a) => FromJSON (LOContent a) where
                   >>=
                   \case "LogMessage" -> LogMessage <$> v .: "message"
                         "LogError" -> LogError <$> v .: "message"
+                        "LogRepeats" -> LogRepeats <$> v .: "elided-count"
                         "LogValue" -> LogValue <$> v .: "name" <*> v .: "value"
                         "LogStructured" -> LogStructured <$>
                                               BS64.decodeLenient <$>
@@ -263,6 +272,24 @@ instance (FromJSON a) => FromJSON (LOContent a) where
 loType :: LogObject a -> Text
 loType (LogObject _ _ content) = loType2Name content
 
+loTypeEq :: LogObject a -> LogObject a -> Bool
+loTypeEq = locTypeEq `on` loContent
+
+locTypeEq :: LOContent a -> LOContent a -> Bool
+locTypeEq LogMessage{}        LogMessage{}        = True
+locTypeEq LogError{}          LogError{}          = True
+locTypeEq LogRepeats{}        LogRepeats{}        = True
+locTypeEq LogValue{}          LogValue{}          = True
+locTypeEq LogStructured{}     LogStructured{}     = True
+locTypeEq ObserveOpen{}       ObserveOpen{}       = True
+locTypeEq ObserveDiff{}       ObserveDiff{}       = True
+locTypeEq ObserveClose{}      ObserveClose{}      = True
+locTypeEq AggregatedMessage{} AggregatedMessage{} = True
+locTypeEq MonitoringEffect{}  MonitoringEffect{}  = True
+locTypeEq Command{}           Command{}           = True
+locTypeEq KillPill{}          KillPill{}          = True
+locTypeEq _ _ = False
+
 \end{code}
 
 Name of a message content type
@@ -271,6 +298,7 @@ loType2Name :: LOContent a -> Text
 loType2Name = \case
     LogMessage _        -> "LogMessage"
     LogError _          -> "LogError"
+    LogRepeats _        -> "LogRepeats"
     LogValue _ _        -> "LogValue"
     LogStructured _     -> "LogStructured"
     ObserveOpen _       -> "ObserveOpen"
@@ -350,6 +378,7 @@ mapLOContent :: (a -> b) -> LOContent a -> LOContent b
 mapLOContent f = \case
     LogMessage msg       -> LogMessage (f msg)
     LogError a           -> LogError a
+    LogRepeats n         -> LogRepeats n
     LogStructured m      -> LogStructured m
     LogValue n v         -> LogValue n v
     ObserveOpen st       -> ObserveOpen st
@@ -359,6 +388,9 @@ mapLOContent f = \case
     MonitoringEffect act -> MonitoringEffect act
     Command v            -> Command v
     KillPill             -> KillPill
+
+loContentEq :: Eq a => LogObject a -> LogObject a -> Bool
+loContentEq = (==) `on` loContent
 
 \end{code}
 

@@ -59,6 +59,8 @@ import           Cardano.BM.Plugin
 import           Cardano.BM.Setup
 import           Cardano.BM.Trace
 
+import           Control.Tracer.Transformers.Synopsizer
+
 \end{code}
 
 \subsubsection{Define configuration}
@@ -341,12 +343,26 @@ msgThr :: Trace IO Text -> IO (Async.Async ())
 msgThr trace = do
   logInfo trace "start messaging .."
   let trace' = appendName "message" trace
-  Async.async (loop trace')
+  synopsized <- mkSynopsizer loContentEq trace'
+  Async.async (loop synopsized)
   where
     loop tr = do
         threadDelay 3000000  -- 3 seconds
         logNotice tr "N O T I F I C A T I O N ! ! !"
+        logNotice tr "N O T I F I C A T I O N ! ! !"
+        logNotice tr "N O T I F I C A T I O N ! ! !"
+        logNotice tr "N O T I F I C A T I O N ! ! !"
+        logNotice tr "N O T I F I C A T I O N ! ! !"
+        logNotice tr "N O T I F I C A T I O N ! ! !"
+        logNotice tr "N O T I F I C A T I O N ! ! !"
+        logNotice tr "N O T I F I C A T I O N ! ! !"
+        logNotice tr "N O T I F I C A T I O N ! ! !"
+        logNotice tr "N O T I F I C A T I O N ! ! !"
+        logNotice tr "N O T I F I C A T I O N ! ! !"
         logDebug tr "a detailed debug message."
+        logError tr "Boooommm .."
+        logError tr "Boooommm .."
+        logError tr "Boooommm .."
         logError tr "Boooommm .."
         loop tr
 #endif
