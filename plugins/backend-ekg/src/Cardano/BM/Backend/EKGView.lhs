@@ -220,7 +220,7 @@ instance IsEffectuator EKGView a where
 |EKGView| is an |IsBackend|
 \begin{code}
 instance (ToJSON a, FromJSON a) => IsBackend EKGView a where
-    type BackendFailure EKGView = GenericBackendFailure
+    type BackendFailure EKGView = EKGBackendFailure
 
     bekind _ = EKGViewBK
 
@@ -285,11 +285,11 @@ instance (ToJSON a, FromJSON a) => IsBackend EKGView a where
          -> IO (EKGView a)
        nullSetup trace e = do
          meta <- mkLOMeta Error Public
-         traceWith trace $ LogObject [] meta $
+         traceWith trace $ LogObject ["#ekgview", "realizeFrom"] meta $
            LogError $ "EKGView backend disabled due to initialisation error: " <> (pack $ show e)
          queue <- atomically $ TBQ.newTBQueue 0
-         evref <- newEmptyMVar
-         putMVar evref $ EKGViewInternal
+         ref <- newEmptyMVar
+         putMVar ref $ EKGViewInternal
            { evLabels = HM.empty
            , evGauges = HM.empty
            , evServer = Nothing
@@ -297,7 +297,7 @@ instance (ToJSON a, FromJSON a) => IsBackend EKGView a where
            , evDispatch = Nothing
            , evPrometheusDispatch = Nothing
            }
-         pure $ EKGView evref
+         pure $ EKGView ref
 
     unrealize ekgview = do
         let clearMVar :: MVar b -> IO ()

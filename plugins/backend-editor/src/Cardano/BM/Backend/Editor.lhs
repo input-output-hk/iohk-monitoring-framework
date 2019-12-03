@@ -6,6 +6,7 @@
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE RecursiveDo           #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 
 module Cardano.BM.Backend.Editor
@@ -20,7 +21,7 @@ module Cardano.BM.Backend.Editor
 
 import           Prelude hiding (lookup)
 import qualified Control.Concurrent.Async as Async
-import           Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar, readMVar, withMVar)
+import           Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar, swapMVar, readMVar, withMVar)
 import           Control.Exception.Safe (SomeException, catch)
 import           Control.Monad  (void, when, forM_)
 import           Data.Aeson (FromJSON, ToJSON, encode)
@@ -49,6 +50,7 @@ import           Cardano.BM.Data.Output (ScribeId)
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.SubTrace
 import           Cardano.BM.Data.Trace
+import           Cardano.BM.Data.Tracer (nullTracer, traceWith)
 import           Cardano.BM.Backend.LogBuffer
 import           Cardano.BM.Plugin (Plugin (..))
 import           Cardano.BM.Rotator (tsformat)
@@ -104,7 +106,7 @@ instance (ToJSON a, FromJSON a) => IsBackend Editor a where
 
     realize _ = fail "Editor cannot be instantiated by 'realize'"
 
-    realizefrom config sbtrace _ = do
+    realizefrom config sbtrace _ = mdo
         gref <- newEmptyMVar
         let gui = Editor gref
         port <- getGUIport config
@@ -113,12 +115,18 @@ instance (ToJSON a, FromJSON a) => IsBackend Editor a where
         -- local |LogBuffer|
         logbuf :: Cardano.BM.Backend.LogBuffer.LogBuffer a <- Cardano.BM.Backend.LogBuffer.realize config
 
-        thd <- Async.async $
+        thd <- Async.async $ do
             startGUI defaultConfig { jsPort       = Just port
                                    , jsAddr       = Just "127.0.0.1"
                                    , jsStatic     = Just "iohk-monitoring/static"
                                    , jsCustomHTML = Just "configuration-editor.html"
                                    } $ prepare gui config
+          `catch` nullSetup sbtrace gref
+                       EditorInternal
+                        { edSBtrace = nullTracer
+                        , edThread = thd
+                        , edBuffer = logbuf
+                        }
         Async.link thd
         putMVar gref $ EditorInternal
                         { edSBtrace = sbtrace
@@ -126,6 +134,19 @@ instance (ToJSON a, FromJSON a) => IsBackend Editor a where
                         , edBuffer = logbuf
                         }
         return gui
+     where
+       nullSetup
+         :: Trace IO a
+         -> EditorMVar a
+         -> EditorInternal a
+         -> SomeException
+         -> IO ()
+       nullSetup trace mvar nullEditor e = do
+         meta <- mkLOMeta Error Public
+         traceWith trace $ LogObject ["#editor", "realizeFrom"] meta $
+           LogError $ "Editor backend disabled due to initialisation error: " <> (pack $ show e)
+         swapMVar mvar nullEditor
+         pure ()
 
     unrealize editor =
         withMVar (getEd editor) $ \ed ->
