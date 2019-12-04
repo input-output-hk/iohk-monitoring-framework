@@ -2,7 +2,6 @@
 {-# LANGUAGE FlexibleContexts        #-}
 {-# LANGUAGE NamedFieldPuns          #-}
 {-# LANGUAGE ScopedTypeVariables     #-}
-{-# LANGUAGE UndecidableInstances    #-}
 
 {-# OPTIONS_GHC -Wno-orphans #-}
 
@@ -68,7 +67,7 @@ instance Arbitrary a => Arbitrary (LOContent a) where
       , "But what first motivated me wasn't anything I read. I just got mad seeing the machines ripping up the woods."
       ]
 
-instance Arbitrary (LOContent a) => Arbitrary (LogObject a) where
+instance Arbitrary a => Arbitrary (LogObject a) where
   arbitrary = do
     loName <- elements
       [ ["logger", "for", "nothing"]

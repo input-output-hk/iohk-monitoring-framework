@@ -40,15 +40,18 @@ data SynopsizerState a
     }
 
 -- | Generic Trace transformer.  Will omit consequent runs of similar log objects,
---   with similarity defined by supplied predicate.  When a run of similar log
+--   with similarity defined by a supplied predicate.  When a run of similar log
 --   objects is terminated by a dissimilar one, a summary of omitted objects is
 --   emitted as a log object with same severity and privacy as the first object.
 --
 --   Handy predicates to use:  'loTypeEq' and 'loContentEq'.
 --
---   Caveat:  the resulting trace has state, which is lost upon trace's termination.
+--   Caveat 1:  the supplied criterion is expected to define a transitive relation.
+--
+--   Caveat 2:  the resulting trace has state, which is lost upon trace's termination.
 --   This means that if the trace ends with a run of similar messages, this will
---   not be reflected in the trace itself, as observed by the backends.
+--   not be reflected in the trace itself, as observed by the backends
+--   -- they'll only receive the first message of the run.
 --
 --   WARNING:  the resulting tracer is not thread-safe!
 mkSynopsizer :: forall m a

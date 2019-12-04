@@ -9,7 +9,6 @@
 {-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE NamedFieldPuns      #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE UndecidableInstances #-}
 
 module Cardano.BM.Test.Trace (
     TraceConfiguration (..)
@@ -69,7 +68,9 @@ import           Cardano.BM.Arbitrary ()
 import           Test.Tasty (TestTree, testGroup)
 import           Test.Tasty.HUnit (Assertion, assertBool, testCase,
                      testCaseInfo)
+import           Test.Tasty.QuickCheck (testProperty)
 import qualified Test.QuickCheck as QC
+import qualified Test.QuickCheck.Monadic as QC
 import           Test.QuickCheck (arbitrary, elements)
 import           Test.QuickCheck.Arbitrary (Arbitrary(..))
 
@@ -114,7 +115,7 @@ unit_tests = testGroup "Unit tests" [
       , testCase "testing throwing of exceptions" unitExceptionThrowing
       , testCase "NoTrace: check lazy evaluation" unitTestLazyEvaluation
       , testCase "private messages should not be logged into private files" unitLoggingPrivate
-      , testCase "synopsization shrinks the messeage stream predictably" unitSynopsizer
+      , testProperty "synopsization shrinks the messeage stream predictably" prop_synopsizer
       ]
       where
         observablesSet = [MonotonicClock, MemoryStats]
@@ -384,44 +385,34 @@ unitTraceDuplicate = do
 \subsubsection{Verify that Synopsizer has the intended effect on the message count.}\label{code:unitSynopsizer}
 |Synopsizer| has a predictable effect on the message stream.
 
-TODO:  rewrite this as a shrinkable property test.
-
 \begin{code}
-unitSynopsizer :: Assertion
-unitSynopsizer = do
-    cfg <- defaultConfigTesting
-    msgs <- STM.newTVarIO []
+
+prop_synopsizer :: [LogObject NotSoArbitraryMsg] -> QC.Property
+prop_synopsizer stream = QC.monadicIO $ do
+    cfg <- QC.run $ defaultConfigTesting
+    msgs <- QC.run $ STM.newTVarIO []
     base :: Trace IO NotSoArbitraryMsg
-      <- contramap (mapLogObject payload) <$>
+      <- QC.run $ contramap (mapLogObject payload) <$>
          (setupTrace $
            TraceConfiguration cfg (MockSB msgs) "test-synopsizer" Neutral)
 
-    stream :: [LogObject NotSoArbitraryMsg]
-      <- QC.generate $
-         QC.vectorOf nMessages arbitrary
-
-    tr <- mkSynopsizer equalityCriterion base
-    mapM_ (traceWith tr) stream
+    tr <- QC.run $ mkSynopsizer equalityCriterion base
+    QC.run $ mapM_ (traceWith tr) stream
 
     -- acquire the traced objects
-    res <- STM.readTVarIO msgs
+    res <- QC.run $ STM.readTVarIO msgs
 
     let modelResult = synopsizerOracle equalityCriterion stream
-    assertBool
-        ("Synopsizer misbehaved, expected message count: " ++ show modelResult
-         ++ ", got: " ++ show (length res))
-        (length res == modelResult)
+    QC.assert (length res == modelResult)
   where
     equalityCriterion :: LogObject a -> LogObject a -> Bool
     equalityCriterion = loTypeEq
 
-    nMessages = 128
-
 \end{code}
 Model for the Synopsizer trace transformer.
 
-Given a similarity criterion, and an untransformed sequence of messages,
-predict how many messages a synopsizer should produce.
+Given a transitive similarity criterion, and a sequence of messages,
+determine how many messages a synopsizer-reduced sequence ought to contain.
 
 The result should be:
 
@@ -449,6 +440,8 @@ synopsizerOracle criterion xs =
 
 -- | Map each element of a list, to either 'True', when it has a similar
 --   predecessor, and to 'False' otherwise.
+--
+--   Note:  the similarity property is assumed to be transitive.
 sequentialSimilarity :: forall a. (a -> a -> Bool) -> [a] -> [Bool]
 sequentialSimilarity test = go Nothing
   where go predec = \case
