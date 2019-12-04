@@ -46,6 +46,10 @@ data SynopsizerState a
 --
 --   Handy predicates to use:  'loTypeEq' and 'loContentEq'.
 --
+--   Caveat:  the resulting trace has state, which is lost upon trace's termination.
+--   This means that if the trace ends with a run of similar messages, this will
+--   not be reflected in the trace itself, as observed by the backends.
+--
 --   WARNING:  the resulting tracer is not thread-safe!
 mkSynopsizer :: forall m a
               . (MonadIO m)

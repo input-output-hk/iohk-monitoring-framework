@@ -5,8 +5,11 @@
 %if style == newcode
 \begin{code}
 {-# LANGUAGE CPP                 #-}
+{-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE LambdaCase          #-}
+{-# LANGUAGE NamedFieldPuns      #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module Cardano.BM.Test.Trace (
     TraceConfiguration (..)
@@ -58,9 +61,17 @@ import           Cardano.BM.Trace (Trace, appendName, logDebug, logInfo,
                      logAlert, logEmergency)
 import           Cardano.BM.Test.Mock (MockSwitchboard (..), traceMock)
 
+import           Control.Tracer (contramap, traceWith)
+import           Control.Tracer.Transformers.Synopsizer (mkSynopsizer)
+
+import           Cardano.BM.Arbitrary ()
+
 import           Test.Tasty (TestTree, testGroup)
 import           Test.Tasty.HUnit (Assertion, assertBool, testCase,
                      testCaseInfo)
+import qualified Test.QuickCheck as QC
+import           Test.QuickCheck (arbitrary, elements)
+import           Test.QuickCheck.Arbitrary (Arbitrary(..))
 
 \end{code}
 %endif
@@ -103,6 +114,7 @@ unit_tests = testGroup "Unit tests" [
       , testCase "testing throwing of exceptions" unitExceptionThrowing
       , testCase "NoTrace: check lazy evaluation" unitTestLazyEvaluation
       , testCase "private messages should not be logged into private files" unitLoggingPrivate
+      , testCase "synopsization shrinks the messeage stream predictably" unitSynopsizer
       ]
       where
         observablesSet = [MonotonicClock, MemoryStats]
@@ -367,6 +379,108 @@ unitTraceDuplicate = do
         ("Found more or less messages than expected: " ++ show res)
         (length res == 3)
 
+\end{code}
+
+\subsubsection{Verify that Synopsizer has the intended effect on the message count.}\label{code:unitSynopsizer}
+|Synopsizer| has a predictable effect on the message stream.
+
+TODO:  rewrite this as a shrinkable property test.
+
+\begin{code}
+unitSynopsizer :: Assertion
+unitSynopsizer = do
+    cfg <- defaultConfigTesting
+    msgs <- STM.newTVarIO []
+    base :: Trace IO NotSoArbitraryMsg
+      <- contramap (mapLogObject payload) <$>
+         (setupTrace $
+           TraceConfiguration cfg (MockSB msgs) "test-synopsizer" Neutral)
+
+    stream :: [LogObject NotSoArbitraryMsg]
+      <- QC.generate $
+         QC.vectorOf nMessages arbitrary
+
+    tr <- mkSynopsizer equalityCriterion base
+    mapM_ (traceWith tr) stream
+
+    -- acquire the traced objects
+    res <- STM.readTVarIO msgs
+
+    let modelResult = synopsizerOracle equalityCriterion stream
+    assertBool
+        ("Synopsizer misbehaved, expected message count: " ++ show modelResult
+         ++ ", got: " ++ show (length res))
+        (length res == modelResult)
+  where
+    equalityCriterion :: LogObject a -> LogObject a -> Bool
+    equalityCriterion = loTypeEq
+
+    nMessages = 128
+
+\end{code}
+Model for the Synopsizer trace transformer.
+
+Given a similarity criterion, and an untransformed sequence of messages,
+predict how many messages a synopsizer should produce.
+
+The result should be:
+
+  - The length of untransformed list,
+  - reduced by the number of items dropped,
+  - increased by the number of synopses added.
+
+\begin{code}
+synopsizerOracle
+  :: (a -> a -> Bool)
+  -> [a]
+  -> Int
+synopsizerOracle criterion xs =
+  length xs
+  - length dropped
+  + similarityTails -- Synopses added.
+ where
+   -- | The similarity property is 'True' for every such element,
+   --   that is going to be dropped by the Synopsizer.
+   similarity = sequentialSimilarity criterion xs
+   dropped = filter id similarity
+   -- | The count of similarity tails is half the number of inversions.
+   --   The full story is more complicated, of course, but let's keep it simple.
+   similarityTails = div (inversions similarity) 2
+
+-- | Map each element of a list, to either 'True', when it has a similar
+--   predecessor, and to 'False' otherwise.
+sequentialSimilarity :: forall a. (a -> a -> Bool) -> [a] -> [Bool]
+sequentialSimilarity test = go Nothing
+  where go predec = \case
+          []     -> []
+          (y:ys) -> (predec `test'` Just y) : go (Just y) ys
+
+        test' :: Maybe a -> Maybe a -> Bool
+        test' (Just x) (Just y) = x `test` y
+        test' _ _ = False
+
+-- | Count the number of inversions from 'True' to 'False' and vv.
+inversions :: [Bool] -> Int
+inversions = go 0
+  where
+    go acc = \case
+      []  -> acc
+      [_] -> acc
+      (y:ys@(y':_)) -> go (acc + if y /= y' then 1 else 0) ys
+
+newtype NotSoArbitraryMsg = NotSoArbitraryMsg { payload :: Text }
+  deriving Eq
+
+instance Show NotSoArbitraryMsg where
+  show = T.unpack . payload
+
+instance Arbitrary NotSoArbitraryMsg where
+  arbitrary = NotSoArbitraryMsg <$> elements
+    [ "Most deadly errors arise from obsolete assumptions."
+    , "Respect for the truth comes close to being the basis for all morality."
+    , "A good decision is based on knowledge and not on numbers."
+    , "Human behavior flows from three main sources: desire, emotion, and knowledge."
+    ]
 \end{code}
 
 \subsubsection{Change the minimum severity of a named context}\label{code:unitNamedMinSeverity}
