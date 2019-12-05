@@ -79,8 +79,8 @@ mkSynopsizer matchTest overflow tr =
           pure ss { ssRepeats = 0, ssLast = Just a }
         Just prev ->
           if | prev `matchTest` a
-             -> if | ssRepeats ss == overflow
-                   -> traceWith tr (Many (ssRepeats ss) prev) >>
+             -> if | ssRepeats ss + 1 == overflow
+                   -> traceWith tr (Many (ssRepeats ss + 1) prev) >>
                       pure ss { ssRepeats = 0 }
 
                    | otherwise

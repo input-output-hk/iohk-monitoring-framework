@@ -63,8 +63,6 @@ library
                        Cardano.BM.Trace
                        Cardano.BM.Tracer
 
-                       Control.Tracer.Transformers.Synopsizer
-
   if !flag(disable-observables)
     exposed-modules:   Cardano.BM.Observer.Monadic
                        Cardano.BM.Observer.STM
@@ -105,6 +103,7 @@ library
                        text,
                        time,
                        time-units,
+                       tracer-transformers,
                        transformers,
                        unordered-containers,
                        vector,
