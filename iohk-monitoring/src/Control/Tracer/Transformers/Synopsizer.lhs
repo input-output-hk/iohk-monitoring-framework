@@ -40,9 +40,12 @@ data SynopsizerState a
     }
 
 -- | Generic Trace transformer.  Will omit consequent runs of similar log objects,
---   with similarity defined by a supplied predicate.  When a run of similar log
---   objects is terminated by a dissimilar one, a summary of omitted objects is
---   emitted as a log object with same severity and privacy as the first object.
+--   with similarity defined by a supplied predicate.  A run of similar log
+--   objects is terminated by one of two events:
+--     1. a dissimilar event, or
+--     2. reaching the specified limit for omitted messages.
+--
+--   At the end of a run of similar objects, a summary of omission is emitted.
 --
 --   Handy predicates to use:  'loTypeEq' and 'loContentEq'.
 --
@@ -57,8 +60,9 @@ data SynopsizerState a
 mkSynopsizer :: forall m a
               . (MonadIO m)
              => (LogObject a -> LogObject a -> Bool)
+             -> Int
              -> Trace m a -> m (Trace m a)
-mkSynopsizer matchTest tr =
+mkSynopsizer matchTest overflow tr =
   (liftIO . newIORef $ SynopsizerState 0 Nothing)
   >>= pure . go
   where
@@ -70,7 +74,12 @@ mkSynopsizer matchTest tr =
           pure ss { ssRepeats = 0, ssLast = Just a }
         Just prev ->
           if | prev `matchTest` a
-             -> pure ss { ssRepeats = ssRepeats ss + 1 }
+             -> if | ssRepeats ss == overflow
+                   -> traceRepeat (ssRepeats ss) prev >>
+                      pure ss { ssRepeats = 0 }
+
+                   | otherwise
+                   -> pure ss { ssRepeats = ssRepeats ss + 1 }
 
              | ssRepeats ss == 0
              -> traceWith tr a >>

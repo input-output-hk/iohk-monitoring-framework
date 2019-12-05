@@ -343,7 +343,7 @@ msgThr :: Trace IO Text -> IO (Async.Async ())
 msgThr trace = do
   logInfo trace "start messaging .."
   let trace' = appendName "message" trace
-  synopsized <- mkSynopsizer loContentEq trace'
+  synopsized <- mkSynopsizer loContentEq 3 trace'
   Async.async (loop synopsized)
   where
     loop tr = do

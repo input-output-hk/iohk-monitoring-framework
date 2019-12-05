@@ -25,6 +25,7 @@ import qualified Control.Concurrent.Async as Async
 import           Control.Monad (forM, forM_)
 import           Control.Monad.IO.Class (liftIO)
 import           Data.Either (isLeft, isRight)
+import           Data.List (group)
 import           Data.Map (fromListWith, lookup)
 import           Data.Text (Text, append, pack)
 import qualified Data.Text as T
@@ -387,8 +388,8 @@ unitTraceDuplicate = do
 
 \begin{code}
 
-prop_synopsizer :: [LogObject NotSoArbitraryMsg] -> QC.Property
-prop_synopsizer stream = QC.monadicIO $ do
+prop_synopsizer :: [LogObject NotSoArbitraryMsg] -> Int -> QC.Property
+prop_synopsizer stream runLimit = runLimit > 1 QC.==> QC.monadicIO $ do
     cfg <- QC.run $ defaultConfigTesting
     msgs <- QC.run $ STM.newTVarIO []
     base :: Trace IO NotSoArbitraryMsg
@@ -396,13 +397,13 @@ prop_synopsizer stream = QC.monadicIO $ do
          (setupTrace $
            TraceConfiguration cfg (MockSB msgs) "test-synopsizer" Neutral)
 
-    tr <- QC.run $ mkSynopsizer equalityCriterion base
+    tr <- QC.run $ mkSynopsizer equalityCriterion runLimit base
     QC.run $ mapM_ (traceWith tr) stream
 
     -- acquire the traced objects
     res <- QC.run $ STM.readTVarIO msgs
 
-    let modelResult = synopsizerOracle equalityCriterion stream
+    let modelResult = synopsizerOracle equalityCriterion runLimit stream
     QC.assert (length res == modelResult)
   where
     equalityCriterion :: LogObject a -> LogObject a -> Bool
@@ -418,25 +419,35 @@ The result should be:
 
   - The length of untransformed list,
   - reduced by the number of items dropped,
-  - increased by the number of synopses added.
+  - increased by the number of synopses added,
+  - adjusting for the last summary being withheld
 
 \begin{code}
 synopsizerOracle
   :: (a -> a -> Bool)
+  -> Int
   -> [a]
   -> Int
-synopsizerOracle criterion xs =
+synopsizerOracle criterion runLimit xs =
   length xs
   - length dropped
-  + similarityTails -- Synopses added.
+  + sum (runSummaries runLimit <$> similarityRuns) -- Synopses added.
+  - tailCorrection
  where
    -- | The similarity property is 'True' for every such element,
    --   that is going to be dropped by the Synopsizer.
    similarity = sequentialSimilarity criterion xs
    dropped = filter id similarity
-   -- | The count of similarity tails is half the number of inversions.
-   --   The full story is more complicated, of course, but let's keep it simple.
-   similarityTails = div (inversions similarity) 2
+   -- | Compute the similarity runs:
+   similarityRuns = filter (any id) $ group similarity
+   -- | The last summary is withheld:
+   tailCorrection = if not (null similarity) && last similarity then 1 else 0
+
+-- | Every 'limit' messages are going to get a summary, plus an optional tail,
+--   which might get either a summary or a plain message.
+runSummaries :: Int -> [Bool] -> Int
+runSummaries runLimit run = limitfuls + if remainder > 0 then 1 else 0
+  where (limitfuls, remainder) = length run `divMod` runLimit
 
 -- | Map each element of a list, to either 'True', when it has a similar
 --   predecessor, and to 'False' otherwise.
@@ -451,15 +462,6 @@ sequentialSimilarity test = go Nothing
         test' :: Maybe a -> Maybe a -> Bool
         test' (Just x) (Just y) = x `test` y
         test' _ _ = False
-
--- | Count the number of inversions from 'True' to 'False' and vv.
-inversions :: [Bool] -> Int
-inversions = go 0
-  where
-    go acc = \case
-      []  -> acc
-      [_] -> acc
-      (y:ys@(y':_)) -> go (acc + if y /= y' then 1 else 0) ys
 
 newtype NotSoArbitraryMsg = NotSoArbitraryMsg { payload :: Text }
   deriving Eq
