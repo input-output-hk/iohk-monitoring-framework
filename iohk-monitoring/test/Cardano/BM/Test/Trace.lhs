@@ -48,6 +48,7 @@ import           Cardano.BM.Data.Observable
 import           Cardano.BM.Data.Output
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.SubTrace
+import           Cardano.BM.Data.Trace
 #ifdef ENABLE_OBSERVABLES
 import           Cardano.BM.Counters (getMonoClock)
 import           Cardano.BM.Data.Aggregated
@@ -62,7 +63,6 @@ import           Cardano.BM.Trace (Trace, appendName, logDebug, logInfo,
 import           Cardano.BM.Test.Mock (MockSwitchboard (..), traceMock)
 
 import           Control.Tracer (contramap, traceWith)
-import           Control.Tracer.Transformers.Synopsizer (mkSynopsizer)
 
 import           Cardano.BM.Arbitrary ()
 
@@ -397,7 +397,7 @@ prop_synopsizer stream runLimit = runLimit > 1 QC.==> QC.monadicIO $ do
          (setupTrace $
            TraceConfiguration cfg (MockSB msgs) "test-synopsizer" Neutral)
 
-    tr <- QC.run $ mkSynopsizer equalityCriterion runLimit base
+    tr <- QC.run $ mkSynopsizedTrace equalityCriterion runLimit base
     QC.run $ mapM_ (traceWith tr) stream
 
     -- acquire the traced objects

@@ -50,6 +50,7 @@ import           Cardano.BM.Data.Output
 import           Cardano.BM.Data.Rotation
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.SubTrace
+import           Cardano.BM.Data.Trace
 #ifdef ENABLE_OBSERVABLES
 import           Cardano.BM.Data.Observable
 import           Cardano.BM.Observer.Monadic (bracketObserveIO)
@@ -58,8 +59,6 @@ import qualified Cardano.BM.Observer.STM as STM
 import           Cardano.BM.Plugin
 import           Cardano.BM.Setup
 import           Cardano.BM.Trace
-
-import           Control.Tracer.Transformers.Synopsizer
 
 \end{code}
 
@@ -343,7 +342,7 @@ msgThr :: Trace IO Text -> IO (Async.Async ())
 msgThr trace = do
   logInfo trace "start messaging .."
   let trace' = appendName "message" trace
-  synopsized <- mkSynopsizer loContentEq 3 trace'
+  synopsized <- mkSynopsizedTrace loContentEq 3 trace'
   Async.async (loop synopsized)
   where
     loop tr = do
