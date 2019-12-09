@@ -21,8 +21,9 @@ module Control.Tracer.Transformers.Synopsizer
     , Synopsized(..)
     ) where
 
+import           Control.Concurrent (MVar, newMVar, modifyMVarMasked)
+import           Control.Monad (join)
 import           Control.Monad.IO.Class (MonadIO (..))
-import           Data.IORef (newIORef,readIORef, writeIORef)
 
 import           Control.Tracer (Tracer (..), traceWith)
 
@@ -60,40 +61,48 @@ data Synopsized a
 --   This means that if the trace ends with a run of similar messages, this will
 --   not be reflected in the trace itself, as observed by the backends
 --   -- they'll only receive the first message of the run.
---
---   WARNING:  the resulting tracer is not thread-safe!
 mkSynopsizer :: forall m a
               . (MonadIO m)
              => (a -> a -> Bool)
              -> Int
              -> Tracer m (Synopsized a) -> m (Tracer m a)
 mkSynopsizer matchTest overflow tr =
-  (liftIO . newIORef $ SynopsizerState 0 Nothing)
-  >>= pure . go
+  (liftIO . newMVar $ SynopsizerState 0 Nothing)
+  >>= pure . mkTracer
   where
-    go s = Tracer $ \a -> do
-      ss  <- liftIO $ readIORef s
-      ss' <- case ssLast ss of
-        Nothing -> do
-          traceWith tr (One a)
-          pure ss { ssRepeats = 0, ssLast = Just a }
+    mkTracer :: MVar (SynopsizerState a) -> Tracer m a
+    mkTracer mv = Tracer $ \a ->
+      join . liftIO $ modifyMVarMasked mv (pure . contended a)
+
+    -- This is a fast, pure computation to be done inside the lock.
+    contended :: a -> SynopsizerState a -> (SynopsizerState a, m ())
+    contended a ss = 
+      case ssLast ss of
+        Nothing -> (,)
+          (ss { ssRepeats = 0, ssLast = Just a })
+          (traceWith tr (One a))
+
         Just prev ->
           if | prev `matchTest` a
              -> if | ssRepeats ss + 1 == overflow
-                   -> traceWith tr (Many (ssRepeats ss + 1) prev) >>
-                      pure ss { ssRepeats = 0 }
+                   -> (,)
+                     (ss { ssRepeats = 0 })
+                     (traceWith tr (Many (ssRepeats ss + 1) prev))
 
                    | otherwise
-                   -> pure ss { ssRepeats = ssRepeats ss + 1 }
+                   -> (,)
+                     (ss { ssRepeats = ssRepeats ss + 1 })
+                     (pure ())
 
              | ssRepeats ss == 0
-             -> traceWith tr (One a) >>
-                pure ss { ssLast = Just a }
+             -> (,)
+               (ss { ssLast = Just a })
+               (traceWith tr (One a))
 
              | otherwise
-             -> traceWith tr (Many (ssRepeats ss) prev) >>
-                traceWith tr (One a) >>
-                pure ss { ssRepeats = 0, ssLast = Just a }
-      liftIO $ writeIORef s ss'
+             -> (,)
+               (ss { ssRepeats = 0, ssLast = Just a })
+               (traceWith tr (Many (ssRepeats ss) prev) >>
+                traceWith tr (One a))
 
 \end{code}
