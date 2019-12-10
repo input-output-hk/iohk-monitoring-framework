@@ -22,7 +22,7 @@ module Control.Tracer.Transformers.Synopsizer
     ) where
 
 import           Control.Concurrent (MVar, newMVar, modifyMVarMasked)
-import           Control.Monad (join)
+import           Control.Monad (mapM_, join)
 import           Control.Monad.IO.Class (MonadIO (..))
 
 import           Control.Tracer (Tracer (..), traceWith)
@@ -47,26 +47,24 @@ data Synopsized a
     --   Note that several 'Many' messages can follow the initial 'One' message,
     --   because of configurable synopsis overflow.
 
--- | Generic Tracer transformer.  Will omit consequent runs of similar log objects,
---   with similarity defined by a supplied predicate.  A run of similar log
---   objects is terminated by one of two events:
---     1. a dissimilar event, or
---     2. reaching the specified overflow limit for omitted messages.
+-- | Generic Tracer transformer, intended for suppression of repeated messages.
 --
---   At the end of a run of similar objects, a summary of omission is emitted.
+--   The transformer is specified in terms of an internal counter (starting at zero),
+--   and a given predicate on the state of the counter and the pair of subsequent messages.
+--   If the predicate returns 'False', the message is suppressed, and the counter is increased.
+--   Otherwise, the counter is reset to zero, and:
+--     - the message is wrapped into 'One',
+--     - an additional 'Many' message is added for the predecessor, if the counter was zero.
 --
---   Caveat 1:  the supplied criterion is expected to define a transitive relation.
---
---   Caveat 2:  the resulting tracer has state, which is lost upon trace termination.
---   This means that if the trace ends with a run of similar messages, this will
+--   Caveat:  the resulting tracer has state, which is lost upon trace termination.
+--   This means that if the trace ends with a run of positively-flagged messages, this will
 --   not be reflected in the trace itself, as observed by the backends
 --   -- they'll only receive the first message of the run.
 mkSynopsizer :: forall m a
               . (MonadIO m)
-             => (a -> a -> Bool)
-             -> Int
+             => ((Int, a) -> a -> Bool)
              -> Tracer m (Synopsized a) -> m (Tracer m a)
-mkSynopsizer matchTest overflow tr =
+mkSynopsizer overflowTest tr =
   (liftIO . newMVar $ SynopsizerState 0 Nothing)
   >>= pure . mkTracer
   where
@@ -83,26 +81,17 @@ mkSynopsizer matchTest overflow tr =
           (traceWith tr (One a))
 
         Just prev ->
-          if | prev `matchTest` a
-             -> if | ssRepeats ss + 1 == overflow
-                   -> (,)
-                     (ss { ssRepeats = 0 })
-                     (traceWith tr (Many (ssRepeats ss + 1) prev))
-
-                   | otherwise
-                   -> (,)
-                     (ss { ssRepeats = ssRepeats ss + 1 })
-                     (pure ())
-
-             | ssRepeats ss == 0
+          if | (ssRepeats ss, prev) `overflowTest` a
              -> (,)
-               (ss { ssLast = Just a })
-               (traceWith tr (One a))
+               (ss { ssRepeats = 0, ssLast = Just a })
+               (mapM_ (traceWith tr) $
+                [ Many (ssRepeats ss + 1) prev
+                | ssRepeats ss /= 0]
+                ++ [ One a ])
 
              | otherwise
              -> (,)
-               (ss { ssRepeats = 0, ssLast = Just a })
-               (traceWith tr (Many (ssRepeats ss) prev) >>
-                traceWith tr (One a))
+               (ss { ssRepeats = ssRepeats ss + 1, ssLast = Just a })
+               (pure ())
 
 \end{code}

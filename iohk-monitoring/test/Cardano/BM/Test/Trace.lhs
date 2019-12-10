@@ -398,22 +398,23 @@ prop_synopsizer stream runLimit = runLimit > 1 QC.==> QC.monadicIO $ do
          (setupTrace $
            TraceConfiguration cfg (MockSB msgs) "test-synopsizer" Neutral)
 
-    tr <- QC.run $ mkSynopsizedTrace equalityCriterion runLimit base
+    tr <- QC.run $ mkSynopsizedTrace overflowTest base
     QC.run $ mapM_ (traceWith tr) stream
 
     -- acquire the traced objects
     res <- QC.run $ STM.readTVarIO msgs
 
-    let modelResult = synopsizerOracle equalityCriterion runLimit stream
+    let modelResult = synopsizerOracle overflowTest runLimit stream
     QC.assert (length res == modelResult)
   where
-    equalityCriterion :: LogObject a -> LogObject a -> Bool
-    equalityCriterion = loTypeEq
+    overflowTest :: (Int, LogObject a) -> LogObject a -> Bool
+    overflowTest (counter, prev) this =
+      counter == runLimit - 1 || not (prev `loTypeEq` this)
 
 \end{code}
 Model for the Synopsizer trace transformer.
 
-Given a transitive similarity criterion, and a sequence of messages,
+Given an overflow test, and a sequence of messages,
 determine how many messages a synopsizer-reduced sequence ought to contain.
 
 The result should be:
@@ -425,27 +426,28 @@ The result should be:
 
 \begin{code}
 synopsizerOracle
-  :: (a -> a -> Bool)
-  -> Int
+  :: ((Int, a) -> a -> Bool)
+  -> Int -- We still depend on this insight.
   -> [a]
   -> Int
-synopsizerOracle criterion runLimit xs =
+synopsizerOracle overflowTest runLimit xs =
   length xs
   - length dropped
-  + sum (runSummaries runLimit <$> similarityRuns) -- Synopses added.
+  + sum (runSummaries runLimit <$> nonOverflownRuns) -- Synopses added.
   - tailCorrection
  where
-   -- | The similarity property is 'True' for every such element,
+   -- | The non-overflown property is 'True' for every such element,
    --   that is going to be dropped by the Synopsizer.
-   similarity = sequentialSimilarity criterion xs
-   dropped = filter id similarity
-   -- | Compute the similarity runs:
-   similarityRuns = filter (any id) $ group similarity
-   -- | The last summary is withheld:
+   nonOverflown = nonOverflows overflowTest xs
+   dropped = filter id nonOverflown
+   -- | Compute the non-overflown runs:
+   nonOverflownRuns = filter (any id) $ group nonOverflown
+   -- | The last summary is withheld, unless it coincides with an overflow
+   --   (which we approximate for simplicity):
    tailCorrection =
-     if not (null similarity)
-        && last similarity
-        && length (last similarityRuns) /= runLimit
+     if not (null nonOverflown)
+        && last nonOverflown
+        && length (last nonOverflownRuns) /= runLimit
      then 1 else 0
 
 -- | Every 'limit' messages are going to get a summary, plus an optional tail,
@@ -454,19 +456,18 @@ runSummaries :: Int -> [Bool] -> Int
 runSummaries runLimit run = limitfuls + if remainder > 0 then 1 else 0
   where (limitfuls, remainder) = length run `divMod` runLimit
 
--- | Map each element of a list, to either 'True', when it has a similar
---   predecessor, and to 'False' otherwise.
---
---   Note:  the similarity property is assumed to be transitive.
-sequentialSimilarity :: forall a. (a -> a -> Bool) -> [a] -> [Bool]
-sequentialSimilarity test = go Nothing
-  where go predec = \case
+-- | Map each element of a list to the negated result of the overflow predicate.
+nonOverflows :: forall a. ((Int, a) -> a -> Bool) -> [a] -> [Bool]
+nonOverflows overflowTest = go Nothing [0..]
+  where go predec (counter:cs) = \case
           []     -> []
-          (y:ys) -> (predec `test'` Just y) : go (Just y) ys
+          (y:ys) -> not overflown : go (Just y) (if overflown then [0..] else cs) ys
+            where overflown = (counter, predec) `overflowTest'` Just y
+        go _ _ = error "Infinite list ran out of elements.."
 
-        test' :: Maybe a -> Maybe a -> Bool
-        test' (Just x) (Just y) = x `test` y
-        test' _ _ = False
+        overflowTest' :: (Int, Maybe a) -> Maybe a -> Bool
+        overflowTest' (counter, Just x) (Just y) = (counter, x) `overflowTest` y
+        overflowTest' _ _ = True -- Implicit overflow on the very first entry.
 
 newtype NotSoArbitraryMsg = NotSoArbitraryMsg { payload :: Text }
   deriving Eq

@@ -40,24 +40,30 @@ type Trace m a = Tracer m (LogObject a)
 \label{code:mkSynopsizedTrace}
 \index{mkSynopsizedTrace}
 Build upon |Synopsizer| tracer transformer to suppress repeated messages,
-based on a given transitive similarity criterion.
+based on a given overflow criterion.
 
-A summary is printed every |overflow| entries, and at the end of a run
-of similar messages.
+The transformer is specified in terms of an internal counter (starting at zero),
+and a given predicate on the state of the counter and the pair of subsequent messages.
+If the predicate returns 'False', the message is suppressed, and the counter is increased.
+Otherwise, the counter is reset to zero, and:
+  - the message is wrapped into 'One',
+  - an additional 'Many' message is added for the predecessor, if the counter was zero.
 
-Handy predicates to use:  'loTypeEq' and 'loContentEq'.
+Handy predicates to use as part of the overflow predicate:  'loTypeEq' and 'loContentEq'.
 
-See the caveats in the |Synopsizer| tracer transformer description.
+Caveat:  the resulting tracer has state, which is lost upon trace termination.
+This means that if the trace ends with a run of positively-flagged messages, this will
+not be reflected in the trace itself, as observed by the backends
+-- they'll only receive the first message of the run.
 \begin{code}
 
 mkSynopsizedTrace
   :: forall m a. MonadIO m
-  => (LogObject a -> LogObject a -> Bool)
-  -> Int
+  => ((Int, LogObject a) -> LogObject a -> Bool)
   -> Trace m a
   -> m (Trace m a)
-mkSynopsizedTrace similarity overflow tr =
-  mkSynopsizer similarity overflow (transform tr)
+mkSynopsizedTrace overflowTest tr =
+  mkSynopsizer overflowTest (transform tr)
  where
    transform :: Trace m a -> Tracer m (Synopsized (LogObject a))
    transform trace = Tracer $ \case
