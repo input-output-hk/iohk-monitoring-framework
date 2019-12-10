@@ -41,4 +41,3 @@ These showcase the usage of this framework in an application. The *complex* exam
 
 Testing Jira Webhook
 
-Testing transition from Open to In Progress on commit.
