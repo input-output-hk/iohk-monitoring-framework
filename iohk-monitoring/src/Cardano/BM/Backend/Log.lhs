@@ -248,9 +248,9 @@ passN backend katip (LogObject loname lometa loitem) = do
                                      (severity lometa, text, maylo)
                                 (LogError text) ->
                                      (severity lometa, text, Nothing)
-                                (LogRepeats count) ->
+                                (LogRepeats count _fir _las) ->
                                      ( severity lometa
-                                     , "Previous message from this thread was repeated " <> pack (show count) <> " times."
+                                     , "Similar messages elided, " <> pack (show count) <> " total."
                                      , Nothing)
                                 (LogStructured s) ->
                                      (severity lometa, TL.toStrict $ decodeUtf8 s, Nothing {-Just loitem-})

@@ -10,7 +10,7 @@
 
 module Cardano.BM.Data.Trace
   ( Trace
-  , mkSynopsizedTrace
+  , liftSynopsized
   )
   where
 
@@ -18,13 +18,12 @@ import           Control.Monad.IO.Class (MonadIO)
 
 import           Cardano.BM.Data.LogItem
                      ( LOContent(..), LOMeta(..)
-                     , LogObject(..), LoggerName, PrivacyAnnotation
+                     , LogObject(..)
                      , mkLOMeta)
-import           Cardano.BM.Data.Severity (Severity)
 import           Cardano.BM.Data.Tracer (Tracer(..), traceWith)
 
 import           Control.Tracer.Transformers.Synopsizer
-                     (Synopsized(..), mkSynopsizer)
+                     (Synopsized(..))
 
 \end{code}
 %endif
@@ -37,47 +36,23 @@ type Trace m a = Tracer m (LogObject a)
 \end{code}
 
 \subsubsection{Transformer for synopsization}
-\label{code:mkSynopsizedTrace}
-\index{mkSynopsizedTrace}
-Build upon |Synopsizer| tracer transformer to suppress repeated messages,
-based on a given overflow criterion.
-
-The transformer is specified in terms of an internal counter (starting at zero),
-and a given predicate on the state of the counter and the pair of subsequent messages.
-If the predicate returns 'False', the message is suppressed, and the counter is increased.
-Otherwise, the counter is reset to zero, and:
-  - the message is wrapped into 'One',
-  - an additional 'Many' message is added for the predecessor, if the counter was zero.
-
-Handy predicates to use as part of the overflow predicate:  'loTypeEq' and 'loContentEq'.
-
-Caveat:  the resulting tracer has state, which is lost upon trace termination.
-This means that if the trace ends with a run of positively-flagged messages, this will
-not be reflected in the trace itself, as observed by the backends
--- they'll only receive the first message of the run.
+\label{code:liftSynopsized}
+\index{liftSynopsized}
+Make a |Trace| |Synopsized|.
 \begin{code}
 
-mkSynopsizedTrace
+liftSynopsized
   :: forall m a. MonadIO m
-  => ((Int, LogObject a) -> LogObject a -> Bool)
-  -> Trace m a
-  -> m (Trace m a)
-mkSynopsizedTrace overflowTest tr =
-  mkSynopsizer overflowTest (transform tr)
+  => Trace m a
+  -> Tracer m (Synopsized (LogObject a))
+liftSynopsized tr =
+  Tracer $ \case
+    One    a       -> traceWith   tr   a
+    Many n fir las -> traceRepeat tr n fir las
  where
-   transform :: Trace m a -> Tracer m (Synopsized (LogObject a))
-   transform trace = Tracer $ \case
-       One    a -> traceWith   trace   a
-       Many n a -> traceRepeat trace n a
-
-   traceLOC :: Trace m a -> [LoggerName] -> Severity -> PrivacyAnnotation -> LOContent a -> m ()
-   traceLOC t name sev' priv' a = do
-     meta <- mkLOMeta sev' priv'
-     traceWith t $ LogObject name meta a
-
-   traceRepeat :: Trace m a -> Int -> LogObject a -> m ()
-   traceRepeat t repeats prev =
-     traceLOC t ["synopsis"] (severity $ loMeta prev) (privacy $ loMeta prev) $
-       LogRepeats repeats
+   traceRepeat :: Trace m a -> Int -> LogObject a -> LogObject a -> m ()
+   traceRepeat t repeats fir las = do
+     meta <- mkLOMeta (severity $ loMeta fir) (privacy $ loMeta fir)
+     traceWith t . LogObject ["synopsis"] meta $ LogRepeats repeats fir las
 
 \end{code}

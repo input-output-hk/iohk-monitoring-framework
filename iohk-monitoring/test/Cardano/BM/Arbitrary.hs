@@ -49,7 +49,7 @@ instance Arbitrary a => Arbitrary (LOContent a) where
   arbitrary = QC.oneof
     [ LogMessage <$> arbitrary
     , LogError <$> message
-    , LogRepeats <$> arbitrary
+    , LogRepeats <$> arbitrary <*> arbitrary <*> arbitrary
     , LogValue <$> message <*> arbitrary
     -- TODO:  fill this in later.
     -- , LogStructured <$> arbitrary

@@ -59,6 +59,7 @@ import qualified Cardano.BM.Observer.STM as STM
 import           Cardano.BM.Plugin
 import           Cardano.BM.Setup
 import           Cardano.BM.Trace
+import           Control.Tracer.Transformers.Synopsizer
 
 \end{code}
 
@@ -343,9 +344,9 @@ msgThr trace = do
   logInfo trace "start messaging .."
   let trace' = appendName "message" trace
       overflowTest :: Eq a => (Int, LogObject a) -> LogObject a -> Bool
-      overflowTest (count, prevLo) thisLo =
-        count == 2 || not (prevLo `loContentEq` thisLo)
-  synopsized <- mkSynopsizedTrace overflowTest trace'
+      overflowTest (counter, prevLo) thisLo =
+        counter == 2 || not (prevLo `loContentEq` thisLo)
+  synopsized <- mkSynopsizer overflowTest (liftSynopsized trace')
   Async.async (loop synopsized)
   where
     loop tr = do

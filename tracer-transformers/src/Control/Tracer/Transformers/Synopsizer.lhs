@@ -35,6 +35,7 @@ import           Control.Tracer (Tracer (..), traceWith)
 data SynopsizerState a
   = SynopsizerState
     { ssRepeats  :: {-# UNPACK #-} !Int
+    , ssFirst    :: !(Maybe a)
     , ssLast     :: !(Maybe a)
     }
 
@@ -42,10 +43,12 @@ data SynopsizerState a
 data Synopsized a
   = One !a
     -- ^ Normal, unsynopsized message.
-  | Many {-# UNPACK #-} !Int !a
-    -- ^ Synopsis for a specified number of messages similar to a previous one.
-    --   Note that several 'Many' messages can follow the initial 'One' message,
-    --   because of configurable synopsis overflow.
+  | Many
+    { count :: {-# UNPACK #-} !Int
+    , first :: !a
+    , last  :: !a
+    }
+    -- ^ Synopsis for a specified number of messages similar to the first one.
 
 -- | Generic Tracer transformer, intended for suppression of repeated messages.
 --
@@ -65,7 +68,7 @@ mkSynopsizer :: forall m a
              => ((Int, a) -> a -> Bool)
              -> Tracer m (Synopsized a) -> m (Tracer m a)
 mkSynopsizer overflowTest tr =
-  (liftIO . newMVar $ SynopsizerState 0 Nothing)
+  (liftIO . newMVar $ SynopsizerState 0 Nothing Nothing)
   >>= pure . mkTracer
   where
     mkTracer :: MVar (SynopsizerState a) -> Tracer m a
@@ -75,17 +78,17 @@ mkSynopsizer overflowTest tr =
     -- This is a fast, pure computation to be done inside the lock.
     contended :: a -> SynopsizerState a -> (SynopsizerState a, m ())
     contended a ss = 
-      case ssLast ss of
-        Nothing -> (,)
-          (ss { ssRepeats = 0, ssLast = Just a })
+      case (ssFirst ss, ssLast ss) of
+        (,) Nothing _ -> (,)
+          (ss { ssRepeats = 0, ssFirst = Just a, ssLast = Just a })
           (traceWith tr (One a))
 
-        Just prev ->
-          if | (ssRepeats ss, prev) `overflowTest` a
+        (Just fir, Just las) ->
+          if | (ssRepeats ss, fir) `overflowTest` a
              -> (,)
-               (ss { ssRepeats = 0, ssLast = Just a })
+               (ss { ssRepeats = 0, ssFirst = Just a, ssLast = Just a })
                (mapM_ (traceWith tr) $
-                [ Many (ssRepeats ss + 1) prev
+                [ Many (ssRepeats ss) fir las
                 | ssRepeats ss /= 0]
                 ++ [ One a ])
 
@@ -93,5 +96,7 @@ mkSynopsizer overflowTest tr =
              -> (,)
                (ss { ssRepeats = ssRepeats ss + 1, ssLast = Just a })
                (pure ())
+
+        _ -> error "Nothing is impossible at this point."
 
 \end{code}

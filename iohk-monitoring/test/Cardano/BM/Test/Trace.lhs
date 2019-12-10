@@ -63,6 +63,7 @@ import           Cardano.BM.Trace (Trace, appendName, logDebug, logInfo,
 import           Cardano.BM.Test.Mock (MockSwitchboard (..), traceMock)
 
 import           Control.Tracer (contramap, traceWith)
+import           Control.Tracer.Transformers.Synopsizer (mkSynopsizer)
 
 import           Cardano.BM.Arbitrary ()
 
@@ -398,7 +399,7 @@ prop_synopsizer stream runLimit = runLimit > 1 QC.==> QC.monadicIO $ do
          (setupTrace $
            TraceConfiguration cfg (MockSB msgs) "test-synopsizer" Neutral)
 
-    tr <- QC.run $ mkSynopsizedTrace overflowTest base
+    tr <- QC.run $ mkSynopsizer overflowTest (liftSynopsized base)
     QC.run $ mapM_ (traceWith tr) stream
 
     -- acquire the traced objects

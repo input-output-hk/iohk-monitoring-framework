@@ -167,6 +167,7 @@ test-suite tests
                        text,
                        time,
                        time-units,
+                       tracer-transformers,
                        transformers,
                        unordered-containers,
                        vector,

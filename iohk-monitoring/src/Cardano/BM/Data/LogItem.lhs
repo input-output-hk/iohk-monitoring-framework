@@ -193,7 +193,11 @@ Payload of a |LogObject|:
 \begin{code}
 data LOContent a = LogMessage a
                  | LogError Text
-                 | LogRepeats Int
+                 | LogRepeats
+                   { lrRepeats :: {-# UNPACK #-} !Int
+                   , lrFirst   :: !(LogObject a)
+                   , lrLast    :: !(LogObject a)
+                   }
                  | LogValue Text Measurable
                  | LogStructured BS.ByteString
                  | ObserveOpen CounterState
@@ -213,9 +217,11 @@ instance ToJSON a => ToJSON (LOContent a) where
     toJSON (LogError m) =
         object [ "kind" .= String "LogError"
                , "message" .= toJSON m]
-    toJSON (LogRepeats n) =
+    toJSON (LogRepeats n f l) =
         object [ "kind" .= String "LogRepeats"
-               , "elided-count" .= toJSON n]
+               , "elided-count" .= toJSON n
+               , "first-elided" .= toJSON f
+               , "last-elided"  .= toJSON l]
     toJSON (LogValue n v) =
         object [ "kind" .= String "LogValue"
                , "name" .= toJSON n
@@ -250,7 +256,10 @@ instance (FromJSON a) => FromJSON (LOContent a) where
                   >>=
                   \case "LogMessage" -> LogMessage <$> v .: "message"
                         "LogError" -> LogError <$> v .: "message"
-                        "LogRepeats" -> LogRepeats <$> v .: "elided-count"
+                        "LogRepeats" -> LogRepeats
+                          <$> v .: "elided-count"
+                          <*> v .: "first-elided"
+                          <*> v .: "last-elided"
                         "LogValue" -> LogValue <$> v .: "name" <*> v .: "value"
                         "LogStructured" -> LogStructured <$>
                                               BS64.decodeLenient <$>
@@ -300,7 +309,7 @@ loType2Name :: LOContent a -> Text
 loType2Name = \case
     LogMessage _        -> "LogMessage"
     LogError _          -> "LogError"
-    LogRepeats _        -> "LogRepeats"
+    LogRepeats _ _ _    -> "LogRepeats"
     LogValue _ _        -> "LogValue"
     LogStructured _     -> "LogStructured"
     ObserveOpen _       -> "ObserveOpen"
@@ -380,7 +389,7 @@ mapLOContent :: (a -> b) -> LOContent a -> LOContent b
 mapLOContent f = \case
     LogMessage msg       -> LogMessage (f msg)
     LogError a           -> LogError a
-    LogRepeats n         -> LogRepeats n
+    LogRepeats n fir las -> LogRepeats n (mapLogObject f fir) (mapLogObject f las)
     LogStructured m      -> LogStructured m
     LogValue n v         -> LogValue n v
     ObserveOpen st       -> ObserveOpen st
