@@ -116,6 +116,7 @@ unit_tests = testGroup "Unit tests" [
       , testCase "testing throwing of exceptions" unitExceptionThrowing
       , testCase "NoTrace: check lazy evaluation" unitTestLazyEvaluation
       , testCase "private messages should not be logged into private files" unitLoggingPrivate
+      , testProperty "synopsization edge case: everything similar & overflow is length-1" (QC.property $ \x -> prop_synopsizer [x, x, x, x] 3)
       , testProperty "synopsization shrinks the messeage stream predictably" prop_synopsizer
       ]
       where
@@ -441,7 +442,11 @@ synopsizerOracle criterion runLimit xs =
    -- | Compute the similarity runs:
    similarityRuns = filter (any id) $ group similarity
    -- | The last summary is withheld:
-   tailCorrection = if not (null similarity) && last similarity then 1 else 0
+   tailCorrection =
+     if not (null similarity)
+        && last similarity
+        && length (last similarityRuns) /= runLimit
+     then 1 else 0
 
 -- | Every 'limit' messages are going to get a summary, plus an optional tail,
 --   which might get either a summary or a plain message.
