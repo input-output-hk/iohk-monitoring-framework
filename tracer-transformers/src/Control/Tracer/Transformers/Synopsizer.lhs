@@ -22,7 +22,7 @@ module Control.Tracer.Transformers.Synopsizer
     ) where
 
 import           Control.Concurrent (MVar, newMVar, modifyMVarMasked)
-import           Control.Monad (mapM_, join)
+import           Control.Monad (join)
 import           Control.Monad.IO.Class (MonadIO (..))
 
 import           Control.Tracer (Tracer (..), traceWith)
@@ -87,10 +87,10 @@ mkSynopsizer overflowTest tr =
           if | (ssRepeats ss, fir) `overflowTest` a
              -> (,)
                (ss { ssRepeats = 0, ssFirst = Just a, ssLast = Just a })
-               (mapM_ (traceWith tr) $
-                [ Many (ssRepeats ss) fir las
-                | ssRepeats ss /= 0]
-                ++ [ One a ])
+               (if ssRepeats ss == 0
+                then traceWith tr (One a)
+                else traceWith tr (Many (ssRepeats ss) fir las) >>
+                     traceWith tr (One a))
 
              | otherwise
              -> (,)
