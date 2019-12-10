@@ -204,6 +204,7 @@ data LOContent a = LogMessage a
                  | Command CommandValue
                  | KillPill
                  deriving (Show, Eq)
+-- WARNING: update 'locTypeEq' when extending this!
 
 instance ToJSON a => ToJSON (LOContent a) where
     toJSON (LogMessage m) =
@@ -272,6 +273,7 @@ instance (FromJSON a) => FromJSON (LOContent a) where
 loType :: LogObject a -> Text
 loType (LogObject _ _ content) = loType2Name content
 
+-- | Equality between LogObjects based on their log content types.
 loTypeEq :: LogObject a -> LogObject a -> Bool
 loTypeEq = locTypeEq `on` loContent
 
@@ -389,6 +391,7 @@ mapLOContent f = \case
     Command v            -> Command v
     KillPill             -> KillPill
 
+-- | Equality between LogObjects based on their log content values.
 loContentEq :: Eq a => LogObject a -> LogObject a -> Bool
 loContentEq = (==) `on` loContent
 

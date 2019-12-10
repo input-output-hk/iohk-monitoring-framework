@@ -1,4 +1,4 @@
-\label{code:Control.Tracer.Transformers.WithThreadAndTime}
+\label{code:Control.Tracer.Transformers.Synopsizer}
 
 %if style == newcode
 \begin{code}

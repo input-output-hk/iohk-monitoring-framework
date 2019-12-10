@@ -384,7 +384,7 @@ unitTraceDuplicate = do
 
 \end{code}
 
-\subsubsection{Verify that Synopsizer has the intended effect on the message count.}\label{code:unitSynopsizer}
+\subsubsection{Verify that Synopsizer has the intended effect on the message count.}\label{code:prop_synopsizer}
 |Synopsizer| has a predictable effect on the message stream.
 
 \begin{code}
