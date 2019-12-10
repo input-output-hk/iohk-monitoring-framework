@@ -40,3 +40,4 @@ These showcase the usage of this framework in an application. The *complex* exam
 * `ghcid -c "cabal new-repl"` watches for file changes and recompiles them immediately
 
 
+Testing transition from Open to In Progress on commit.
