@@ -24,9 +24,9 @@ import           Cardano.BM.Data.LogItem
 \begin{code}
 processQueue
     :: TBQ.TBQueue (Maybe (LogObject a))
-    -> (LogObject a -> b -> IO b)  -- processing function
-    -> b                           -- initial state
-    -> (b -> IO ())                -- termination function
+    -> (LogObject a -> s -> IO s)  -- processing function
+    -> s                           -- initial state
+    -> (s -> IO ())                -- termination function
     -> IO ()
 processQueue tbqueue proc state terminate = do
     items <- atomically $ do
@@ -36,7 +36,7 @@ processQueue tbqueue proc state terminate = do
     processItems state items
     where
     processItems s []             = processQueue tbqueue proc s terminate
-    processItems s ((Just lo):is) = proc lo s >>= \s' -> processItems s' is
-    processItems s (Nothing  :_ ) = terminate s
+    processItems s (Just lo : is) = proc lo s >>= \s' -> processItems s' is
+    processItems s (Nothing : _ ) = terminate s
 
 \end{code}

@@ -48,8 +48,6 @@ import           Cardano.BM.Data.Backend
 import           Cardano.BM.Data.Counter (Counter (..), CounterState (..),
                      nameCounter)
 import           Cardano.BM.Data.LogItem
-import           Cardano.BM.Data.MessageCounter (resetCounters, sendAndResetAfter,
-                     updateMessageCounters)
 import           Cardano.BM.Data.MonitoringEval
 import           Cardano.BM.Data.Severity (Severity (..))
 import           Cardano.BM.Plugin (Plugin (..))
@@ -165,42 +163,30 @@ spawnDispatcher :: TBQ.TBQueue (Maybe (LogObject a))
                 -> Trace.Trace IO a
                 -> Monitor a
                 -> IO (Async.Async ())
-spawnDispatcher mqueue config sbtrace monitor = do
-    now <- getCurrentTime
-    let messageCounters = resetCounters now
-    countersMVar <- newMVar messageCounters
-    _timer <- Async.async $ sendAndResetAfter
-                                sbtrace
-                                "#messagecounters.monitoring"
-                                countersMVar
-                                60000   -- 60000 ms = 1 min
-                                Debug
-    Async.async (initMap >>= qProc countersMVar)
+spawnDispatcher mqueue config sbtrace monitor =
+    Async.async (initMap >>= qProc)
   where
     {-@ lazy qProc @-}
-    qProc counters state =
+    qProc state =
         processQueue
             mqueue
             processMonitoring
-            (counters, state)
+            state
             (\_ -> pure ())
 
-    processMonitoring lo@LogObject{} (counters, state) = do
+    processMonitoring lo@LogObject{} state = do
         let accessBufferMap = do
                 mon <- tryReadMVar (getMon monitor)
                 case mon of
                     Nothing        -> return []
                     Just actualMon -> readBuffer $ monBuffer actualMon
+            sbtraceWithMonitoring = Trace.appendName "#monitoring" sbtrace
         mbuf <- accessBufferMap
-        let sbtraceWithMonitoring = Trace.appendName "#monitoring" sbtrace
         valuesForMonitoring <- getVarValuesForMonitoring config mbuf
-        state' <- evalMonitoringAction sbtraceWithMonitoring
-                                        state
-                                        lo
-                                        valuesForMonitoring
-        -- increase the counter for the type of message
-        modifyMVar_ counters $ \cnt -> return $ updateMessageCounters cnt lo
-        return (counters, state')
+        evalMonitoringAction sbtraceWithMonitoring
+                             state
+                             lo
+                             valuesForMonitoring
 
     initMap = do
         ls <- getMonitors config

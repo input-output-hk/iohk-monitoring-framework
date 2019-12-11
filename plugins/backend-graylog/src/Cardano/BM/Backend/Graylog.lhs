@@ -44,8 +44,6 @@ import           Cardano.BM.Configuration (Configuration, getGraylogPort)
 import           Cardano.BM.Data.Aggregated
 import           Cardano.BM.Data.Backend
 import           Cardano.BM.Data.LogItem
-import           Cardano.BM.Data.MessageCounter (MessageCounter, resetCounters,
-                     sendAndResetAfter, updateMessageCounters)
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Plugin
 import qualified Cardano.BM.Trace as Trace
@@ -169,31 +167,22 @@ spawnDispatcher :: forall a. ToJSON a
                 -> TBQ.TBQueue (Maybe (LogObject a))
                 -> Trace.Trace IO a
                 -> IO (Async.Async ())
-spawnDispatcher config evqueue sbtrace = do
-    now <- getCurrentTime
-    let messageCounters = resetCounters now
-    countersMVar <- newMVar messageCounters
-    _timer <- Async.async $ sendAndResetAfter
-                                sbtrace
-                                "#messagecounters.graylog"
-                                countersMVar
-                                60000   -- 60000 ms = 1 min
-                                Debug
-
+spawnDispatcher config evqueue sbtrace =
     let gltrace = Trace.appendName "#graylog" sbtrace
-    Async.async $ Net.withSocketsDo $ qProc gltrace countersMVar Nothing
+    in
+    Async.async $ Net.withSocketsDo $ qProc gltrace Nothing
   where
     {-@ lazy qProc @-}
-    qProc :: Trace.Trace IO a -> MVar MessageCounter -> Maybe Net.Socket -> IO ()
-    qProc gltrace counters conn =
+    qProc :: Trace.Trace IO a -> Maybe Net.Socket -> IO ()
+    qProc gltrace conn =
         processQueue
             evqueue
             processGraylog
-            (gltrace, counters, conn)
-            (\(_, _, c) -> closeConn c)
+            (gltrace, conn)
+            (\(_, c) -> closeConn c)
 
-    processGraylog :: LogObject a -> (Trace.Trace IO a, MVar MessageCounter, Maybe Net.Socket) -> IO (Trace.Trace IO a, MVar MessageCounter, Maybe Net.Socket)
-    processGraylog item (gltrace, counters, mConn) =
+    processGraylog :: LogObject a -> (Trace.Trace IO a, Maybe Net.Socket) -> IO (Trace.Trace IO a, Maybe Net.Socket)
+    processGraylog item (gltrace, mConn) =
         case mConn of
             (Just conn) -> do
                 sendLO conn item
@@ -202,12 +191,11 @@ spawnDispatcher config evqueue sbtrace = do
                         mle <- mkLOMeta Error Public
                         Trace.traceNamedObject trace' (mle, LogError (pack $ show e))
                         threadDelay 50000
-                        void $ processGraylog item (gltrace, counters, mConn)
-                modifyMVar_ counters $ \cnt -> return $ updateMessageCounters cnt item
-                return (gltrace, counters, mConn)
+                        void $ processGraylog item (gltrace, mConn)
+                return (gltrace, mConn)
             Nothing     -> do
                 mConn' <- tryConnect gltrace
-                processGraylog item (gltrace, counters, mConn')
+                processGraylog item (gltrace, mConn')
 
     sendLO :: Net.Socket -> LogObject a -> IO ()
     sendLO conn obj =

@@ -52,7 +52,7 @@ data TraceAcceptorInternal p a = TraceAcceptorInternal
     }
 
 effectuate :: LogObject a -> IO ()
-effectuate = \_ -> return ()
+effectuate _ = pure ()
 
 realizefrom :: (Pipe p, FromJSON a)
             => Trace.Trace IO a -> FilePath -> IO (TraceAcceptor p a)
@@ -86,7 +86,7 @@ spawnDispatcher :: (Pipe p, FromJSON a)
                 => PipeHandler p
                 -> Trace.Trace IO a
                 -> IO (Async.Async ())
-spawnDispatcher hPipe sbtrace = do
+spawnDispatcher hPipe sbtrace =
     Async.async $ pProc hPipe
   where
     {-@ lazy pProc @-}
