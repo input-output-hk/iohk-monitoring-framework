@@ -38,7 +38,7 @@ Data structure holding essential info for message counters.
 \begin{code}
 data MessageCounter = MessageCounter
                         { mcStart       :: {-# UNPACK #-} !UTCTime
-                        , mcCountersMap :: HM.HashMap Text Word64
+                        , mcCountersMap :: !(HM.HashMap Text Word64)
                         }
                         deriving (Show)
 
