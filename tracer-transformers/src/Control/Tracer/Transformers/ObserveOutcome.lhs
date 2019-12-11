@@ -71,8 +71,8 @@ data OutcomeFidelity a
 
 -- | Custom function for @MVar@, relying on two pretty standard
 -- constraints.
-modifyMVarM_ :: (MonadIO m, MonadMask m) => MVar a -> (a -> m a) -> m ()
-modifyMVarM_ m io =
+liftedModifyMVar_ :: (MonadIO m, MonadMask m) => MVar a -> (a -> m a) -> m ()
+liftedModifyMVar_ m io =
   CES.mask $ \restore -> do
     a  <- liftIO $ takeMVar m
     a' <- restore (io a) `CES.onException` (liftIO $ putMVar m a)
@@ -100,7 +100,7 @@ mkOutcomeExtractor = do
       classifedObservable <- classifyObservable a
       case classifedObservable of
         OutcomeOther    -> traceWith tr $ Left a
-        outcome         -> modifyMVarM_ maybeInterValue $ \observedResult -> case observedResult of
+        outcome         -> liftedModifyMVar_ maybeInterValue $ \observedResult -> case observedResult of
                 Nothing   -> outcomeWithoutValue outcome a
                 (Just b)  -> outcomeWithValue outcome a b
       pure ()
