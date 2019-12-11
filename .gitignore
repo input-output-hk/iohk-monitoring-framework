@@ -33,3 +33,5 @@ cabal.project.local~
 .stack-to-nix.cache
 
 .dir-locals.el
+
+tags

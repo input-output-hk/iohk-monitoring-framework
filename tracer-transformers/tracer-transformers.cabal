@@ -23,6 +23,7 @@ library
   build-depends:       base
                      , contra-tracer
                      , time
+                     , safe-exceptions
   if impl(ghc < 8.5)
     build-depends:     contravariant
   ghc-options:         -Wall -Werror

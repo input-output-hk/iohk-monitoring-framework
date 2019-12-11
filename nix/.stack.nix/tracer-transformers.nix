@@ -20,6 +20,7 @@
           (hsPkgs.base)
           (hsPkgs.contra-tracer)
           (hsPkgs.time)
+          (hsPkgs.safe-exceptions)
           ] ++ (pkgs.lib).optional (compiler.isGhc && (compiler.version).lt "8.5") (hsPkgs.contravariant);
         };
       exes = {
