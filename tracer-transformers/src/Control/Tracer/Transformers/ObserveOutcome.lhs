@@ -23,8 +23,6 @@ module Control.Tracer.Transformers.ObserveOutcome
 
 import           Control.Monad.IO.Class (MonadIO (..))
 
--- We really need to use Cardano.Prelude here and gain access to more
--- advanced concurrency primitives.
 import           Control.Concurrent.MVar (MVar, newMVar, takeMVar, putMVar)
 
 import           Control.Exception.Safe (MonadMask)
@@ -114,7 +112,6 @@ mkOutcomeExtractor = do
         -- @OutcomeStarts@, then we set the initial value inside the MVar.
         outcomeWithoutValue :: OutcomeProgressionStatus -> a -> m (Maybe (IntermediateValue a))
         outcomeWithoutValue OutcomeStarts a = do
-            -- Forces evaluation?!
             !z <- captureObservableValue a
             traceWith tr $ Left a
             return $ Just z
@@ -129,14 +126,12 @@ mkOutcomeExtractor = do
         -- @OutcomeStarts@, then we set the initial value inside the MVar.
         outcomeWithValue :: OutcomeProgressionStatus -> a -> IntermediateValue a -> m (Maybe (IntermediateValue a))
         outcomeWithValue OutcomeEnds a b = do
-            -- Forces evaluation?!
             !z <- captureObservableValue a
             traceWith tr $ Left a
             v <- computeOutcomeMetric a b z
             traceWith tr $ Right (ProgressedNormally v)
             return $ Nothing
         outcomeWithValue _otherwise a b = do -- OutcomeStarts, this could be ignored since it "resets".
-            -- Forces evaluation?!
             !z <- captureObservableValue a
             traceWith tr $ Left a
             v <- computeOutcomeMetric a b z
