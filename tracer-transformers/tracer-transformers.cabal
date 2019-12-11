@@ -19,10 +19,13 @@ library
                        Control.Tracer.Transformers.WithThreadAndTime
 
   default-extensions:  OverloadedStrings
+                       NoImplicitPrelude
   default-language:    Haskell2010
   build-depends:       base
                      , contra-tracer
                      , time
+                     , cardano-prelude
+                     , safe-exceptions
   if impl(ghc < 8.5)
     build-depends:     contravariant
   ghc-options:         -Wall -Werror

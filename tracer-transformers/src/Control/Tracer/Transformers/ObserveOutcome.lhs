@@ -7,11 +7,10 @@ Module: ObserveOutcome
 
 Observing events with annotations of thread id and time.
 -}
-{-# LANGUAGE BangPatterns   #-}
-{-# LANGUAGE LambdaCase     #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE BangPatterns           #-}
+{-# LANGUAGE MultiParamTypeClasses  #-}
+{-# LANGUAGE ScopedTypeVariables    #-}
+{-# LANGUAGE TypeFamilies           #-}
 
 module Control.Tracer.Transformers.ObserveOutcome
     (
@@ -21,10 +20,10 @@ module Control.Tracer.Transformers.ObserveOutcome
     , mkOutcomeExtractor
     ) where
 
-import           Control.Monad.IO.Class (MonadIO (..))
--- We really need to use Cardano.Prelude here and gain access to more
--- advanced concurrency primitives.
-import           Control.Concurrent.MVar (MVar, newMVar, readMVar, putMVar)
+import           Cardano.Prelude
+
+import           Control.Exception.Safe (MonadMask)
+import qualified Control.Exception.Safe as CES
 
 import           Control.Tracer (Tracer (..), traceWith)
 
@@ -56,7 +55,6 @@ class (Monad m) => Outcome m a where
                          -> IntermediateValue a
                          -> m (OutcomeMetric a)
 
-
 -- | The Maybe (OutcomeMetric a) captures the 'DeltaQ-ness' of the
 --   nature of outcomes, may / may not complete.
 type OutcomeEnhancedTracer m a
@@ -71,6 +69,15 @@ data OutcomeFidelity a
 --  might have "timeout" and/or Failureprogression?
   deriving (Show)
 
+-- | Custom function for @MVar@, relying on two pretty standard
+-- constraints.
+modifyMVarM_ :: (MonadIO m, MonadMask m) => MVar a -> (a -> m a) -> m ()
+modifyMVarM_ m io =
+  CES.mask $ \restore -> do
+    a  <- liftIO $ takeMVar m
+    a' <- restore (io a) `CES.onException` (liftIO $ putMVar m a)
+    liftIO $ putMVar m a'
+
 -- | Generic Trace transformer. It could be written to take
 --   an initial argument, but restricting the scope of that
 --   per-invocation state seems more appropriate (for the
@@ -78,9 +85,10 @@ data OutcomeFidelity a
 --   timeout was required and\/or non-termination of the outcome at
 --   the end of a run was of interest.
 mkOutcomeExtractor
-    :: forall m a. (MonadIO m, Outcome m a)
+    :: forall m a. (MonadIO m, MonadMask m, Outcome m a)
     => m (OutcomeEnhancedTracer m a -> Tracer m a)
 mkOutcomeExtractor = do
+    -- We always instantiate a new MVar for the outcome.
     maybeInterValue <- liftIO $ newMVar Nothing
     pure $ traceOutcomes maybeInterValue
   where
@@ -92,46 +100,42 @@ mkOutcomeExtractor = do
       classifedObservable <- classifyObservable a
       case classifedObservable of
         OutcomeOther    -> traceWith tr $ Left a
-        -- modifyMVar_ is safer here.
-        outcome         -> do
-            observedResult <- liftIO $ readMVar maybeInterValue
-            case observedResult of
+        outcome         -> modifyMVarM_ maybeInterValue $ \observedResult -> case observedResult of
                 Nothing   -> outcomeWithoutValue outcome a
-                (Just b)  -> outcomeWithValue outcome a b      
-      where
+                (Just b)  -> outcomeWithValue outcome a b
+      pure ()
+       where
         -- If we don't have any intermediate values and the outcome is
         -- @OutcomeStarts@, then we set the initial value inside the MVar.
-        outcomeWithoutValue :: OutcomeProgressionStatus -> a -> m ()
-        outcomeWithoutValue OutcomeStarts a = do 
+        outcomeWithoutValue :: OutcomeProgressionStatus -> a -> m (Maybe (IntermediateValue a))
+        outcomeWithoutValue OutcomeStarts a = do
             -- Forces evaluation?!
             !z <- captureObservableValue a
             traceWith tr $ Left a
-            liftIO (putMVar maybeInterValue $ Just z)
+            return $ Just z
         outcomeWithoutValue _otherwise a = do -- Outcome ends
             traceWith tr $ Left a
             traceWith tr $ Right EndsBeforeStarted
             -- We remove what we had been measuring, this should
             -- probably be an error as well.
-            liftIO (putMVar maybeInterValue $ Nothing)
+            return $ Nothing
 
         -- If we do have any intermediate values and the outcome is
         -- @OutcomeStarts@, then we set the initial value inside the MVar.
-        outcomeWithValue :: OutcomeProgressionStatus -> a -> IntermediateValue a -> m ()
-        outcomeWithValue OutcomeEnds a b = do 
+        outcomeWithValue :: OutcomeProgressionStatus -> a -> IntermediateValue a -> m (Maybe (IntermediateValue a))
+        outcomeWithValue OutcomeEnds a b = do
             -- Forces evaluation?!
             !z <- captureObservableValue a
             traceWith tr $ Left a
             v <- computeOutcomeMetric a b z
             traceWith tr $ Right (ProgressedNormally v)
-            liftIO (putMVar maybeInterValue $ Nothing)
+            return $ Nothing
         outcomeWithValue _otherwise a b = do -- OutcomeStarts, this could be ignored since it "resets".
             -- Forces evaluation?!
             !z <- captureObservableValue a
             traceWith tr $ Left a
             v <- computeOutcomeMetric a b z
             traceWith tr $ Right (StartsBeforeEnds v) -- Probably some error.
-            liftIO (putMVar maybeInterValue $ Just z)
-
-
+            return $ Just z
 
 \end{code}

@@ -20,5 +20,13 @@ extra-deps:
   - git: https://github.com/CodiePP/ekg-prometheus-adapter
     commit: 1a258b6df7d9807d4c4ff3e99722223d31a2c320
 
+  - git: https://github.com/input-output-hk/cardano-prelude
+    commit: 3c40edcf5bdba8721d3430d0aaaeea8770ce9bec
+    subdirs:
+      - .
+      - test
+
+  - canonical-json-0.6.0.0@sha256:9021f435ccb884a3b4c55bcc6b50eb19d5fc3cc3f29d5fcbdef016f5bbae23a2
+
 nix:
   shell-file: scripts/nix/stack-shell.nix
