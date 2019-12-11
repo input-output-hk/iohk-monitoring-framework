@@ -20,7 +20,12 @@ module Control.Tracer.Transformers.ObserveOutcome
     , mkOutcomeExtractor
     ) where
 
-import           Cardano.Prelude
+
+import           Control.Monad.IO.Class (MonadIO (..))
+
+-- We really need to use Cardano.Prelude here and gain access to more
+-- advanced concurrency primitives.
+import           Control.Concurrent.MVar (MVar, newMVar, takeMVar, putMVar)
 
 import           Control.Exception.Safe (MonadMask)
 import qualified Control.Exception.Safe as CES

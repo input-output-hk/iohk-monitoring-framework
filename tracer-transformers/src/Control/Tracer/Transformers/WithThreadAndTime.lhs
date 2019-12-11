@@ -18,10 +18,6 @@ module Control.Tracer.Transformers.WithThreadAndTime
     , threadAndTimeTracer
     ) where
 
-import           Cardano.Prelude hiding (show)
-
-import           Prelude (Show (..))
-
 import           Control.Concurrent (ThreadId, myThreadId)
 import           Control.Monad.IO.Class (MonadIO (..))
 import           Data.Time.Clock.System (SystemTime, getSystemTime)
