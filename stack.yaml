@@ -26,7 +26,8 @@ extra-deps:
       - .
       - test
 
-  - canonical-json-0.6.0.0@sha256:9021f435ccb884a3b4c55bcc6b50eb19d5fc3cc3f29d5fcbdef016f5bbae23a2
+  - git: http://github.com/well-typed/canonical-json
+    commit: ddfe3593b80b5ceb88842bb7a6f2268df75d2c2f
 
 nix:
   shell-file: scripts/nix/stack-shell.nix

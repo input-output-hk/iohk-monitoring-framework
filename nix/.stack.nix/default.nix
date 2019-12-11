@@ -18,6 +18,9 @@
         lobemo-scribe-systemd = ./lobemo-scribe-systemd.nix;
         lobemo-examples = ./lobemo-examples.nix;
         ekg-prometheus-adapter = ./ekg-prometheus-adapter.nix;
+        cardano-prelude = ./cardano-prelude.nix;
+        cardano-prelude-test = ./cardano-prelude-test.nix;
+        canonical-json = ./canonical-json.nix;
         };
       compiler.version = "8.6.5";
       compiler.nix-name = "ghc865";

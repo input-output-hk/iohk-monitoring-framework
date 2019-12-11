@@ -31,4 +31,20 @@ source-repository-package
   location: https://github.com/CodiePP/ekg-prometheus-adapter
   tag: 1a258b6df7d9807d4c4ff3e99722223d31a2c320
 
+source-repository-package
+  type: git
+  location: https://github.com/input-output-hk/cardano-prelude
+  tag: 3c40edcf5bdba8721d3430d0aaaeea8770ce9bec
+
+source-repository-package
+  type: git
+  location: https://github.com/input-output-hk/cardano-prelude
+  tag: 3c40edcf5bdba8721d3430d0aaaeea8770ce9bec
+  subdir: test
+
+source-repository-package
+  type: git
+  location: http://github.com/well-typed/canonical-json
+  tag: ddfe3593b80b5ceb88842bb7a6f2268df75d2c2f
+
 reorder-goals: True
