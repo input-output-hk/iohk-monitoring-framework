@@ -39,4 +39,4 @@ These showcase the usage of this framework in an application. The *complex* exam
 * `cabal new-build all` and `cabal new-test all`
 * `ghcid -c "cabal new-repl"` watches for file changes and recompiles them immediately
 
-logged 
+ 
