@@ -58,16 +58,11 @@ data Synopsized a
 --   Otherwise, the counter is reset to zero, and:
 --     - the message is wrapped into 'One',
 --     - an additional 'Many' message is added for the predecessor, if the counter was zero.
---
---   Caveat:  the resulting tracer has state, which is lost upon trace termination.
---   This means that if the trace ends with a run of positively-flagged messages, this will
---   not be reflected in the trace itself, as observed by the backends
---   -- they'll only receive the first message of the run.
 mkSynopsizer :: forall m a
               . (MonadIO m)
              => ((Int, a) -> a -> Bool)
              -> Tracer m (Synopsized a) -> m (Tracer m a)
-mkSynopsizer overflowTest tr =
+mkSynopsizer resetTest tr =
   (liftIO . newMVar $ SynopsizerState 0 Nothing Nothing)
   >>= pure . mkTracer
   where
@@ -84,7 +79,7 @@ mkSynopsizer overflowTest tr =
           (traceWith tr (One a))
 
         (Just fir, Just las) ->
-          if | (ssRepeats ss, fir) `overflowTest` a
+          if | (ssRepeats ss, fir) `resetTest` a
              -> (,)
                (ss { ssRepeats = 0, ssFirst = Just a, ssLast = Just a })
                (if ssRepeats ss == 0

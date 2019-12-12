@@ -343,10 +343,10 @@ msgThr :: Trace IO Text -> IO (Async.Async ())
 msgThr trace = do
   logInfo trace "start messaging .."
   let trace' = appendName "message" trace
-      overflowTest :: Eq a => (Int, LogObject a) -> LogObject a -> Bool
-      overflowTest (counter, prevLo) thisLo =
+      resetTest :: Eq a => (Int, LogObject a) -> LogObject a -> Bool
+      resetTest (counter, prevLo) thisLo =
         counter == 2 || not (prevLo `loContentEq` thisLo)
-  synopsized <- mkSynopsizer overflowTest (liftSynopsized trace')
+  synopsized <- mkSynopsizer resetTest (liftSynopsized trace')
   Async.async (loop synopsized)
   where
     loop tr = do

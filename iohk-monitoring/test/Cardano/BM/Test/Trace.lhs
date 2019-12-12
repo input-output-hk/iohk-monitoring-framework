@@ -117,7 +117,7 @@ unit_tests = testGroup "Unit tests" [
       , testCase "testing throwing of exceptions" unitExceptionThrowing
       , testCase "NoTrace: check lazy evaluation" unitTestLazyEvaluation
       , testCase "private messages should not be logged into private files" unitLoggingPrivate
-      , testProperty "synopsization edge case: everything similar & overflow is length-1" (QC.property $ \x -> prop_synopsizer [x, x, x, x] 3)
+      , testProperty "synopsization edge case: everything similar & reset is at length-1" (QC.property $ \x -> prop_synopsizer [x, x, x, x] 3)
       , testProperty "synopsization shrinks the messeage stream predictably" prop_synopsizer
       ]
       where
@@ -399,24 +399,24 @@ prop_synopsizer stream runLimit = runLimit > 1 QC.==> QC.monadicIO $ do
          (setupTrace $
            TraceConfiguration cfg (MockSB msgs) "test-synopsizer" Neutral)
 
-    tr <- QC.run $ mkSynopsizer overflowTest (liftSynopsized base)
+    tr <- QC.run $ mkSynopsizer resetTest (liftSynopsized base)
     QC.run $ mapM_ (traceWith tr) stream
 
     -- acquire the traced objects
     res <- QC.run $ STM.readTVarIO msgs
 
-    let modelResult = synopsizerOracle overflowTest runLimit stream
+    let modelResult = synopsizerOracle resetTest runLimit stream
     QC.assert (length res == modelResult)
   where
-    overflowTest :: (Int, LogObject a) -> LogObject a -> Bool
-    overflowTest (counter, prev) this =
+    resetTest :: (Int, LogObject a) -> LogObject a -> Bool
+    resetTest (counter, prev) this =
       counter == runLimit - 1 || not (prev `loTypeEq` this)
 
 \end{code}
 Model for the Synopsizer trace transformer.
 
-Given an overflow test, and a sequence of messages,
-determine how many messages a synopsizer-reduced sequence ought to contain.
+Given a reset test, and a sequence of messages, determine how many messages
+a synopsizer-reduced sequence ought to contain.
 
 The result should be:
 
