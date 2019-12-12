@@ -44,6 +44,7 @@
             (hsPkgs.mtl)
             (hsPkgs.random)
             (hsPkgs.text)
+            (hsPkgs.tracer-transformers)
             (hsPkgs.unordered-containers)
             ] ++ (if system.isWindows
             then [ (hsPkgs.Win32) ]

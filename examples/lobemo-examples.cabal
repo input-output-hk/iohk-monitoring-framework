@@ -54,6 +54,7 @@ executable example-complex
                        mtl,
                        random,
                        text,
+                       tracer-transformers,
                        unordered-containers
   if os(windows)
      build-depends:    Win32

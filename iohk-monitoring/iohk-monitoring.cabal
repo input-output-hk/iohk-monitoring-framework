@@ -103,6 +103,7 @@ library
                        text,
                        time,
                        time-units,
+                       tracer-transformers,
                        transformers,
                        unordered-containers,
                        vector,
@@ -136,6 +137,7 @@ test-suite tests
                        Cardano.BM.Test.Structured
                        Cardano.BM.Test.Tracer
                        Cardano.BM.Test.Aggregated
+                       Cardano.BM.Arbitrary
                        Cardano.BM.Arbitrary.Aggregated
 
   default-language:    Haskell2010
@@ -165,6 +167,7 @@ test-suite tests
                        text,
                        time,
                        time-units,
+                       tracer-transformers,
                        transformers,
                        unordered-containers,
                        vector,
@@ -174,4 +177,3 @@ test-suite tests
 
   if !flag(disable-observables)
     cpp-options:       -DENABLE_OBSERVABLES
-

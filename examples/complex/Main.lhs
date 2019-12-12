@@ -50,6 +50,7 @@ import           Cardano.BM.Data.Output
 import           Cardano.BM.Data.Rotation
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.SubTrace
+import           Cardano.BM.Data.Trace
 #ifdef ENABLE_OBSERVABLES
 import           Cardano.BM.Data.Observable
 import           Cardano.BM.Observer.Monadic (bracketObserveIO)
@@ -58,6 +59,7 @@ import qualified Cardano.BM.Observer.STM as STM
 import           Cardano.BM.Plugin
 import           Cardano.BM.Setup
 import           Cardano.BM.Trace
+import           Control.Tracer.Transformers.Synopsizer
 
 \end{code}
 
@@ -341,12 +343,29 @@ msgThr :: Trace IO Text -> IO (Async.Async ())
 msgThr trace = do
   logInfo trace "start messaging .."
   let trace' = appendName "message" trace
-  Async.async (loop trace')
+      resetTest :: Eq a => (Int, LogObject a) -> LogObject a -> Bool
+      resetTest (counter, prevLo) thisLo =
+        counter == 2 || not (prevLo `loContentEq` thisLo)
+  synopsized <- mkSynopsizer resetTest (liftSynopsized trace')
+  Async.async (loop synopsized)
   where
     loop tr = do
         threadDelay 3000000  -- 3 seconds
         logNotice tr "N O T I F I C A T I O N ! ! !"
+        logNotice tr "N O T I F I C A T I O N ! ! !"
+        logNotice tr "N O T I F I C A T I O N ! ! !"
+        logNotice tr "N O T I F I C A T I O N ! ! !"
+        logNotice tr "N O T I F I C A T I O N ! ! !"
+        logNotice tr "N O T I F I C A T I O N ! ! !"
+        logNotice tr "N O T I F I C A T I O N ! ! !"
+        logNotice tr "N O T I F I C A T I O N ! ! !"
+        logNotice tr "N O T I F I C A T I O N ! ! !"
+        logNotice tr "N O T I F I C A T I O N ! ! !"
+        logNotice tr "N O T I F I C A T I O N ! ! !"
         logDebug tr "a detailed debug message."
+        logError tr "Boooommm .."
+        logError tr "Boooommm .."
+        logError tr "Boooommm .."
         logError tr "Boooommm .."
         loop tr
 #endif
