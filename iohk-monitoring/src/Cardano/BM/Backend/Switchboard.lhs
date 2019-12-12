@@ -31,7 +31,7 @@ module Cardano.BM.Backend.Switchboard
     ) where
 
 import qualified Control.Concurrent.Async as Async
-import           Control.Concurrent.MVar (MVar, newEmptyMVar, newMVar,
+import           Control.Concurrent.MVar (MVar, newEmptyMVar,
                      modifyMVar_, putMVar, readMVar, tryReadMVar, tryTakeMVar,
                      withMVar)
 import           Control.Concurrent.STM (atomically, retry)
@@ -41,7 +41,6 @@ import           Control.Monad (forM_, when, void)
 import           Data.Aeson (FromJSON, ToJSON)
 import           Data.Text (Text, splitOn)
 import qualified Data.Text.IO as TIO
-import           Data.Time.Clock (getCurrentTime)
 import qualified Katip as K
 import           System.IO (stderr)
 
@@ -51,8 +50,6 @@ import           Cardano.BM.Configuration.Model (getBackends,
                      getSetupBackends, setSeverity, setMinSeverity)
 import           Cardano.BM.Data.Backend
 import           Cardano.BM.Data.LogItem
-import           Cardano.BM.Data.MessageCounter (resetCounters, sendAndResetAfter,
-                     updateMessageCounters)
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.SubTrace (SubTrace (..))
 import           Cardano.BM.Data.Tracer (Tracer (..))
@@ -155,28 +152,7 @@ instance (FromJSON a, ToJSON a) => IsBackend Switchboard a where
         logbuf :: Cardano.BM.Backend.LogBuffer.LogBuffer a <- Cardano.BM.Backend.LogBuffer.realize cfg
         katipBE :: Cardano.BM.Backend.Log.Log a <- Cardano.BM.Backend.Log.realize cfg
         let spawnDispatcher :: Switchboard a -> TBQ.TBQueue (LogObject a) -> IO (Async.Async ())
-            spawnDispatcher switchboard queue = do
-                now <- getCurrentTime
-                let messageCounters = resetCounters now
-                countersMVar <- newMVar messageCounters
-                let traceInQueue q =
-                        Tracer $ \lo -> do
-                            item' <- Config.testSubTrace cfg (lo2name lo) lo
-                            case item' of
-                                Just obj@(LogObject loname meta _) -> do
-                                    passSevFilter <- Config.testSeverity cfg (loname2text loname) meta
-                                    when passSevFilter $ do
-                                        nocapacity <- atomically $ TBQ.isFullTBQueue q
-                                        if nocapacity
-                                        then TIO.hPutStrLn stderr "Error: Switchboard's queue full, dropping log items!"
-                                        else atomically $ TBQ.writeTBQueue q obj
-                                Nothing -> pure ()
-                _timer <- Async.async $ sendAndResetAfter
-                                            (traceInQueue queue)
-                                            "#messagecounters.switchboard"
-                                            countersMVar
-                                            60000   -- 60000 ms = 1 min
-                                            Debug
+            spawnDispatcher switchboard queue =
 
                 let sendMessage nli befilter = do
                         let name = case nli of
@@ -186,10 +162,10 @@ instance (FromJSON a, ToJSON a) => IsBackend Switchboard a where
                         selectedBackends <- getBackends cfg (loname2text name)
                         let selBEs = befilter selectedBackends
                         withMVar (getSB switchboard) $ \sb ->
-                            forM_ (sbBackends sb) $ \(bek, be) -> do
+                            forM_ (sbBackends sb) $ \(bek, be) ->
                                 when (bek `elem` selBEs) (bEffectuate be nli)
 
-                    qProc counters = do
+                    qProc = do
                         -- read complete queue at once and process items
                         nlis <- atomically $ do
                                       r <- TBQ.flushTBQueue queue
@@ -197,10 +173,6 @@ instance (FromJSON a, ToJSON a) => IsBackend Switchboard a where
                                       return r
 
                         let processItem nli@(LogObject loname _ loitem) = do
-                                when ("#messagecounters" `notElem` loname) $
-                                    modifyMVar_ counters $
-                                        \cnt -> return $ updateMessageCounters cnt nli
-
                                 Config.findSubTrace cfg (loname2text loname) >>= \case
                                     Just (TeeTrace sndName) ->
                                         atomically $ TBQ.writeTBQueue queue $ nli{ loName = loname <> [sndName] }
@@ -234,9 +206,9 @@ instance (FromJSON a, ToJSON a) => IsBackend Switchboard a where
                                         return True
 
                         res <- mapM processItem nlis
-                        when (and res) $ qProc counters
-
-                Async.async $ qProc countersMVar
+                        when (and res) $ qProc
+                in
+                Async.async qProc
 
 #ifdef PERFORMANCE_TEST_QUEUE
         let qSize = 1000000
@@ -280,7 +252,7 @@ instance (FromJSON a, ToJSON a) => IsBackend Switchboard a where
         (dispatcher, queue) <- withMVar (getSB switchboard) (\sb -> return (sbDispatch sb, sbQueue sb))
         -- send terminating item to the queue
         lo <- LogObject <$> pure ["kill", "switchboard"]
-                        <*> (mkLOMeta Warning Confidential)
+                        <*> mkLOMeta Warning Confidential
                         <*> pure KillPill
         atomically $ TBQ.writeTBQueue queue lo
         -- wait for the dispatcher to exit
@@ -301,7 +273,7 @@ addUserDefinedBackend switchboard be name =
 \subsubsection{Integrate with external backend}\label{code:addExternalBackend}\index{addExternalBackend}
 \begin{code}
 addExternalBackend :: Switchboard a -> Backend a -> BackendKind -> IO ()
-addExternalBackend switchboard be bk = do
+addExternalBackend switchboard be bk =
     modifyMVar_ (getSB switchboard) $ \sb ->
         return $ sb { sbBackends = (bk, be) : sbBackends sb }
 
@@ -322,7 +294,7 @@ waitForTermination :: Switchboard a -> IO ()
 waitForTermination switchboard =
     tryReadMVar (getSB switchboard) >>= \case
         Nothing -> return ()
-        Just sb -> Async.waitCatch  (sbDispatch sb) >> return ()
+        Just sb -> (void (Async.waitCatch (sbDispatch sb)))
 
 \end{code}
 
@@ -346,7 +318,7 @@ setupBackends :: (FromJSON a, ToJSON a)
 setupBackends bes c sb = setupBackendsAcc bes []
   where
     setupBackendsAcc [] acc = return acc
-    setupBackendsAcc (bk : r) acc = do
+    setupBackendsAcc (bk : r) acc =
         setupBackend' bk c sb >>= \case
             Nothing -> setupBackendsAcc r acc
             Just be -> setupBackendsAcc r ((bk,be) : acc)
