@@ -4,11 +4,11 @@
 
 %if style == newcode
 \begin{code}
-{-# LANGUAGE CPP                 #-}
-{-# LANGUAGE FlexibleContexts    #-}
-{-# LANGUAGE LambdaCase          #-}
-{-# LANGUAGE NamedFieldPuns      #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE CPP                        #-}
+{-# LANGUAGE FlexibleContexts           #-}
+{-# LANGUAGE GeneralisedNewtypeDeriving #-}
+{-# LANGUAGE LambdaCase                 #-}
+{-# LANGUAGE ScopedTypeVariables        #-}
 
 module Cardano.BM.Test.Trace (
     TraceConfiguration (..)
@@ -24,6 +24,7 @@ import           Control.Concurrent (threadDelay)
 import qualified Control.Concurrent.Async as Async
 import           Control.Monad (forM, forM_)
 import           Control.Monad.IO.Class (liftIO)
+import           Data.Aeson (ToJSON(..))
 import           Data.Either (isLeft, isRight)
 import           Data.List (group)
 import           Data.Map (fromListWith, lookup)
@@ -48,7 +49,8 @@ import           Cardano.BM.Data.Observable
 import           Cardano.BM.Data.Output
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.SubTrace
-import           Cardano.BM.Data.Trace
+import           Cardano.BM.Data.Tracer (ToObject)
+import           Cardano.BM.Data.Transformers (liftSynopsized)
 #ifdef ENABLE_OBSERVABLES
 import           Cardano.BM.Counters (getMonoClock)
 import           Cardano.BM.Data.Aggregated
@@ -99,10 +101,10 @@ unit_tests = testGroup "Unit tests" [
 #endif
     --   , testCase "hierarchy of traces" unitHierarchy
       , testCase "hierarchy of traces with NoTrace" $
-            unitHierarchy' [Neutral, NoTrace, (ObservableTraceSelf observablesSet)]
+            unitHierarchy' [Neutral, NoTrace, ObservableTraceSelf observablesSet]
                 onlyLevelOneMessage
       , testCase "hierarchy of traces with DropOpening" $
-            unitHierarchy' [Neutral, DropOpening, (ObservableTraceSelf observablesSet)]
+            unitHierarchy' [Neutral, DropOpening, ObservableTraceSelf observablesSet]
                 notObserveOpen
       , testCase "hierarchy of traces with UntimedTrace" $
             unitHierarchy' [Neutral, UntimedTrace, UntimedTrace]
@@ -329,7 +331,7 @@ unitTraceMinSeverity = do
     -- raise the minimum severity to Warning
     setMinSeverity cfg Warning
     msev <- Cardano.BM.Configuration.minSeverity cfg
-    assertBool ("min severity should be Warning, but is " ++ (show msev))
+    assertBool ("min severity should be Warning, but is " ++ show msev)
                (msev == Warning)
 
     -- this message will not be traced
@@ -392,12 +394,12 @@ unitTraceDuplicate = do
 
 prop_synopsizer :: [LogObject NotSoArbitraryMsg] -> Int -> QC.Property
 prop_synopsizer stream runLimit = runLimit > 1 QC.==> QC.monadicIO $ do
-    cfg <- QC.run $ defaultConfigTesting
+    cfg <- QC.run defaultConfigTesting
     msgs <- QC.run $ STM.newTVarIO []
     base :: Trace IO NotSoArbitraryMsg
       <- QC.run $ contramap (mapLogObject payload) <$>
-         (setupTrace $
-           TraceConfiguration cfg (MockSB msgs) "test-synopsizer" Neutral)
+         setupTrace
+           (TraceConfiguration cfg (MockSB msgs) "test-synopsizer" Neutral)
 
     tr <- QC.run $ mkSynopsizer resetTest (liftSynopsized base)
     QC.run $ mapM_ (traceWith tr) stream
@@ -471,7 +473,9 @@ nonOverflows overflowTest = go Nothing [0..]
         overflowTest' _ _ = True -- Implicit overflow on the very first entry.
 
 newtype NotSoArbitraryMsg = NotSoArbitraryMsg { payload :: Text }
-  deriving Eq
+  deriving (Eq, ToJSON)
+
+instance ToObject NotSoArbitraryMsg
 
 instance Show NotSoArbitraryMsg where
   show = T.unpack . payload

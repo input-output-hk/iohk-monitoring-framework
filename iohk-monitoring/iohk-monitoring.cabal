@@ -48,6 +48,7 @@ library
                        Cardano.BM.Data.SubTrace
                        Cardano.BM.Data.Trace
                        Cardano.BM.Data.Tracer
+                       Cardano.BM.Data.Transformers
                        Cardano.BM.Tracing
 
                        Cardano.BM.Backend.ExternalAbstraction

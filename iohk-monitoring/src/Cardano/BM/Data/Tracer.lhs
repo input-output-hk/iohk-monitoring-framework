@@ -5,8 +5,10 @@
 %if style == newcode
 \begin{code}
 {-# LANGUAGE DefaultSignatures     #-}
+{-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE InstanceSigs          #-}
+{-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 
@@ -74,6 +76,7 @@ import           Cardano.BM.Data.LogItem (LoggerName, LogObject (..),
                      mkLOMeta)
 import           Cardano.BM.Data.Severity (Severity (..))
 import           Control.Tracer
+import           Control.Tracer.Transformers.Synopsizer
 
 \end{code}
 %endif
@@ -148,20 +151,20 @@ class Monad m => ToLogObject m where
                        => Tracer m (LogObject a) -> Tracer m b
     default toLogObjectVerbose :: (ToObject a, Transformable a m b)
                        => Tracer m (LogObject a) -> Tracer m b
-    toLogObjectVerbose tr = trTransformer StructuredLogging MaximalVerbosity tr
+    toLogObjectVerbose = trTransformer StructuredLogging MaximalVerbosity
     toLogObjectMinimal :: (ToObject a, Transformable a m b)
                        => Tracer m (LogObject a) -> Tracer m b
     default toLogObjectMinimal :: (ToObject a, Transformable a m b)
                        => Tracer m (LogObject a) -> Tracer m b
-    toLogObjectMinimal tr = trTransformer StructuredLogging MinimalVerbosity tr
+    toLogObjectMinimal = trTransformer StructuredLogging MinimalVerbosity
 
 instance ToLogObject IO where
     toLogObject :: (MonadIO m, ToObject a, Transformable a m b)
                 => Tracer m (LogObject a) -> Tracer m b
-    toLogObject tr = trTransformer StructuredLogging NormalVerbosity tr
+    toLogObject = trTransformer StructuredLogging NormalVerbosity
     toLogObject' :: (MonadIO m, ToObject a, Transformable a m b)
                  => TracingFormatting -> TracingVerbosity -> Tracer m (LogObject a) -> Tracer m b
-    toLogObject' hint verb tr = trTransformer hint verb tr
+    toLogObject' = trTransformer
 
 \end{code}
 
@@ -322,7 +325,7 @@ trFromIntegral :: (Integral b, MonadIO m, DefinePrivacyAnnotation b, DefineSever
 trFromIntegral name tr = Tracer $ \arg ->
         traceWith tr =<<
             LogObject <$> pure mempty
-                      <*> (mkLOMeta (defineSeverity arg) (definePrivacyAnnotation arg))
+                      <*> mkLOMeta (defineSeverity arg) (definePrivacyAnnotation arg)
                       <*> pure (LogValue name $ PureI $ fromIntegral arg)
 
 trFromReal :: (Real b, MonadIO m, DefinePrivacyAnnotation b, DefineSeverity b)
@@ -330,7 +333,7 @@ trFromReal :: (Real b, MonadIO m, DefinePrivacyAnnotation b, DefineSeverity b)
 trFromReal name tr = Tracer $ \arg ->
         traceWith tr =<<
             LogObject <$> pure mempty
-                      <*> (mkLOMeta (defineSeverity arg) (definePrivacyAnnotation arg))
+                      <*> mkLOMeta (defineSeverity arg) (definePrivacyAnnotation arg)
                       <*> pure (LogValue name $ PureD $ realToFrac arg)
 
 instance Transformable a IO Int where
@@ -352,25 +355,25 @@ instance Transformable Text IO Text where
     trTransformer _ _ tr = Tracer $ \arg ->
         traceWith tr =<<
             LogObject <$> pure mempty
-                      <*> (mkLOMeta (defineSeverity arg) (definePrivacyAnnotation arg))
+                      <*> mkLOMeta (defineSeverity arg) (definePrivacyAnnotation arg)
                       <*> pure (LogMessage arg)
 instance Transformable String IO String where
     trTransformer _ _ tr = Tracer $ \arg ->
         traceWith tr =<<
             LogObject <$> pure mempty
-                      <*> (mkLOMeta (defineSeverity arg) (definePrivacyAnnotation arg))
+                      <*> mkLOMeta (defineSeverity arg) (definePrivacyAnnotation arg)
                       <*> pure (LogMessage arg)
 instance Transformable Text IO String where
     trTransformer _ _ tr = Tracer $ \arg ->
         traceWith tr =<<
             LogObject <$> pure mempty
-                      <*> (mkLOMeta (defineSeverity arg) (definePrivacyAnnotation arg))
+                      <*> mkLOMeta (defineSeverity arg) (definePrivacyAnnotation arg)
                       <*> pure (LogMessage $ T.pack arg)
 instance Transformable String IO Text where
     trTransformer _ _ tr = Tracer $ \arg ->
         traceWith tr =<<
             LogObject <$> pure mempty
-                      <*> (mkLOMeta (defineSeverity arg) (definePrivacyAnnotation arg))
+                      <*> mkLOMeta (defineSeverity arg) (definePrivacyAnnotation arg)
                       <*> pure (LogMessage $ T.unpack arg)
 
 \end{code}
@@ -388,8 +391,8 @@ trStructured verb tr = Tracer $ \arg ->
         in
         traceWith tracer =<<
             LogObject <$> pure mempty
-                      <*> (mkLOMeta (defineSeverity arg) (definePrivacyAnnotation arg))
-                      <*> pure (LogStructured $ encode $ obj)
+                      <*> mkLOMeta (defineSeverity arg) (definePrivacyAnnotation arg)
+                      <*> pure (LogStructured $ encode obj)
 
 \end{code}
 
@@ -554,6 +557,33 @@ instance DefinePrivacyAnnotation (WithPrivacyAnnotation a) where
 instance DefineSeverity a => DefineSeverity (WithPrivacyAnnotation a) where
     defineSeverity (WithPrivacyAnnotation _ a) = defineSeverity a
 
+\end{code}
+
+\subsubsection{Synopsized trace}
+\label{code:Synopsized}\index{Synopsized}
+|Synopsized| traces are transformable.
+
+\begin{code}
+instance DefinePrivacyAnnotation (Synopsized a) where
+instance DefineSeverity a => DefineSeverity (Synopsized a) where
+  defineSeverity (One a) = defineSeverity a
+  defineSeverity (Many _ fir _) = defineSeverity fir
+
+instance (Transformable a IO a, ToObject a)
+       => Transformable a IO (Synopsized a) where
+    trTransformer _ _ tr = Tracer $ \case
+      One          a -> traceWith (toLogObject tr :: Tracer IO a) a
+      Many n fir las -> traceRepeat tr n fir las
+     where
+       traceRepeat
+         :: MonadIO m
+         => Tracer m (LogObject a) -> Int -> a -> a -> m ()
+       traceRepeat t repeats fir las = do
+         meta <- mkLOMeta (defineSeverity fir) (definePrivacyAnnotation fir)
+         traceWith t . LogObject ["synopsis"] meta $
+           LogRepeats repeats (liftLO meta fir) (liftLO meta las)
+       liftLO :: LOMeta -> a -> LogObject a
+       liftLO meta = LogObject [] meta . LogMessage
 \end{code}
 
 \subsubsection{The properties of being annotated with severity and privacy}
