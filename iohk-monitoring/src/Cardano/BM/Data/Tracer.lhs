@@ -570,17 +570,17 @@ instance DefineSeverity a => DefineSeverity (Synopsized a) where
   defineSeverity (One a) = defineSeverity a
   defineSeverity (Many _ fir _) = defineSeverity fir
 
-instance (Transformable a IO a, ToObject a)
-       => Transformable a IO (Synopsized a) where
+instance (Transformable t IO a, ToObject t)
+       => Transformable t IO (Synopsized a) where
     trTransformer _ _ tr = Tracer $ \case
       One          a -> traceWith (toLogObject tr :: Tracer IO a) a
       Many n fir las -> traceRepeat tr n fir las
      where
        traceRepeat
          :: MonadIO m
-         => Tracer m (LogObject a) -> Int -> a -> a -> m ()
+         => Tracer m (LogObject b) -> Int -> a -> a -> m ()
        traceRepeat t repeats fir las = do
-         meta <- mkLOMeta (defineSeverity fir) (definePrivacyAnnotation fir)
+         meta <- undefined --mkLOMeta (defineSeverity fir) (definePrivacyAnnotation fir)
          traceWith t . LogObject ["synopsis"] meta $
            LogRepeats repeats (liftLO meta fir) (liftLO meta las)
        liftLO :: LOMeta -> a -> LogObject a
