@@ -22,7 +22,9 @@ import           Cardano.BM.Data.Aggregated (Measurable(..))
 import           Cardano.BM.Data.LogItem
                      ( LOContent(..), LOMeta(..)
                      , LogObject(..), LoggerName
+                     , PrivacyAnnotation(..)
                      , mkLOMeta)
+import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.Tracer (Tracer(..), traceWith)
 import           Cardano.BM.Data.Trace
 
@@ -78,15 +80,16 @@ Make a |Trace| |Synopsized|.
 liftSynopsized
   :: forall m a. MonadIO m
   => Trace m a
+  -> Severity
+  -> PrivacyAnnotation
   -> Tracer m (Synopsized (LogObject a))
-liftSynopsized tr =
+liftSynopsized tr sev priv =
   Tracer $ \case
-    One    a       -> traceWith   tr   a
-    Many n fir las -> traceRepeat tr n fir las
+    One a            -> traceWith   tr   a
+    Many n _fir _las -> traceRepeat tr n =<< mkLOMeta sev priv
  where
-   traceRepeat :: Trace m a -> Int -> LogObject a -> LogObject a -> m ()
-   traceRepeat t repeats fir las = do
-     meta <- mkLOMeta (severity $ loMeta fir) (privacy $ loMeta fir)
-     traceWith t . LogObject ["synopsis"] meta $ LogRepeats repeats fir las
+   traceRepeat :: Trace m a -> Int -> LOMeta -> m ()
+   traceRepeat t repeats meta =
+     traceWith t . LogObject ["synopsis"] meta $ LogRepeats repeats
 
 \end{code}

@@ -194,8 +194,6 @@ data LOContent a = LogMessage a
                  | LogError Text
                  | LogRepeats
                    { lrRepeats :: {-# UNPACK #-} !Int
-                   , lrFirst   :: !(LogObject a)
-                   , lrLast    :: !(LogObject a)
                    }
                  | LogValue Text Measurable
                  | LogStructured BS.ByteString
@@ -216,11 +214,9 @@ instance ToJSON a => ToJSON (LOContent a) where
     toJSON (LogError m) =
         object [ "kind" .= String "LogError"
                , "message" .= toJSON m]
-    toJSON (LogRepeats n f l) =
+    toJSON (LogRepeats n) =
         object [ "kind" .= String "LogRepeats"
-               , "elided-count" .= toJSON n
-               , "first-elided" .= toJSON f
-               , "last-elided"  .= toJSON l]
+               , "elided-count" .= toJSON n ]
     toJSON (LogValue n v) =
         object [ "kind" .= String "LogValue"
                , "name" .= toJSON n
@@ -257,8 +253,6 @@ instance (FromJSON a) => FromJSON (LOContent a) where
                         "LogError" -> LogError <$> v .: "message"
                         "LogRepeats" -> LogRepeats
                           <$> v .: "elided-count"
-                          <*> v .: "first-elided"
-                          <*> v .: "last-elided"
                         "LogValue" -> LogValue <$> v .: "name" <*> v .: "value"
                         "LogStructured" -> LogStructured
                                               . BS64.decodeLenient
@@ -388,7 +382,7 @@ mapLOContent :: (a -> b) -> LOContent a -> LOContent b
 mapLOContent f = \case
     LogMessage msg       -> LogMessage (f msg)
     LogError a           -> LogError a
-    LogRepeats n fir las -> LogRepeats n (mapLogObject f fir) (mapLogObject f las)
+    LogRepeats n         -> LogRepeats n
     LogStructured m      -> LogStructured m
     LogValue n v         -> LogValue n v
     ObserveOpen st       -> ObserveOpen st

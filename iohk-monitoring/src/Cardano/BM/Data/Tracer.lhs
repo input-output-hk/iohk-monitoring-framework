@@ -573,18 +573,15 @@ instance DefineSeverity a => DefineSeverity (Synopsized a) where
 instance (Transformable t IO a, ToObject t)
        => Transformable t IO (Synopsized a) where
     trTransformer _ _ tr = Tracer $ \case
-      One          a -> traceWith (toLogObject tr :: Tracer IO a) a
-      Many n fir las -> traceRepeat tr n fir las
+      One            a -> traceWith (toLogObject tr :: Tracer IO a) a
+      Many n _fir _las -> traceRepeat tr n
      where
        traceRepeat
          :: MonadIO m
-         => Tracer m (LogObject b) -> Int -> a -> a -> m ()
-       traceRepeat t repeats fir las = do
-         meta <- undefined --mkLOMeta (defineSeverity fir) (definePrivacyAnnotation fir)
-         traceWith t . LogObject ["synopsis"] meta $
-           LogRepeats repeats (liftLO meta fir) (liftLO meta las)
-       liftLO :: LOMeta -> a -> LogObject a
-       liftLO meta = LogObject [] meta . LogMessage
+         => Tracer m (LogObject b) -> Int -> m ()
+       traceRepeat t repeats = do
+         meta <- mkLOMeta Critical Public
+         traceWith t (LogObject ["synopsis"] meta $ LogRepeats repeats)
 \end{code}
 
 \subsubsection{The properties of being annotated with severity and privacy}

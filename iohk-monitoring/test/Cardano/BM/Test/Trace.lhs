@@ -403,7 +403,7 @@ prop_synopsizer stream runLimit = runLimit > 1 QC.==> QC.monadicIO $ do
          setupTrace
            (TraceConfiguration cfg (MockSB msgs) "test-synopsizer" Neutral)
 
-    tr <- QC.run $ mkSynopsizer resetTest (liftSynopsized base)
+    tr <- QC.run $ mkSynopsizer resetTest (liftSynopsized base Critical Public)
     QC.run $ mapM_ (traceWith tr) stream
 
     -- acquire the traced objects

@@ -351,7 +351,7 @@ msgThr trace = do
       resetTest :: Eq a => (Int, LogObject a) -> LogObject a -> Bool
       resetTest (counter, prevLo) thisLo =
         counter == 2 || not (prevLo `loContentEq` thisLo)
-  synopsized <- mkSynopsizer resetTest (liftSynopsized trace')
+  synopsized <- mkSynopsizer resetTest (liftSynopsized trace' Critical Public)
   Async.async (loop synopsized)
   where
     loop tr = do

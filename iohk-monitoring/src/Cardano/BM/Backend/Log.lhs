@@ -249,7 +249,7 @@ passN backend katip (LogObject loname lometa loitem) = do
                                      (severity lometa, text, maylo)
                                 (LogError text) ->
                                      (severity lometa, text, Nothing)
-                                (LogRepeats count _fir _las) ->
+                                (LogRepeats count) ->
                                      ( severity lometa
                                      , "Similar messages elided, " <> pack (show count) <> " total."
                                      , Nothing)
