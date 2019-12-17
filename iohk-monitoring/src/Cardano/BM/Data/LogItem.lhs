@@ -4,10 +4,8 @@
 
 %if style == newcode
 \begin{code}
-{-# LANGUAGE DeriveAnyClass     #-}
-{-# LANGUAGE DeriveGeneric      #-}
 {-# LANGUAGE LambdaCase         #-}
-{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE NumericUnderscores #-}
 
 module Cardano.BM.Data.LogItem
   ( LogObject (..)
@@ -40,6 +38,7 @@ import           Data.Aeson.Types (Parser)
 import qualified Data.ByteString.Lazy as BS
 import qualified Data.ByteString.Base64.Lazy as BS64
 import           Data.Function (on)
+import           Data.Maybe (fromMaybe)
 import           Data.Text (Text, pack, stripPrefix)
 import qualified Data.Text.Lazy as LT
 import           Data.Text.Lazy.Encoding (encodeUtf8, decodeUtf8)
@@ -71,7 +70,7 @@ type LoggerName = Text
 data LogObject a = LogObject
                      { loName    :: [LoggerName]
                      , loMeta    :: !LOMeta
-                     , loContent :: (LOContent a)
+                     , loContent :: LOContent a
                      } deriving (Show, Eq)
 
 instance ToJSON a => ToJSON (LogObject a) where
@@ -128,7 +127,7 @@ mkLOMeta sev priv =
   where
     cleantid threadid = do
         let prefixText = "ThreadId "
-            condStripPrefix s = maybe s id $ stripPrefix prefixText s
+            condStripPrefix s = fromMaybe s $ stripPrefix prefixText s
         condStripPrefix $ (pack . show) threadid
 
 \end{code}
@@ -136,7 +135,7 @@ mkLOMeta sev priv =
 Convert a timestamp to ns since epoch:\label{code:utc2ns}\index{utc2ns}
 \begin{code}
 utc2ns :: UTCTime -> Word64
-utc2ns utctime = fromInteger $ round $ 1000 * 1000 * 1000 * (utcTimeToPOSIXSeconds utctime)
+utc2ns utctime = fromInteger . round $ 1000_000_000 * (utcTimeToPOSIXSeconds utctime)
 
 \end{code}
 
@@ -228,7 +227,7 @@ instance ToJSON a => ToJSON (LOContent a) where
                , "value" .= toJSON v]
     toJSON (LogStructured m) =
         object [ "kind" .= String "LogStructured"
-               , "message" .= (toJSON $ decodeUtf8 $ BS64.encode m)]
+               , "message" .= toJSON (decodeUtf8 $ BS64.encode m)]
     toJSON (ObserveOpen c) =
         object [ "kind" .= String "ObserveOpen"
                , "counters" .= toJSON c]
@@ -261,9 +260,9 @@ instance (FromJSON a) => FromJSON (LOContent a) where
                           <*> v .: "first-elided"
                           <*> v .: "last-elided"
                         "LogValue" -> LogValue <$> v .: "name" <*> v .: "value"
-                        "LogStructured" -> LogStructured <$>
-                                              BS64.decodeLenient <$>
-                                              encodeUtf8 <$>
+                        "LogStructured" -> LogStructured
+                                              . BS64.decodeLenient
+                                              . encodeUtf8 <$>
                                               (v .: "message" :: Parser LT.Text)
                         "ObserveOpen" -> ObserveOpen <$> v .: "counters"
                         "ObserveDiff" -> ObserveDiff <$> v .: "counters"
@@ -309,7 +308,7 @@ loType2Name :: LOContent a -> Text
 loType2Name = \case
     LogMessage _        -> "LogMessage"
     LogError _          -> "LogError"
-    LogRepeats _ _ _    -> "LogRepeats"
+    LogRepeats{}        -> "LogRepeats"
     LogValue _ _        -> "LogValue"
     LogStructured _     -> "LogStructured"
     ObserveOpen _       -> "ObserveOpen"
@@ -326,8 +325,8 @@ loType2Name = \case
 Backends can enter commands to the trace. Commands will end up in the
 |Switchboard|, which will interpret them and take action.
 \begin{code}
-data CommandValue = DumpBufferedTo BackendKind
-                    deriving (Show, Eq)
+newtype CommandValue = DumpBufferedTo BackendKind
+  deriving (Show, Eq)
 
 instance ToJSON CommandValue where
     toJSON (DumpBufferedTo be) =

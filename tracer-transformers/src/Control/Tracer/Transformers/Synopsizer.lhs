@@ -7,8 +7,6 @@ Module: Synopsizer
 
 Synopsize runs of repeated events, as an initial message with a summary at the end.
 -}
-{-# LANGUAGE BangPatterns   #-}
-{-# LANGUAGE LambdaCase     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE MultiWayIf     #-}
 {-# LANGUAGE RankNTypes     #-}
@@ -50,6 +48,7 @@ data Synopsized a
     }
     -- ^ Synopsis for a specified number of messages similar to the first one.
 
+
 -- | Generic Tracer transformer, intended for suppression of repeated messages.
 --
 --   The transformer is specified in terms of an internal counter (starting at zero),
@@ -80,17 +79,17 @@ mkSynopsizer resetTest tr =
 
         (Just fir, Just las) ->
           if | (ssRepeats ss, fir) `resetTest` a
-             -> (,)
-               (ss { ssRepeats = 0, ssFirst = Just a, ssLast = Just a })
-               (if ssRepeats ss == 0
-                then traceWith tr (One a)
-                else traceWith tr (Many (ssRepeats ss) fir las) >>
-                     traceWith tr (One a))
+              -> (,)
+                (ss { ssRepeats = 0, ssFirst = Just a, ssLast = Just a })
+                (if ssRepeats ss == 0
+                 then traceWith tr (One a)
+                 else traceWith tr (Many (ssRepeats ss) fir las) >>
+                      traceWith tr (One a))
 
              | otherwise
-             -> (,)
-               (ss { ssRepeats = ssRepeats ss + 1, ssLast = Just a })
-               (pure ())
+              -> (,)
+                (ss { ssRepeats = ssRepeats ss + 1, ssLast = Just a })
+                (pure ())
 
         _ -> error "Nothing is impossible at this point."
 

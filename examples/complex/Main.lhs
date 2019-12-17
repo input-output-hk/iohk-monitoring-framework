@@ -51,6 +51,7 @@ import           Cardano.BM.Data.Rotation
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.SubTrace
 import           Cardano.BM.Data.Trace
+import           Cardano.BM.Data.Transformers
 #ifdef ENABLE_OBSERVABLES
 import           Cardano.BM.Data.Observable
 import           Cardano.BM.Observer.Monadic (bracketObserveIO)
@@ -125,9 +126,9 @@ prepare_configuration = do
     forM_ [(1::Int)..10] $ \x ->
       if odd x
       then
-        CM.setScribes c ("complex.#aggregation.complex.observeSTM." <> (pack $ show x)) $ Just [ "FileSK::logs/out.odd.json" ]
+        CM.setScribes c ("complex.#aggregation.complex.observeSTM." <> pack (show x)) $ Just [ "FileSK::logs/out.odd.json" ]
       else
-        CM.setScribes c ("complex.#aggregation.complex.observeSTM." <> (pack $ show x)) $ Just [ "FileSK::logs/out.even.json" ]
+        CM.setScribes c ("complex.#aggregation.complex.observeSTM." <> pack (show x)) $ Just [ "FileSK::logs/out.even.json" ]
 
 #ifdef LINUX
 #ifdef ENABLE_OBSERVABLES
@@ -139,15 +140,15 @@ prepare_configuration = do
     CM.setSubTrace c "complex.random" (Just $ TeeTrace "ewma")
     CM.setSubTrace c "#ekgview"
       (Just $ FilterTrace [ (Drop (StartsWith "#ekgview.complex.#aggregation.complex.random"),
-                             Unhide [(EndsWith ".count"),
-                                     (EndsWith ".avg"),
-                                     (EndsWith ".mean")]),
+                             Unhide [EndsWith ".count",
+                                     EndsWith ".avg",
+                                     EndsWith ".mean"]),
                             (Drop (StartsWith "#ekgview.complex.#aggregation.complex.observeIO"),
-                             Unhide [(Contains "diff.RTS.cpuNs.timed.")]),
+                             Unhide [Contains "diff.RTS.cpuNs.timed."]),
                             (Drop (StartsWith "#ekgview.complex.#aggregation.complex.observeSTM"),
-                             Unhide [(Contains "diff.RTS.gcNum.timed.")]),
+                             Unhide [Contains "diff.RTS.gcNum.timed."]),
                             (Drop (StartsWith "#ekgview.complex.#aggregation.complex.message"),
-                             Unhide [(Contains ".timed.m")])
+                             Unhide [Contains ".timed.m"])
                           ])
 #ifdef ENABLE_OBSERVABLES
     CM.setSubTrace c "complex.observeIO" (Just $ ObservableTraceSelf [GhcRtsStats,MemoryStats])
@@ -165,10 +166,10 @@ prepare_configuration = do
 
     forM_ [(1::Int)..10] $ \x -> do
       CM.setBackends c
-        ("complex.observeSTM." <> (pack $ show x))
+        ("complex.observeSTM." <> pack (show x))
         (Just [AggregationBK])
       CM.setBackends c
-        ("complex.#aggregation.complex.observeSTM." <> (pack $ show x))
+        ("complex.#aggregation.complex.observeSTM." <> pack (show x))
         (Just [KatipBK])
 
     CM.setAggregatedKind c "complex.random.rr" (Just StatsAK)
@@ -189,20 +190,20 @@ prepare_configuration = do
     CM.setGUIport c 13790
     CM.setMonitors c $ HM.fromList
         [ ( "complex.monitoring"
-          , ( Just (Compare "monitMe" (GE, (OpMeasurable 10)))
-            , Compare "monitMe" (GE, (OpMeasurable 42))
+          , ( Just (Compare "monitMe" (GE, OpMeasurable 10))
+            , Compare "monitMe" (GE, OpMeasurable 42)
             , [CreateMessage Warning "MonitMe is greater than 42!"]
             )
           )
         , ( "complex.#aggregation.complex.monitoring"
-          , ( Just (Compare "monitMe.fcount" (GE, (OpMeasurable 8)))
-            , Compare "monitMe.mean" (GE, (OpMeasurable 41))
+          , ( Just (Compare "monitMe.fcount" (GE, OpMeasurable 8))
+            , Compare "monitMe.mean" (GE, OpMeasurable 41)
             , [CreateMessage Warning "MonitMe.mean is greater than 41!"]
             )
           )
         , ( "complex.observeIO.close"
           , ( Nothing
-            , Compare "complex.observeIO.close.Mem.size" (GE, (OpMeasurable 25))
+            , Compare "complex.observeIO.close.Mem.size" (GE, OpMeasurable 25)
             , [CreateMessage Warning "closing mem size is greater than 25!"]
             )
           )
@@ -217,9 +218,8 @@ prepare_configuration = do
 dumpBuffer :: Switchboard Text -> Trace IO Text -> IO (Async.Async ())
 dumpBuffer sb trace = do
   logInfo trace "starting buffer dump"
-  proc <- Async.async (loop trace)
-  return proc
-  where
+  Async.async (loop trace)
+ where
     loop tr = do
         threadDelay 25000000  -- 25 seconds
         buf <- readLogBuffer sb
@@ -235,13 +235,12 @@ randomThr :: Trace IO Text -> IO (Async.Async ())
 randomThr trace = do
   logInfo trace "starting random generator"
   let trace' = appendName "random" trace
-  proc <- Async.async (loop trace')
-  return proc
-  where
+  Async.async (loop trace')
+ where
     loop tr = do
         threadDelay 500000  -- 0.5 second
         num <- randomRIO (42-42, 42+42) :: IO Double
-        lo <- (,) <$> (mkLOMeta Info Public) <*> pure (LogValue "rr" (PureD num))
+        lo <- (,) <$> mkLOMeta Info Public <*> pure (LogValue "rr" (PureD num))
         traceNamedObject tr lo
         loop tr
 
@@ -254,13 +253,12 @@ monitoringThr :: Trace IO Text -> IO (Async.Async ())
 monitoringThr trace = do
   logInfo trace "starting numbers for monitoring..."
   let trace' = appendName "monitoring" trace
-  proc <- Async.async (loop trace')
-  return proc
-  where
+  Async.async (loop trace')
+ where
     loop tr = do
         threadDelay 500000  -- 0.5 second
         num <- randomRIO (42-42, 42+42) :: IO Double
-        lo <- (,) <$> (mkLOMeta Warning Public) <*> pure (LogValue "monitMe" (PureD num))
+        lo <- (,) <$> mkLOMeta Warning Public <*> pure (LogValue "monitMe" (PureD num))
         traceNamedObject tr lo
         loop tr
 #endif
