@@ -45,6 +45,7 @@
           (hsPkgs.time-units)
           (hsPkgs.tracer-transformers)
           (hsPkgs.transformers)
+          (hsPkgs.unagi-chan)
           (hsPkgs.unordered-containers)
           (hsPkgs.vector)
           (hsPkgs.yaml)

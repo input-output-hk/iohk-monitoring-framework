@@ -6,6 +6,7 @@
         "prometheus" = (((hackage.prometheus)."2.1.2").revisions).default;
         "libsystemd-journal" = (((hackage.libsystemd-journal)."1.4.4").revisions).default;
         "katip" = (((hackage.katip)."0.8.3.0").revisions).default;
+        "unagi-chan" = (((hackage.unagi-chan)."0.4.1.0").revisions).default;
         } // {
         contra-tracer = ./contra-tracer.nix;
         tracer-transformers = ./tracer-transformers.nix;

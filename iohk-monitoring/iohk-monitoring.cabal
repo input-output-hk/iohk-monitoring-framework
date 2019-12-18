@@ -106,6 +106,7 @@ library
                        time-units,
                        tracer-transformers,
                        transformers,
+                       unagi-chan,
                        unordered-containers,
                        vector,
                        yaml, libyaml
