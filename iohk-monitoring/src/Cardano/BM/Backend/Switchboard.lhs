@@ -34,10 +34,9 @@ import qualified Control.Concurrent.Async as Async
 import           Control.Concurrent.MVar (MVar, newEmptyMVar,
                      modifyMVar_, putMVar, readMVar, tryReadMVar, tryTakeMVar,
                      withMVar)
-import           Control.Concurrent.STM (atomically, retry)
-import qualified Control.Concurrent.STM.TBQueue as TBQ
+import qualified Control.Concurrent.Chan.Unagi.Bounded as BC
 import           Control.Exception.Safe (throwM)
-import           Control.Monad (forM_, when, void)
+import           Control.Monad (forM_, unless, void, when)
 import           Data.Aeson (FromJSON, ToJSON)
 import           Data.Text (Text, splitOn)
 import qualified Data.Text.IO as TIO
@@ -78,7 +77,8 @@ newtype Switchboard a = Switchboard
     { getSB :: SwitchboardMVar a }
 
 data SwitchboardInternal a = SwitchboardInternal
-    { sbQueue     :: TBQ.TBQueue (LogObject a)
+    { sbInput     :: BC.InChan (LogObject a)
+    , sbOutput    :: BC.OutChan (LogObject a)
     , sbDispatch  :: Async.Async ()
     , sbLogBuffer :: Cardano.BM.Backend.LogBuffer.LogBuffer a
     , sbLogBE     :: Cardano.BM.Backend.Log.Log a
@@ -126,15 +126,14 @@ The queue is initialized and the message dispatcher launched.
 \begin{code}
 instance IsEffectuator Switchboard a where
     effectuate switchboard item = do
-        let writequeue :: TBQ.TBQueue (LogObject a) -> LogObject a -> IO ()
-            writequeue q i = do
-                    nocapacity <- atomically $ TBQ.isFullTBQueue q
-                    if nocapacity
-                    then handleOverflow switchboard
-                    else atomically $ TBQ.writeTBQueue q i
+        let writequeue :: BC.InChan (LogObject a) -> LogObject a -> IO ()
+            writequeue input i = do
+              notOverflown <- BC.tryWriteChan input i
+              unless notOverflown $
+                handleOverflow switchboard
 
         sb <- readMVar (getSB switchboard)
-        writequeue (sbQueue sb) item
+        writequeue (sbInput sb) item
 
     handleOverflow _ = TIO.hPutStrLn stderr "Error: Switchboard's queue full, dropping log items!"
 
@@ -151,8 +150,8 @@ instance (FromJSON a, ToJSON a) => IsBackend Switchboard a where
         -- we setup |LogBuffer| explicitly so we can access it as a |Backend| and as |LogBuffer|
         logbuf :: Cardano.BM.Backend.LogBuffer.LogBuffer a <- Cardano.BM.Backend.LogBuffer.realize cfg
         katipBE :: Cardano.BM.Backend.Log.Log a <- Cardano.BM.Backend.Log.realize cfg
-        let spawnDispatcher :: Switchboard a -> TBQ.TBQueue (LogObject a) -> IO (Async.Async ())
-            spawnDispatcher switchboard queue =
+        let spawnDispatcher :: Switchboard a -> BC.InChan (LogObject a) -> BC.OutChan (LogObject a) -> IO (Async.Async ())
+            spawnDispatcher switchboard input output =
 
                 let sendMessage nli befilter = do
                         let name = case nli of
@@ -165,17 +164,14 @@ instance (FromJSON a, ToJSON a) => IsBackend Switchboard a where
                             forM_ (sbBackends sb) $ \(bek, be) ->
                                 when (bek `elem` selBEs) (bEffectuate be nli)
 
-                    qProc = do
-                        -- read complete queue at once and process items
-                        nlis <- atomically $ do
-                                      r <- TBQ.flushTBQueue queue
-                                      when (null r) retry
-                                      return r
-
-                        let processItem nli@(LogObject loname _ loitem) = do
+                    qProc out = do
+                      terminate <- processItem =<< BC.readChan out
+                      unless terminate $
+                        qProc out
+                     where  processItem nli@(LogObject loname _ loitem) = do
                                 Config.findSubTrace cfg (loname2text loname) >>= \case
                                     Just (TeeTrace sndName) ->
-                                        atomically $ TBQ.writeTBQueue queue $ nli{ loName = loname <> [sndName] }
+                                        BC.writeChan input $ nli{ loName = loname <> [sndName] }
                                     _ -> return ()
 
                                 case loitem of
@@ -204,18 +200,15 @@ instance (FromJSON a, ToJSON a) => IsBackend Switchboard a where
                                     _ -> do
                                         sendMessage nli id
                                         return True
-
-                        res <- mapM processItem nlis
-                        when (and res) $ qProc
                 in
-                Async.async qProc
+                Async.async (qProc output)
 
 #ifdef PERFORMANCE_TEST_QUEUE
         let qSize = 1000000
 #else
         let qSize = 2048
 #endif
-        q <- atomically $ TBQ.newTBQueue qSize
+        (inBC, outBC) <- BC.newChan qSize
         sbref <- newEmptyMVar
         let sb :: Switchboard a = Switchboard sbref
 
@@ -231,13 +224,14 @@ instance (FromJSON a, ToJSON a) => IsBackend Switchboard a where
                             })
 
         let bs = bs2 : bs1 : bs0
-        dispatcher <- spawnDispatcher sb q
+        dispatcher <- spawnDispatcher sb inBC outBC
         -- link the given Async to the current thread, such that if the Async
         -- raises an exception, that exception will be re-thrown in the current
         -- thread, wrapped in ExceptionInLinkedThread.
         Async.link dispatcher
         putMVar sbref $ SwitchboardInternal {
-                            sbQueue = q,
+                            sbInput = inBC,
+                            sbOutput = outBC,
                             sbDispatch = dispatcher,
                             sbLogBuffer = logbuf,
                             sbLogBE = katipBE,
@@ -249,12 +243,12 @@ instance (FromJSON a, ToJSON a) => IsBackend Switchboard a where
         let clearMVar :: MVar some -> IO ()
             clearMVar = void . tryTakeMVar
 
-        (dispatcher, queue) <- withMVar (getSB switchboard) (\sb -> return (sbDispatch sb, sbQueue sb))
+        (dispatcher, chan) <- withMVar (getSB switchboard) (\sb -> return (sbDispatch sb, sbInput sb))
         -- send terminating item to the queue
         lo <- LogObject <$> pure ["kill", "switchboard"]
                         <*> mkLOMeta Warning Confidential
                         <*> pure KillPill
-        atomically $ TBQ.writeTBQueue queue lo
+        BC.writeChan chan lo
         -- wait for the dispatcher to exit
         res <- Async.waitCatch dispatcher
         either throwM return res
