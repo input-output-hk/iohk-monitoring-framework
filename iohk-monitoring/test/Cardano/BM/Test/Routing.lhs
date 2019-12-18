@@ -10,8 +10,12 @@ module Cardano.BM.Test.Routing (
     tests
   ) where
 
+import           Control.Concurrent (threadDelay)
 import           Control.Monad (forM_)
 import           System.Directory (removeFile)
+import           System.IO (hPutStrLn, stderr)
+import qualified Data.Text as Text
+import qualified Data.Text.IO as TIO
 
 import qualified Cardano.BM.Configuration.Model as CM
 import           Cardano.BM.Data.BackendKind
@@ -103,6 +107,7 @@ unit_generic_scribe_backend defaultBackends setBackends defaultScribes setScribe
     c <- CM.empty
     CM.setMinSeverity c Debug
     CM.setSetupBackends c [KatipBK]
+    hPutStrLn stderr "setSetupScribes"
     CM.setSetupScribes c [ ScribeDefinition {
                               scName = "out-test.txt"
                             , scKind = FileSK
@@ -120,7 +125,9 @@ unit_generic_scribe_backend defaultBackends setBackends defaultScribes setScribe
     forM_ setScribes $ \(name, maybeScribes) ->
         CM.setScribes c name maybeScribes
 
+    hPutStrLn stderr "withTrace"
     withTrace c "test" $ \(tr :: Trace IO String) -> do
+        hPutStrLn stderr "within Trace"
 
         let tr1  = appendName "one" tr
             tr2  = appendName "two" tr
@@ -135,9 +142,12 @@ unit_generic_scribe_backend defaultBackends setBackends defaultScribes setScribe
         logNotice tr1a "Hello!"
         logNotice tr2a "Hello!"
 
-    contents <- readFile "out-test.txt"
-    let numMsgs = length $ lines contents
+    threadDelay 100000 -- TODO:  fix another race
+    hPutStrLn stderr "without Trace -> readFile"
+    contents <- TIO.readFile "out-test.txt"
+    let numMsgs = length $ Text.lines contents
 
+    hPutStrLn stderr "removeFile"
     removeFile "out-test.txt"
 
     assertBool

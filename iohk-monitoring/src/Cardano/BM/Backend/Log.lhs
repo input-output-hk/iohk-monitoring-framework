@@ -58,6 +58,7 @@ import           GHC.IO.Handle (hDuplicate)
 import           System.Directory (createDirectoryIfMissing)
 import           System.FilePath (takeDirectory)
 import           System.IO (BufferMode (LineBuffering), Handle, hClose,
+                            hPutStrLn,
                      hSetBuffering, stderr, stdout, openFile, IOMode (WriteMode))
 import           Paths_iohk_monitoring (version)
 
@@ -143,6 +144,7 @@ instance (ToJSON a, FromJSON a) => IsBackend Log a where
 
     unrealize katip = do
         le <- withMVar (getK katip) $ \k -> return (kLogEnv k)
+        hPutStrLn stderr "\n\n\nclosing scribes!\n\n\n"
         void $ K.closeScribes le
 
 \end{code}
@@ -361,7 +363,7 @@ mkFileScribeH h formatter colorize = do
     let logger :: forall a. K.LogItem a =>  K.Item a -> IO ()
         logger item = withMVar locklocal $ \_ ->
                         formatter h (Rendering colorize K.V0 item)
-    pure $ K.Scribe logger (hClose h) (pure . const True)
+    pure $ K.Scribe logger (hPutStrLn stderr "\nmkFileScribeH: closing scribe!\n" >> hClose h) (pure . const True)
 
 data Rendering a = Rendering { colorize  :: Bool
                              , verbosity :: K.Verbosity
@@ -439,7 +441,7 @@ mkFileScribe (Just rotParams) fdesc formatter colorize = do
                               }
     let finalizer :: IO ()
         finalizer = withMVar scribestate $
-                                \(h, _, _) -> hClose h
+                                \(h, _, _) -> hPutStrLn stderr "\nmkFileScribe Just: closing scribe!\n" >> hClose h
     let logger :: forall a. K.LogItem a => K.Item a -> IO ()
         logger item =
             modifyMVar_ scribestate $ \(h, bytes, rottime) -> do
@@ -471,7 +473,7 @@ mkFileScribe Nothing fdesc formatter colorize = do
     hSetBuffering h LineBuffering
     scribestate <- newMVar h
     let finalizer :: IO ()
-        finalizer = withMVar scribestate hClose
+        finalizer = withMVar scribestate hClose >> hPutStrLn stderr "\nmkFileScribe Nothing: closed scribe!\n"
     let logger :: forall a. K.LogItem a => K.Item a -> IO ()
         logger item =
             withMVar scribestate $ \handler ->
