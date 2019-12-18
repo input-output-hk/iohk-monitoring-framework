@@ -137,6 +137,13 @@ prepare_configuration = do
     CM.setBackends c "complex.observeDownload" (Just [KatipBK])
     CM.setScribes c "complex.observeDownload" (Just ["FileSK::logs/downloading.json"])
 #endif
+    CM.setSubTrace c "#messagecounters.switchboard" $ Just NoTrace
+    CM.setSubTrace c "#messagecounters.katip"       $ Just NoTrace
+    CM.setSubTrace c "#messagecounters.aggregation" $ Just NoTrace
+    CM.setSubTrace c "#messagecounters.ekgview"     $ Just Neutral
+    CM.setBackends c "#messagecounters.switchboard" $ Just [EditorBK, KatipBK]
+    CM.setSubTrace c "#messagecounters.monitoring"  $ Just NoTrace
+
     CM.setSubTrace c "complex.random" (Just $ TeeTrace "ewma")
     CM.setSubTrace c "#ekgview"
       (Just $ FilterTrace [ (Drop (StartsWith "#ekgview.complex.#aggregation.complex.random"),

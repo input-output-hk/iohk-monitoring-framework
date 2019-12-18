@@ -55,6 +55,8 @@ import           Cardano.BM.Configuration (Configuration, getEKGport,
 import           Cardano.BM.Data.Aggregated
 import           Cardano.BM.Data.Backend
 import           Cardano.BM.Data.LogItem
+import           Cardano.BM.Data.MessageCounter (MessageCounter, resetCounters,
+                     sendAndResetAfter, updateMessageCounters)
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.Trace
 import           Cardano.BM.Data.Tracer (Tracer (..), showTracing, severityError, traceWith)
@@ -284,7 +286,7 @@ instance (ToJSON a, FromJSON a) => IsBackend EKGView a where
        nullSetup trace e = do
          meta <- mkLOMeta Error Public
          traceWith trace $ LogObject ["#ekgview", "realizeFrom"] meta $
-           LogError $ "EKGView backend disabled due to initialisation error: " <> pack (show e)
+           LogError $ "EKGView backend disabled due to initialisation error: " <> (pack $ show e)
          queue <- atomically $ TBQ.newTBQueue 0
          ref <- newEmptyMVar
          putMVar ref $ EKGViewInternal
@@ -314,7 +316,8 @@ instance (ToJSON a, FromJSON a) => IsBackend EKGView a where
                     res <- Async.waitCatch dispatcher
                     either throwM return res
 
-            forM_ (evPrometheusDispatch ev) Async.cancel
+            forM_ (evPrometheusDispatch ev) $
+                Async.cancel
 
         withMVar (getEV ekgview) $ \ekg ->
             forM_ (evServer ekg) $
@@ -340,25 +343,37 @@ spawnDispatcher :: Configuration
                 -> Trace.Trace IO a
                 -> Trace.Trace IO a
                 -> IO (Async.Async ())
-spawnDispatcher config evqueue sbtrace ekgtrace =
-    Async.async qProc
+spawnDispatcher config evqueue sbtrace ekgtrace = do
+    now <- getCurrentTime
+    let messageCounters = resetCounters now
+    countersMVar <- newMVar messageCounters
+    _timer <- Async.async $ sendAndResetAfter
+                                sbtrace
+                                "#messagecounters.ekgview"
+                                countersMVar
+                                60000   -- 60000 ms = 1 min
+                                Debug
+
+    Async.async $ qProc countersMVar
   where
     {-@ lazy qProc @-}
-    qProc :: IO ()
-    qProc =
+    qProc :: MVar MessageCounter -> IO ()
+    qProc counters =
         processQueue
             evqueue
             processEKGView
-            ()
+            counters
             (\_ -> pure ())
 
-    processEKGView obj@(LogObject _ _ _) _state = do
+    processEKGView obj@(LogObject _ _ _) counters = do
         obj' <- testSubTrace config ("#ekgview." <> lo2name obj) obj
         case obj' of
             Just lo@(LogObject loname meta content) -> do
                 let trace = Trace.appendName (loname2text loname) ekgtrace
                 Trace.traceNamedObject trace (meta, content)
+                -- increase the counter for the type of message
+                modifyMVar_ counters $ \cnt -> return $ updateMessageCounters cnt lo
             Nothing -> pure ()
-        pure ()
+        return counters
 
 \end{code}

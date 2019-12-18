@@ -64,7 +64,7 @@ import           Control.Monad (when)
 import           Data.Aeson ((.:))
 import           Data.Aeson.Types (parseMaybe)
 import qualified Data.HashMap.Strict as HM
-import           Data.Maybe (catMaybes, fromMaybe)
+import           Data.Maybe (maybe, catMaybes, fromMaybe)
 import qualified Data.Text as T
 import           Data.Text (Text, pack, unpack)
 import qualified Data.Vector as Vector
@@ -168,7 +168,7 @@ getBackends configuration name = do
 
 getDefaultBackends :: Configuration -> IO [BackendKind]
 getDefaultBackends configuration =
-    cgDefBackendKs <$> readMVar (getCG configuration)
+    cgDefBackendKs <$> (readMVar $ getCG configuration)
 
 setDefaultBackends :: Configuration -> [BackendKind] -> IO ()
 setDefaultBackends configuration bes =
@@ -192,7 +192,7 @@ setSetupBackends configuration bes =
 
 getSetupBackends :: Configuration -> IO [BackendKind]
 getSetupBackends configuration =
-    cgSetupBackends <$> readMVar (getCG configuration)
+    cgSetupBackends <$> (readMVar $ getCG configuration)
 
 \end{code}
 
@@ -267,7 +267,7 @@ getAggregatedKind configuration name = do
     let outs = HM.lookup name (cgMapAggregatedKind cg)
     case outs of
         Nothing -> return $ cgDefAggregatedKind cg
-        Just os -> return os
+        Just os -> return $ os
 
 setDefaultAggregatedKind :: Configuration -> AggregatedKind -> IO ()
 setDefaultAggregatedKind configuration defAK =
@@ -285,7 +285,7 @@ setAggregatedKind configuration name ak =
 \begin{code}
 getEKGport :: Configuration -> IO Int
 getEKGport configuration =
-    cgPortEKG <$> readMVar (getCG configuration)
+    cgPortEKG <$> (readMVar $ getCG configuration)
 
 setEKGport :: Configuration -> Int -> IO ()
 setEKGport configuration port =
@@ -294,7 +294,7 @@ setEKGport configuration port =
 
 getGraylogPort :: Configuration -> IO Int
 getGraylogPort configuration =
-    cgPortGraylog <$> readMVar (getCG configuration)
+    cgPortGraylog <$> (readMVar $ getCG configuration)
 
 setGraylogPort :: Configuration -> Int -> IO ()
 setGraylogPort configuration port =
@@ -303,7 +303,7 @@ setGraylogPort configuration port =
 
 getPrometheusBindAddr :: Configuration -> IO (Maybe (String, Int))
 getPrometheusBindAddr configuration =
-    cgBindAddrPrometheus <$> readMVar (getCG configuration)
+    cgBindAddrPrometheus <$> (readMVar $ getCG configuration)
 
 setPrometheusBindAddr :: Configuration -> Maybe (String, Int) -> IO ()
 setPrometheusBindAddr configuration mHostPort =
@@ -312,7 +312,7 @@ setPrometheusBindAddr configuration mHostPort =
 
 getGUIport :: Configuration -> IO Int
 getGUIport configuration =
-    cgPortGUI <$> readMVar (getCG configuration)
+    cgPortGUI <$> (readMVar $ getCG configuration)
 
 setGUIport :: Configuration -> Int -> IO ()
 setGUIport configuration port =
@@ -325,7 +325,7 @@ setGUIport configuration port =
 \begin{code}
 getLogOutput :: Configuration -> IO (Maybe FilePath)
 getLogOutput configuration =
-    cgLogOutput <$> readMVar (getCG configuration)
+    cgLogOutput <$> (readMVar $ getCG configuration)
 
 setLogOutput :: Configuration -> FilePath -> IO ()
 setLogOutput configuration path =
@@ -349,7 +349,7 @@ getOption configuration name = do
 \begin{code}
 minSeverity :: Configuration -> IO Severity
 minSeverity configuration =
-    cgMinSeverity <$> readMVar (getCG configuration)
+    cgMinSeverity <$> (readMVar $ getCG configuration)
 
 setMinSeverity :: Configuration -> Severity -> IO ()
 setMinSeverity configuration sev =
@@ -378,7 +378,7 @@ The function |appendName| will look up the |SubTrace| for the context's name.
 \begin{code}
 findSubTrace :: Configuration -> Text -> IO (Maybe SubTrace)
 findSubTrace configuration name =
-    HM.lookup name <$> cgMapSubtrace <$> readMVar (getCG configuration)
+    HM.lookup name <$> cgMapSubtrace <$> (readMVar $ getCG configuration)
 
 setSubTrace :: Configuration -> Text -> Maybe SubTrace -> IO ()
 setSubTrace configuration name trafo =
@@ -483,7 +483,7 @@ setupFromRepresentation r = do
     fillRotationParams defaultRotation = map $ \sd ->
         if scKind sd == FileSK
         then
-            sd { scRotation = scRotation sd <|> defaultRotation }
+            sd { scRotation = maybe defaultRotation Just (scRotation sd) }
         else
             -- stdout, stderr, /dev/null and systemd cannot be rotated
             sd { scRotation = Nothing }
@@ -500,7 +500,7 @@ setupFromRepresentation r = do
     parseScribeMap (Just hmv) = HM.map mkScribes hmv
       where
         mkScribes (Array scs) = catMaybes $ map mkScribe $ Vector.toList scs
-        mkScribes (String s) = [s :: ScribeId]
+        mkScribes (String s) = [(s :: ScribeId)]
         mkScribes _ = []
         mkScribe :: Value -> Maybe ScribeId
         mkScribe = parseMaybe parseJSON
@@ -512,13 +512,19 @@ setupFromRepresentation r = do
         mkSubtrace :: Value -> Maybe SubTrace
         mkSubtrace = parseMaybe parseJSON
 
-    r_hasEKG repr = fromMaybe 0 (R.hasEKG repr)
-    r_hasGraylog repr = fromMaybe 0 (R.hasGraylog repr)
+    r_hasEKG repr = case (R.hasEKG repr) of
+                       Nothing -> 0
+                       Just p  -> p
+    r_hasGraylog repr = case (R.hasGraylog repr) of
+                       Nothing -> 0
+                       Just p  -> p
     r_hasPrometheus repr = Just $ fromMaybe
                            ( "127.0.0.1"
                            , 12799) -- default port for Prometheus
                            (R.hasPrometheus repr)
-    r_hasGUI repr = fromMaybe 0 (R.hasGUI repr)
+    r_hasGUI repr = case (R.hasGUI repr) of
+                       Nothing -> 0
+                       Just p  -> p
     r_defaultScribes repr = map (\(k,n) -> pack(show k) <> "::" <> n) (R.defaultScribes repr)
 
 parseAggregatedKindMap :: Maybe (HM.HashMap Text Value) -> HM.HashMap LoggerName AggregatedKind
@@ -527,7 +533,7 @@ parseAggregatedKindMap (Just hmv) = HM.mapMaybe mkAggregatedKind hmv
     where
     mkAggregatedKind :: Value -> Maybe AggregatedKind
     mkAggregatedKind (String s) = Just $ read $ unpack s
-    mkAggregatedKind v = parseMaybe parseJSON v
+    mkAggregatedKind v = (parseMaybe parseJSON) v
 
 \end{code}
 
@@ -539,7 +545,13 @@ empty = do
                            { cgMinSeverity       = Debug
                            , cgDefRotation       = Nothing
                            , cgMapSeverity       = HM.empty
-                           , cgMapSubtrace       = HM.empty
+                           , cgMapSubtrace       = HM.fromList [
+                                                     ("#messagecounters.ekgview", NoTrace),
+                                                     ("#messagecounters.aggregation", NoTrace),
+                                                     ("#messagecounters.switchboard", NoTrace),
+                                                     ("#messagecounters.monitoring", NoTrace),
+                                                     ("#messagecounters.katip", NoTrace),
+                                                     ("#messagecounters.graylog", NoTrace) ]
                            , cgOptions           = HM.empty
                            , cgMapBackend        = HM.empty
                            , cgDefBackendKs      = []

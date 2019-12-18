@@ -6,6 +6,7 @@
 \begin{code}
 {-# LANGUAGE CPP                   #-}
 {-# LANGUAGE DeriveAnyClass        #-}
+{-# LANGUAGE DeriveGeneric         #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -33,7 +34,7 @@ import           Control.AutoUpdate (UpdateSettings (..), defaultUpdateSettings,
 import           Control.Concurrent.MVar (MVar, modifyMVar_, readMVar,
                      newMVar, withMVar)
 import           Control.Exception.Safe (catchIO)
-import           Control.Monad (forM_, void)
+import           Control.Monad (forM, forM_, void, when)
 import           Control.Lens ((^.))
 import           Data.Aeson (FromJSON, ToJSON, Result (Success), Value (..),
                      fromJSON, toJSON)
@@ -41,7 +42,7 @@ import           Data.Aeson.Text (encodeToLazyText)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Map as Map
 import           Data.List (find)
-import           Data.Maybe (isNothing)
+import           Data.Maybe (catMaybes, isNothing)
 import           Data.String (fromString)
 import           Data.Text (Text, isPrefixOf, pack, unpack)
 import qualified Data.Text as T
@@ -69,6 +70,8 @@ import qualified Cardano.BM.Configuration as Config
 import           Cardano.BM.Configuration.Model (getScribes, getSetupScribes)
 import           Cardano.BM.Data.Aggregated
 import           Cardano.BM.Data.Backend
+import           Cardano.BM.Data.MessageCounter (MessageCounter (..), resetCounters,
+                     updateMessageCounters)
 import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.Output
 import           Cardano.BM.Data.Rotation (RotationParameters (..))
@@ -87,6 +90,7 @@ newtype Log a = Log
 
 data LogInternal = LogInternal
     { kLogEnv       :: K.LogEnv
+    , msgCounters   :: MessageCounter
     , configuration :: Config.Configuration }
 
 \end{code}
@@ -105,6 +109,11 @@ instance ToJSON a => IsEffectuator Log a where
                         -> removePublicScribes setupScribes selscribes
                     _   -> selscribes
         forM_ selscribesFiltered $ \sc -> passN sc katip item
+        -- increase the counter for the specific severity and message type
+        modifyMVar_ logMVar $ \li -> return $
+            li{ msgCounters = updateMessageCounters (msgCounters li) item }
+        -- reset message counters afer 60 sec = 1 min
+        resetMessageCounters logMVar c 60 Warning selscribesFiltered
       where
         removePublicScribes allScribes = filter $ \sc ->
             let (_, nameD) = T.breakOn "::" sc
@@ -114,6 +123,41 @@ instance ToJSON a => IsEffectuator Log a where
             case find (\x -> scName x == name) allScribes of
                 Nothing     -> False
                 Just scribe -> scPrivacy scribe == ScPrivate
+        resetMessageCounters logMVar cfg interval sev scribes = do
+            counters <- msgCounters <$> readMVar logMVar
+            let start = mcStart counters
+                now = case item of
+                        LogObject _ meta _ -> tstamp meta
+                diffTime = round $ diffUTCTime now start
+            when (diffTime > interval) $ do
+                let counterName = ["#messagecounters", "katip"]
+                    cname = loname2text counterName
+                countersObjects <- forM (HM.toList $ mcCountersMap counters) $ \(key, count) ->
+                        LogObject
+                            <$> pure counterName
+                            <*> (mkLOMeta sev Confidential)
+                            <*> pure (LogValue key (PureI $ toInteger count))
+                intervalObject <-
+                    LogObject
+                        <$> pure counterName
+                        <*> (mkLOMeta sev Confidential)
+                        <*> pure (LogValue "time_interval_(s)" (PureI diffTime))
+                let namedCounters = countersObjects ++ [intervalObject]
+                namedCountersFiltered <- catMaybes <$> (forM namedCounters $ \obj -> do
+                    mayObj <- Config.testSubTrace cfg cname obj
+                    case mayObj of
+                        Just o -> do
+                            passSevFilter <- Config.testSeverity cfg cname $ loMeta o
+                            if passSevFilter
+                            then return $ Just o
+                            else return Nothing
+                        Nothing -> return Nothing)
+                forM_ scribes $ \sc ->
+                    forM_ namedCountersFiltered $ \namedCounter ->
+                        passN sc katip namedCounter
+                modifyMVar_ logMVar $ \li -> return $
+                    li{ msgCounters = resetCounters now }
+
     handleOverflow _ = TIO.hPutStrLn stderr "Notice: Katip's queue full, dropping log items!"
 
 \end{code}
@@ -130,14 +174,16 @@ instance (ToJSON a, FromJSON a) => IsBackend Log a where
         cfoKey <- Config.getOptionOrDefault config (pack "cfokey") (pack "<unknown>")
         le0 <- K.initLogEnv
                     (K.Namespace mempty)
-                    (fromString (unpack cfoKey <> ":" <> showVersion version))
+                    (fromString $ (unpack cfoKey) <> ":" <> showVersion version)
         -- request a new time 'getCurrentTime' at most 100 times a second
         timer <- mkAutoUpdate defaultUpdateSettings { updateAction = getCurrentTime, updateFreq = 10000 }
         let le1 = updateEnv le0 timer
         scribes <- getSetupScribes config
         le <- registerScribes scribes le1
 
-        kref <- newMVar $ LogInternal le config
+        messageCounters <- resetCounters <$> getCurrentTime
+
+        kref <- newMVar $ LogInternal le messageCounters config
 
         return $ Log kref
 
@@ -235,10 +281,10 @@ passN :: ToJSON a => ScribeId -> Log a -> LogObject a -> IO ()
 passN backend katip (LogObject loname lometa loitem) = do
     env <- kLogEnv <$> readMVar (getK katip)
     forM_ (Map.toList $ K._logEnvScribes env) $
-          \(scName, KC.ScribeHandle _ shChan) ->
+          \(scName, (KC.ScribeHandle _ shChan)) -> do
               -- check start of name to match |ScribeKind|
                 if backend `isPrefixOf` scName
-                then
+                then do
                     let (sev, msg, payload) = case loitem of
                                 (LogMessage logItem) ->
                                      let (text,maylo) = case toJSON logItem of
@@ -283,14 +329,13 @@ passN backend katip (LogObject loname lometa loitem) = do
                                     (severity lometa, "Kill pill received!", Nothing)
                                 Command _ ->
                                     (severity lometa, "Command received!", Nothing)
-                    in
                     if (msg == "") && (isNothing payload)
                     then return ()
-                    else
+                    else do
                         let threadIdText = KC.ThreadIdText $ tid lometa
-                            itemTime = tstamp lometa
-                            localname = loname
-                            itemKatip = K.Item {
+                        let itemTime = tstamp lometa
+                        let localname = loname
+                        let itemKatip = K.Item {
                                   _itemApp       = env ^. KC.logEnvApp
                                 , _itemEnv       = env ^. KC.logEnvEnv
                                 , _itemSeverity  = sev2klog sev
@@ -303,7 +348,6 @@ passN backend katip (LogObject loname lometa loitem) = do
                                 , _itemNamespace = (env ^. KC.logEnvApp) <> (K.Namespace localname)
                                 , _itemLoc       = Nothing
                                 }
-                        in
                         void $ atomically $ KC.tryWriteTBQueue shChan (KC.NewItem itemKatip)
                 else return ()
 \end{code}
@@ -330,20 +374,19 @@ mkStderrScribe ScJson = do
     mkJsonFileScribeH stderr' True
 
 mkDevNullScribe :: IO K.Scribe
-mkDevNullScribe =
+mkDevNullScribe = do
     let logger _ = pure ()
-    in
     pure $ K.Scribe logger (pure ()) (pure . const True)
 
 mkTextFileScribeH :: Handle -> Bool -> IO K.Scribe
-mkTextFileScribeH handler color =
+mkTextFileScribeH handler color = do
     mkFileScribeH handler formatter color
   where
     formatter h r =
         let (_, msg) = renderTextMsg r
         in TIO.hPutStrLn h $! msg
 mkJsonFileScribeH :: Handle -> Bool -> IO K.Scribe
-mkJsonFileScribeH handler color =
+mkJsonFileScribeH handler color = do
     mkFileScribeH handler formatter color
   where
     formatter h r =
