@@ -5,6 +5,7 @@
 %if style == newcode
 \begin{code}
 {-# LANGUAGE CPP                   #-}
+{-# LANGUAGE BangPatterns          #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
@@ -49,6 +50,8 @@ import           Cardano.BM.Data.Backend
 import           Cardano.BM.Data.Counter (Counter (..), CounterState (..),
                      nameCounter)
 import           Cardano.BM.Data.LogItem
+import           Cardano.BM.Data.MessageCounter (resetCounters, sendAndResetAfter,
+                     updateMessageCounters)
 import           Cardano.BM.Data.Severity (Severity (..))
 import           Cardano.BM.Plugin
 import qualified Cardano.BM.Trace as Trace
@@ -165,27 +168,38 @@ spawnDispatcher :: Configuration
                 -> TBQ.TBQueue (Maybe (LogObject a))
                 -> Trace.Trace IO a
                 -> IO (Async.Async ())
-spawnDispatcher conf aggMap aggregationQueue basetrace =
+spawnDispatcher conf aggMap aggregationQueue basetrace = do
+    now <- getCurrentTime
     let trace = Trace.appendName "#aggregation" basetrace
-    in
-    Async.async $ qProc trace aggMap
+    let messageCounters = resetCounters now
+    countersMVar <- newMVar messageCounters
+    _timer <- Async.async $ sendAndResetAfter
+                                basetrace
+                                "#messagecounters.aggregation"
+                                countersMVar
+                                60000   -- 60000 ms = 1 min
+                                Debug
+
+    Async.async $ qProc trace countersMVar aggMap
   where
     {-@ lazy qProc @-}
-    qProc trace aggregatedMap =
+    qProc trace counters aggregatedMap = do
         processQueue
             aggregationQueue
             processAggregated
-            (trace, aggregatedMap)
+            (trace, counters, aggregatedMap)
             (\_ -> pure ())
 
-    processAggregated lo@(LogObject loname lm _) (trace, aggregatedMap) = do
+    processAggregated lo@(LogObject loname lm _) (trace, counters, aggregatedMap) = do
         (updatedMap, aggregations) <- update lo aggregatedMap trace
         unless (null aggregations) $
             sendAggregated trace (LogObject loname lm (AggregatedMessage aggregations))
-        return (trace, updatedMap)
+        -- increase the counter for the specific severity and message type
+        modifyMVar_ counters $ \cnt -> return $ updateMessageCounters cnt lo
+        return (trace, counters, updatedMap)
 
     createNupdate :: Text -> Measurable -> LOMeta -> AggregationMap -> IO (Either Text Aggregated)
-    createNupdate name value lme agmap =
+    createNupdate name value lme agmap = do
         case HM.lookup name agmap of
             Nothing -> do
                 -- if Aggregated does not exist; initialize it.
@@ -242,7 +256,7 @@ spawnDispatcher conf aggMap aggregationQueue basetrace =
                                   , aeLastSent = now
                                   }
                     namedAggregated = [(iname, aeAggregated aggregatedX)]
-                    updatedMap = HM.alter (const $ Just aggregatedX) fullname agmap
+                    updatedMap = HM.alter (const $ Just $ aggregatedX) fullname agmap
                 return (updatedMap, namedAggregated)
             Left w -> do
                 let trace' = Trace.appendName "update" trace
@@ -261,7 +275,7 @@ spawnDispatcher conf aggMap aggregationQueue basetrace =
                    -> [(Text, Aggregated)]
                    -> Trace.Trace IO a
                    -> IO (AggregationMap, [(Text, Aggregated)])
-    updateCounters [] _ _ aggrMap aggs _ = return (aggrMap, aggs)
+    updateCounters [] _ _ aggrMap aggs _ = return $ (aggrMap, aggs)
     updateCounters (counter : cs) lme (logname, msgname) aggrMap aggs trace = do
         let name = cName counter
             subname = msgname <> "." <> (nameCounter counter) <> "." <> name
@@ -277,7 +291,7 @@ spawnDispatcher conf aggMap aggregationQueue basetrace =
                                   , aeLastSent = now
                                   }
                     namedAggregated = (subname, aggregated)
-                    updatedMap = HM.alter (const $ Just aggregatedX) fullname aggrMap
+                    updatedMap = HM.alter (const $ Just $ aggregatedX) fullname aggrMap
                 updateCounters cs lme (logname, msgname) updatedMap (namedAggregated : aggs) trace
             Left w -> do
                 let trace' = Trace.appendName "updateCounters" trace
