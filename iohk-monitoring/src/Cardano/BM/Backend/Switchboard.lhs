@@ -36,12 +36,15 @@ import           Control.Concurrent.MVar (MVar, newEmptyMVar, newMVar,
                      withMVar)
 import           Control.Concurrent.STM (atomically, retry)
 import qualified Control.Concurrent.STM.TBQueue as TBQ
-import           Control.Exception.Safe (throwM)
+import           Control.Exception.Safe (throwM, fromException)
+import           Control.Exception (SomeException(..))
 import           Control.Monad (forM_, when, void)
 import           Data.Aeson (FromJSON, ToJSON)
+import           Data.Maybe (isJust)
 import           Data.Text (Text, splitOn)
 import qualified Data.Text.IO as TIO
 import           Data.Time.Clock (getCurrentTime)
+import           GHC.IO.Exception (BlockedIndefinitelyOnSTM)
 import qualified Katip as K
 import           System.IO (stderr)
 
@@ -263,7 +266,7 @@ instance (FromJSON a, ToJSON a) => IsBackend Switchboard a where
         -- link the given Async to the current thread, such that if the Async
         -- raises an exception, that exception will be re-thrown in the current
         -- thread, wrapped in ExceptionInLinkedThread.
-        Async.link dispatcher
+        Async.linkOnly (not . isBlockedIndefinitelyOnSTM) dispatcher
         putMVar sbref $ SwitchboardInternal {
                             sbQueue = q,
                             sbDispatch = dispatcher,
@@ -287,6 +290,10 @@ instance (FromJSON a, ToJSON a) => IsBackend Switchboard a where
         res <- Async.waitCatch dispatcher
         either throwM return res
         (clearMVar . getSB) switchboard
+
+isBlockedIndefinitelyOnSTM :: SomeException -> Bool
+isBlockedIndefinitelyOnSTM e =
+  isJust (fromException e :: Maybe BlockedIndefinitelyOnSTM)
 
 \end{code}
 

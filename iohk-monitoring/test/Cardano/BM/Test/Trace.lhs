@@ -37,6 +37,7 @@ import           System.Directory (getTemporaryDirectory, removeFile)
 import           System.Mem (performMajorGC)
 import           System.FilePath ((</>))
 
+import           Cardano.BM.Backend.Switchboard (Switchboard)
 import           Cardano.BM.Configuration (Configuration, evalFilters,
                      inspectSeverity, minSeverity, setMinSeverity, setSeverity)
 import           Cardano.BM.Configuration.Model (empty, setDefaultBackends,
@@ -91,6 +92,7 @@ tests = testGroup "Testing Trace" [
 #endif
       , testCaseInfo "demonstrating logging" simpleDemo
       , testCaseInfo "demonstrating nested named context logging" exampleWithNamedContexts
+      , testCase "major GC doesn't cause an exception for lost traces" unitShutdown
       ]
 
 unit_tests :: TestTree
@@ -844,5 +846,21 @@ unitLoggingPrivate = do
   where
     message :: Text
     message = "Just a message"
+
+\end{code}
+
+\subsubsection{Verify that the shutdown-free sequence survives a major GC.}\label{code:unitShutdown}
+
+\begin{code}
+
+unitShutdown :: Assertion
+unitShutdown = do
+    _ :: (Trace IO Text, Switchboard Text)
+      <- flip Setup.setupTrace_ "" =<< empty
+
+    threadDelay 1000
+    performMajorGC
+    threadDelay 1000
+    assertBool "Win!" True
 
 \end{code}
