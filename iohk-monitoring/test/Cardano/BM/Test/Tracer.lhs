@@ -4,20 +4,30 @@
 
 %if style == newcode
 \begin{code}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE OverloadedStrings     #-}
 
 module Cardano.BM.Test.Tracer (
     tests
   ) where
 
+import qualified Control.Concurrent.STM.TVar as STM
 import           Control.Monad (void)
 import           Data.Functor.Contravariant (Contravariant (..))
-import           Data.Text (Text, unpack)
+import           Data.Text (Text, pack, unpack)
 
+import           Cardano.BM.Configuration.Static
+import           Cardano.BM.Configuration (Configuration)
+import           Cardano.BM.Configuration.Model (setSubTrace)
+import           Cardano.BM.ElidingTracer
 import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.Severity
+import           Cardano.BM.Data.SubTrace
 import           Cardano.BM.Data.Tracer
+import           Cardano.BM.Test.Mock (MockSwitchboard (..), traceMock)
+import           Cardano.BM.Trace (Trace, appendName)
 
 import           Test.Tasty (TestTree, testGroup)
 import           Test.Tasty.HUnit (Assertion, assertBool, testCase)
@@ -32,30 +42,32 @@ tests = testGroup "Testing Extensions to Tracer" [
             testCase "tracing with privacy and severity annotation" tracingWithPrivacyAndSeverityAnnotation,
             testCase "tracing with a predicate filter" tracingWithPredicateFilter,
             testCase "tracing with a filter that is evaluated in a monad" tracingWithMonadicFilter,
-            testCase "tracing with filtering for both severity and privacy" tracingWithComplexFiltering
+            testCase "tracing with filtering for both severity and privacy" tracingWithComplexFiltering,
+            testCase "eliding equivalent messages on tracer" tracingElidedMessages,
+            testCase "eliding equivalent messages only one" tracingElidedMessages1,
+            testCase "eliding equivalent messages only two" tracingElidedMessages2,
+            testCase "eliding equivalent messages from three" tracingElidedMessages3
         ]
 
 \end{code}
 
-\subsubsection{Utilities}
-\begin{spec}
-data LogNamed item = LogNamed
-    { lnName :: LoggerName
-    , lnItem :: item
-    } deriving (Show)
+\subsubsection{Helper routines}
+\begin{code}
+data TraceConfiguration = TraceConfiguration
+    { _tcConfig       :: Configuration
+    , _tcOutputKind   :: MockSwitchboard Text
+    , _tcName         :: LoggerName
+    , _tcSubTrace     :: SubTrace
+    }
 
-named :: Tracer m (LogNamed a) -> Tracer m a
-named = contramap (LogNamed mempty)
+setupMockTrace :: TraceConfiguration -> IO (Trace IO Text)
+setupMockTrace (TraceConfiguration cfg mockSB name subTr) = do
+    let logTrace = traceMock mockSB cfg
 
-appendNamed :: LoggerName -> Tracer m (LogNamed a) -> Tracer m (LogNamed a)
-appendNamed name = contramap $ (\(LogNamed oldName item) ->
-    LogNamed (name <> "." <> oldName) item)
+    setSubTrace cfg name (Just subTr)
+    return $ appendName name logTrace
 
-renderNamedItemTracing :: Show a => Tracer m String -> Tracer m (LogNamed a)
-renderNamedItemTracing = contramap $ \item ->
-    unpack (lnName item) ++ ": " ++ show (lnItem item)
-
-\end{spec}
+\end{code}
 
 \begin{code}
 renderNamedItemTracing' :: Show a => Tracer m String -> Tracer m (LogObject a)
@@ -184,5 +196,153 @@ tracingWithComplexFiltering = do
     oracleSev = return $ \(PSA sev _priv _) -> (sev > Debug)
     oracleName :: Monad m => m (LogObject a -> Bool)
     oracleName = return $ \(LogObject names _ _) -> (names == ["row"])
+
+\end{code}
+
+Tracer transformer for eliding repeated messages
+\begin{code}
+
+data MsgTy = Item1 Int
+           | Elided1 Int
+           | Elided2 Int
+           deriving (Show)
+
+instance DefineSeverity MsgTy
+instance DefinePrivacyAnnotation MsgTy
+instance Transformable Text IO MsgTy where
+    trTransformer _ _verb tr = Tracer $ \s ->
+        traceWith tr =<< LogObject <$> pure mempty
+                                   <*> mkLOMeta (defineSeverity s) (definePrivacyAnnotation s)
+                                   <*> pure (LogMessage $ pack $ show s)
+
+instance ElidingTracer (WithSeverity MsgTy) where
+    -- only |Elided1| and |Elided2| can be elided
+    doelide (WithSeverity _s (Elided1 _)) = True
+    doelide (WithSeverity _s (Elided2 _)) = True
+    doelide _ = False
+    -- any |Elided1| is equivalent to another |Elided1|
+    isEquivalent (WithSeverity _ (Elided1 _)) (WithSeverity _ (Elided1 _)) = True
+    -- instances of |Elided2| are equivalent if they are equal
+    isEquivalent (WithSeverity _ (Elided2 n1)) (WithSeverity _ (Elided2 n2)) = n1 == n2
+    isEquivalent _ _ = False
+
+
+tracingElidedMessages :: Assertion
+tracingElidedMessages = do
+    cfg <- defaultConfigStdout
+    msgs <- STM.newTVarIO []
+    baseTrace <- setupMockTrace $ TraceConfiguration cfg (MockSB msgs) "eliding" Neutral
+
+    s_elide <- newstate
+
+    let msg11 = Elided1 1400
+        msg12 = Elided1 1000
+        msg21 = Elided2 999
+        msg22 = Elided2 998
+        msg23 = Elided2 998
+        msg31 = Item1 42
+        msg32 = Item1 42
+        infoTracer = annotateSeverity
+                     $ elideToLogObject TextualRepresentation NormalVerbosity s_elide $ baseTrace
+    traceWith infoTracer msg11
+    traceWith infoTracer msg12
+    traceWith infoTracer msg31
+    traceWith infoTracer msg11
+    traceWith infoTracer msg12  -- elided
+    traceWith infoTracer msg12  -- elided
+    traceWith infoTracer msg11
+    traceWith infoTracer msg31
+    traceWith infoTracer msg21
+    traceWith infoTracer msg22
+    traceWith infoTracer msg23
+    traceWith infoTracer msg31
+    traceWith infoTracer msg32
+    traceWith infoTracer msg31
+    traceWith infoTracer msg32
+    traceWith infoTracer msg31
+
+    ms <- STM.readTVarIO msgs
+
+    assertBool
+        ("assert number of messages traced == 15: " ++ show (reverse $ map loContent ms) ++ " len = " ++ show (length ms))
+        (15 == length ms)
+
+\end{code}
+
+The first elided message is output and the internal counter of elided messages is set to zero. When the non-equivalent message is traced, the last elided message is not output since this is the same as the first one. 
+\begin{code}
+tracingElidedMessages1 :: Assertion
+tracingElidedMessages1 = do
+    cfg <- defaultConfigStdout
+    msgs <- STM.newTVarIO []
+    baseTrace <- setupMockTrace $ TraceConfiguration cfg (MockSB msgs) "eliding2" Neutral
+
+    s_elide <- newstate
+
+    let msg11 = Elided1 1400
+        msg31 = Item1 42
+        tracer = annotateSeverity
+                 $ elideToLogObject TextualRepresentation NormalVerbosity s_elide $ baseTrace
+    traceWith tracer msg11
+    traceWith tracer msg31
+
+    ms <- STM.readTVarIO msgs
+
+    assertBool
+        ("assert number of messages traced == 2: " ++ (show $ reverse $ map loContent ms))
+        (2 == length ms)
+\end{code}
+
+The first message is output. When the non-equivalent message is traced, the last message is output. Since the first and last messages are output, no count of elided messages is reported.
+\begin{code}
+tracingElidedMessages2 :: Assertion
+tracingElidedMessages2 = do
+    cfg <- defaultConfigStdout
+    msgs <- STM.newTVarIO []
+    baseTrace <- setupMockTrace $ TraceConfiguration cfg (MockSB msgs) "eliding1" Neutral
+
+    s_elide <- newstate
+
+    let msg11 = Elided1 1400
+        msg12 = Elided1 1000
+        msg31 = Item1 42
+        tracer = annotateSeverity
+                 $ elideToLogObject TextualRepresentation NormalVerbosity s_elide $ baseTrace
+    traceWith tracer msg11
+    traceWith tracer msg12
+    traceWith tracer msg31
+
+    ms <- STM.readTVarIO msgs
+
+    assertBool
+        ("assert number of messages traced == 3: " ++ (show $ reverse $ map loContent ms))
+        (3 == length ms)
+\end{code}
+
+The second tracing of |msg12| increases the internal counter of elided messages to two. One (2 - 1) elided message is reported, and the last message is output.
+\begin{code}
+tracingElidedMessages3 :: Assertion
+tracingElidedMessages3 = do
+    cfg <- defaultConfigStdout
+    msgs <- STM.newTVarIO []
+    baseTrace <- setupMockTrace $ TraceConfiguration cfg (MockSB msgs) "eliding3" Neutral
+
+    s_elide <- newstate
+
+    let msg11 = Elided1 1400
+        msg12 = Elided1 1000
+        msg31 = Item1 42
+        tracer = annotateSeverity
+                 $ elideToLogObject TextualRepresentation NormalVerbosity s_elide $ baseTrace
+    traceWith tracer msg11
+    traceWith tracer msg12
+    traceWith tracer msg12  -- elided
+    traceWith tracer msg31
+
+    ms <- STM.readTVarIO msgs
+
+    assertBool
+        ("assert number of messages traced == 4: " ++ (show $ reverse $ map loContent ms))
+        (4 == length ms)
 
 \end{code}
