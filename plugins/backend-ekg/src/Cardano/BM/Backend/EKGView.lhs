@@ -55,8 +55,6 @@ import           Cardano.BM.Configuration (Configuration, getEKGport,
 import           Cardano.BM.Data.Aggregated
 import           Cardano.BM.Data.Backend
 import           Cardano.BM.Data.LogItem
-import           Cardano.BM.Data.MessageCounter (MessageCounter, resetCounters,
-                     sendAndResetAfter, updateMessageCounters)
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.Trace
 import           Cardano.BM.Data.Tracer (Tracer (..), showTracing, severityError, traceWith)
@@ -343,37 +341,26 @@ spawnDispatcher :: Configuration
                 -> Trace.Trace IO a
                 -> Trace.Trace IO a
                 -> IO (Async.Async ())
-spawnDispatcher config evqueue sbtrace ekgtrace = do
-    now <- getCurrentTime
-    let messageCounters = resetCounters now
-    countersMVar <- newMVar messageCounters
-    _timer <- Async.async $ sendAndResetAfter
-                                sbtrace
-                                "#messagecounters.ekgview"
-                                countersMVar
-                                60000   -- 60000 ms = 1 min
-                                Debug
-
-    Async.async $ qProc countersMVar
+spawnDispatcher config evqueue sbtrace ekgtrace =
+    Async.async $ qProc
   where
     {-@ lazy qProc @-}
-    qProc :: MVar MessageCounter -> IO ()
-    qProc counters =
+    qProc :: IO ()
+    qProc =
         processQueue
             evqueue
             processEKGView
-            counters
+            ()
             (\_ -> pure ())
 
-    processEKGView obj@(LogObject _ _ _) counters = do
+    processEKGView obj@(LogObject _ _ _) _ = do
         obj' <- testSubTrace config ("#ekgview." <> lo2name obj) obj
         case obj' of
-            Just lo@(LogObject loname meta content) -> do
+            Just lo@(LogObject loname meta content) ->
                 let trace = Trace.appendName (loname2text loname) ekgtrace
+                in
                 Trace.traceNamedObject trace (meta, content)
-                -- increase the counter for the type of message
-                modifyMVar_ counters $ \cnt -> return $ updateMessageCounters cnt lo
             Nothing -> pure ()
-        return counters
+        pure ()
 
 \end{code}

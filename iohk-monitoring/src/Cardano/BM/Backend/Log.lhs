@@ -34,7 +34,7 @@ import           Control.AutoUpdate (UpdateSettings (..), defaultUpdateSettings,
 import           Control.Concurrent.MVar (MVar, modifyMVar_, readMVar,
                      newMVar, withMVar)
 import           Control.Exception.Safe (catchIO)
-import           Control.Monad (forM, forM_, void, when)
+import           Control.Monad (forM_, void)
 import           Control.Lens ((^.))
 import           Data.Aeson (FromJSON, ToJSON, Result (Success), Value (..),
                      fromJSON, toJSON)
@@ -42,7 +42,7 @@ import           Data.Aeson.Text (encodeToLazyText)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Map as Map
 import           Data.List (find)
-import           Data.Maybe (catMaybes, isNothing)
+import           Data.Maybe (isNothing)
 import           Data.String (fromString)
 import           Data.Text (Text, isPrefixOf, pack, unpack)
 import qualified Data.Text as T
@@ -70,8 +70,6 @@ import qualified Cardano.BM.Configuration as Config
 import           Cardano.BM.Configuration.Model (getScribes, getSetupScribes)
 import           Cardano.BM.Data.Aggregated
 import           Cardano.BM.Data.Backend
-import           Cardano.BM.Data.MessageCounter (MessageCounter (..), resetCounters,
-                     updateMessageCounters)
 import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.Output
 import           Cardano.BM.Data.Rotation (RotationParameters (..))
@@ -90,7 +88,6 @@ newtype Log a = Log
 
 data LogInternal = LogInternal
     { kLogEnv       :: K.LogEnv
-    , msgCounters   :: MessageCounter
     , configuration :: Config.Configuration }
 
 \end{code}
@@ -109,11 +106,6 @@ instance ToJSON a => IsEffectuator Log a where
                         -> removePublicScribes setupScribes selscribes
                     _   -> selscribes
         forM_ selscribesFiltered $ \sc -> passN sc katip item
-        -- increase the counter for the specific severity and message type
-        modifyMVar_ logMVar $ \li -> return $
-            li{ msgCounters = updateMessageCounters (msgCounters li) item }
-        -- reset message counters afer 60 sec = 1 min
-        resetMessageCounters logMVar c 60 Warning selscribesFiltered
       where
         removePublicScribes allScribes = filter $ \sc ->
             let (_, nameD) = T.breakOn "::" sc
@@ -123,41 +115,6 @@ instance ToJSON a => IsEffectuator Log a where
             case find (\x -> scName x == name) allScribes of
                 Nothing     -> False
                 Just scribe -> scPrivacy scribe == ScPrivate
-        resetMessageCounters logMVar cfg interval sev scribes = do
-            counters <- msgCounters <$> readMVar logMVar
-            let start = mcStart counters
-                now = case item of
-                        LogObject _ meta _ -> tstamp meta
-                diffTime = round $ diffUTCTime now start
-            when (diffTime > interval) $ do
-                let counterName = ["#messagecounters", "katip"]
-                    cname = loname2text counterName
-                countersObjects <- forM (HM.toList $ mcCountersMap counters) $ \(key, count) ->
-                        LogObject
-                            <$> pure counterName
-                            <*> (mkLOMeta sev Confidential)
-                            <*> pure (LogValue key (PureI $ toInteger count))
-                intervalObject <-
-                    LogObject
-                        <$> pure counterName
-                        <*> (mkLOMeta sev Confidential)
-                        <*> pure (LogValue "time_interval_(s)" (PureI diffTime))
-                let namedCounters = countersObjects ++ [intervalObject]
-                namedCountersFiltered <- catMaybes <$> (forM namedCounters $ \obj -> do
-                    mayObj <- Config.testSubTrace cfg cname obj
-                    case mayObj of
-                        Just o -> do
-                            passSevFilter <- Config.testSeverity cfg cname $ loMeta o
-                            if passSevFilter
-                            then return $ Just o
-                            else return Nothing
-                        Nothing -> return Nothing)
-                forM_ scribes $ \sc ->
-                    forM_ namedCountersFiltered $ \namedCounter ->
-                        passN sc katip namedCounter
-                modifyMVar_ logMVar $ \li -> return $
-                    li{ msgCounters = resetCounters now }
-
     handleOverflow _ = TIO.hPutStrLn stderr "Notice: Katip's queue full, dropping log items!"
 
 \end{code}
@@ -181,9 +138,7 @@ instance (ToJSON a, FromJSON a) => IsBackend Log a where
         scribes <- getSetupScribes config
         le <- registerScribes scribes le1
 
-        messageCounters <- resetCounters <$> getCurrentTime
-
-        kref <- newMVar $ LogInternal le messageCounters config
+        kref <- newMVar $ LogInternal le config
 
         return $ Log kref
 

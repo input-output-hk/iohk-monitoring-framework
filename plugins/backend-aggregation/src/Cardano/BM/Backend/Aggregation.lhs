@@ -50,8 +50,6 @@ import           Cardano.BM.Data.Backend
 import           Cardano.BM.Data.Counter (Counter (..), CounterState (..),
                      nameCounter)
 import           Cardano.BM.Data.LogItem
-import           Cardano.BM.Data.MessageCounter (resetCounters, sendAndResetAfter,
-                     updateMessageCounters)
 import           Cardano.BM.Data.Severity (Severity (..))
 import           Cardano.BM.Plugin
 import qualified Cardano.BM.Trace as Trace
@@ -168,35 +166,24 @@ spawnDispatcher :: Configuration
                 -> TBQ.TBQueue (Maybe (LogObject a))
                 -> Trace.Trace IO a
                 -> IO (Async.Async ())
-spawnDispatcher conf aggMap aggregationQueue basetrace = do
-    now <- getCurrentTime
+spawnDispatcher conf aggMap aggregationQueue basetrace =
     let trace = Trace.appendName "#aggregation" basetrace
-    let messageCounters = resetCounters now
-    countersMVar <- newMVar messageCounters
-    _timer <- Async.async $ sendAndResetAfter
-                                basetrace
-                                "#messagecounters.aggregation"
-                                countersMVar
-                                60000   -- 60000 ms = 1 min
-                                Debug
-
-    Async.async $ qProc trace countersMVar aggMap
+    in
+    Async.async $ qProc trace aggMap
   where
     {-@ lazy qProc @-}
-    qProc trace counters aggregatedMap = do
+    qProc trace aggregatedMap = do
         processQueue
             aggregationQueue
             processAggregated
-            (trace, counters, aggregatedMap)
+            (trace, aggregatedMap)
             (\_ -> pure ())
 
-    processAggregated lo@(LogObject loname lm _) (trace, counters, aggregatedMap) = do
+    processAggregated lo@(LogObject loname lm _) (trace, aggregatedMap) = do
         (updatedMap, aggregations) <- update lo aggregatedMap trace
         unless (null aggregations) $
             sendAggregated trace (LogObject loname lm (AggregatedMessage aggregations))
-        -- increase the counter for the specific severity and message type
-        modifyMVar_ counters $ \cnt -> return $ updateMessageCounters cnt lo
-        return (trace, counters, updatedMap)
+        return (trace, updatedMap)
 
     createNupdate :: Text -> Measurable -> LOMeta -> AggregationMap -> IO (Either Text Aggregated)
     createNupdate name value lme agmap = do

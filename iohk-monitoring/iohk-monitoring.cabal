@@ -40,7 +40,6 @@ library
                        Cardano.BM.Data.Configuration
                        Cardano.BM.Data.Counter
                        Cardano.BM.Data.LogItem
-                       Cardano.BM.Data.MessageCounter
                        Cardano.BM.Data.MonitoringEval
                        Cardano.BM.Data.Observable
                        Cardano.BM.Data.Output
