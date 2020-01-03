@@ -14,7 +14,7 @@ module Cardano.BM.Test.Tracer (
   ) where
 
 import qualified Control.Concurrent.STM.TVar as STM
-import           Control.Monad (void)
+import           Control.Monad (forM_, void, when)
 import           Data.Functor.Contravariant (Contravariant (..))
 import           Data.Text (Text, pack, unpack)
 
@@ -22,12 +22,13 @@ import           Cardano.BM.Configuration.Static
 import           Cardano.BM.Configuration (Configuration)
 import           Cardano.BM.Configuration.Model (setSubTrace)
 import           Cardano.BM.ElidingTracer
+import           Cardano.BM.Data.Aggregated (Measurable(PureI))
 import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.SubTrace
 import           Cardano.BM.Data.Tracer
 import           Cardano.BM.Test.Mock (MockSwitchboard (..), traceMock)
-import           Cardano.BM.Trace (Trace, appendName)
+import           Cardano.BM.Trace (Trace, appendName, traceNamedObject)
 
 import           Test.Tasty (TestTree, testGroup)
 import           Test.Tasty.HUnit (Assertion, assertBool, testCase)
@@ -46,7 +47,8 @@ tests = testGroup "Testing Extensions to Tracer" [
             testCase "eliding equivalent messages on tracer" tracingElidedMessages,
             testCase "eliding equivalent messages only one" tracingElidedMessages1,
             testCase "eliding equivalent messages only two" tracingElidedMessages2,
-            testCase "eliding equivalent messages from three" tracingElidedMessages3
+            testCase "eliding equivalent messages from three" tracingElidedMessages3,
+            testCase "eliding messages, output after n repeats" tracingElidedMessagesRepeat
         ]
 
 \end{code}
@@ -225,7 +227,12 @@ instance ElidingTracer (WithSeverity MsgTy) where
     -- instances of |Elided2| are equivalent if they are equal
     isEquivalent (WithSeverity _ (Elided2 n1)) (WithSeverity _ (Elided2 n2)) = n1 == n2
     isEquivalent _ _ = False
-
+    conteliding _tform _tverb _tr _ (Nothing, _count) = return (Nothing, 0)
+    conteliding _tform _tverb tr ev (_old, count) = do
+        when (count > 0 && count `mod` 100 == 0) $ do  -- report every 100th elided messages
+            meta <- mkLOMeta (defineSeverity ev) (definePrivacyAnnotation ev)
+            traceNamedObject tr (meta, LogValue "messages elided" (PureI $ toInteger count))
+        return (Just ev, count + 1)
 
 tracingElidedMessages :: Assertion
 tracingElidedMessages = do
@@ -344,5 +351,34 @@ tracingElidedMessages3 = do
     assertBool
         ("assert number of messages traced == 4: " ++ (show $ reverse $ map loContent ms))
         (4 == length ms)
+
+\end{code}
+
+An elided message is output every \emph{n} occurences.
+\begin{code}
+tracingElidedMessagesRepeat :: Assertion
+tracingElidedMessagesRepeat = do
+    cfg <- defaultConfigStdout
+    msgs <- STM.newTVarIO []
+    baseTrace <- setupMockTrace $ TraceConfiguration cfg (MockSB msgs) "eliding3" Neutral
+
+    s_elide <- newstate
+
+    let msg11 = Elided1 1400
+        msg12 = Elided1 1000
+        msg31 = Item1 42
+        tracer = annotateSeverity
+                 $ elideToLogObject TextualRepresentation NormalVerbosity s_elide $ baseTrace
+    traceWith tracer msg11
+    traceWith tracer msg12
+    let mlist = map Elided1 [1..320]
+    forM_ mlist $ \m -> traceWith tracer m
+    traceWith tracer msg31
+
+    ms <- STM.readTVarIO msgs
+
+    assertBool
+        ("assert number of messages traced == 7: " ++ (show $ reverse $ map loContent ms))
+        (7 == length ms)
 
 \end{code}
