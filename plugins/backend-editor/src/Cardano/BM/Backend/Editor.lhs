@@ -12,9 +12,6 @@
 module Cardano.BM.Backend.Editor
     (
       Editor
-    , effectuate
-    , realizefrom
-    , unrealize
     -- * Plugin
     , plugin
     ) where
@@ -145,7 +142,7 @@ instance (ToJSON a, FromJSON a) => IsBackend Editor a where
          meta <- mkLOMeta Error Public
          traceWith trace $ LogObject ["#editor", "realizeFrom"] meta $
            LogError $ "Editor backend disabled due to initialisation error: " <> (pack $ show e)
-         swapMVar mvar nullEditor
+         _ <- swapMVar mvar nullEditor
          pure ()
 
     unrealize editor =

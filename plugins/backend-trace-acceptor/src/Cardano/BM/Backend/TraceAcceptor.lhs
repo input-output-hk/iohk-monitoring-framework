@@ -5,32 +5,40 @@
 
 %if style == newcode
 \begin{code}
+{-# LANGUAGE CPP                   #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE TypeFamilies          #-}
 
+#if !defined(mingw32_HOST_OS)
+#define POSIX
+#endif
 
 module Cardano.BM.Backend.TraceAcceptor
     ( TraceAcceptor (..)
-    , effectuate
-    , realizefrom
-    , unrealize
+    -- * Plugin
+    , plugin
     ) where
 
 import qualified Control.Concurrent.Async as Async
 import           Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar,
                      withMVar)
-import           Data.Aeson (FromJSON, decodeStrict)
+import           Data.Aeson (FromJSON, ToJSON, decodeStrict)
 import qualified Data.ByteString as BS
 import           Data.Text.Encoding (decodeUtf8)
 
 import qualified Cardano.BM.Backend.ExternalAbstraction as CH
 import           Cardano.BM.Backend.ExternalAbstraction (Pipe (..))
-import           Cardano.BM.Data.Tracer (traceWith)
-import           Cardano.BM.Data.LogItem (LOContent (LogError),
-                     LogObject (..), LOMeta (..), PrivacyAnnotation (Public),
-                     mkLOMeta)
+import           Cardano.BM.Configuration (Configuration)
+import           Cardano.BM.Data.Backend
+import           Cardano.BM.Data.BackendKind (BackendKind(TraceAcceptorBK))
+import           Cardano.BM.Data.LogItem (LOContent (LogError), LOMeta (..),
+                     PrivacyAnnotation (Public), mkLOMeta)
 import           Cardano.BM.Data.Severity (Severity (..))
+import           Cardano.BM.Data.Tracer (traceWith)
+import           Cardano.BM.Plugin
 import qualified Cardano.BM.Trace as Trace
 
 \end{code}
@@ -38,6 +46,27 @@ import qualified Cardano.BM.Trace as Trace
 |TraceAcceptor| is a backend responsible for processing |LogObject|s of an
 external process captured by a pipe or socket. At the time being it redirects
 the |LogObject|s to the |SwitchBoard|.
+
+\subsubsection{Plugin definition}
+\begin{code}
+plugin :: (IsEffectuator s a, ToJSON a, FromJSON a)
+       => Configuration -> Trace.Trace IO a -> s a -> FilePath -> IO (Plugin a)
+plugin _ trace _ fp = do
+    be :: (Cardano.BM.Backend.TraceAcceptor.TraceAcceptor PipeType a) <- realizepipe trace fp
+    return $ BackendPlugin
+               (MkBackend { bEffectuate = effectuate be
+                          , bUnrealize = unrealize be })
+               (bekind be)
+
+type PipeType =
+#ifdef POSIX
+    CH.UnixNamedPipe
+#else
+    CH.NoPipe
+#endif
+
+
+\end{code}
 
 \subsubsection{Structure of TraceAcceptor}\label{code:TraceAcceptor}\index{TraceAcceptor}
 \begin{code}
@@ -51,12 +80,25 @@ data TraceAcceptorInternal p a = TraceAcceptorInternal
     , accDispatch :: Async.Async ()
     }
 
-effectuate :: LogObject a -> IO ()
-effectuate = \_ -> return ()
+instance IsEffectuator (TraceAcceptor p) a where
+    effectuate _ta _item = pure ()
+    handleOverflow _ta = pure ()
 
-realizefrom :: (Pipe p, FromJSON a)
+instance (Pipe p, ToJSON a, FromJSON a) => IsBackend (TraceAcceptor p) a where
+    bekind _ = TraceAcceptorBK
+
+    realize _ = fail "TraceAcceptor cannot be instantiated by 'realize'"
+
+    realizefrom _ _ _ = fail "TraceAcceptor cannot be instantiated by 'realizefrom'"
+
+    unrealize accView = withMVar (getTA accView) $
+        \acc -> do
+            Async.cancel $ accDispatch acc
+            close (accPipe acc)
+
+realizepipe :: (Pipe p, FromJSON a)
             => Trace.Trace IO a -> FilePath -> IO (TraceAcceptor p a)
-realizefrom sbtrace pipePath = do
+realizepipe sbtrace pipePath = do
     elref <- newEmptyMVar
     let externalLog = TraceAcceptor elref
     h <- create pipePath
@@ -71,13 +113,6 @@ realizefrom sbtrace pipePath = do
                         }
     return externalLog
 
-unrealize :: Pipe p => TraceAcceptor p a -> IO ()
-unrealize accView = withMVar (getTA accView) (\acc -> do
-    Async.cancel $ accDispatch acc
-    let hPipe = accPipe acc
-    -- close the pipe
-    close hPipe)
-
 \end{code}
 
 \subsubsection{Reading log items from the pipe}
@@ -86,7 +121,7 @@ spawnDispatcher :: (Pipe p, FromJSON a)
                 => PipeHandler p
                 -> Trace.Trace IO a
                 -> IO (Async.Async ())
-spawnDispatcher hPipe sbtrace = do
+spawnDispatcher hPipe sbtrace =
     Async.async $ pProc hPipe
   where
     {-@ lazy pProc @-}

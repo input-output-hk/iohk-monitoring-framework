@@ -21,13 +21,17 @@ import           Data.Text (Text)
 %endif
 
 \subsubsection{BackendKind}\label{code:BackendKind}\index{BackendKind}
-\label{code:AggregationBK}\label{code:EditorBK}\label{code:EKGViewBK}\label{code:KatipBK}
-\label{code:LogBufferBK}\label{code:MonitoringBK}\label{code:TraceAcceptorBK}
-\label{code:SwitchboardBK}\label{code:GraylogBK}\label{code:TraceForwarderBK}\label{code:UserDefinedBK}
-\index{BackendKind!AggregationBK}\index{BackendKind!EKGViewBK}\index{BackendKind!KatipBK}
-\index{BackendKind!LogBufferBK}\index{BackendKind!MonitoringBK}\index{BackendKind!EditorBK}
-\index{BackendKind!TraceAcceptorBK}\index{BackendKind!TraceForwarderBK}
-\index{BackendKind!SwitchboardBK}\index{BackendKind!GraylogBK}\index{BackendKind!UserDefinedBK}
+\label{code:AggregationBK}\index{BackendKind!AggregationBK}
+\label{code:EditorBK}\index{BackendKind!EditorBK}
+\label{code:EKGViewBK}\index{BackendKind!EKGViewBK}
+\label{code:GraylogBK}\index{BackendKind!GraylogBK}
+\label{code:KatipBK}\index{BackendKind!KatipBK}
+\label{code:LogBufferBK}\index{BackendKind!LogBufferBK}
+\label{code:MonitoringBK}\index{BackendKind!MonitoringBK}
+\label{code:SwitchboardBK}\index{BackendKind!SwitchboardBK}
+\label{code:TraceAcceptorBK}\index{BackendKind!TraceAcceptorBK}
+\label{code:TraceForwarderBK}\index{BackendKind!TraceForwarderBK}
+\label{code:UserDefinedBK}\index{BackendKind!UserDefinedBK}
 This identifies the backends that can be attached to the |Switchboard|.
 \begin{code}
 
@@ -39,7 +43,7 @@ data BackendKind =
     | KatipBK
     | LogBufferBK
     | MonitoringBK
-    | TraceAcceptorBK FilePath
+    | TraceAcceptorBK
     | TraceForwarderBK
     | UserDefinedBK Text
     | SwitchboardBK
@@ -54,9 +58,7 @@ instance ToJSON BackendKind where
     toJSON LogBufferBK            = String "LogBufferBK"
     toJSON MonitoringBK           = String "MonitoringBK"
     toJSON TraceForwarderBK       = String "TraceForwarderBK"
-    toJSON (TraceAcceptorBK file) = object [ "kind" .= String "TraceAcceptorBK"
-                                           , "path" .= toJSON file
-                                           ]
+    toJSON TraceAcceptorBK        = String "TraceAcceptorBK"
     toJSON (UserDefinedBK name)   = object [ "kind" .= String "UserDefinedBK"
                                            , "name" .= toJSON name
                                            ]
@@ -70,8 +72,6 @@ instance FromJSON BackendKind where
                                 case c of
                                     "UserDefinedBK"   ->
                                         UserDefinedBK <$> value .: "name"
-                                    "TraceAcceptorBK" ->
-                                        TraceAcceptorBK <$> value .: "path"
                                     _                 -> fail "not expected kind"
                     )
                     v
@@ -85,6 +85,7 @@ instance FromJSON BackendKind where
                         "KatipBK"          -> pure KatipBK
                         "LogBufferBK"      -> pure LogBufferBK
                         "MonitoringBK"     -> pure MonitoringBK
+                        "TraceAcceptorBK"  -> pure TraceAcceptorBK
                         "TraceForwarderBK" -> pure TraceForwarderBK
                         "SwitchboardBK"    -> pure SwitchboardBK
                         _                  -> fail "not expected BackendKind"

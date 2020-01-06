@@ -13,17 +13,14 @@
 module Cardano.BM.Backend.Graylog
     (
       Graylog
-    , effectuate
-    , realizefrom
-    , unrealize
     -- * Plugin
     , plugin
     ) where
 
 import           Control.Concurrent (threadDelay)
 import qualified Control.Concurrent.Async as Async
-import           Control.Concurrent.MVar (MVar, newEmptyMVar, newMVar,
-                     putMVar, readMVar, withMVar, modifyMVar_, tryTakeMVar)
+import           Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar,
+                     readMVar, withMVar, tryTakeMVar)
 import           Control.Concurrent.STM (atomically)
 import qualified Control.Concurrent.STM.TBQueue as TBQ
 import           Control.Exception.Safe (SomeException, catch, throwM)
@@ -33,7 +30,6 @@ import           Data.Aeson (FromJSON, ToJSON (..), Value, encode, object, (.=))
 import qualified Data.ByteString.Lazy.Char8 as BS8
 import           Data.Text (Text, pack)
 import qualified Data.Text.IO as TIO
-import           Data.Time (getCurrentTime)
 import qualified Network.Socket as Net
 import           Network.Socket.ByteString (sendAll)
 import           System.IO (stderr)
@@ -91,8 +87,8 @@ instance IsEffectuator Graylog a where
             (LogObject logname lometa (AggregatedMessage ags)) -> liftIO $ do
                 let traceAgg :: [(Text,Aggregated)] -> IO ()
                     traceAgg [] = return ()
-                    traceAgg ((n,AggregatedEWMA ewma):r) = do
-                        enqueue $ LogObject (logname <> [n]) lometa (LogValue "avg" $ avg ewma)
+                    traceAgg ((n,AggregatedEWMA agewma):r) = do
+                        enqueue $ LogObject (logname <> [n]) lometa (LogValue "avg" $ avg agewma)
                         traceAgg r
                     traceAgg ((n,AggregatedStats stats):r) = do
                         let statsname = logname <> [n]

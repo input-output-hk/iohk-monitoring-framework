@@ -36,13 +36,10 @@ import           System.Posix.Syslog (Facility)
 import qualified Katip as K
 import qualified Katip.Core as KC
 import           Katip.Format.Time (formatAsIso8601)
-import           Katip.Scribes.Handle (brackets)
 
 import           Cardano.BM.Configuration
 import           Cardano.BM.Backend.Log (sev2klog)
 import           Cardano.BM.Data.Backend
-import           Cardano.BM.Data.LogItem
-import           Cardano.BM.Data.Output (ScribeId)
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.Trace
 import           Cardano.BM.Plugin (Plugin (..))
@@ -59,7 +56,7 @@ to systemd's journal on \emph{Linux}.
 #ifdef LINUX
 plugin :: (IsEffectuator s a, ToJSON a, FromJSON a)
        => Configuration -> Trace IO a -> s a -> IO (Plugin a)
-plugin config trace sb =
+plugin _ _ _ =
     ScribePlugin
                <$> mkJournalScribe
                <*> pure "JournalSK"

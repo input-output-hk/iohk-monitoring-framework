@@ -17,16 +17,13 @@
 module Cardano.BM.Backend.Monitoring
     (
       Monitor
-    , effectuate
-    , realizefrom
-    , unrealize
     -- * Plugin
     , plugin
     ) where
 
 import qualified Control.Concurrent.Async as Async
-import           Control.Concurrent.MVar (MVar, newEmptyMVar, newMVar, putMVar,
-                     modifyMVar_, readMVar, tryReadMVar, tryTakeMVar, withMVar)
+import           Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar,
+                     readMVar, tryReadMVar, tryTakeMVar, withMVar)
 import           Control.Concurrent.STM (atomically)
 import qualified Control.Concurrent.STM.TBQueue as TBQ
 import           Control.Exception.Safe (throwM)
@@ -36,9 +33,8 @@ import qualified Data.HashMap.Strict as HM
 import           Data.Maybe (catMaybes)
 import           Data.Text (Text, pack)
 import qualified Data.Text.IO as TIO
-import           Data.Time.Clock (getCurrentTime)
 import           GHC.Clock (getMonotonicTimeNSec)
-import           System.IO (stderr, stdout)
+import           System.IO (stderr)
 
 import           Cardano.BM.Backend.LogBuffer
 import           Cardano.BM.Backend.ProcessQueue (processQueue)
@@ -49,7 +45,6 @@ import           Cardano.BM.Data.Counter (Counter (..), CounterState (..),
                      nameCounter)
 import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.MonitoringEval
-import           Cardano.BM.Data.Severity (Severity (..))
 import           Cardano.BM.Plugin (Plugin (..))
 import qualified Cardano.BM.Trace as Trace
 

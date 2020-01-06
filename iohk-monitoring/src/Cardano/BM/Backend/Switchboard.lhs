@@ -11,10 +11,6 @@
 {-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 
-#if !defined(mingw32_HOST_OS)
-#define POSIX
-#endif
-
 module Cardano.BM.Backend.Switchboard
     (
       Switchboard
@@ -55,16 +51,8 @@ import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.SubTrace (SubTrace (..))
 import           Cardano.BM.Data.Tracer (Tracer (..))
-import qualified Cardano.BM.Backend.TraceAcceptor
 import qualified Cardano.BM.Backend.Log
 import qualified Cardano.BM.Backend.LogBuffer
-import qualified Cardano.BM.Backend.TraceForwarder
-
-#ifdef POSIX
-import           Cardano.BM.Backend.ExternalAbstraction (UnixNamedPipe)
-#else
-import           Cardano.BM.Backend.ExternalAbstraction (NoPipe)
-#endif
 
 \end{code}
 %endif
@@ -154,7 +142,7 @@ instance (FromJSON a, ToJSON a) => IsBackend Switchboard a where
         logbuf :: Cardano.BM.Backend.LogBuffer.LogBuffer a <- Cardano.BM.Backend.LogBuffer.realize cfg
         katipBE :: Cardano.BM.Backend.Log.Log a <- Cardano.BM.Backend.Log.realize cfg
         let spawnDispatcher :: Switchboard a -> TBQ.TBQueue (LogObject a) -> IO (Async.Async ())
-            spawnDispatcher switchboard queue = do
+            spawnDispatcher switchboard queue =
 
                 let sendMessage nli befilter = do
                         let name = case nli of
@@ -164,7 +152,7 @@ instance (FromJSON a, ToJSON a) => IsBackend Switchboard a where
                         selectedBackends <- getBackends cfg (loname2text name)
                         let selBEs = befilter selectedBackends
                         withMVar (getSB switchboard) $ \sb ->
-                            forM_ (sbBackends sb) $ \(bek, be) -> do
+                            forM_ (sbBackends sb) $ \(bek, be) ->
                                 when (bek `elem` selBEs) (bEffectuate be nli)
 
                     qProc = do
@@ -209,8 +197,8 @@ instance (FromJSON a, ToJSON a) => IsBackend Switchboard a where
 
                         res <- mapM processItem nlis
                         when (and res) $ qProc
-
-                Async.async $ qProc
+                in
+                Async.async qProc
 
 #ifdef PERFORMANCE_TEST_QUEUE
         let qSize = 1000000
@@ -279,7 +267,7 @@ addUserDefinedBackend switchboard be name =
 \subsubsection{Integrate with external backend}\label{code:addExternalBackend}\index{addExternalBackend}
 \begin{code}
 addExternalBackend :: Switchboard a -> Backend a -> BackendKind -> IO ()
-addExternalBackend switchboard be bk = do
+addExternalBackend switchboard be bk =
     modifyMVar_ (getSB switchboard) $ \sb ->
         return $ sb { sbBackends = (bk, be) : sbBackends sb }
 
@@ -339,27 +327,7 @@ setupBackend' GraylogBK _ _ = return Nothing
 setupBackend' EKGViewBK _ _ = return Nothing
 setupBackend' KatipBK _ _ = return Nothing
 setupBackend' LogBufferBK _ _ = return Nothing
-setupBackend' (TraceAcceptorBK pipePath) c sb = do
-    let basetrace = mainTraceConditionally c sb
-    be :: Cardano.BM.Backend.TraceAcceptor.TraceAcceptor PipeType a
-            <- Cardano.BM.Backend.TraceAcceptor.realizefrom basetrace pipePath
-    return $ Just MkBackend
-      { bEffectuate = Cardano.BM.Backend.TraceAcceptor.effectuate
-      , bUnrealize = Cardano.BM.Backend.TraceAcceptor.unrealize be
-      }
-setupBackend' TraceForwarderBK c _ = do
-    be :: Cardano.BM.Backend.TraceForwarder.TraceForwarder PipeType a
-            <- Cardano.BM.Backend.TraceForwarder.realize c
-    return $ Just MkBackend
-      { bEffectuate = Cardano.BM.Backend.TraceForwarder.effectuate be
-      , bUnrealize = Cardano.BM.Backend.TraceForwarder.unrealize be
-      }
-
-type PipeType =
-#ifdef POSIX
-    UnixNamedPipe
-#else
-    NoPipe
-#endif
+setupBackend' TraceAcceptorBK _ _ = return Nothing
+setupBackend' TraceForwarderBK _ _ = return Nothing
 
 \end{code}
