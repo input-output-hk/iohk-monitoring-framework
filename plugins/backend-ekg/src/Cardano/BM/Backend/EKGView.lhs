@@ -13,17 +13,14 @@
 module Cardano.BM.Backend.EKGView
     (
       EKGView
-    , effectuate
-    , realizefrom
-    , unrealize
     -- * Plugin
     , plugin
     ) where
 
 import           Control.Concurrent (killThread, threadDelay)
 import qualified Control.Concurrent.Async as Async
-import           Control.Concurrent.MVar (MVar, newEmptyMVar, newMVar,
-                     putMVar, readMVar, withMVar, modifyMVar_, tryTakeMVar)
+import           Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar,
+                     readMVar, withMVar, modifyMVar_, tryTakeMVar)
 import           Control.Concurrent.STM (atomically)
 import qualified Control.Concurrent.STM.TBQueue as TBQ
 import           Control.Exception (Exception, SomeException, catch, throwIO)
@@ -35,9 +32,8 @@ import qualified Data.HashMap.Strict as HM
 import           Data.Int (Int64)
 import           Data.Maybe (fromMaybe)
 import           Data.String (fromString)
-import           Data.Text (Text, pack, stripPrefix)
+import           Data.Text (Text, pack)
 import qualified Data.Text.IO as TIO
-import           Data.Time (getCurrentTime)
 import           Data.Version (showVersion)
 
 import           System.IO (stderr)
@@ -57,7 +53,7 @@ import           Cardano.BM.Data.Backend
 import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.Trace
-import           Cardano.BM.Data.Tracer (Tracer (..), showTracing, severityError, traceWith)
+import           Cardano.BM.Data.Tracer (Tracer (..), traceWith)
 import           Cardano.BM.Plugin
 import qualified Cardano.BM.Trace as Trace
 
@@ -178,7 +174,7 @@ instance IsEffectuator EKGView a where
           Just queue -> doEnqueue ekg queue
      where
        doEnqueue :: EKGViewInternal a -> TBQ.TBQueue (Maybe (LogObject a)) -> IO ()
-       doEnqueue ekg queue = do
+       doEnqueue _ekg queue = do
          let enqueue a = do
                          nocapacity <- atomically $ TBQ.isFullTBQueue queue
                          if nocapacity
@@ -188,8 +184,8 @@ instance IsEffectuator EKGView a where
              (LogObject loname lometa (AggregatedMessage ags)) -> liftIO $ do
                  let traceAgg :: [(Text,Aggregated)] -> IO ()
                      traceAgg [] = return ()
-                     traceAgg ((n,AggregatedEWMA ewma):r) = do
-                         enqueue $ LogObject (loname <> [n]) lometa (LogValue "avg" $ avg ewma)
+                     traceAgg ((n,AggregatedEWMA agewma):r) = do
+                         enqueue $ LogObject (loname <> [n]) lometa (LogValue "avg" $ avg agewma)
                          traceAgg r
                      traceAgg ((n,AggregatedStats stats):r) = do
                          let statsname = loname <> [n]
@@ -285,7 +281,7 @@ instance (ToJSON a, FromJSON a) => IsBackend EKGView a where
          meta <- mkLOMeta Error Public
          traceWith trace $ LogObject ["#ekgview", "realizeFrom"] meta $
            LogError $ "EKGView backend disabled due to initialisation error: " <> (pack $ show e)
-         queue <- atomically $ TBQ.newTBQueue 0
+         _ <- atomically $ TBQ.newTBQueue 0
          ref <- newEmptyMVar
          putMVar ref $ EKGViewInternal
            { evLabels = HM.empty
@@ -341,7 +337,7 @@ spawnDispatcher :: Configuration
                 -> Trace.Trace IO a
                 -> Trace.Trace IO a
                 -> IO (Async.Async ())
-spawnDispatcher config evqueue sbtrace ekgtrace =
+spawnDispatcher config evqueue _sbtrace ekgtrace =
     Async.async $ qProc
   where
     {-@ lazy qProc @-}
@@ -356,7 +352,7 @@ spawnDispatcher config evqueue sbtrace ekgtrace =
     processEKGView obj@(LogObject _ _ _) _ = do
         obj' <- testSubTrace config ("#ekgview." <> lo2name obj) obj
         case obj' of
-            Just lo@(LogObject loname meta content) ->
+            Just (LogObject loname meta content) ->
                 let trace = Trace.appendName (loname2text loname) ekgtrace
                 in
                 Trace.traceNamedObject trace (meta, content)

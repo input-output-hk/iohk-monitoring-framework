@@ -15,6 +15,8 @@
         lobemo-backend-ekg = ./lobemo-backend-ekg.nix;
         lobemo-backend-graylog = ./lobemo-backend-graylog.nix;
         lobemo-backend-monitoring = ./lobemo-backend-monitoring.nix;
+        lobemo-backend-trace-acceptor = ./lobemo-backend-trace-acceptor.nix;
+        lobemo-backend-trace-forwarder = ./lobemo-backend-trace-forwarder.nix;
         lobemo-scribe-systemd = ./lobemo-scribe-systemd.nix;
         lobemo-examples = ./lobemo-examples.nix;
         ekg-prometheus-adapter = ./ekg-prometheus-adapter.nix;

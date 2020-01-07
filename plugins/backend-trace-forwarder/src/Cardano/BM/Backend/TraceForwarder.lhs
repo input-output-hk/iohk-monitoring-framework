@@ -5,16 +5,20 @@
 
 %if style == newcode
 \begin{code}
+{-# LANGUAGE CPP                   #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TypeFamilies          #-}
 
+#if !defined(mingw32_HOST_OS)
+#define POSIX
+#endif
+
 module Cardano.BM.Backend.TraceForwarder
     ( TraceForwarder (..)
-    , effectuate
-    , realize
-    , unrealize
+    -- * Plugin
+    , plugin
     ) where
 
 import           Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar,
@@ -27,10 +31,14 @@ import           Data.Maybe (fromMaybe)
 import           Data.Text.Encoding (encodeUtf8)
 import           Data.Typeable (Typeable)
 
+import qualified Cardano.BM.Backend.ExternalAbstraction as CH
 import           Cardano.BM.Backend.ExternalAbstraction (Pipe (..))
+import           Cardano.BM.Configuration (Configuration)
 import           Cardano.BM.Configuration.Model
 import           Cardano.BM.Data.Backend
 import           Cardano.BM.Data.LogItem (LOMeta (..), LogObject (..))
+import           Cardano.BM.Plugin
+import qualified Cardano.BM.Trace as Trace
 
 \end{code}
 %endif
@@ -38,6 +46,25 @@ import           Cardano.BM.Data.LogItem (LOMeta (..), LogObject (..))
 |TraceForwarder| is a new backend responsible for redirecting the logs into a pipe
 or a socket to be used from another application. It puts |LogObject|s as
 |ByteString|s in the provided handler.
+
+\subsubsection{Plugin definition}
+\begin{code}
+plugin :: (IsEffectuator s a, ToJSON a, FromJSON a)
+       => Configuration -> Trace.Trace IO a -> s a -> IO (Plugin a)
+plugin config _trace _sb = do
+    be :: Cardano.BM.Backend.TraceForwarder.TraceForwarder PipeType a <- realize config
+    return $ BackendPlugin
+               (MkBackend { bEffectuate = effectuate be, bUnrealize = unrealize be })
+               (bekind be)
+
+type PipeType =
+#ifdef POSIX
+    CH.UnixNamedPipe
+#else
+    CH.NoPipe
+#endif
+
+\end{code}
 
 \subsubsection{Structure of TraceForwarder}\label{code:TraceForwarder}\index{TraceForwarder}
 Contains the handler to the pipe or to the socket.
@@ -47,7 +74,7 @@ newtype TraceForwarder p a = TraceForwarder
 
 type TraceForwarderMVar p a = MVar (TraceForwarderInternal p a)
 
-data Pipe p => TraceForwarderInternal p a =
+newtype Pipe p => TraceForwarderInternal p a =
     TraceForwarderInternal
         { tfPipeHandler :: PipeHandler p
         }
@@ -105,7 +132,7 @@ instance (Pipe p, FromJSON a, ToJSON a, Typeable p) => IsBackend (TraceForwarder
         close h
             `catch` (\(_ :: SomeException) -> pure ()))
 
-data TraceForwarderBackendFailure
+newtype TraceForwarderBackendFailure
   = TraceForwarderPipeError String
   deriving (Show, Typeable)
 

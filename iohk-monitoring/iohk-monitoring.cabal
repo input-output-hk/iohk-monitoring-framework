@@ -57,8 +57,6 @@ library
                        Cardano.BM.Backend.LogBuffer
                        Cardano.BM.Backend.ProcessQueue
                        Cardano.BM.Backend.Switchboard
-                       Cardano.BM.Backend.TraceAcceptor
-                       Cardano.BM.Backend.TraceForwarder
                        Cardano.BM.Plugin
                        Cardano.BM.Rotator
                        Cardano.BM.Setup

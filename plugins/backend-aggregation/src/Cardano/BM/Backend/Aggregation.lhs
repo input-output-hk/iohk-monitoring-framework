@@ -15,16 +15,13 @@
 module Cardano.BM.Backend.Aggregation
     (
       Aggregation
-    , effectuate
-    , realizefrom
-    , unrealize
     -- * Plugin
     , plugin
     ) where
 
 import qualified Control.Concurrent.Async as Async
-import           Control.Concurrent.MVar (MVar, newEmptyMVar, newMVar,
-                     modifyMVar_, putMVar, readMVar, tryTakeMVar, withMVar)
+import           Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar,
+                     readMVar, tryTakeMVar, withMVar)
 import           Control.Concurrent.STM (atomically)
 import qualified Control.Concurrent.STM.TBQueue as TBQ
 import           Control.Exception.Safe (throwM)
@@ -34,17 +31,14 @@ import           Data.Aeson (FromJSON, ToJSON)
 import qualified Data.HashMap.Strict as HM
 import           Data.Text (Text, pack)
 import qualified Data.Text.IO as TIO
-import           Data.Time.Clock (getCurrentTime)
 import           Data.Word (Word64)
 import           GHC.Clock (getMonotonicTimeNSec)
 import           System.IO (stderr)
 
 import           Cardano.BM.Backend.ProcessQueue (processQueue)
 import           Cardano.BM.Configuration.Model (Configuration, getAggregatedKind)
-import           Cardano.BM.Data.Aggregated (Aggregated (..), BaseStats (..),
-                     EWMA (..), Measurable (..), Stats (..), ewma, getDouble,
-                     getInteger, singletonStats, subtractMeasurable,
-                     updateAggregation)
+import           Cardano.BM.Data.Aggregated (Aggregated (..), EWMA (..),
+                     Measurable (..), ewma, singletonStats, updateAggregation)
 import           Cardano.BM.Data.AggregatedKind (AggregatedKind (..))
 import           Cardano.BM.Data.Backend
 import           Cardano.BM.Data.Counter (Counter (..), CounterState (..),

@@ -14,8 +14,6 @@ setupBackends:
   - AggregationBK
   - EKGViewBK
   - KatipBK
-  - kind: TraceAcceptorBK
-    path: log-pipe
 
 # if not indicated otherwise, then messages are passed to these backends:
 defaultBackends:
