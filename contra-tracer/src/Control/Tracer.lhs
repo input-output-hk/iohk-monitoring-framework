@@ -31,8 +31,6 @@ module Control.Tracer
 import           Control.Monad (when, (>=>))
 import           Control.Monad.IO.Class (MonadIO (..))
 import           Data.Functor.Contravariant (Contravariant (..))
-import           Data.Semigroup (Semigroup (..))
-import           Data.Monoid (Monoid (..))
 import           Debug.Trace (traceM)
 
 \end{code}
