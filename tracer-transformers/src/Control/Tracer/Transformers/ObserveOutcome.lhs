@@ -16,6 +16,7 @@ module Control.Tracer.Transformers.ObserveOutcome
     (
     -- * transformer
       Outcome (..)
+    , OutcomeEnhancedTracer
     , OutcomeProgressionStatus (..)
     , mkOutcomeExtractor
     ) where
