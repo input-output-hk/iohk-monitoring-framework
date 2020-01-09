@@ -4,9 +4,7 @@
 
 %if style == newcode
 \begin{code}
-{-# LANGUAGE CPP               #-}
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE CPP #-}
 
 module Cardano.BM.Counters.Linux
     (
@@ -15,6 +13,7 @@ module Cardano.BM.Counters.Linux
 
 #ifdef ENABLE_OBSERVABLES
 import           Data.Foldable (foldrM)
+import           Data.Maybe (catMaybes)
 import           Data.Text (Text, pack)
 import           System.FilePath.Posix ((</>))
 import           System.IO (FilePath)
@@ -463,11 +462,12 @@ readProcIO pid = do
 
     ps0 <- readProcList (pathProcIO pid)
     let ps = zip3 colnames ps0 units
-    return $ map (\(n,i,u) -> Counter IOCounter n (u i)) ps
+        ps2 = filter (\(n,_i,_u) -> "ign" /= n) ps
+    return $ map (\(n,i,u) -> Counter IOCounter n (u i)) ps2
   where
     colnames :: [Text]
-    colnames = [ "rchar","wchar","syscr","syscw","rbytes","wbytes","cxwbytes" ]
-    units    = [  Bytes . fromInteger , Bytes . fromInteger , PureI  , PureI  , Bytes . fromInteger  , Bytes . fromInteger  , Bytes . fromInteger     ]
+    colnames = [ "ign","rchar","ign","wchar","ign","syscr","ign","syscw","ign","rbytes","ign","wbytes","ign","cxwbytes" ]
+    units    = [  PureI, Bytes . fromInteger, PureI, Bytes . fromInteger, PureI, PureI, PureI, PureI, PureI, Bytes . fromInteger, PureI, Bytes . fromInteger, PureI, Bytes . fromInteger ]
 #endif
 \end{code}
 
@@ -490,29 +490,18 @@ IpExt: 0 0 20053 8977 2437 23 3163525943 196480057 2426648 1491754 394285 5523 0
 #ifdef ENABLE_OBSERVABLES
 readProcNet :: ProcessID -> IO [Counter]
 readProcNet pid = do
-    ls0 <- lines <$> readFile (pathProcNet pid)
-    let ps0 = readinfo ls0
-    let ps1 = map (\(n,c) -> (n, readMaybe c :: Maybe Integer)) ps0
-    return $ mapCounters $ filter selcolumns ps1
+    ps0 <- readline4 <$> lines <$> readFile (pathProcNet pid)
+    let ps1 = map (\i -> readMaybe i :: Maybe Integer) ps0
+    return $
+      if length ps1 >= 9
+      then mapCounters [("IpExt:InOctets", ps1 !! 7), ("IpExt:OutOctets", ps1 !! 8)]
+      else []
   where
-    construct "IpExt:OutOctets" i = Bytes $ fromInteger i
-    construct "IpExt:InOctets"  i = Bytes $ fromInteger i
-    construct _ i = PureI i
-    -- only a few selected columns will be returned
-    selcolumns (n,_) = n `elem` ["IpExt:OutOctets","IpExt:InOctets"]
-    mapCounters []          = []
-    mapCounters ((n,c) : r) = case c of
-       Nothing -> mapCounters r
-       Just i  -> mapCounters r <> [Counter NetCounter (pack n) (construct n i)]
-    readinfo :: [String] -> [(String, String)]
-    readinfo []            = []
-    readinfo (_:[])        = []
-    readinfo (l1 : l2 : r) =
-       let col0 = words l1
-           cols = tail col0
-           vals = tail $ words l2
-           pref = head col0
-       in
-       readinfo r <> zip (map (\n -> pref ++ n) cols) vals
+    readline4 :: [String] -> [String]
+    readline4 (_:_:_:l:_) = words l
+    readline4 _ = []
+    mapCounters = catMaybes . map (\(n,c) -> mkCounter n c)
+    mkCounter _n Nothing = Nothing
+    mkCounter n (Just i) = Just (Counter NetCounter (pack n) (Bytes $ fromInteger i))
 #endif
 \end{code}
