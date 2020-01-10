@@ -490,17 +490,16 @@ IpExt: 0 0 20053 8977 2437 23 3163525943 196480057 2426648 1491754 394285 5523 0
 #ifdef ENABLE_OBSERVABLES
 readProcNet :: ProcessID -> IO [Counter]
 readProcNet pid = do
-    ps0 <- readline4 <$> lines <$> readFile (pathProcNet pid)
-    let ps1 = map (\i -> readMaybe i :: Maybe Integer) ps0
+    ipexts0 <- words <$> lastline <$> lines <$> readFile (pathProcNet pid)
+    let ipexts1 = map (\i -> readMaybe i :: Maybe Integer) ipexts0
     return $
-      if length ps1 >= 9
-      then mapCounters [("IpExt:InOctets", ps1 !! 7), ("IpExt:OutOctets", ps1 !! 8)]
+      if length ipexts1 >= 9  -- enough fields available
+      then mkCounters [("IpExt:InOctets", ipexts1 !! 7), ("IpExt:OutOctets", ipexts1 !! 8)]
       else []
   where
-    readline4 :: [String] -> [String]
-    readline4 (_:_:_:l:_) = words l
-    readline4 _ = []
-    mapCounters = catMaybes . map (\(n,c) -> mkCounter n c)
+    lastline ls | length ls == 4 = last ls -- ensures we read the fourth line
+                | otherwise = []
+    mkCounters = catMaybes . map (\(n,c) -> mkCounter n c)
     mkCounter _n Nothing = Nothing
     mkCounter n (Just i) = Just (Counter NetCounter (pack n) (Bytes $ fromInteger i))
 #endif
