@@ -3,6 +3,7 @@
 
 %if style == newcode
 \begin{code}
+{-# LANGUAGE BangPatterns          #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -15,7 +16,8 @@ module Cardano.BM.Backend.LogBuffer
     , unrealize
     ) where
 
-import           Control.Concurrent.MVar (MVar, modifyMVar_, newMVar, withMVar)
+import           Control.Concurrent.MVar (MVar, modifyMVar, modifyMVar_,
+                     newMVar)
 import           Data.Aeson (FromJSON)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Text.IO as TIO
@@ -37,7 +39,7 @@ newtype LogBuffer a = LogBuffer
 type LogBufferMVar a = MVar (LogBufferInternal a)
 
 data LogBufferInternal a = LogBufferInternal
-    { logBuffer :: LogBufferMap a
+    { logBuffer :: !(LogBufferMap a)
     }
 
 \end{code}
@@ -50,11 +52,14 @@ type LogBufferMap a = HM.HashMap LoggerName (LogObject a)
 \end{code}
 
 \subsubsection{Read out the latest |LogObject|s}
+Returns a list of the maps keys and values.
+And, resets the map.
 \begin{code}
 readBuffer :: LogBuffer a -> IO [(LoggerName, LogObject a)]
 readBuffer buffer =
-    withMVar (getLogBuf buffer) $ \currentBuffer ->
-        return $ HM.toList $ logBuffer currentBuffer
+    modifyMVar (getLogBuf buffer) $ \currentBuffer -> do
+        let !l = HM.toList $ logBuffer currentBuffer
+        return (LogBufferInternal HM.empty, l)
 
 \end{code}
 
@@ -62,12 +67,12 @@ readBuffer buffer =
 Function |effectuate| is called to pass in a |LogObject| for log buffering.
 \begin{code}
 instance IsEffectuator LogBuffer a where
-    effectuate buffer lo@(LogObject loname _lometa (LogValue lvname _lvalue)) = do
+    effectuate buffer lo@(LogObject loname _lometa (LogValue lvname _lvalue)) =
         modifyMVar_ (getLogBuf buffer) $ \currentBuffer ->
-            return $ LogBufferInternal $ HM.insert ("#buffered." <> loname2text loname <> "." <> lvname) lo $ logBuffer currentBuffer
-    effectuate buffer lo@(LogObject loname _lometa _logitem) = do
+            return $! LogBufferInternal $ HM.insert ("#buffered." <> loname2text loname <> "." <> lvname) lo $ logBuffer currentBuffer
+    effectuate buffer lo@(LogObject loname _lometa _logitem) =
         modifyMVar_ (getLogBuf buffer) $ \currentBuffer ->
-            return $ LogBufferInternal $ HM.insert ("#buffered." <> loname2text loname) lo $ logBuffer currentBuffer
+            return $! LogBufferInternal $ HM.insert ("#buffered." <> loname2text loname) lo $ logBuffer currentBuffer
 
     handleOverflow _ = TIO.hPutStrLn stderr "Notice: overflow in LogBuffer, dropping log items!"
 
@@ -80,8 +85,9 @@ instance IsEffectuator LogBuffer a where
 instance FromJSON a => IsBackend LogBuffer a where
     bekind _ = LogBufferBK
 
-    realize _ = do
+    realize _ =
         let emptyBuffer = LogBufferInternal HM.empty
+        in
         LogBuffer <$> newMVar emptyBuffer
 
     unrealize _ = return ()

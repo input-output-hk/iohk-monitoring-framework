@@ -304,9 +304,9 @@ S_t =
 \end{cases}
 $$
 \begin{code}
-data EWMA = EmptyEWMA { alpha :: Double }
-          | EWMA { alpha :: Double
-                 , avg   :: Measurable
+data EWMA = EmptyEWMA { alpha :: !Double }
+          | EWMA { alpha :: !Double
+                 , avg   :: !Measurable
                  } deriving (Show, Eq, Generic, ToJSON, FromJSON)
 
 \end{code}
