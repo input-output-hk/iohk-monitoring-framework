@@ -34,9 +34,9 @@ import           Cardano.BM.Data.Aggregated (Measurable (..))
 \subsubsection{Counter}\label{code:Counter}\index{Counter}\label{code:CounterType}\index{CounterType}
 \begin{code}
 data Counter = Counter
-               { cType  :: CounterType
-               , cName  :: Text
-               , cValue :: Measurable
+               { cType  :: !CounterType
+               , cName  :: !Text
+               , cValue :: !Measurable
                }
                deriving (Show, Eq, Generic, ToJSON, FromJSON)
 
