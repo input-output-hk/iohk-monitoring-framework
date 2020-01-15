@@ -69,7 +69,7 @@ nameCounter (Counter RTSStats           _ _) = "RTS"
 \subsubsection{CounterState}\label{code:CounterState}\index{CounterState}
 \begin{code}
 data CounterState = CounterState {
-      csCounters   :: ![Counter]
+      csCounters   :: [Counter]
     }
     deriving (Show, Eq, Generic, ToJSON, FromJSON)
 
