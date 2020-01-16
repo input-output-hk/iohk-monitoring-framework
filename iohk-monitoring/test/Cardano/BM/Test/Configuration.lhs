@@ -64,7 +64,8 @@ unitTests = testGroup "Unit tests" [
         testCase "static representation" unitConfigurationStaticRepresentation
       , testCase "parsed representation" unitConfigurationParsedRepresentation
       , testCase "parsed configuration" unitConfigurationParsed
-      , testCase "export configuration" unitConfigurationExport
+      , testCase "export configuration: from file" unitConfigurationExport
+      , testCase "export configuration: defaultConfigStdout" unitConfigurationExportStdout
       , testCase "check scribe caching" unitConfigurationCheckScribeCache
       , testCase "test ops on Configuration" unitConfigurationOps
     ]
@@ -360,7 +361,7 @@ unitConfigurationParsed = do
                                             ]
         , cgPortEKG           = 12789
         , cgPortGraylog       = 12788
-        , cgBindAddrPrometheus = Just ("127.0.0.1", 12799) -- the default value
+        , cgBindAddrPrometheus = Nothing
         , cgPortGUI           = 0
         , cgLogOutput         = Nothing
         }
@@ -377,6 +378,40 @@ unitConfigurationExport = do
     cfgInternal  <- readMVar $ getCG cfg
     cfgInternal' <- readMVar $ getCG cfg'
 
+    cfgInternal' @?= cfgInternal
+
+unitConfigurationExportStdout :: Assertion
+unitConfigurationExportStdout = do
+    cfg <- defaultConfigStdout
+
+    cfg' <- withSystemTempFile "config.yaml-1213" $ \file0 _ -> do
+                let file = file0 <> "-copy"
+                exportConfiguration cfg file
+                setup file
+
+    cfgInternal  <- readMVar $ getCG cfg
+    cfgInternal' <- readMVar $ getCG cfg'
+
+    cgMinSeverity        cfgInternal' @?= cgMinSeverity        cfgInternal
+    cgDefRotation        cfgInternal' @?= cgDefRotation        cfgInternal
+    cgMapSeverity        cfgInternal' @?= cgMapSeverity        cfgInternal
+    cgMapSubtrace        cfgInternal' @?= cgMapSubtrace        cfgInternal
+    cgOptions            cfgInternal' @?= cgOptions            cfgInternal
+    cgMapBackend         cfgInternal' @?= cgMapBackend         cfgInternal
+    cgDefBackendKs       cfgInternal' @?= cgDefBackendKs       cfgInternal
+    cgSetupBackends      cfgInternal' @?= cgSetupBackends      cfgInternal
+    cgMapScribe          cfgInternal' @?= cgMapScribe          cfgInternal
+    cgMapScribeCache     cfgInternal' @?= cgMapScribeCache     cfgInternal
+    cgDefScribes         cfgInternal' @?= cgDefScribes         cfgInternal
+    cgSetupScribes       cfgInternal' @?= cgSetupScribes       cfgInternal
+    cgMapAggregatedKind  cfgInternal' @?= cgMapAggregatedKind  cfgInternal
+    cgDefAggregatedKind  cfgInternal' @?= cgDefAggregatedKind  cfgInternal
+    cgMonitors           cfgInternal' @?= cgMonitors           cfgInternal
+    cgPortEKG            cfgInternal' @?= cgPortEKG            cfgInternal
+    cgPortGraylog        cfgInternal' @?= cgPortGraylog        cfgInternal
+    cgBindAddrPrometheus cfgInternal' @?= cgBindAddrPrometheus cfgInternal
+    cgPortGUI            cfgInternal' @?= cgPortGUI            cfgInternal
+    cgLogOutput          cfgInternal' @?= cgLogOutput          cfgInternal
     cfgInternal' @?= cfgInternal
 
 \end{code}
