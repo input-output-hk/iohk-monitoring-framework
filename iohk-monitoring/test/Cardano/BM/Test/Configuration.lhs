@@ -361,7 +361,7 @@ unitConfigurationParsed = do
                                             ]
         , cgPortEKG           = 12789
         , cgPortGraylog       = 12788
-        , cgBindAddrPrometheus = Just ("127.0.0.1", 12799) -- the default value
+        , cgBindAddrPrometheus = Nothing
         , cgPortGUI           = 0
         , cgLogOutput         = Nothing
         }

@@ -518,10 +518,7 @@ setupFromRepresentation r = do
     r_hasGraylog repr = case (R.hasGraylog repr) of
                        Nothing -> 0
                        Just p  -> p
-    r_hasPrometheus repr = Just $ fromMaybe
-                           ( "127.0.0.1"
-                           , 12799) -- default port for Prometheus
-                           (R.hasPrometheus repr)
+    r_hasPrometheus repr = R.hasPrometheus repr
     r_hasGUI repr = case (R.hasGUI repr) of
                        Nothing -> 0
                        Just p  -> p
@@ -545,13 +542,7 @@ empty = do
                            { cgMinSeverity       = Debug
                            , cgDefRotation       = Nothing
                            , cgMapSeverity       = HM.empty
-                           , cgMapSubtrace       = HM.fromList [
-                                                     ("#messagecounters.ekgview", NoTrace),
-                                                     ("#messagecounters.aggregation", NoTrace),
-                                                     ("#messagecounters.switchboard", NoTrace),
-                                                     ("#messagecounters.monitoring", NoTrace),
-                                                     ("#messagecounters.katip", NoTrace),
-                                                     ("#messagecounters.graylog", NoTrace) ]
+                           , cgMapSubtrace       = HM.empty
                            , cgOptions           = HM.empty
                            , cgMapBackend        = HM.empty
                            , cgDefBackendKs      = []
