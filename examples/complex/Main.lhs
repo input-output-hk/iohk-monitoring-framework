@@ -51,7 +51,7 @@ import           Cardano.BM.Data.Rotation
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.SubTrace
 import           Cardano.BM.Data.Trace
-import           Cardano.BM.Data.Transformers
+import           Cardano.BM.Data.Tracer (traceWith)
 #ifdef ENABLE_OBSERVABLES
 import           Cardano.BM.Data.Observable
 import           Cardano.BM.Observer.Monadic (bracketObserveIO)
@@ -60,7 +60,6 @@ import qualified Cardano.BM.Observer.STM as STM
 import           Cardano.BM.Plugin
 import           Cardano.BM.Setup
 import           Cardano.BM.Trace
-import           Control.Tracer.Transformers.Synopsizer
 
 \end{code}
 
@@ -137,12 +136,6 @@ prepare_configuration = do
     CM.setBackends c "complex.observeDownload" (Just [KatipBK])
     CM.setScribes c "complex.observeDownload" (Just ["FileSK::logs/downloading.json"])
 #endif
-    CM.setSubTrace c "#messagecounters.switchboard" $ Just NoTrace
-    CM.setSubTrace c "#messagecounters.katip"       $ Just NoTrace
-    CM.setSubTrace c "#messagecounters.aggregation" $ Just NoTrace
-    CM.setSubTrace c "#messagecounters.ekgview"     $ Just Neutral
-    CM.setBackends c "#messagecounters.switchboard" $ Just [EditorBK, KatipBK]
-    CM.setSubTrace c "#messagecounters.monitoring"  $ Just NoTrace
 
     CM.setSubTrace c "complex.random" (Just $ TeeTrace "ewma")
     CM.setSubTrace c "#ekgview"
@@ -227,13 +220,14 @@ dumpBuffer sb trace = do
   logInfo trace "starting buffer dump"
   Async.async (loop trace)
  where
-    loop tr = do
-        threadDelay 25000000  -- 25 seconds
-        buf <- readLogBuffer sb
-        forM_ buf $ \(logname, LogObject _ lometa locontent) -> do
-            let tr' = modifyName (\n -> ["#buffer"] <> n <> [logname]) tr
-            traceNamedObject tr' (lometa, locontent)
-        loop tr
+  loop tr = do
+    threadDelay 25000000  -- 25 seconds
+    buf <- readLogBuffer sb
+    forM_ buf $ \(_names, lo) ->
+        -- let tr' = modifyName (\n -> ["#buffer"] <> n <> [logname]) tr
+        -- traceNamedObject tr' (lometa, locontent)
+        traceWith tr (mempty,lo)
+    loop tr
 \end{code}
 
 \subsubsection{Thread that outputs a random number to a |Trace|}
@@ -247,8 +241,8 @@ randomThr trace = do
     loop tr = do
         threadDelay 500000  -- 0.5 second
         num <- randomRIO (42-42, 42+42) :: IO Double
-        lo <- (,) <$> mkLOMeta Info Public <*> pure (LogValue "rr" (PureD num))
-        traceNamedObject tr lo
+        meta <- mkLOMeta Info Public
+        traceNamedObject tr (meta, LogValue "rr" (PureD num))
         loop tr
 
 \end{code}
@@ -348,29 +342,12 @@ msgThr :: Trace IO Text -> IO (Async.Async ())
 msgThr trace = do
   logInfo trace "start messaging .."
   let trace' = appendName "message" trace
-      resetTest :: Eq a => (Int, LogObject a) -> LogObject a -> Bool
-      resetTest (counter, prevLo) thisLo =
-        counter == 2 || not (prevLo `loContentEq` thisLo)
-  synopsized <- mkSynopsizer resetTest (liftSynopsized trace')
-  Async.async (loop synopsized)
+  Async.async (loop trace')
   where
     loop tr = do
         threadDelay 3000000  -- 3 seconds
         logNotice tr "N O T I F I C A T I O N ! ! !"
-        logNotice tr "N O T I F I C A T I O N ! ! !"
-        logNotice tr "N O T I F I C A T I O N ! ! !"
-        logNotice tr "N O T I F I C A T I O N ! ! !"
-        logNotice tr "N O T I F I C A T I O N ! ! !"
-        logNotice tr "N O T I F I C A T I O N ! ! !"
-        logNotice tr "N O T I F I C A T I O N ! ! !"
-        logNotice tr "N O T I F I C A T I O N ! ! !"
-        logNotice tr "N O T I F I C A T I O N ! ! !"
-        logNotice tr "N O T I F I C A T I O N ! ! !"
-        logNotice tr "N O T I F I C A T I O N ! ! !"
         logDebug tr "a detailed debug message."
-        logError tr "Boooommm .."
-        logError tr "Boooommm .."
-        logError tr "Boooommm .."
         logError tr "Boooommm .."
         loop tr
 #endif

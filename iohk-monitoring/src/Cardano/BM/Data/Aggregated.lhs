@@ -304,9 +304,9 @@ S_t =
 \end{cases}
 $$
 \begin{code}
-data EWMA = EmptyEWMA { alpha :: Double }
-          | EWMA { alpha :: Double
-                 , avg   :: Measurable
+data EWMA = EmptyEWMA { alpha :: !Double }
+          | EWMA { alpha :: !Double
+                 , avg   :: !Measurable
                  } deriving (Show, Eq, Generic, ToJSON, FromJSON)
 
 \end{code}
@@ -334,26 +334,26 @@ instance Semigroup Aggregated where
 singletonStats :: Measurable -> Aggregated
 singletonStats a =
     let stats = Stats { flast  = a
-                      , fold   = Nanoseconds 0
-                      , fbasic = BaseStats
-                                 { fmin   = a
-                                 , fmax   = a
-                                 , fcount = 1
-                                 , fsum_A = getDouble a
-                                 , fsum_B = 0 }
-                      , fdelta = BaseStats
-                                 { fmin   = 0
-                                 , fmax   = 0
-                                 , fcount = 1
-                                 , fsum_A = 0
-                                 , fsum_B = 0 }
-                      , ftimed = BaseStats
-                                 { fmin   = Nanoseconds 0
-                                 , fmax   = Nanoseconds 0
-                                 , fcount = 1
-                                 , fsum_A = 0
-                                 , fsum_B = 0 }
-                      }
+                       , fold   = Nanoseconds 0
+                       , fbasic = BaseStats
+                                  { fmin   = a
+                                  , fmax   = a
+                                  , fcount = 1
+                                  , fsum_A = getDouble a
+                                  , fsum_B = 0 }
+                       , fdelta = BaseStats
+                                  { fmin   = 0
+                                  , fmax   = 0
+                                  , fcount = 1
+                                  , fsum_A = 0
+                                  , fsum_B = 0 }
+                       , ftimed = BaseStats
+                                  { fmin   = Nanoseconds 0
+                                  , fmax   = Nanoseconds 0
+                                  , fcount = 1
+                                  , fsum_A = 0
+                                  , fsum_B = 0 }
+                       }
     in
     AggregatedStats stats
 
@@ -375,15 +375,15 @@ We use Welford's online algorithm to update the estimation of mean and variance 
 (see \url{https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford's_Online_algorithm})
 
 \begin{code}
-updateAggregation :: Measurable -> Aggregated -> Word64 -> Maybe Word64 -> Either Text Aggregated
-updateAggregation v (AggregatedStats s) tstamp resetAfter =
-    let count = fcount (fbasic s)
-        reset = maybe False (count >=) resetAfter
-    in
-    if reset
-    then
-        Right $ singletonStats v
-    else
+updateAggregation :: Measurable -> Aggregated -> Word64 -> {- Maybe Word64 -> -} Either Text Aggregated
+updateAggregation v (AggregatedStats s) tstamp {- resetAfter -} =
+    -- let count = fcount (fbasic s)
+    --     reset = maybe False (count >=) resetAfter
+    -- in
+    -- if reset
+    -- then
+    --     Right $ singletonStats v
+    -- else
         Right $ AggregatedStats $! Stats { flast  = v
                                          , fold = mkTimestamp
                                          , fbasic = updateBaseStats 1 v (fbasic s)
@@ -395,10 +395,9 @@ updateAggregation v (AggregatedStats s) tstamp resetAfter =
     mkTimestamp = Nanoseconds $ tstamp
     timediff = Nanoseconds $ fromInteger $ (getInteger mkTimestamp) - (getInteger $ fold s)
 
-updateAggregation v (AggregatedEWMA e) _ _ =
+updateAggregation v (AggregatedEWMA e) _ =
     let !eitherAvg = ewma e v
-    in
-        AggregatedEWMA <$> eitherAvg
+    in AggregatedEWMA <$> eitherAvg
 
 updateBaseStats :: Word64 -> Measurable -> BaseStats -> BaseStats
 updateBaseStats startAt v s =

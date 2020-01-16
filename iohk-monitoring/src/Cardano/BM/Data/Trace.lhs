@@ -5,7 +5,6 @@
 %if style == newcode
 \begin{code}
 {-# LANGUAGE RankNTypes          #-}
-{-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Cardano.BM.Data.Trace
@@ -13,15 +12,16 @@ module Cardano.BM.Data.Trace
   )
   where
 
-import           Cardano.BM.Data.LogItem (LogObject(..))
-import           Cardano.BM.Data.Tracer (Tracer(..))
+import           Cardano.BM.Data.LogItem (LogObject(..), LoggerName)
+import           Control.Tracer
 
 \end{code}
 %endif
 
 \subsubsection{Trace}\label{code:Trace}\index{Trace}
-A |Trace m a| is a |Tracer m (LogObject a)|.
+A |Trace m a| is a |Tracer m| with context name and |LogObject a|.
 \begin{code}
 
-type Trace m a = Tracer m (LogObject a)
+type Trace m a = Tracer m (LoggerName, LogObject a)
+
 \end{code}

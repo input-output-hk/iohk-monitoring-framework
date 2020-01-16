@@ -4,7 +4,7 @@
 
 %if style == newcode
 \begin{code}
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE RankNTypes   #-}
 
 module Cardano.BM.Trace
     (
@@ -36,7 +36,6 @@ import qualified Control.Concurrent.STM.TVar as STM
 import           Control.Monad.IO.Class (MonadIO, liftIO)
 import qualified Control.Monad.STM as STM
 import           Data.Aeson.Text (encodeToLazyText)
-import           Data.Functor.Contravariant (Contravariant (..))
 import           Data.Monoid ((<>))
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
@@ -45,9 +44,9 @@ import           System.IO.Unsafe (unsafePerformIO)
 
 import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.Severity
-import           Cardano.BM.Data.Trace
-import           Cardano.BM.Data.Tracer (Tracer (..), natTracer, nullTracer,
-                     traceWith)
+import           Cardano.BM.Data.Trace (Trace)
+import           Cardano.BM.Data.Tracer (Tracer (..), contramap, natTracer,
+                     nullTracer, traceWith)
 
 \end{code}
 %endif
@@ -55,8 +54,8 @@ import           Cardano.BM.Data.Tracer (Tracer (..), natTracer, nullTracer,
 \subsubsection{Utilities}
 Natural transformation from monad |m| to monad |n|.
 \begin{code}
-natTrace :: (forall x . m x -> n x) -> Trace m a -> Trace n a
-natTrace nat basetrace = natTracer nat basetrace
+natTrace :: (forall x . m x -> n x) -> Tracer m (LoggerName,LogObject a) -> Tracer n (LoggerName,LogObject a)
+natTrace = natTracer
 
 \end{code}
 
@@ -64,8 +63,10 @@ natTrace nat basetrace = natTracer nat basetrace
 A new context name is added.
 \begin{code}
 appendName :: LoggerName -> Trace m a -> Trace m a
-appendName name =
-    modifyName (\prev -> [name] <> prev)
+appendName name tr = Tracer $ \(names0, lo) ->
+    let names = if names0 == T.empty then name else name <> "." <> names0
+    in
+    traceWith tr (names, lo)
 
 \end{code}
 
@@ -73,19 +74,19 @@ appendName name =
 The context name is overwritten.
 \begin{code}
 modifyName
-    :: ([LoggerName] -> [LoggerName])
-    -> Tracer m (LogObject a)
-    -> Tracer m (LogObject a)
+    :: (LoggerName -> LoggerName)
+    -> Trace m a
+    -> Trace m a
 modifyName k = contramap f
   where
-    f (LogObject name meta item) = LogObject (k name) meta item
+    f (names0, lo) = (k names0, lo)
 
 \end{code}
 
 \subsubsection{Contramap a trace and produce the naming context}
 \begin{code}
-named :: Tracer m (LogObject a) -> Tracer m (LOMeta, LOContent a)
-named = contramap $ uncurry (LogObject mempty)
+named :: Tracer m (LoggerName,LogObject a) -> Tracer m (LOMeta, LOContent a)
+named = contramap $ \(meta, loc) -> (mempty, LogObject mempty meta loc)
 
 \end{code}
 
@@ -120,16 +121,16 @@ locallock = unsafePerformIO $ newMVar ()
 \end{code}
 
 \begin{code}
-stdoutTrace :: Tracer IO (LogObject T.Text)
-stdoutTrace = Tracer $ \(LogObject loname _ lc) ->
+stdoutTrace :: Trace IO T.Text
+stdoutTrace = Tracer $ \(ctx, LogObject _loname _ lc) ->
     withMVar locallock $ \_ ->
         case lc of
             (LogMessage logItem) ->
-                    output loname logItem
+                    output ctx logItem
             obj ->
-                    output loname $ toStrict (encodeToLazyText obj)
+                    output ctx $ toStrict (encodeToLazyText obj)
   where
-    output nm msg = TIO.putStrLn $ loname2text nm <> " :: " <> msg
+    output nm msg = TIO.putStrLn $ nm <> " :: " <> msg
 
 \end{code}
 

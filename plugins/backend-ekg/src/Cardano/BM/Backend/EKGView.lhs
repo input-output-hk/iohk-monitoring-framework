@@ -32,7 +32,7 @@ import qualified Data.HashMap.Strict as HM
 import           Data.Int (Int64)
 import           Data.Maybe (fromMaybe)
 import           Data.String (fromString)
-import           Data.Text (Text, pack)
+import           Data.Text (Text, pack, stripPrefix)
 import qualified Data.Text.IO as TIO
 import           Data.Version (showVersion)
 
@@ -103,8 +103,8 @@ ekgTrace :: ToJSON a => EKGView a -> Configuration -> Trace IO a
 ekgTrace ekg _c =
     Trace.appendName "#ekgview" $ ekgTrace' ekg
   where
-    ekgTrace' :: ToJSON a => EKGView a -> Tracer IO (LogObject a)
-    ekgTrace' ekgview = Tracer $ \lo@(LogObject outerloname _ _) -> do
+    ekgTrace' :: ToJSON a => EKGView a -> Trace IO a
+    ekgTrace' ekgview = Tracer $ \(_ctx,lo@(LogObject outerloname _ _)) -> do
         let setLabel :: Text -> Text -> EKGViewInternal a -> IO (Maybe (EKGViewInternal a))
             setLabel name label ekg_i@(EKGViewInternal _ labels _ mserver _ _) =
                 case (HM.lookup name labels, mserver) of
@@ -132,9 +132,9 @@ ekgTrace ekg _c =
 
             update :: ToJSON a => LogObject a -> EKGViewInternal a -> IO (Maybe (EKGViewInternal a))
             update (LogObject loname _ (LogMessage logitem)) ekg_i =
-                setLabel (loname2text loname) (pack $ show $ encode logitem) ekg_i
+                setLabel loname (pack $ show $ encode logitem) ekg_i
             update (LogObject loname _ (LogValue iname value)) ekg_i =
-                let logname = loname2text $ loname <> [iname]
+                let logname = loname <> "." <> iname
                 in
                 case value of
                     (Microseconds x) -> setGauge (logname <> ".us") (fromIntegral x) ekg_i
@@ -149,11 +149,8 @@ ekgTrace ekg _c =
 
         modifyMVar_ (getEV ekgview) $ \ekgup -> do
             let -- strip off some prefixes not necessary for display
-                stripLPrefix _ [] = Nothing
-                stripLPrefix a (b:bs) | a == b    = Just bs
-                                      | otherwise = Nothing
-                loname1 = fromMaybe outerloname $ stripLPrefix "#ekgview" outerloname
-                loname = fromMaybe loname1 $ stripLPrefix "#aggregation" loname1
+                loname1 = fromMaybe outerloname $ stripPrefix "#ekgview" outerloname
+                loname = fromMaybe loname1 $ stripPrefix "#aggregation" loname1
             upd <- update lo{ loName = loname } ekgup
             case upd of
                 Nothing     -> return ekgup
@@ -185,10 +182,10 @@ instance IsEffectuator EKGView a where
                  let traceAgg :: [(Text,Aggregated)] -> IO ()
                      traceAgg [] = return ()
                      traceAgg ((n,AggregatedEWMA agewma):r) = do
-                         enqueue $ LogObject (loname <> [n]) lometa (LogValue "avg" $ avg agewma)
+                         enqueue $ LogObject (loname <> "." <> n) lometa (LogValue "avg" $ avg agewma)
                          traceAgg r
                      traceAgg ((n,AggregatedStats stats):r) = do
-                         let statsname = loname <> [n]
+                         let statsname = loname <> "." <> n
                              qbasestats s' nm = do
                                  enqueue $ LogObject nm lometa (LogValue "mean" (PureD $ meanOfStats s'))
                                  enqueue $ LogObject nm lometa (LogValue "min" $ fmin s')
@@ -196,9 +193,9 @@ instance IsEffectuator EKGView a where
                                  enqueue $ LogObject nm lometa (LogValue "count" $ PureI $ fromIntegral $ fcount s')
                                  enqueue $ LogObject nm lometa (LogValue "stdev" (PureD $ stdevOfStats s'))
                          enqueue $ LogObject statsname lometa (LogValue "last" $ flast stats)
-                         qbasestats (fbasic stats) $ statsname <> ["basic"]
-                         qbasestats (fdelta stats) $ statsname <> ["delta"]
-                         qbasestats (ftimed stats) $ statsname <> ["timed"]
+                         qbasestats (fbasic stats) $ statsname <> ".basic"
+                         qbasestats (fdelta stats) $ statsname <> ".delta"
+                         qbasestats (ftimed stats) $ statsname <> ".timed"
                          traceAgg r
                  traceAgg ags
              (LogObject _ _ (LogMessage _)) -> enqueue item
@@ -279,8 +276,8 @@ instance (ToJSON a, FromJSON a) => IsBackend EKGView a where
          -> IO (EKGView a)
        nullSetup trace e = do
          meta <- mkLOMeta Error Public
-         traceWith trace $ LogObject ["#ekgview", "realizeFrom"] meta $
-           LogError $ "EKGView backend disabled due to initialisation error: " <> (pack $ show e)
+         traceWith trace $ ("#ekgview.realizeFrom", LogObject "#ekgview.realizeFrom" meta $
+           LogError $ "EKGView backend disabled due to initialisation error: " <> (pack $ show e))
          _ <- atomically $ TBQ.newTBQueue 0
          ref <- newEmptyMVar
          putMVar ref $ EKGViewInternal
@@ -349,11 +346,11 @@ spawnDispatcher config evqueue _sbtrace ekgtrace =
             ()
             (\_ -> pure ())
 
-    processEKGView obj@(LogObject _ _ _) _ = do
-        obj' <- testSubTrace config ("#ekgview." <> lo2name obj) obj
+    processEKGView obj@(LogObject loname0 _ _) _ = do
+        obj' <- testSubTrace config ("#ekgview." <> loname0) obj
         case obj' of
             Just (LogObject loname meta content) ->
-                let trace = Trace.appendName (loname2text loname) ekgtrace
+                let trace = Trace.appendName loname ekgtrace
                 in
                 Trace.traceNamedObject trace (meta, content)
             Nothing -> pure ()

@@ -545,13 +545,7 @@ empty = do
                            { cgMinSeverity       = Debug
                            , cgDefRotation       = Nothing
                            , cgMapSeverity       = HM.empty
-                           , cgMapSubtrace       = HM.fromList [
-                                                     ("#messagecounters.ekgview", NoTrace),
-                                                     ("#messagecounters.aggregation", NoTrace),
-                                                     ("#messagecounters.switchboard", NoTrace),
-                                                     ("#messagecounters.monitoring", NoTrace),
-                                                     ("#messagecounters.katip", NoTrace),
-                                                     ("#messagecounters.graylog", NoTrace) ]
+                           , cgMapSubtrace       = HM.empty
                            , cgOptions           = HM.empty
                            , cgMapBackend        = HM.empty
                            , cgDefBackendKs      = []
@@ -659,7 +653,7 @@ the evaluation of the filters return |True|.
 findRootSubTrace :: Configuration -> LoggerName -> IO (Maybe SubTrace)
 findRootSubTrace config loggername =
     -- Try to find SubTrace by provided name.
-    let find_s :: [Text] -> IO (Maybe SubTrace)
+    let find_s :: [LoggerName] -> IO (Maybe SubTrace)
         find_s [] = return Nothing
         find_s lnames = findSubTrace config (T.intercalate "." lnames) >>= \case
                 Just subtrace -> return $ Just subtrace

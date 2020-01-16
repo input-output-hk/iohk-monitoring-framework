@@ -23,4 +23,9 @@ extra-deps:
     commit: 1a258b6df7d9807d4c4ff3e99722223d31a2c320
 
 nix:
-  shell-file: scripts/nix/stack-shell.nix
+  pure: true
+  packages: [ zlib.dev, zlib.out
+            , haskell.compiler.ghc865
+            , pkg-config
+            , systemd.dev
+            ]

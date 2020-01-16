@@ -1,2 +1,2 @@
-cradle: {cabal: {component: "lib:iohk-monitoring"}}
-
+###cradle: {cabal: {component: "lib:iohk-monitoring"}}
+cradle: {stack: {component: "iohk-monitoring:lib"}}

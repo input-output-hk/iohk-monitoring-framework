@@ -140,8 +140,8 @@ instance (ToJSON a, FromJSON a) => IsBackend Editor a where
          -> IO ()
        nullSetup trace mvar nullEditor e = do
          meta <- mkLOMeta Error Public
-         traceWith trace $ LogObject ["#editor", "realizeFrom"] meta $
-           LogError $ "Editor backend disabled due to initialisation error: " <> (pack $ show e)
+         traceWith trace $ ("#editor.realizeFrom", LogObject "#editor.realizeFrom" meta $
+           LogError $ "Editor backend disabled due to initialisation error: " <> (pack $ show e))
          _ <- swapMVar mvar nullEditor
          pure ()
 

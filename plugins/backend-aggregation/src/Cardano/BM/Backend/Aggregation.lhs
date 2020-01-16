@@ -45,6 +45,7 @@ import           Cardano.BM.Data.Counter (Counter (..), CounterState (..),
                      nameCounter)
 import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.Severity (Severity (..))
+import           Cardano.BM.Data.Tracer (traceWith)
 import           Cardano.BM.Plugin
 import qualified Cardano.BM.Trace as Trace
 
@@ -78,21 +79,7 @@ data AggregationInternal a = AggregationInternal
 \subsubsection{Relation from context name to aggregated statistics}
 We keep the aggregated values (|Aggregated|) for a named context in a |HashMap|.
 \begin{code}
-type AggregationMap = HM.HashMap Text AggregatedExpanded
-
-\end{code}
-
-\subsubsection{Info for Aggregated operations}\label{code:AggregatedExpanded}\index{AggregatedExpanded}
-Apart from the |Aggregated| we keep some valuable info regarding to them; such as when
-was the last time it was sent.
-\begin{code}
-type Timestamp = Word64
-
-data AggregatedExpanded = AggregatedExpanded
-                            { aeAggregated :: !Aggregated
-                            , aeResetAfter :: !(Maybe Word64)
-                            , aeLastSent   :: {-# UNPACK #-} !Timestamp
-                            }
+type AggregationMap = HM.HashMap Text Aggregated
 
 \end{code}
 
@@ -166,7 +153,7 @@ spawnDispatcher conf aggMap aggregationQueue basetrace =
     Async.async $ qProc trace aggMap
   where
     {-@ lazy qProc @-}
-    qProc trace aggregatedMap = do
+    qProc trace aggregatedMap =
         processQueue
             aggregationQueue
             processAggregated
@@ -175,8 +162,7 @@ spawnDispatcher conf aggMap aggregationQueue basetrace =
 
     processAggregated lo@(LogObject loname lm _) (trace, aggregatedMap) = do
         (updatedMap, aggregations) <- update lo aggregatedMap trace
-        unless (null aggregations) $
-            sendAggregated trace (LogObject loname lm (AggregatedMessage aggregations))
+        sendAggregated trace loname (severity lm) aggregations
         return (trace, updatedMap)
 
     createNupdate :: Text -> Measurable -> LOMeta -> AggregationMap -> IO (Either Text Aggregated)
@@ -190,26 +176,20 @@ spawnDispatcher conf aggMap aggregationQueue basetrace =
                     EwmaAK aEWMA -> do
                         let initEWMA = EmptyEWMA aEWMA
                         return $ AggregatedEWMA <$> ewma initEWMA value
-            Just a -> return $ updateAggregation value (aeAggregated a) (utc2ns $ tstamp lme) (aeResetAfter a)
+            Just a -> return $ updateAggregation value a (utc2ns $ tstamp lme)
 
     update :: LogObject a
            -> AggregationMap
-            -> Trace.Trace IO a
+           -> Trace.Trace IO a
            -> IO (AggregationMap, [(Text, Aggregated)])
     update (LogObject loname lme (LogValue iname value)) agmap trace = do
-        let fullname = loname2text loname <> "." <> iname
+        let fullname = loname <> "." <> iname
         eitherAggregated <- createNupdate fullname value lme agmap
         case eitherAggregated of
             Right aggregated -> do
-                now <- getMonotonicTimeNSec
-                let aggregatedX = AggregatedExpanded {
-                                    aeAggregated = aggregated
-                                  , aeResetAfter = Nothing
-                                  , aeLastSent = now
-                                  }
-                    namedAggregated = [(iname, aeAggregated aggregatedX)]
-                    updatedMap = HM.alter (const $ Just $ aggregatedX) fullname agmap
-                return (updatedMap, namedAggregated)
+                sendAggregated trace fullname (severity lme) [(iname, aggregated)]
+                let updatedMap = HM.alter (const $ Just $ aggregated) fullname agmap
+                return (updatedMap, [])
             Left w -> do
                 let trace' = Trace.appendName "update" trace
                 Trace.traceNamedObject trace' =<<
@@ -218,27 +198,21 @@ spawnDispatcher conf aggMap aggregationQueue basetrace =
                 return (agmap, [])
 
     update (LogObject loname lme (ObserveDiff counterState)) agmap trace =
-        updateCounters (csCounters counterState) lme (loname2text loname, "diff") agmap [] trace
+        updateCounters (csCounters counterState) lme (loname, "diff") agmap [] trace
     update (LogObject loname lme (ObserveOpen counterState)) agmap trace =
-        updateCounters (csCounters counterState) lme (loname2text loname, "open") agmap [] trace
+        updateCounters (csCounters counterState) lme (loname, "open") agmap [] trace
     update (LogObject loname lme (ObserveClose counterState)) agmap trace =
-        updateCounters (csCounters counterState) lme (loname2text loname, "close") agmap [] trace
+        updateCounters (csCounters counterState) lme (loname, "close") agmap [] trace
 
     update (LogObject loname lme (LogMessage _)) agmap trace = do
         let iname  = pack $ show (severity lme)
-        let fullname = (loname2text loname) <> "." <> iname
+        let !fullname = loname <> "." <> iname
         eitherAggregated <- createNupdate fullname (PureI 0) lme agmap
         case eitherAggregated of
             Right aggregated -> do
-                now <- getMonotonicTimeNSec
-                let aggregatedX = AggregatedExpanded {
-                                    aeAggregated = aggregated
-                                  , aeResetAfter = Nothing
-                                  , aeLastSent = now
-                                  }
-                    namedAggregated = [(iname, aeAggregated aggregatedX)]
-                    updatedMap = HM.alter (const $ Just $ aggregatedX) fullname agmap
-                return (updatedMap, namedAggregated)
+                sendAggregated trace fullname (severity lme) [(iname, aggregated)]
+                let updatedMap = HM.alter (const $ Just $ aggregated) fullname agmap
+                return (updatedMap, [])
             Left w -> do
                 let trace' = Trace.appendName "update" trace
                 Trace.traceNamedObject trace' =<<
@@ -256,7 +230,7 @@ spawnDispatcher conf aggMap aggregationQueue basetrace =
                    -> [(Text, Aggregated)]
                    -> Trace.Trace IO a
                    -> IO (AggregationMap, [(Text, Aggregated)])
-    updateCounters [] _ _ aggrMap aggs _ = return $ (aggrMap, aggs)
+    updateCounters [] _ _ !aggrMap !aggs _ = return (aggrMap, aggs)
     updateCounters (counter : cs) lme (logname, msgname) aggrMap aggs trace = do
         let name = cName counter
             subname = msgname <> "." <> (nameCounter counter) <> "." <> name
@@ -265,14 +239,8 @@ spawnDispatcher conf aggMap aggregationQueue basetrace =
         eitherAggregated <- createNupdate fullname value lme aggrMap
         case eitherAggregated of
             Right aggregated -> do
-                now <- getMonotonicTimeNSec
-                let aggregatedX = AggregatedExpanded {
-                                    aeAggregated = aggregated
-                                  , aeResetAfter = Nothing
-                                  , aeLastSent = now
-                                  }
-                    namedAggregated = (subname, aggregated)
-                    updatedMap = HM.alter (const $ Just $ aggregatedX) fullname aggrMap
+                let namedAggregated = (subname, aggregated)
+                    updatedMap = HM.alter (const $ Just $ aggregated) fullname aggrMap
                 updateCounters cs lme (logname, msgname) updatedMap (namedAggregated : aggs) trace
             Left w -> do
                 let trace' = Trace.appendName "updateCounters" trace
@@ -281,12 +249,11 @@ spawnDispatcher conf aggMap aggregationQueue basetrace =
                         <*> pure (LogError w)
                 updateCounters cs lme (logname, msgname) aggrMap aggs trace
 
-    sendAggregated :: Trace.Trace IO a -> LogObject a -> IO ()
-    sendAggregated trace (LogObject loname meta v@(AggregatedMessage _)) = do
-        -- enter the aggregated message into the |Trace|
-        let trace' = Trace.appendName (loname2text loname) trace
-        liftIO $ Trace.traceNamedObject trace' (meta, v)
-    -- ingnore every other message
-    sendAggregated _ _ = return ()
+    sendAggregated :: Trace.Trace IO a -> Text -> Severity -> [(Text, Aggregated)] -> IO ()
+    sendAggregated _trace _loname _sev [] = pure ()
+    sendAggregated trace loname sev v = do
+        meta <- mkLOMeta sev Public
+        traceWith trace (loname, LogObject mempty meta (AggregatedMessage v))
+
 
 \end{code}
