@@ -71,7 +71,7 @@ newtype Monitor a = Monitor
 data MonitorInternal a = MonitorInternal
     { monQueue    :: TBQ.TBQueue (Maybe (LogObject a))
     , monDispatch :: Async.Async ()
-    , monBuffer   :: LogBuffer a
+    , monBuffer   :: !(LogBuffer a)
     }
 
 \end{code}
@@ -80,10 +80,10 @@ data MonitorInternal a = MonitorInternal
 We remember the state of each monitored context name.
 \begin{code}
 data MonitorState = MonitorState {
-      _preCondition :: MEvPreCond
-    , _expression   :: MEvExpr
+      _preCondition :: !MEvPreCond
+    , _expression   :: !MEvExpr
     , _actions      :: [MEvAction]
-    , _environment  :: Environment
+    , _environment  :: !Environment
     } deriving Show
 type MonitorMap = HM.HashMap LoggerName MonitorState
 

@@ -79,8 +79,8 @@ newtype EKGView a = EKGView
 
 data EKGViewInternal a = EKGViewInternal
     { evQueue              :: Maybe (TBQ.TBQueue (Maybe (LogObject a)))
-    , evLabels             :: EKGViewMap Label.Label
-    , evGauges             :: EKGViewMap Gauge.Gauge
+    , evLabels             :: !(EKGViewMap Label.Label)
+    , evGauges             :: !(EKGViewMap Gauge.Gauge)
     , evServer             :: Maybe Server
     , evDispatch           :: Maybe (Async.Async ())
     , evPrometheusDispatch :: Maybe (Async.Async ())

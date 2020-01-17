@@ -70,8 +70,8 @@ newtype Switchboard a = Switchboard
 data SwitchboardInternal a = SwitchboardInternal
     { sbQueue     :: TBQ.TBQueue (LogObject a)
     , sbDispatch  :: Async.Async ()
-    , sbLogBuffer :: Cardano.BM.Backend.LogBuffer.LogBuffer a
-    , sbLogBE     :: Cardano.BM.Backend.Log.Log a
+    , sbLogBuffer :: !(Cardano.BM.Backend.LogBuffer.LogBuffer a)
+    , sbLogBE     :: !(Cardano.BM.Backend.Log.Log a)
     , sbBackends  :: NamedBackends a
     }
 

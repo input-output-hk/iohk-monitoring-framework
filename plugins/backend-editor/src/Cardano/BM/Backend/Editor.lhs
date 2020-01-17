@@ -89,7 +89,7 @@ newtype Editor a = Editor
 data EditorInternal a = EditorInternal
     { edSBtrace :: Trace IO a
     , edThread  :: Async.Async ()
-    , edBuffer  :: LogBuffer a
+    , edBuffer  :: !(LogBuffer a)
     }
 
 \end{code}

@@ -152,7 +152,7 @@ instance Show MEvExpr where
 If evaluation of a monitoring expression is |True|, then a set of actions are
 executed for alerting.
 \begin{code}
-data MEvAction = CreateMessage Severity Text
+data MEvAction = CreateMessage Severity !Text
                | SetGlobalMinimalSeverity Severity
                | AlterSeverity LoggerName Severity
                deriving (Eq)

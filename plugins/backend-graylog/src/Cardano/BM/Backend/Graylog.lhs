@@ -223,14 +223,14 @@ spawnDispatcher config evqueue sbtrace =
 GELF defines a data format of the message payload: \url{https://docs.graylog.org/en/3.0/pages/gelf.html}
 \begin{code}
 data GelfItem = GelfItem {
-        version :: Text,
-        host :: Text,
-        short_message :: Text,
-        full_message :: Value,
-        timestamp :: Double,
-        level :: Int,
-        _tid :: Text,
-        _privacy :: Text
+        version :: !Text,
+        host :: !Text,
+        short_message :: !Text,
+        full_message :: !Value,
+        timestamp :: !Double,
+        level :: !Int,
+        _tid :: !Text,
+        _privacy :: !Text
     }
 
 mkGelfItem :: ToJSON a => LogObject a -> GelfItem
