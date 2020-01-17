@@ -76,7 +76,7 @@ newtype TraceAcceptor p a = TraceAcceptor
 type TraceAcceptorMVar p a = MVar (TraceAcceptorInternal p a)
 
 data TraceAcceptorInternal p a = TraceAcceptorInternal
-    { accPipe     :: PipeHandler p
+    { accPipe     :: !(PipeHandler p)
     , accDispatch :: Async.Async ()
     }
 

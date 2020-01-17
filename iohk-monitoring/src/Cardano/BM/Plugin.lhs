@@ -25,7 +25,7 @@ import           Cardano.BM.Data.Output
 A |Plugin| has a name and is either a |Backend| or a |Scribe|.
 \begin{code}
 
-data Plugin a = BackendPlugin (Backend a) BackendKind
+data Plugin a = BackendPlugin !(Backend a) BackendKind
               | ScribePlugin Scribe ScribeId
 \end{code}
 

@@ -70,7 +70,7 @@ type LoggerName = Text
 data LogObject a = LogObject
                      { loName    :: [LoggerName]
                      , loMeta    :: !LOMeta
-                     , loContent :: LOContent a
+                     , loContent :: !(LOContent a)
                      } deriving (Show, Eq)
 
 instance ToJSON a => ToJSON (LogObject a) where
@@ -191,20 +191,20 @@ LogStructured could also be:
 Payload of a |LogObject|:
 \begin{code}
 data LOContent a = LogMessage a
-                 | LogError Text
+                 | LogError !Text
                  | LogRepeats
                    { lrRepeats :: {-# UNPACK #-} !Int
                    , lrFirst   :: !(LogObject a)
                    , lrLast    :: !(LogObject a)
                    }
-                 | LogValue Text Measurable
-                 | LogStructured BS.ByteString
-                 | ObserveOpen CounterState
-                 | ObserveDiff CounterState
-                 | ObserveClose CounterState
+                 | LogValue !Text !Measurable
+                 | LogStructured !BS.ByteString
+                 | ObserveOpen !CounterState
+                 | ObserveDiff !CounterState
+                 | ObserveClose !CounterState
                  | AggregatedMessage [(Text, Aggregated)]
-                 | MonitoringEffect MonitorAction
-                 | Command CommandValue
+                 | MonitoringEffect !MonitorAction
+                 | Command !CommandValue
                  | KillPill
                  deriving (Show, Eq)
 -- WARNING: update 'locTypeEq' when extending this!

@@ -313,8 +313,8 @@ data EWMA = EmptyEWMA { alpha :: !Double }
 
 \subsubsection{Aggregated}\label{code:Aggregated}\index{Aggregated}
 \begin{code}
-data Aggregated = AggregatedStats Stats
-                | AggregatedEWMA EWMA
+data Aggregated = AggregatedStats !Stats
+                | AggregatedEWMA !EWMA
                 deriving (Eq, Generic, ToJSON, FromJSON)
 
 \end{code}
