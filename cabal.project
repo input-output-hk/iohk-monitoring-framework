@@ -31,6 +31,6 @@ package tracer-transformers
 source-repository-package
   type: git
   location: https://github.com/CodiePP/ekg-prometheus-adapter
-  tag: 1e43f9feca182cb073d92e76ce2808cc8977519a
+  tag: f2f0b05ae734b08c1aa737c605e9a4d0e0e9551d
 
 reorder-goals: True

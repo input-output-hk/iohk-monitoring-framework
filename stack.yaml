@@ -20,7 +20,7 @@ extra-deps:
   - libsystemd-journal-1.4.4
   - katip-0.8.3.0
   - git: https://github.com/CodiePP/ekg-prometheus-adapter
-    commit: 1e43f9feca182cb073d92e76ce2808cc8977519a
+    commit: f2f0b05ae734b08c1aa737c605e9a4d0e0e9551d
 
 nix:
   pure: true
