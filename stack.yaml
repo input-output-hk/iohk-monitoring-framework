@@ -20,7 +20,13 @@ extra-deps:
   - libsystemd-journal-1.4.4
   - katip-0.8.3.0
   - git: https://github.com/CodiePP/ekg-prometheus-adapter
-    commit: 1a258b6df7d9807d4c4ff3e99722223d31a2c320
+    commit: 1e43f9feca182cb073d92e76ce2808cc8977519a
 
 nix:
-  shell-file: scripts/nix/stack-shell.nix
+  pure: true
+  packages: [ zlib.dev, zlib.out
+            , haskell.compiler.ghc865
+            , pkg-config
+            , systemd.dev
+            ]
+

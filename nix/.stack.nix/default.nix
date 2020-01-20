@@ -6,7 +6,6 @@
         "prometheus" = (((hackage.prometheus)."2.1.2").revisions).default;
         "libsystemd-journal" = (((hackage.libsystemd-journal)."1.4.4").revisions).default;
         "katip" = (((hackage.katip)."0.8.3.0").revisions).default;
-        } // {
         contra-tracer = ./contra-tracer.nix;
         tracer-transformers = ./tracer-transformers.nix;
         iohk-monitoring = ./iohk-monitoring.nix;
@@ -25,5 +24,6 @@
       compiler.nix-name = "ghc865";
       };
   resolver = "lts-13.26";
+  modules = [ ({ lib, ... }: { packages = {}; }) { packages = {}; } ];
   compiler = "ghc-8.6.5";
   }
