@@ -187,14 +187,15 @@ prepare_configuration = do
     CM.setBackends c "complex.#aggregation.complex.message" (Just [EKGViewBK, MonitoringBK])
     CM.setBackends c "complex.#aggregation.complex.monitoring" (Just [MonitoringBK])
     CM.setBackends c "complex.#aggregation.complex.observeIO" (Just [EKGViewBK])
+
     CM.setEKGport c 12790
+    CM.setPrometheusBindAddr c $ Just ("localhost", 12800)
+    CM.setGUIport c 13790
 
     -- if the TraceForwarderBK backend is started
     -- then it will try to open this pipe to forward messages to another process
     CM.setLogOutput c "logs/log-pipe"
 
-    CM.setPrometheusBindAddr c $ Just ("localhost", 12800)
-    CM.setGUIport c 13790
     CM.setMonitors c $ HM.fromList
         [ ( "complex.monitoring"
           , ( Just (Compare "monitMe" (GE, OpMeasurable 10))
