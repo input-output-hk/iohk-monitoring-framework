@@ -17,9 +17,10 @@ import           Data.ByteString.Char8 (ByteString)
 import           Data.Int (Int64)
 import           Data.Text (Text, replace)
 import           Data.Text.Encoding (encodeUtf8)
+import           Data.Text.Read (double)
 import           Snap.Core (Snap, route, writeLBS)
 import           Snap.Http.Server (Config, ConfigLog (..), defaultConfig, setAccessLog,
-                     setErrorLog, setHostname, setPort, simpleHttpServe)
+                     setBind, setErrorLog, setPort, simpleHttpServe)
 import           System.Metrics (Value (..), sampleAll)
 import qualified System.Remote.Monitoring as EKG
 
@@ -35,7 +36,7 @@ spawnPrometheus ekg host port = Async.async $
     simpleHttpServe config site
   where
     config :: Config Snap a
-    config = setPort port . setHostname host . setAccessLog log . setErrorLog log $ defaultConfig
+    config = setPort port . setBind host . setAccessLog log . setErrorLog log $ defaultConfig
     log = ConfigNoLog
     site :: Snap ()
     site = route [ ("/metrics/", webhandler ekg) ]
@@ -50,7 +51,9 @@ spawnPrometheus ekg host port = Async.async $
         [ case sv of
             Counter c -> renderNamedValue sk (int64Dec c)
             Gauge g -> renderNamedValue sk (int64Dec g)
-            Label l -> renderNamedValue sk (byteString $ encodeUtf8 l)
+            Label l -> if isFloat l
+                         then renderNamedValue sk (byteString $ encodeUtf8 l)
+                         else mempty
             _ -> mempty
         | (sk,sv) <- samples ]
     renderNamedValue :: Text -> Builder -> Builder
@@ -59,6 +62,9 @@ spawnPrometheus ekg host port = Async.async $
         <> charUtf8 ' '
         <> bld
         <> charUtf8 '\n'
-    prepareName nm = encodeUtf8 $ replace " " "_" $ replace "." "_" nm
+    prepareName nm = encodeUtf8 $ replace " " "_" $ replace "-" "_" $ replace "." "_" nm
+    isFloat v = case double v of
+        Right (_n, "") -> True  -- only floating point number parsed, no leftover
+        _ -> False
 
 \end{code}
