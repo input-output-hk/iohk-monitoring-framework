@@ -87,7 +87,7 @@ main = do
     let mybe = MkBackend { bEffectuate = effectuate be, bUnrealize = unrealize be }
     addUserDefinedBackend sb mybe "MyBackend"
 #ifdef LINUX
-    Cardano.BM.Scribe.Systemd.plugin c tr sb
+    Cardano.BM.Scribe.Systemd.plugin c tr sb "cardano"
       >>= loadPlugin sb
 #endif
 
