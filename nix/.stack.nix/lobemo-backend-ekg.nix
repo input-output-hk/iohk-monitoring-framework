@@ -3,7 +3,7 @@
     flags = {};
     package = {
       specVersion = "2.0";
-      identifier = { name = "lobemo-backend-ekg"; version = "0.1.0.0"; };
+      identifier = { name = "lobemo-backend-ekg"; version = "0.1.0.1"; };
       license = "Apache-2.0";
       copyright = "2019 IOHK";
       maintainer = "operations@iohk.io";
@@ -21,16 +21,16 @@
           (hsPkgs.iohk-monitoring)
           (hsPkgs.aeson)
           (hsPkgs.async)
+          (hsPkgs.bytestring)
           (hsPkgs.ekg)
           (hsPkgs.ekg-core)
-          (hsPkgs.ekg-prometheus-adapter)
-          (hsPkgs.prometheus)
           (hsPkgs.safe-exceptions)
+          (hsPkgs.snap-core)
+          (hsPkgs.snap-server)
           (hsPkgs.stm)
           (hsPkgs.text)
           (hsPkgs.time)
           (hsPkgs.unordered-containers)
-          (hsPkgs.warp)
           ];
         };
       };
