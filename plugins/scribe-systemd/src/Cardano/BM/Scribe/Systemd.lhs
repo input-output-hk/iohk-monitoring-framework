@@ -55,10 +55,10 @@ to systemd's journal on \emph{Linux}.
 \begin{code}
 #ifdef LINUX
 plugin :: (IsEffectuator s a, ToJSON a, FromJSON a)
-       => Configuration -> Trace IO a -> s a -> IO (Plugin a)
-plugin _ _ _ =
+       => Configuration -> Trace IO a -> s a -> T.Text -> IO (Plugin a)
+plugin _ _ _ syslogIdent =
     ScribePlugin
-               <$> mkJournalScribe
+               <$> mkJournalScribe syslogIdent
                <*> pure "JournalSK"
 #endif
 
@@ -67,21 +67,23 @@ plugin _ _ _ =
 \subsubsection{Scribe definition}
 \begin{code}
 #ifdef LINUX
-mkJournalScribe :: IO K.Scribe
-mkJournalScribe = return $ journalScribe Nothing (sev2klog Debug) K.V3
+mkJournalScribe :: T.Text -> IO K.Scribe
+mkJournalScribe identifier = return $ journalScribe Nothing (sev2klog Debug) identifier K.V3
 
 -- taken from https://github.com/haskell-service/katip-libsystemd-journal
 journalScribe :: Maybe Facility
               -> K.Severity
+              -> T.Text
               -> K.Verbosity
               -> K.Scribe
-journalScribe facility severity verbosity = K.Scribe liPush scribeFinalizer (pure . const True)
-  where
+journalScribe facility severity identifier verbosity =
+  K.Scribe liPush scribeFinalizer (pure . const True)
+ where
     liPush :: K.LogItem a => K.Item a -> IO ()
     liPush i = do
         permit <- K.permitItem severity i
         when permit $
-            sendJournalFields $ itemToJournalFields facility verbosity i
+            sendJournalFields $ itemToJournalFields facility identifier verbosity i
 
     scribeFinalizer :: IO ()
     scribeFinalizer = pure ()
@@ -96,18 +98,20 @@ Converts a |Katip Item| into a libsystemd-journal |JournalFields| map.
 #ifdef LINUX
 itemToJournalFields :: K.LogItem a
                     => Maybe Facility
+                    -> T.Text
                     -> K.Verbosity
                     -> K.Item a
                     -> JournalFields
-itemToJournalFields facility verbosity item = mconcat [ defaultFields item
-                                                      , maybe HM.empty facilityFields facility
-                                                      , maybe HM.empty locFields (K._itemLoc item)
-                                                      ]
+itemToJournalFields facility identifier verbosity item =
+  mconcat [ defaultFields item
+          , maybe HM.empty facilityFields facility
+          , maybe HM.empty locFields (K._itemLoc item)
+          ]
   where
     defaultFields kItem =
         mconcat [ message (TL.toStrict $ toLazyText $ KC.unLogStr (KC._itemMessage kItem))
                 , priority (mapSeverity (KC._itemSeverity kItem))
-                , syslogIdentifier (unNS (KC._itemApp kItem))
+                , syslogIdentifier identifier
                 , HM.fromList [ (environment, T.encodeUtf8 $ KC.getEnvironment (KC._itemEnv kItem))
                               , (namespace, T.encodeUtf8 $ unNS (KC._itemNamespace kItem))
                               , (payload, BL.toStrict $ encode $ KC.payloadObject verbosity (KC._itemPayload kItem))
@@ -119,17 +123,16 @@ itemToJournalFields facility verbosity item = mconcat [ defaultFields item
     locFields Loc{..} = mconcat [ codeFile loc_filename
                                 , codeLine (fst loc_start)
                                 ]
+    unNS ns = case K.unNamespace ns of
+        []  -> T.empty
+        [p] -> p
+        parts -> T.intercalate "." parts
 
     environment = mkJournalField "environment"
     namespace = mkJournalField "namespace"
     payload = mkJournalField "payload"
     thread = mkJournalField "thread"
     time = mkJournalField "time"
-
-    unNS ns = case K.unNamespace ns of
-        []  -> T.empty
-        [p] -> p
-        parts -> T.intercalate "." parts
 
     mapSeverity s = case s of
         K.DebugS     -> J.Debug
