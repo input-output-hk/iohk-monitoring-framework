@@ -40,6 +40,10 @@ import           Cardano.BM.Backend.Editor
 import           Cardano.BM.Backend.EKGView
 import           Cardano.BM.Backend.Monitoring
 import           Cardano.BM.Backend.Switchboard (Switchboard, readLogBuffer)
+#ifdef LINUX
+import           Cardano.BM.Scribe.Systemd
+#endif
+
 import qualified Cardano.BM.Configuration.Model as CM
 import           Cardano.BM.Data.Aggregated (Measurable (..))
 import           Cardano.BM.Data.AggregatedKind
@@ -120,8 +124,11 @@ prepare_configuration = do
                                               }
                             }
                          ]
-
+#ifdef LINUX
+    CM.setDefaultScribes c ["StdoutSK::stdout", "JournalSK::example-complex"]
+#else
     CM.setDefaultScribes c ["StdoutSK::stdout"]
+#endif
     CM.setScribes c "complex.random" (Just ["StdoutSK::stdout", "FileSK::logs/out.txt"])
     forM_ [(1::Int)..10] $ \x ->
       if odd x
@@ -397,7 +404,10 @@ main = do
       >>= loadPlugin sb
     Cardano.BM.Backend.Monitoring.plugin c tr sb
       >>= loadPlugin sb
-
+#ifdef LINUX
+    Cardano.BM.Scribe.Systemd.plugin c tr sb "example-complex"
+      >>= loadPlugin sb
+#endif
     logNotice tr "starting program; hit CTRL-C to terminate"
 -- user can watch the progress only if EKG is enabled.
     logInfo tr "watch its progress on http://localhost:12790"

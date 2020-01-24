@@ -34,7 +34,7 @@ import           Control.AutoUpdate (UpdateSettings (..), defaultUpdateSettings,
 import           Control.Concurrent.MVar (MVar, modifyMVar_, readMVar,
                      newMVar, withMVar)
 import           Control.Exception.Safe (catchIO)
-import           Control.Monad (forM_, void)
+import           Control.Monad (foldM, forM_, void)
 import           Control.Lens ((^.))
 import           Data.Aeson (FromJSON, ToJSON, Result (Success), Value (..),
                      fromJSON, toJSON)
@@ -165,27 +165,33 @@ scribeSettings =
     KC.ScribeSettings bufferSize
 
 registerScribes :: [ScribeDefinition] -> K.LogEnv -> IO K.LogEnv
-registerScribes [] le = return le
-registerScribes (defsc : dscs) le = do
-    let kind      = scKind     defsc
-        sctype    = scFormat   defsc
-        name      = scName     defsc
-        rotParams = scRotation defsc
-        name'     = pack (show kind) <> "::" <> name
-    scr <- createScribe kind sctype name rotParams
-    registerScribes dscs =<< K.registerScribe name' scr scribeSettings le
+registerScribes defscs le =
+    foldM withScribeInEnv le defscs
   where
-    createScribe FileSK ScText name rotParams = mkTextFileScribe
+    withScribeInEnv :: K.LogEnv -> ScribeDefinition -> IO K.LogEnv
+    withScribeInEnv le' defsc = do
+            let kind = scKind defsc
+                sctype = scFormat defsc
+                name = scName defsc
+                rotParams = scRotation defsc
+                name' = pack (show kind) <> "::" <> name
+            scribe <- createScribe kind sctype name rotParams
+            case scribe of
+                Just scr -> K.registerScribe name' scr scribeSettings le'
+                Nothing -> return le'
+
+    createScribe FileSK ScText name rotParams = Just <$> mkTextFileScribe
                                                     rotParams
                                                     (FileDescription $ unpack name)
                                                     False
-    createScribe FileSK ScJson name rotParams = mkJsonFileScribe
+    createScribe FileSK ScJson name rotParams = Just <$> mkJsonFileScribe
                                                     rotParams
                                                     (FileDescription $ unpack name)
                                                     False
-    createScribe StdoutSK sctype _ _ = mkStdoutScribe sctype
-    createScribe StderrSK sctype _ _ = mkStderrScribe sctype
-    createScribe DevNullSK _ _ _ = mkDevNullScribe
+    createScribe StdoutSK sctype _ _ = Just <$> mkStdoutScribe sctype
+    createScribe StderrSK sctype _ _ = Just <$> mkStderrScribe sctype
+    createScribe DevNullSK _ _ _ = Just <$> mkDevNullScribe
+    createScribe JournalSK _ _ _ = return Nothing
     createScribe UserDefinedSK ty nm rot = createScribe FileSK ty nm rot
 
 \end{code}
