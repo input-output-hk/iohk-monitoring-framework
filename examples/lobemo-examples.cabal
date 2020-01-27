@@ -49,6 +49,7 @@ executable example-complex
                        lobemo-backend-editor,
                        lobemo-backend-ekg,
                        lobemo-backend-monitoring,
+                       lobemo-scribe-systemd,
                        async,
                        bytestring,
                        mtl,

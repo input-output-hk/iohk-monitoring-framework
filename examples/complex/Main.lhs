@@ -405,6 +405,7 @@ main = do
     Cardano.BM.Backend.Monitoring.plugin c tr sb
       >>= loadPlugin sb
 #ifdef LINUX
+    -- inspect logs with 'journalctl -t example-complex'
     Cardano.BM.Scribe.Systemd.plugin c tr sb "example-complex"
       >>= loadPlugin sb
 #endif

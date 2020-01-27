@@ -59,7 +59,7 @@ plugin :: (IsEffectuator s a, ToJSON a, FromJSON a)
 plugin _ _ _ syslogIdent =
     ScribePlugin
                <$> mkJournalScribe syslogIdent
-               <*> pure "JournalSK"
+               <*> pure ("JournalSK::" <> syslogIdent)
 #endif
 
 \end{code}

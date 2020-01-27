@@ -79,7 +79,7 @@ main = do
                             , scRotation = Nothing
                             }
                          ]
-    CM.setScribes c "simple.systemd" (Just ["JournalSK"])
+    CM.setScribes c "simple.systemd" (Just ["JournalSK::cardano"])
 #endif
     CM.setScribes c "simple.json" (Just ["StdoutSK::json"])
     (tr :: Trace IO String, sb) <- setupTrace_ c "simple"
@@ -87,6 +87,7 @@ main = do
     let mybe = MkBackend { bEffectuate = effectuate be, bUnrealize = unrealize be }
     addUserDefinedBackend sb mybe "MyBackend"
 #ifdef LINUX
+    -- inspect log with 'journalctl -t cardano'
     Cardano.BM.Scribe.Systemd.plugin c tr sb "cardano"
       >>= loadPlugin sb
 #endif
