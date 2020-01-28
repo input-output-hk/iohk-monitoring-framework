@@ -27,7 +27,7 @@ library
                        ekg,
                        ekg-core,
                        safe-exceptions,
-                       snap-core >= 1.0.4.1,
+                       snap-core >= 1.0.4.0,
                        snap-server >= 1.1.1.1,
                        stm,
                        text,
