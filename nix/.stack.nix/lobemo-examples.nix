@@ -39,6 +39,7 @@
             (hsPkgs.lobemo-backend-editor)
             (hsPkgs.lobemo-backend-ekg)
             (hsPkgs.lobemo-backend-monitoring)
+            (hsPkgs.lobemo-scribe-systemd)
             (hsPkgs.async)
             (hsPkgs.bytestring)
             (hsPkgs.mtl)
