@@ -4,31 +4,23 @@
 %if style == newcode
 \begin{code}
 {-# LANGUAGE RankNTypes          #-}
-{-# LANGUAGE LambdaCase          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Cardano.BM.Data.Transformers
   ( liftCounting
   , liftFolding
-  , liftSynopsized
   )
   where
 
-import           Control.Monad.IO.Class (MonadIO)
-
 import           Data.Text (Text)
 
-import           Cardano.BM.Data.Aggregated (Measurable(..))
-import           Cardano.BM.Data.LogItem
-                     ( LOContent(..), LOMeta(..)
-                     , LogObject(..), LoggerName
-                     , mkLOMeta)
-import           Cardano.BM.Data.Tracer (Tracer(..), traceWith)
+import           Cardano.BM.Data.Aggregated (Measurable (..))
+import           Cardano.BM.Data.LogItem (LOContent (..), LOMeta (..),
+                     LogObject (..), LoggerName)
+import           Cardano.BM.Data.Tracer (Tracer (..), traceWith)
 import           Cardano.BM.Data.Trace
 
 import           Control.Tracer.Transformers
-import           Control.Tracer.Transformers.Synopsizer
-                     (Synopsized(..))
 \end{code}
 
 \subsubsection{Transformer for counting events}
@@ -66,27 +58,5 @@ liftFolding meta name desc tr = Tracer (traceIncrement tr)
    traceIncrement :: Trace m a -> Folding (LogObject a) f -> m ()
    traceIncrement t (Folding f) =
      traceWith t . LogObject name meta . LogValue desc . PureI $ fromIntegral f
-
-\end{code}
-
-\subsubsection{Transformer for synopsization}
-\label{code:liftSynopsized}
-\index{liftSynopsized}
-Make a |Trace| |Synopsized|.
-\begin{code}
-
-liftSynopsized
-  :: forall m a. MonadIO m
-  => Trace m a
-  -> Tracer m (Synopsized (LogObject a))
-liftSynopsized tr =
-  Tracer $ \case
-    One    a       -> traceWith   tr   a
-    Many n fir las -> traceRepeat tr n fir las
- where
-   traceRepeat :: Trace m a -> Int -> LogObject a -> LogObject a -> m ()
-   traceRepeat t repeats fir las = do
-     meta <- mkLOMeta (severity $ loMeta fir) (privacy $ loMeta fir)
-     traceWith t . LogObject ["synopsis"] meta $ LogRepeats repeats fir las
 
 \end{code}
