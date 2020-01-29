@@ -24,9 +24,7 @@ import           Control.Concurrent (threadDelay)
 import qualified Control.Concurrent.Async as Async
 import           Control.Monad (forM, forM_)
 import           Control.Monad.IO.Class (liftIO)
-import           Data.Aeson (ToJSON(..))
 import           Data.Either (isLeft, isRight)
-import           Data.List (group)
 import           Data.Map (fromListWith, lookup)
 import           Data.Text (Text, append, pack)
 import qualified Data.Text as T
@@ -50,8 +48,6 @@ import           Cardano.BM.Data.Observable
 import           Cardano.BM.Data.Output
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.SubTrace
-import           Cardano.BM.Data.Tracer (ToObject)
-import           Cardano.BM.Data.Transformers (liftSynopsized)
 #ifdef ENABLE_OBSERVABLES
 import           Cardano.BM.Counters (getMonoClock)
 import           Cardano.BM.Data.Aggregated
@@ -65,19 +61,11 @@ import           Cardano.BM.Trace (Trace, appendName, logDebug, logInfo,
                      logAlert, logEmergency)
 import           Cardano.BM.Test.Mock (MockSwitchboard (..), traceMock)
 
-import           Control.Tracer (contramap, traceWith)
-import           Control.Tracer.Transformers.Synopsizer (mkSynopsizer)
-
 import           Cardano.BM.Arbitrary ()
 
 import           Test.Tasty (TestTree, testGroup)
 import           Test.Tasty.HUnit (Assertion, assertBool, testCase,
                      testCaseInfo)
-import           Test.Tasty.QuickCheck (testProperty)
-import qualified Test.QuickCheck as QC
-import qualified Test.QuickCheck.Monadic as QC
-import           Test.QuickCheck (arbitrary, elements)
-import           Test.QuickCheck.Arbitrary (Arbitrary(..))
 
 \end{code}
 %endif
@@ -121,8 +109,6 @@ unit_tests = testGroup "Unit tests" [
       , testCase "testing throwing of exceptions" unitExceptionThrowing
       , testCase "NoTrace: check lazy evaluation" unitTestLazyEvaluation
       , testCase "private messages should not be logged into private files" unitLoggingPrivate
-      , testProperty "synopsization edge case: everything similar & reset is at length-1" (QC.property $ \x -> prop_synopsizer [x, x, x, x] 3)
-      , testProperty "synopsization shrinks the messeage stream predictably" prop_synopsizer
       ]
       where
         observablesSet = [MonotonicClock, MemoryStats]
@@ -387,108 +373,6 @@ unitTraceDuplicate = do
         ("Found more or less messages than expected: " ++ show res)
         (length res == 3)
 
-\end{code}
-
-\subsubsection{Verify that Synopsizer has the intended effect on the message count.}\label{code:prop_synopsizer}
-|Synopsizer| has a predictable effect on the message stream.
-
-\begin{code}
-
-prop_synopsizer :: [LogObject NotSoArbitraryMsg] -> Int -> QC.Property
-prop_synopsizer stream runLimit = runLimit > 1 QC.==> QC.monadicIO $ do
-    cfg <- QC.run defaultConfigTesting
-    msgs <- QC.run $ STM.newTVarIO []
-    base :: Trace IO NotSoArbitraryMsg
-      <- QC.run $ contramap (mapLogObject payload) <$>
-         setupTrace
-           (TraceConfiguration cfg (MockSB msgs) "test-synopsizer" Neutral)
-
-    tr <- QC.run $ mkSynopsizer resetTest (liftSynopsized base)
-    QC.run $ mapM_ (traceWith tr) stream
-
-    -- acquire the traced objects
-    res <- QC.run $ STM.readTVarIO msgs
-
-    let modelResult = synopsizerOracle resetTest runLimit stream
-    QC.assert (length res == modelResult)
-  where
-    resetTest :: (Int, LogObject a) -> LogObject a -> Bool
-    resetTest (counter, prev) this =
-      counter == runLimit - 1 || not (prev `loTypeEq` this)
-
-\end{code}
-Model for the Synopsizer trace transformer.
-
-Given a reset test, and a sequence of messages, determine how many messages
-a synopsizer-reduced sequence ought to contain.
-
-The result should be:
-
-  - The length of untransformed list,
-  - reduced by the number of items dropped,
-  - increased by the number of synopses added,
-  - adjusting for the last summary being withheld
-
-\begin{code}
-synopsizerOracle
-  :: ((Int, a) -> a -> Bool)
-  -> Int -- We still depend on this insight.
-  -> [a]
-  -> Int
-synopsizerOracle overflowTest runLimit xs =
-  length xs
-  - length dropped
-  + sum (runSummaries runLimit <$> nonOverflownRuns) -- Synopses added.
-  - tailCorrection
- where
-   -- | The non-overflown property is 'True' for every such element,
-   --   that is going to be dropped by the Synopsizer.
-   nonOverflown = nonOverflows overflowTest xs
-   dropped = filter id nonOverflown
-   -- | Compute the non-overflown runs:
-   nonOverflownRuns = filter (any id) $ group nonOverflown
-   -- | The last summary is withheld, unless it coincides with an overflow
-   --   (which we approximate for simplicity):
-   tailCorrection =
-     if not (null nonOverflown)
-        && last nonOverflown
-        && length (last nonOverflownRuns) /= runLimit
-     then 1 else 0
-
--- | Every 'limit' messages are going to get a summary, plus an optional tail,
---   which might get either a summary or a plain message.
-runSummaries :: Int -> [Bool] -> Int
-runSummaries runLimit run = limitfuls + if remainder > 0 then 1 else 0
-  where (limitfuls, remainder) = length run `divMod` runLimit
-
--- | Map each element of a list to the negated result of the overflow predicate.
-nonOverflows :: forall a. ((Int, a) -> a -> Bool) -> [a] -> [Bool]
-nonOverflows overflowTest = go Nothing [0..]
-  where go predec (counter:cs) = \case
-          []     -> []
-          (y:ys) -> not overflown : go (Just y) (if overflown then [0..] else cs) ys
-            where overflown = (counter, predec) `overflowTest'` Just y
-        go _ _ = error "Infinite list ran out of elements.."
-
-        overflowTest' :: (Int, Maybe a) -> Maybe a -> Bool
-        overflowTest' (counter, Just x) (Just y) = (counter, x) `overflowTest` y
-        overflowTest' _ _ = True -- Implicit overflow on the very first entry.
-
-newtype NotSoArbitraryMsg = NotSoArbitraryMsg { payload :: Text }
-  deriving (Eq, ToJSON)
-
-instance ToObject NotSoArbitraryMsg
-
-instance Show NotSoArbitraryMsg where
-  show = T.unpack . payload
-
-instance Arbitrary NotSoArbitraryMsg where
-  arbitrary = NotSoArbitraryMsg <$> elements
-    [ "Most deadly errors arise from obsolete assumptions."
-    , "Respect for the truth comes close to being the basis for all morality."
-    , "A good decision is based on knowledge and not on numbers."
-    , "Human behavior flows from three main sources: desire, emotion, and knowledge."
-    ]
 \end{code}
 
 \subsubsection{Change the minimum severity of a named context}\label{code:unitNamedMinSeverity}
