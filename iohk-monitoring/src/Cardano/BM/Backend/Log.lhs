@@ -6,7 +6,6 @@
 \begin{code}
 {-# LANGUAGE CPP                   #-}
 {-# LANGUAGE DeriveAnyClass        #-}
-{-# LANGUAGE DeriveGeneric         #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
@@ -242,10 +241,9 @@ passN :: ToJSON a => ScribeId -> Log a -> LogObject a -> IO ()
 passN backend katip (LogObject loname lometa loitem) = do
     env <- kLogEnv <$> readMVar (getK katip)
     forM_ (Map.toList $ K._logEnvScribes env) $
-          \(scName, (KC.ScribeHandle _ shChan)) -> do
+          \(scName, (KC.ScribeHandle _ shChan)) ->
               -- check start of name to match |ScribeKind|
-                if backend `isPrefixOf` scName
-                then do
+                when (backend `isPrefixOf` scName) $ do
                     let (sev, msg, payload) = case loitem of
                                 (LogMessage logItem) ->
                                      let (text,maylo) = case toJSON logItem of
@@ -290,7 +288,7 @@ passN backend katip (LogObject loname lometa loitem) = do
                                     (severity lometa, "Kill pill received!", Nothing)
                                 Command _ ->
                                     (severity lometa, "Command received!", Nothing)
-                    if (msg == "") && (isNothing payload)
+                    if msg == "" && isNothing payload
                     then return ()
                     else do
                         let threadIdText = KC.ThreadIdText $ tid lometa
@@ -310,7 +308,6 @@ passN backend katip (LogObject loname lometa loitem) = do
                                 , _itemLoc       = Nothing
                                 }
                         void $ atomically $ KC.tryWriteTBQueue shChan (KC.NewItem itemKatip)
-                else return ()
 \end{code}
 
 \subsubsection{Scribes}
