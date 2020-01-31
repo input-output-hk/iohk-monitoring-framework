@@ -33,10 +33,10 @@ import           Control.AutoUpdate (UpdateSettings (..), defaultUpdateSettings,
 import           Control.Concurrent.MVar (MVar, modifyMVar_, readMVar,
                      newMVar, withMVar)
 import           Control.Exception.Safe (catchIO)
-import           Control.Monad (foldM, forM_, void)
+import           Control.Monad (foldM, forM_, unless, when, void)
 import           Control.Lens ((^.))
 import           Data.Aeson (FromJSON, ToJSON, Result (Success), Value (..),
-                     fromJSON, toJSON)
+                     fromJSON, toJSON, decode)
 import           Data.Aeson.Text (encodeToLazyText)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Map as Map
@@ -47,7 +47,6 @@ import           Data.Text (Text, isPrefixOf, pack, unpack)
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
 import           Data.Text.Lazy.Builder (Builder, fromText, toLazyText)
-import           Data.Text.Lazy.Encoding as TL (decodeUtf8)
 import qualified Data.Text.Lazy.IO as TIO
 import           Data.Time (diffUTCTime)
 import           Data.Time.Clock (UTCTime, getCurrentTime)
@@ -130,7 +129,7 @@ instance (ToJSON a, FromJSON a) => IsBackend Log a where
         cfoKey <- Config.getOptionOrDefault config (pack "cfokey") (pack "<unknown>")
         le0 <- K.initLogEnv
                     (K.Namespace mempty)
-                    (fromString $ (unpack cfoKey) <> ":" <> showVersion version)
+                    (fromString $ unpack cfoKey <> ":" <> showVersion version)
         -- request a new time 'getCurrentTime' at most 100 times a second
         timer <- mkAutoUpdate defaultUpdateSettings { updateAction = getCurrentTime, updateFreq = 10000 }
         let le1 = updateEnv le0 timer
@@ -220,8 +219,16 @@ Needed instances for |katip|:
 \begin{code}
 deriving instance ToJSON a => K.ToObject (LogObject a)
 deriving instance K.ToObject Text
+deriving instance ToJSON a => K.ToObject (LOContent a)
+deriving instance K.ToObject Value
 deriving instance ToJSON a => K.ToObject (Maybe (LOContent a))
+instance (ToJSON a, ToJSON b, K.ToObject a, K.ToObject b) => K.ToObject (Maybe (Either a b)) where
+  toObject Nothing = mempty
+  toObject (Just (Left  x)) = KC.toObject x
+  toObject (Just (Right x)) = KC.toObject x
 
+instance (ToJSON a, ToJSON b, K.ToObject a, K.ToObject b) => KC.LogItem (Maybe (Either a b)) where
+    payloadKeys _ _ = KC.AllKeys
 instance ToJSON a => KC.LogItem (LogObject a) where
     payloadKeys _ _ = KC.AllKeys
 instance KC.LogItem Text where
@@ -237,14 +244,15 @@ that match on their name.
 Compare start of name of scribe to |(show backend <> "::")|.
 This function is non-blocking.
 \begin{code}
-passN :: ToJSON a => ScribeId -> Log a -> LogObject a -> IO ()
+passN :: forall a. ToJSON a => ScribeId -> Log a -> LogObject a -> IO ()
 passN backend katip (LogObject loname lometa loitem) = do
     env <- kLogEnv <$> readMVar (getK katip)
     forM_ (Map.toList $ K._logEnvScribes env) $
           \(scName, (KC.ScribeHandle _ shChan)) ->
               -- check start of name to match |ScribeKind|
                 when (backend `isPrefixOf` scName) $ do
-                    let (sev, msg, payload) = case loitem of
+                    let payload :: Maybe (Either (LOContent a) Value)
+                        (sev, msg, payload) = case loitem of
                                 (LogMessage logItem) ->
                                      let (text,maylo) = case toJSON logItem of
                                             (String m)  -> (m, Nothing)
@@ -258,7 +266,7 @@ passN backend katip (LogObject loname lometa loitem) = do
                                      , "Similar messages elided, " <> pack (show count) <> " total."
                                      , Nothing)
                                 (LogStructured s) ->
-                                     (severity lometa, TL.toStrict $ decodeUtf8 s, Nothing {-Just loitem-})
+                                     (severity lometa, "", sequence . Right . decode $ s)
                                 (LogValue name value) ->
                                     if name == ""
                                     then (severity lometa, pack (showSI value), Nothing)
@@ -266,31 +274,29 @@ passN backend katip (LogObject loname lometa loitem) = do
                                 (ObserveDiff _) ->
                                      let text = TL.toStrict (encodeToLazyText loitem)
                                      in
-                                     (severity lometa, text, Just loitem)
+                                     (severity lometa, text, Just $ Left loitem)
                                 (ObserveOpen _) ->
                                      let text = TL.toStrict (encodeToLazyText loitem)
                                      in
-                                     (severity lometa, text, Just loitem)
+                                     (severity lometa, text, Just $ Left loitem)
                                 (ObserveClose _) ->
                                      let text = TL.toStrict (encodeToLazyText loitem)
                                      in
-                                     (severity lometa, text, Just loitem)
+                                     (severity lometa, text, Just $ Left loitem)
                                 (AggregatedMessage aggregated) ->
-                                     let text = T.concat $ (flip map) aggregated $ \(name, agg) ->
+                                     let text = T.concat $ flip map aggregated $ \(name, agg) ->
                                                 "\n" <> name <> ": " <> pack (show agg)
                                     in
                                     (severity lometa, text, Nothing)
                                 (MonitoringEffect _) ->
                                      let text = TL.toStrict (encodeToLazyText loitem)
                                      in
-                                     (severity lometa, text, Just loitem)
+                                     (severity lometa, text, Just $ Left loitem)
                                 KillPill ->
                                     (severity lometa, "Kill pill received!", Nothing)
                                 Command _ ->
                                     (severity lometa, "Command received!", Nothing)
-                    if msg == "" && isNothing payload
-                    then return ()
-                    else do
+                    unless (msg == "" && isNothing payload) $ do
                         let threadIdText = KC.ThreadIdText $ tid lometa
                         let itemTime = tstamp lometa
                         let localname = loname
@@ -304,7 +310,7 @@ passN backend katip (LogObject loname lometa loitem) = do
                                 , _itemPayload   = payload
                                 , _itemMessage   = K.logStr msg
                                 , _itemTime      = itemTime
-                                , _itemNamespace = (env ^. KC.logEnvApp) <> (K.Namespace localname)
+                                , _itemNamespace = env ^. KC.logEnvApp <> K.Namespace localname
                                 , _itemLoc       = Nothing
                                 }
                         void $ atomically $ KC.tryWriteTBQueue shChan (KC.NewItem itemKatip)
@@ -337,15 +343,15 @@ mkDevNullScribe = do
     pure $ K.Scribe logger (pure ()) (pure . const True)
 
 mkTextFileScribeH :: Handle -> Bool -> IO K.Scribe
-mkTextFileScribeH handler color = do
-    mkFileScribeH handler formatter color
+mkTextFileScribeH handler =
+    mkFileScribeH handler formatter
   where
     formatter h r =
         let (_, msg) = renderTextMsg r
         in TIO.hPutStrLn h $! msg
 mkJsonFileScribeH :: Handle -> Bool -> IO K.Scribe
-mkJsonFileScribeH handler color = do
-    mkFileScribeH handler formatter color
+mkJsonFileScribeH handler =
+    mkFileScribeH handler formatter
   where
     formatter h r =
         let (_, msg) = renderJsonMsg r
@@ -396,8 +402,8 @@ trimTime (Object o) = Object $ HM.adjust
 trimTime v = v
 
 mkTextFileScribe :: Maybe RotationParameters -> FileDescription -> Bool -> IO K.Scribe
-mkTextFileScribe rotParams fdesc colorize = do
-    mkFileScribe rotParams fdesc formatter colorize
+mkTextFileScribe rotParams fdesc =
+    mkFileScribe rotParams fdesc formatter
   where
     formatter :: (K.LogItem a) => Handle -> Rendering a -> IO Int
     formatter hdl r =
@@ -411,8 +417,8 @@ mkTextFileScribe rotParams fdesc colorize = do
                     return mlen
 
 mkJsonFileScribe :: Maybe RotationParameters -> FileDescription -> Bool -> IO K.Scribe
-mkJsonFileScribe rotParams fdesc colorize = do
-    mkFileScribe rotParams fdesc formatter colorize
+mkJsonFileScribe rotParams fdesc =
+    mkFileScribe rotParams fdesc formatter
   where
     formatter :: (K.LogItem a) => Handle -> Rendering a -> IO Int
     formatter h r = do
@@ -428,8 +434,8 @@ mkFileScribe
     -> IO K.Scribe
 mkFileScribe (Just rotParams) fdesc formatter colorize = do
     let prefixDir = prefixPath fdesc
-    (createDirectoryIfMissing True prefixDir)
-        `catchIO` (prtoutException ("cannot log prefix directory: " ++ prefixDir))
+    createDirectoryIfMissing True prefixDir
+        `catchIO` prtoutException ("cannot log prefix directory: " ++ prefixDir)
     let fpath = filePath fdesc
     trp <- initializeRotator rotParams fpath
     scribestate <- newMVar trp  -- triple of (handle), (bytes remaining), (rotate time)
@@ -448,7 +454,7 @@ mkFileScribe (Just rotParams) fdesc formatter colorize = do
                 -- remove old files
                 cleanup
                 -- detect log file rotation
-                let bytes' = bytes - (toInteger $ byteswritten)
+                let bytes' = bytes - toInteger byteswritten
                 let tdiff' = round $ diffUTCTime rottime (K._itemTime item)
                 if bytes' < 0 || tdiff' < (0 :: Integer)
                     then do   -- log file rotation
@@ -461,8 +467,8 @@ mkFileScribe (Just rotParams) fdesc formatter colorize = do
 -- log rotation disabled.
 mkFileScribe Nothing fdesc formatter colorize = do
     let prefixDir = prefixPath fdesc
-    (createDirectoryIfMissing True prefixDir)
-        `catchIO` (prtoutException ("cannot create prefix directory: " ++ prefixDir))
+    createDirectoryIfMissing True prefixDir
+        `catchIO` prtoutException ("cannot create prefix directory: " ++ prefixDir)
     let fpath = filePath fdesc
     h <- catchIO (openFile fpath WriteMode) $
                         \e -> do
@@ -532,9 +538,8 @@ sev2klog = \case
 \end{code}
 
 \begin{code}
-data FileDescription = FileDescription {
-                         filePath   :: !FilePath }
-                       deriving (Show)
+newtype FileDescription = FileDescription { filePath :: FilePath }
+  deriving (Show)
 
 prefixPath :: FileDescription -> FilePath
 prefixPath = takeDirectory . filePath
