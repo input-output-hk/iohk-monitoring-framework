@@ -36,7 +36,7 @@ import           Control.Exception.Safe (catchIO)
 import           Control.Monad (foldM, forM_, unless, when, void)
 import           Control.Lens ((^.))
 import           Data.Aeson (FromJSON, ToJSON, Result (Success), Value (..),
-                     fromJSON, toJSON, decode)
+                     fromJSON, toJSON)
 import           Data.Aeson.Text (encodeToLazyText)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Map as Map
@@ -266,7 +266,7 @@ passN backend katip (LogObject loname lometa loitem) = do
                                      , "Similar messages elided, " <> pack (show count) <> " total."
                                      , Nothing)
                                 (LogStructured s) ->
-                                     (severity lometa, "", sequence . Right . decode $ s)
+                                     (severity lometa, "", Just . Right $ Object s)
                                 (LogValue name value) ->
                                     if name == ""
                                     then (severity lometa, pack (showSI value), Nothing)

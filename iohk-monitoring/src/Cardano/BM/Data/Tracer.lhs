@@ -8,10 +8,8 @@
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE InstanceSigs          #-}
-{-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
-{-# LANGUAGE TypeSynonymInstances  #-}
 
 module Cardano.BM.Data.Tracer
     ( Tracer (..)
@@ -65,7 +63,7 @@ module Cardano.BM.Data.Tracer
 import           Control.Monad (when)
 import           Control.Monad.IO.Class (MonadIO (..))
 
-import           Data.Aeson (Object, ToJSON (..), Value (..), encode)
+import           Data.Aeson (Object, ToJSON (..), Value (..))
 import qualified Data.HashMap.Strict as HM
 import           Data.Text (Text)
 import qualified Data.Text as T
@@ -386,13 +384,14 @@ to their |ToObject| representation and further traces them as a |LogObject| of t
 trStructured :: (ToObject b, MonadIO m, DefinePrivacyAnnotation b, DefineSeverity b)
              => TracingVerbosity -> Tracer m (LogObject a) -> Tracer m b
 trStructured verb tr = Tracer $ \arg ->
-        let obj = toObject verb arg
-            tracer = if obj == emptyObject then nullTracer else tr
-        in
-        traceWith tracer =<<
-            LogObject <$> pure mempty
-                      <*> mkLOMeta (defineSeverity arg) (definePrivacyAnnotation arg)
-                      <*> pure (LogStructured $ encode obj)
+ let
+   obj = toObject verb arg
+   tracer = if obj == emptyObject then nullTracer else tr
+ in traceWith tracer =<<
+    LogObject
+      <$> pure mempty
+      <*> mkLOMeta (defineSeverity arg) (definePrivacyAnnotation arg)
+      <*> pure (LogStructured obj)
 
 \end{code}
 
