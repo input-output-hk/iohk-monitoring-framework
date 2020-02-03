@@ -1,7 +1,9 @@
 \subsubsection{Module header and import directives}
 \begin{code}
-{-# LANGUAGE CPP                 #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE CPP                     #-}
+{-# LANGUAGE FlexibleContexts        #-}
+{-# LANGUAGE MultiParamTypeClasses   #-}
+{-# LANGUAGE ScopedTypeVariables     #-}
 
 #if defined(linux_HOST_OS)
 #define LINUX
@@ -23,6 +25,7 @@ module Main
 import           Control.Concurrent (threadDelay)
 import qualified Control.Concurrent.Async as Async
 import           Control.Monad (forM_)
+import           Data.Aeson (ToJSON (..), Value (..), (.=))
 #ifdef ENABLE_OBSERVABLES
 import           Control.Monad (forM)
 import           GHC.Conc.Sync (atomically, STM, TVar, newTVar, readTVar, writeTVar)
@@ -55,7 +58,7 @@ import           Cardano.BM.Data.Rotation
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.SubTrace
 import           Cardano.BM.Data.Trace
-import           Cardano.BM.Data.Transformers
+import           Cardano.BM.Data.Tracer
 #ifdef ENABLE_OBSERVABLES
 import           Cardano.BM.Data.Observable
 import           Cardano.BM.Observer.Monadic (bracketObserveIO)
@@ -86,7 +89,7 @@ prepare_configuration = do
     CM.setSetupScribes c [ ScribeDefinition {
                               scName = "stdout"
                             , scKind = StdoutSK
-                            , scFormat = ScText
+                            , scFormat = ScJson
                             , scPrivacy = ScPublic
                             , scRotation = Nothing
                             }
@@ -350,6 +353,32 @@ observeDownload config trace = do
 
 \subsubsection{Thread that periodically outputs a message}
 \begin{code}
+data Pet = Pet { name :: Text, age :: Int}
+           deriving (Show)
+
+instance ToObject Pet where
+    toObject MinimalVerbosity _ = emptyObject -- do not log
+    toObject NormalVerbosity (Pet _ _) =
+        mkObject [ "kind" .= String "Pet"]
+    toObject MaximalVerbosity (Pet n a) =
+        mkObject [ "kind" .= String "Pet"
+                 , "name" .= toJSON n
+                 , "age" .= toJSON a ]
+
+instance Transformable Text IO Pet where
+    -- transform to JSON Object
+    trTransformer StructuredLogging verb tr = trStructured verb tr
+    -- transform to textual representation using |show|
+    trTransformer TextualRepresentation _v tr = Tracer $ \pet -> do
+        meta <- mkLOMeta Info Public
+        traceWith tr $ LogObject ["pet"] meta $ (LogMessage . pack . show) pet
+    trTransformer _ _verb _tr = nullTracer
+
+-- default privacy annotation: Public
+instance DefinePrivacyAnnotation Pet
+instance DefineSeverity Pet where
+    defineSeverity _ = Critical
+
 #ifdef RUN_ProcMessageOutput
 msgThr :: Trace IO Text -> IO (Async.Async ())
 msgThr trace = do
@@ -362,6 +391,7 @@ msgThr trace = do
         logNotice tr "N O T I F I C A T I O N ! ! !"
         logDebug tr "a detailed debug message."
         logError tr "Boooommm .."
+        traceWith (toLogObject' StructuredLogging MaximalVerbosity tr) (Pet "bella" 8)
         loop tr
 #endif
 

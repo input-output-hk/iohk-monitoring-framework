@@ -33,6 +33,7 @@
           };
         "example-complex" = {
           depends = ([
+            (hsPkgs.aeson)
             (hsPkgs.base)
             (hsPkgs.iohk-monitoring)
             (hsPkgs.lobemo-backend-aggregation)

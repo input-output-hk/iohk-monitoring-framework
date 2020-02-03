@@ -43,7 +43,8 @@ executable example-complex
   default-extensions:  OverloadedStrings
   ghc-options:         -threaded -Wall -O2 -rtsopts "-with-rtsopts=-T"
   other-modules:
-  build-depends:       base,
+  build-depends:       aeson,
+                       base,
                        iohk-monitoring,
                        lobemo-backend-aggregation,
                        lobemo-backend-editor,
