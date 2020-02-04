@@ -10,7 +10,8 @@ module Cardano.BM.Test.LogItem (
     tests
   ) where
 
-import           Data.Aeson (encode, decode)
+import           Data.Aeson (Value(..), encode, decode, eitherDecode)
+import           Data.HashMap.Lazy (singleton)
 import           Data.Text (Text)
 
 import           Cardano.BM.Data.Aggregated
@@ -72,10 +73,11 @@ testLogError = do
 testLogStructured :: Assertion
 testLogStructured = do
     meta <- mkLOMeta Info Public
-    let m :: LogObject Text = LogObject ["test"] meta (LogStructured (encode ("value"::Text) ))
+    let m :: LogObject Text = LogObject ["test"] meta . LogStructured $
+          singleton "foo" (String "bar")
     let encoded = encode m
-    let decoded = decode encoded :: Maybe (LogObject Text)
-    assertEqual "unequal" (Just m) decoded
+    let decoded = eitherDecode encoded :: Either String (LogObject Text)
+    assertEqual "unequal" (Right m) decoded
 
 testObserveOpen :: Assertion
 testObserveOpen = do

@@ -34,14 +34,10 @@ import           Control.Concurrent (myThreadId)
 import           Control.Monad.IO.Class (MonadIO, liftIO)
 import           Data.Aeson (FromJSON (..), ToJSON (..), Value (..), (.=),
                      (.:), object, withText, withObject)
-import           Data.Aeson.Types (Parser)
-import qualified Data.ByteString.Lazy as BS
-import qualified Data.ByteString.Base64.Lazy as BS64
+import           Data.Aeson.Types (Object, Parser)
 import           Data.Function (on)
 import           Data.Maybe (fromMaybe)
 import           Data.Text (Text, pack, stripPrefix)
-import qualified Data.Text.Lazy as LT
-import           Data.Text.Lazy.Encoding (encodeUtf8, decodeUtf8)
 import           Data.Time.Clock.POSIX (utcTimeToPOSIXSeconds)
 import           Data.Time.Clock (UTCTime (..), getCurrentTime)
 import           Data.Word (Word64)
@@ -135,7 +131,7 @@ mkLOMeta sev priv =
 Convert a timestamp to ns since epoch:\label{code:utc2ns}\index{utc2ns}
 \begin{code}
 utc2ns :: UTCTime -> Word64
-utc2ns utctime = fromInteger . round $ 1000_000_000 * (utcTimeToPOSIXSeconds utctime)
+utc2ns utctime = fromInteger . round $ 1000_000_000 * utcTimeToPOSIXSeconds utctime
 
 \end{code}
 
@@ -198,7 +194,7 @@ data LOContent a = LogMessage a
                    , lrLast    :: !(LogObject a)
                    }
                  | LogValue !Text !Measurable
-                 | LogStructured !BS.ByteString
+                 | LogStructured !Object
                  | ObserveOpen !CounterState
                  | ObserveDiff !CounterState
                  | ObserveClose !CounterState
@@ -227,7 +223,7 @@ instance ToJSON a => ToJSON (LOContent a) where
                , "value" .= toJSON v]
     toJSON (LogStructured m) =
         object [ "kind" .= String "LogStructured"
-               , "message" .= toJSON (decodeUtf8 $ BS64.encode m)]
+               , "data" .= m]
     toJSON (ObserveOpen c) =
         object [ "kind" .= String "ObserveOpen"
                , "counters" .= toJSON c]
@@ -260,10 +256,7 @@ instance (FromJSON a) => FromJSON (LOContent a) where
                           <*> v .: "first-elided"
                           <*> v .: "last-elided"
                         "LogValue" -> LogValue <$> v .: "name" <*> v .: "value"
-                        "LogStructured" -> LogStructured
-                                              . BS64.decodeLenient
-                                              . encodeUtf8 <$>
-                                              (v .: "message" :: Parser LT.Text)
+                        "LogStructured" -> LogStructured <$> v .: "data"
                         "ObserveOpen" -> ObserveOpen <$> v .: "counters"
                         "ObserveDiff" -> ObserveDiff <$> v .: "counters"
                         "ObserveClose" -> ObserveClose <$> v .: "counters"
