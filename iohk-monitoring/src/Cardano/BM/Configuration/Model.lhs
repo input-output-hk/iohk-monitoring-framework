@@ -13,48 +13,48 @@
 module Cardano.BM.Configuration.Model
     ( Configuration (..)
     , ConfigurationInternal (..)
+    , empty
+    , evalFilters
+    , exportConfiguration
+    , findSubTrace
+    , getAggregatedKind
+    , getBackends
+    , getCachedScribes
+    , getDefaultBackends
+    , getEKGport
+    , getGUIport
+    , getGraylogPort
+    , getLogOutput
+    , getMonitors
+    , getOption
+    , getPrometheusBindAddr
+    , getScribes
+    , getSetupBackends
+    , getSetupScribes
+    , inspectSeverity
+    , minSeverity
+    , setAggregatedKind
+    , setBackends
+    , setCachedScribes
+    , setDefaultAggregatedKind
+    , setDefaultBackends
+    , setDefaultScribes
+    , setEKGport
+    , setGUIport
+    , setGraylogPort
+    , setLogOutput
+    , setMinSeverity
+    , setMonitors
+    , setPrometheusBindAddr
+    , setScribes
+    , setSetupBackends
+    , setSetupScribes
+    , setSeverity
+    , setSubTrace
     , setup
     , setupFromRepresentation
-    , toRepresentation
-    , exportConfiguration
-    , empty
-    , minSeverity
-    , setMinSeverity
-    , inspectSeverity
-    , setSeverity
-    , getBackends
-    , setBackends
-    , getDefaultBackends
-    , setDefaultBackends
-    , setSetupBackends
-    , getSetupBackends
-    , getScribes
-    , setScribes
-    , getCachedScribes
-    , setCachedScribes
-    , setDefaultScribes
-    , setSetupScribes
-    , getSetupScribes
-    , getAggregatedKind
-    , setDefaultAggregatedKind
-    , setAggregatedKind
-    , getOption
-    , findSubTrace
-    , setSubTrace
-    , getMonitors
-    , setMonitors
-    , getEKGport
-    , setEKGport
-    , getGraylogPort
-    , setGraylogPort
-    , getPrometheusBindAddr
-    , setPrometheusBindAddr
-    , getGUIport
-    , setGUIport
-    , getLogOutput
-    , setLogOutput
     , testSubTrace
-    , evalFilters
+    , toRepresentation
     ) where
 
 import           Control.Applicative (Alternative ((<|>)))
