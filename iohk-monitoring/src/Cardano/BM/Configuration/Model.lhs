@@ -7,6 +7,7 @@
 {-# LANGUAGE CPP               #-}
 {-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ViewPatterns      #-}
 
 {-@ LIQUID "--max-case-expand=4" @-}
 
@@ -25,12 +26,16 @@ module Cardano.BM.Configuration.Model
     , getGUIport
     , getGraylogPort
     , getLogOutput
+    , getMapOption
+    , getMapOption'
     , getMonitors
     , getOption
     , getPrometheusBindAddr
     , getScribes
     , getSetupBackends
     , getSetupScribes
+    , getTextOption
+    , getTextOption'
     , inspectSeverity
     , minSeverity
     , setAggregatedKind
@@ -45,16 +50,19 @@ module Cardano.BM.Configuration.Model
     , setLogOutput
     , setMinSeverity
     , setMonitors
+    , setOption
     , setPrometheusBindAddr
     , setScribes
     , setSetupBackends
     , setSetupScribes
     , setSeverity
     , setSubTrace
+    , setTextOption
     , setup
     , setupFromRepresentation
     , testSubTrace
     , toRepresentation
+    , updateOption
     ) where
 
 import           Control.Applicative (Alternative ((<|>)))
@@ -107,7 +115,7 @@ data ConfigurationInternal = ConfigurationInternal
     -- severity filter per loggername
     , cgMapSubtrace       :: HM.HashMap LoggerName SubTrace
     -- type of trace per loggername
-    , cgOptions           :: HM.HashMap Text Object
+    , cgOptions           :: HM.HashMap Text Value
     -- options needed for tracing, logging and monitoring
     , cgMapBackend        :: HM.HashMap LoggerName [BackendKind]
     -- backends that will be used for the specific loggername
@@ -336,12 +344,36 @@ setLogOutput configuration path =
 
 \subsubsection{Options}
 \begin{code}
-getOption :: Configuration -> Text -> IO (Maybe Text)
-getOption configuration name = do
-    cg <- readMVar $ getCG configuration
-    case HM.lookup name (cgOptions cg) of
-        Nothing -> return Nothing
-        Just o  -> return $ Just $ pack $ show o
+getMapOption' :: HM.HashMap Text Value -> Text -> Maybe Object
+getMapOption' m (flip HM.lookup m -> Just (Object x)) = Just x
+getMapOption' _ _ = Nothing
+
+getTextOption' :: HM.HashMap Text Value -> Text -> Maybe Text
+getTextOption' m (flip HM.lookup m -> Just (String x)) = Just x
+getTextOption' _ _ = Nothing
+
+getOption :: Configuration -> Text -> IO (Maybe Value)
+getOption configuration name =
+  HM.lookup name . cgOptions <$> readMVar (getCG configuration)
+
+getTextOption :: Configuration -> Text -> IO (Maybe Text)
+getTextOption configuration name =
+  flip getTextOption' name . cgOptions <$> readMVar (getCG configuration)
+
+getMapOption :: Configuration -> Text -> IO (Maybe Object)
+getMapOption configuration name =
+  flip getMapOption' name . cgOptions <$> readMVar (getCG configuration)
+
+updateOption :: Configuration -> Text -> (Value -> Value) -> IO ()
+updateOption configuration name f =
+    modifyMVar_ (getCG configuration) $ \cg ->
+        return cg { cgOptions = HM.update (Just . f) name (cgOptions cg) }
+
+setOption :: Configuration -> Text -> Value -> IO ()
+setOption configuration name = updateOption configuration name . const
+
+setTextOption :: Configuration -> Text -> Text -> IO ()
+setTextOption configuration name = setOption configuration name . String
 
 \end{code}
 
@@ -438,32 +470,26 @@ parseMonitors (Just hmv) = HM.mapMaybe mkMonitor hmv
 
 setupFromRepresentation :: R.Representation -> IO Configuration
 setupFromRepresentation r = do
-    let mapseverities0     = HM.lookup "mapSeverity"        (R.options r)
-        mapbackends        = HM.lookup "mapBackends"        (R.options r)
-        mapsubtrace        = HM.lookup "mapSubtrace"        (R.options r)
-        mapscribes0        = HM.lookup "mapScribes"         (R.options r)
-        mapaggregatedkinds = HM.lookup "mapAggregatedkinds" (R.options r)
-        mapmonitors        = HM.lookup "mapMonitors"        (R.options r)
-        mapseverities      = parseSeverityMap mapseverities0
-        mapscribes         = parseScribeMap mapscribes0
+    let getMap             = getMapOption' (R.options r)
+        mapscribes         = parseScribeMap $ getMap "mapScribes"
         defRotation        = R.rotation r
 
     cgref <- newMVar $ ConfigurationInternal
         { cgMinSeverity       = R.minSeverity r
         , cgDefRotation       = defRotation
-        , cgMapSeverity       = mapseverities
-        , cgMapSubtrace       = parseSubtraceMap mapsubtrace
+        , cgMapSeverity       = parseSeverityMap $ getMap "mapSeverity"
+        , cgMapSubtrace       = parseSubtraceMap $ getMap "mapSubtrace"
         , cgOptions           = R.options r
-        , cgMapBackend        = parseBackendMap mapbackends
+        , cgMapBackend        = parseBackendMap $ getMap "mapBackends"
         , cgDefBackendKs      = R.defaultBackends r
         , cgSetupBackends     = R.setupBackends r
         , cgMapScribe         = mapscribes
         , cgMapScribeCache    = mapscribes
         , cgDefScribes        = r_defaultScribes r
         , cgSetupScribes      = fillRotationParams defRotation (R.setupScribes r)
-        , cgMapAggregatedKind = parseAggregatedKindMap mapaggregatedkinds
+        , cgMapAggregatedKind = parseAggregatedKindMap $ getMap "mapAggregatedkinds"
         , cgDefAggregatedKind = StatsAK
-        , cgMonitors          = parseMonitors mapmonitors
+        , cgMonitors          = parseMonitors $ getMap "mapMonitors"
         , cgPortEKG           = r_hasEKG r
         , cgPortGraylog       = r_hasGraylog r
         , cgBindAddrPrometheus = r_hasPrometheus r
@@ -580,9 +606,11 @@ toRepresentation (Configuration c) = do
             let (a,b) = T.breakOn "::" x
             in
                 (read $ unpack a, T.drop 2 b)
-        createOption name f hashmap = if null hashmap
-                                      then HM.empty
-                                      else HM.singleton name $ HM.map f hashmap
+        createOption :: Text -> (a -> Value) -> HM.HashMap Text a -> HM.HashMap Text Value
+        createOption name f hashmap =
+          if null hashmap
+          then HM.empty
+          else HM.singleton name $ Object (HM.map f hashmap)
         toString :: Show a => a -> Value
         toString = String . pack . show
         toObject :: (MEvPreCond, MEvExpr, [MEvAction]) -> Value
@@ -598,6 +626,8 @@ toRepresentation (Configuration c) = do
         toJSON' :: [ScribeId] -> Value
         toJSON' [sid] = toJSON sid
         toJSON' ss    = toJSON ss
+        mapSeverities, mapBackends, mapAggKinds, mapScribes, mapSubtrace, mapMonitors ::
+          HM.HashMap Text Value
         mapSeverities = createOption "mapSeverity"        toJSON   $ cgMapSeverity       cfg
         mapBackends   = createOption "mapBackends"        toJSON   $ cgMapBackend        cfg
         mapAggKinds   = createOption "mapAggregatedkinds" toString $ cgMapAggregatedKind cfg

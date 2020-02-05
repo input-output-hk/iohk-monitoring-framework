@@ -16,6 +16,11 @@ module Cardano.BM.Configuration
     , CM.setSeverity
     , CM.getBackends
     , CM.getOption
+    , CM.getMapOption
+    , CM.getTextOption
+    , CM.setOption
+    , CM.setTextOption
+    , CM.updateOption
     , CM.findSubTrace
     , CM.setSubTrace
     , CM.getEKGport
@@ -23,7 +28,7 @@ module Cardano.BM.Configuration
     , CM.getPrometheusBindAddr
     , CM.getGUIport
     , CM.getMonitors
-    , getOptionOrDefault
+    , getTextOptionOrDefault
     , testSeverity
     , CM.evalFilters
     , CM.testSubTrace
@@ -43,12 +48,8 @@ see |Cardano.BM.Configuration.Model| for the implementation.
 
 \label{code:getOptionOrDefault}\index{getOptionOrDefault}
 \begin{code}
-getOptionOrDefault :: CM.Configuration -> Text -> Text -> IO Text
-getOptionOrDefault cg name def = do
-    opt <- CM.getOption cg name
-    case opt of
-        Nothing -> return def
-        Just o -> return o
+getTextOptionOrDefault :: CM.Configuration -> Text -> Text -> IO Text
+getTextOptionOrDefault cg name def = fromMaybe def <$> CM.getTextOption cg name
 
 \end{code}
 
