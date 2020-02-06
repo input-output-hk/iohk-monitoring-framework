@@ -1,12 +1,8 @@
-with import ../../lib.nix;
-with pkgs;
 
-let
-  stack-pkgs = import ../../nix/.stack.nix;
-  compiler = (stack-pkgs.extras {}).compiler.nix-name;
+with import ./. {};
 
-in haskell.lib.buildStackProject {
-  name = "iohk-monitoring-env";
-  buildInputs = [ zlib openssl git systemd ];
-  ghc = haskell.packages.${compiler}.ghc;
+haskell.lib.buildStackProject {
+  name = "stack-env";
+  buildInputs = with pkgs; [ zlib openssl git ];
+  ghc = (import ../shell.nix {inherit pkgs;}).ghc;
 }

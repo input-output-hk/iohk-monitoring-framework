@@ -1,31 +1,29 @@
 steps:
+  - label: 'hydra-eval-errors'
+    command: 'nix-build ./nix -A iohkNix.hydraEvalErrors && ./result/bin/hydra-eval-errors.py'
+    agents:
+      system: x86_64-linux
+
   - label: "code coverage (stack)"
     env:
-      AWS_REGION: us-west-1
-      S3_BUCKET: appveyor-ci-cache
-      CACHE_S3_MAX_SIZE: 2500MB
       STACK_ROOT: "/build/iohk-monitoring.stack"
     command:
-      # cache-s3 needs a build directory that is the same across all buildkite agents.
-      # so copy the source into /build/iohk-monitoring
       - "rm -rf /build/iohk-monitoring"
       - "cp -R . /build/iohk-monitoring"
       - "cd /build/iohk-monitoring"
-      - "nix-build --show-trace scripts/buildkite -o stack-rebuild"
-      - "./stack-rebuild --show-trace"
+      - "nix-build scripts/buildkite -o stack-rebuild"
+      - "./stack-rebuild"
     agents:
       system: x86_64-linux
-    branches: "master"
-    timeout: 30
+    timeout: 60
+    branches: master
 
-  - label: 'check-hydra'
-    command: 'ci/check-hydra.sh'
+  - label: 'stack-cabal-sync'
+    command: 'nix-shell ./nix -A iohkNix.stack-cabal-sync-shell --run scripts/buildkite/stack-cabal-sync.sh'
     agents:
       system: x86_64-linux
-    timeout: 30
 
-  - label: 'stack2nix'
-    command: 'ci/check-stack2nix.sh'
+  - label: 'check-cabal-project'
+    command: 'nix-build ./nix -A iohkNix.checkCabalProject -o check-cabal-project.sh && ./check-cabal-project.sh'
     agents:
       system: x86_64-linux
-    timeout: 30

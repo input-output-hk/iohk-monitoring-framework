@@ -20,4 +20,4 @@ extra-deps:
   - katip-0.8.3.0
 
 nix:
-  shell-file: scripts/nix/stack-shell.nix
+  shell-file: nix/stack-shell.nix
