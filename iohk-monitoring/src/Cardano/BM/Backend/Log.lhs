@@ -260,7 +260,7 @@ passN backend katip (LogObject loname lometa loitem) = do
                                      in
                                      (severity lometa, text, maylo)
                                 (LogError text) ->
-                                     (severity lometa, text, Nothing)
+                                     (severity lometa, text, Just $ Left loitem)
                                 (LogRepeats count _fir _las) ->
                                      ( severity lometa
                                      , "Similar messages elided, " <> pack (show count) <> " total."
@@ -269,8 +269,8 @@ passN backend katip (LogObject loname lometa loitem) = do
                                      (severity lometa, "", Just . Right $ Object s)
                                 (LogValue name value) ->
                                     if name == ""
-                                    then (severity lometa, pack (showSI value), Nothing)
-                                    else (severity lometa, name <> " = " <> pack (showSI value), Nothing)
+                                    then (severity lometa, pack (showSI value), Just $ Left loitem)
+                                    else (severity lometa, name <> " = " <> pack (showSI value), Just $ Left loitem)
                                 (ObserveDiff _) ->
                                      let text = TL.toStrict (encodeToLazyText loitem)
                                      in
@@ -287,7 +287,7 @@ passN backend katip (LogObject loname lometa loitem) = do
                                      let text = T.concat $ flip map aggregated $ \(name, agg) ->
                                                 "\n" <> name <> ": " <> pack (show agg)
                                     in
-                                    (severity lometa, text, Nothing)
+                                    (severity lometa, text, Just $ Left loitem)
                                 (MonitoringEffect _) ->
                                      let text = TL.toStrict (encodeToLazyText loitem)
                                      in
