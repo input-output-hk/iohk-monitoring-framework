@@ -36,7 +36,7 @@ import           Control.Exception.Safe (catchIO)
 import           Control.Monad (foldM, forM_, unless, when, void)
 import           Control.Lens ((^.))
 import           Data.Aeson (FromJSON, ToJSON, Result (Success), Value (..),
-                     fromJSON, toJSON)
+                     encode, fromJSON, toJSON)
 import           Data.Aeson.Text (encodeToLazyText)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Map as Map
@@ -407,10 +407,15 @@ mkTextFileScribe rotParams fdesc =
   where
     formatter :: (K.LogItem a) => Handle -> Rendering a -> IO Int
     formatter hdl r =
-        case KC._itemMessage (logitem r) of
-                K.LogStr ""  ->
-                    -- if message is empty do not output it
-                    return 0
+        let li = logitem r
+        in
+        case KC._itemMessage li of
+                K.LogStr ""  -> do
+                    -- if message is empty output payload if available
+                    let payload = KC._itemPayload li
+                    let (mlen, tmsg) = renderTextMsg $ r { logitem = li { KC._itemMessage = K.logStr $ encode $ K.toObject payload }}
+                    TIO.hPutStrLn hdl tmsg
+                    return mlen
                 _ -> do
                     let (mlen, tmsg) = renderTextMsg r
                     TIO.hPutStrLn hdl tmsg
