@@ -382,7 +382,9 @@ renderTextMsg r =
 
 renderJsonMsg :: (K.LogItem a) => Rendering a -> (Int, TL.Text)
 renderJsonMsg r =
-    let m' = encodeToLazyText $ trimTime $ K.itemJson (verbosity r) (logitem r)
+    let li = logitem r
+        li' = li { KC._itemMessage = "" }
+        m' = encodeToLazyText $ trimTime $ K.itemJson (verbosity r) li'
     in (fromIntegral $ TL.length m', m')
 
 -- keep only two digits for the fraction of seconds
