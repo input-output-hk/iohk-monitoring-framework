@@ -266,7 +266,7 @@ passN backend katip (LogObject loname lometa loitem) = do
                                      , "Similar messages elided, " <> pack (show count) <> " total."
                                      , Nothing)
                                 (LogStructured s) ->
-                                     (severity lometa, "", Just . Right $ Object s)
+                                     (severity lometa, TL.toStrict $ encodeToLazyText s, Just . Right $ Object s)
                                 (LogValue name value) ->
                                     if name == ""
                                     then (severity lometa, pack (showSI value), Nothing)
