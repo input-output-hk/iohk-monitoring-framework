@@ -36,7 +36,7 @@ import           Control.Exception.Safe (catchIO)
 import           Control.Monad (foldM, forM_, unless, when, void)
 import           Control.Lens ((^.))
 import           Data.Aeson (FromJSON, ToJSON, Result (Success), Value (..),
-                     fromJSON, toJSON)
+                     encode, fromJSON, toJSON)
 import           Data.Aeson.Text (encodeToLazyText)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Map as Map
@@ -260,7 +260,7 @@ passN backend katip (LogObject loname lometa loitem) = do
                                      in
                                      (severity lometa, text, maylo)
                                 (LogError text) ->
-                                     (severity lometa, text, Nothing)
+                                     (severity lometa, text, Just $ Left loitem)
                                 (LogRepeats count _fir _las) ->
                                      ( severity lometa
                                      , "Similar messages elided, " <> pack (show count) <> " total."
@@ -269,8 +269,8 @@ passN backend katip (LogObject loname lometa loitem) = do
                                      (severity lometa, "", Just . Right $ Object s)
                                 (LogValue name value) ->
                                     if name == ""
-                                    then (severity lometa, pack (showSI value), Nothing)
-                                    else (severity lometa, name <> " = " <> pack (showSI value), Nothing)
+                                    then (severity lometa, pack (showSI value), Just $ Left loitem)
+                                    else (severity lometa, name <> " = " <> pack (showSI value), Just $ Left loitem)
                                 (ObserveDiff _) ->
                                      let text = TL.toStrict (encodeToLazyText loitem)
                                      in
@@ -287,7 +287,7 @@ passN backend katip (LogObject loname lometa loitem) = do
                                      let text = T.concat $ flip map aggregated $ \(name, agg) ->
                                                 "\n" <> name <> ": " <> pack (show agg)
                                     in
-                                    (severity lometa, text, Nothing)
+                                    (severity lometa, text, Just $ Left loitem)
                                 (MonitoringEffect _) ->
                                      let text = TL.toStrict (encodeToLazyText loitem)
                                      in
@@ -382,7 +382,9 @@ renderTextMsg r =
 
 renderJsonMsg :: (K.LogItem a) => Rendering a -> (Int, TL.Text)
 renderJsonMsg r =
-    let m' = encodeToLazyText $ trimTime $ K.itemJson (verbosity r) (logitem r)
+    let li = logitem r
+        li' = li { KC._itemMessage = "" }
+        m' = encodeToLazyText $ trimTime $ K.itemJson (verbosity r) li'
     in (fromIntegral $ TL.length m', m')
 
 -- keep only two digits for the fraction of seconds
@@ -407,10 +409,15 @@ mkTextFileScribe rotParams fdesc =
   where
     formatter :: (K.LogItem a) => Handle -> Rendering a -> IO Int
     formatter hdl r =
-        case KC._itemMessage (logitem r) of
-                K.LogStr ""  ->
-                    -- if message is empty do not output it
-                    return 0
+        let li = logitem r
+        in
+        case KC._itemMessage li of
+                K.LogStr ""  -> do
+                    -- if message is empty output payload if available
+                    let payload = KC._itemPayload li
+                    let (mlen, tmsg) = renderTextMsg $ r { logitem = li { KC._itemMessage = K.logStr $ encode $ K.toObject payload }}
+                    TIO.hPutStrLn hdl tmsg
+                    return mlen
                 _ -> do
                     let (mlen, tmsg) = renderTextMsg r
                     TIO.hPutStrLn hdl tmsg
