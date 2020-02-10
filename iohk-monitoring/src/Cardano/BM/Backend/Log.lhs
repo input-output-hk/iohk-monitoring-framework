@@ -377,7 +377,11 @@ data Rendering a = Rendering { colorize  :: Bool
 
 renderTextMsg :: (K.LogItem a) => Rendering a -> (Int, TL.Text)
 renderTextMsg r =
-    let m = toLazyText $ formatItem (colorize r) (verbosity r) (logitem r)
+    let li = logitem r
+        m = toLazyText $ formatItem (colorize r) (verbosity r) $
+            case KC._itemMessage li of
+              K.LogStr ""  -> li { KC._itemMessage = K.logStr . encode . K.toObject $ KC._itemPayload li }
+              _ -> li
     in (fromIntegral $ TL.length m, m)
 
 renderJsonMsg :: (K.LogItem a) => Rendering a -> (Int, TL.Text)
@@ -408,20 +412,8 @@ mkTextFileScribe rotParams fdesc =
     mkFileScribe rotParams fdesc formatter
   where
     formatter :: (K.LogItem a) => Handle -> Rendering a -> IO Int
-    formatter hdl r =
-        let li = logitem r
-        in
-        case KC._itemMessage li of
-                K.LogStr ""  -> do
-                    -- if message is empty output payload if available
-                    let payload = KC._itemPayload li
-                    let (mlen, tmsg) = renderTextMsg $ r { logitem = li { KC._itemMessage = K.logStr $ encode $ K.toObject payload }}
-                    TIO.hPutStrLn hdl tmsg
-                    return mlen
-                _ -> do
-                    let (mlen, tmsg) = renderTextMsg r
-                    TIO.hPutStrLn hdl tmsg
-                    return mlen
+    formatter hdl r = TIO.hPutStrLn hdl tmsg >> pure mlen
+      where (mlen, tmsg) = renderTextMsg r
 
 mkJsonFileScribe :: Maybe RotationParameters -> FileDescription -> Bool -> IO K.Scribe
 mkJsonFileScribe rotParams fdesc =
