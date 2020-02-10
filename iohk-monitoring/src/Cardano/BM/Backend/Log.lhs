@@ -342,32 +342,35 @@ mkDevNullScribe = do
     let logger _ = pure ()
     pure $ K.Scribe logger (pure ()) (pure . const True)
 
-mkTextFileScribeH :: Handle -> Bool -> IO K.Scribe
-mkTextFileScribeH handler =
-    mkFileScribeH handler formatter
-  where
-    formatter h r =
-        let (_, msg) = renderTextMsg r
-        in TIO.hPutStrLn h $! msg
-mkJsonFileScribeH :: Handle -> Bool -> IO K.Scribe
-mkJsonFileScribeH handler =
-    mkFileScribeH handler formatter
-  where
-    formatter h r =
-        let (_, msg) = renderJsonMsg r
-        in TIO.hPutStrLn h $! msg
+type Formatter a = K.LogItem a => Handle -> Rendering a -> IO Int
+
+textFormatter, jsonFormatter :: Formatter a
+textFormatter h r =
+  let (len, msg) = renderTextMsg r
+  in (TIO.hPutStrLn h $! msg) >> pure len
+jsonFormatter h r =
+  let (len, msg) = renderJsonMsg r
+  in (TIO.hPutStrLn h $! msg) >> pure len
+
+mkTextFileScribeH, mkJsonFileScribeH :: Handle -> Bool -> IO K.Scribe
+mkTextFileScribeH = mkFileScribeH textFormatter
+mkJsonFileScribeH = mkFileScribeH jsonFormatter
+
+mkTextFileScribe, mkJsonFileScribe :: Maybe RotationParameters -> FileDescription -> Bool -> IO K.Scribe
+mkTextFileScribe = mkFileScribe textFormatter
+mkJsonFileScribe = mkFileScribe jsonFormatter
 
 mkFileScribeH
-    :: Handle
-    -> (forall a . K.LogItem a => Handle -> Rendering a -> IO ())
+    :: (forall a. Formatter a)
+    -> Handle
     -> Bool
     -> IO K.Scribe
-mkFileScribeH h formatter colorize = do
+mkFileScribeH formatter h colorize = do
     hSetBuffering h LineBuffering
     locklocal <- newMVar ()
     let logger :: forall a. K.LogItem a =>  K.Item a -> IO ()
         logger item = withMVar locklocal $ \_ ->
-                        formatter h (Rendering colorize K.V0 item)
+                        void $ formatter h (Rendering colorize K.V0 item)
     pure $ K.Scribe logger (hClose h) (pure . const True)
 
 data Rendering a = Rendering { colorize  :: Bool
@@ -377,7 +380,11 @@ data Rendering a = Rendering { colorize  :: Bool
 
 renderTextMsg :: (K.LogItem a) => Rendering a -> (Int, TL.Text)
 renderTextMsg r =
-    let m = toLazyText $ formatItem (colorize r) (verbosity r) (logitem r)
+    let li = logitem r
+        m = toLazyText $ formatItem (colorize r) (verbosity r) $
+            case KC._itemMessage li of
+              K.LogStr ""  -> li { KC._itemMessage = K.logStr . encode . K.toObject $ KC._itemPayload li }
+              _ -> li
     in (fromIntegral $ TL.length m, m)
 
 renderJsonMsg :: (K.LogItem a) => Rendering a -> (Int, TL.Text)
@@ -403,43 +410,13 @@ trimTime (Object o) = Object $ HM.adjust
     jformat = "%FT%T%2QZ"
 trimTime v = v
 
-mkTextFileScribe :: Maybe RotationParameters -> FileDescription -> Bool -> IO K.Scribe
-mkTextFileScribe rotParams fdesc =
-    mkFileScribe rotParams fdesc formatter
-  where
-    formatter :: (K.LogItem a) => Handle -> Rendering a -> IO Int
-    formatter hdl r =
-        let li = logitem r
-        in
-        case KC._itemMessage li of
-                K.LogStr ""  -> do
-                    -- if message is empty output payload if available
-                    let payload = KC._itemPayload li
-                    let (mlen, tmsg) = renderTextMsg $ r { logitem = li { KC._itemMessage = K.logStr $ encode $ K.toObject payload }}
-                    TIO.hPutStrLn hdl tmsg
-                    return mlen
-                _ -> do
-                    let (mlen, tmsg) = renderTextMsg r
-                    TIO.hPutStrLn hdl tmsg
-                    return mlen
-
-mkJsonFileScribe :: Maybe RotationParameters -> FileDescription -> Bool -> IO K.Scribe
-mkJsonFileScribe rotParams fdesc =
-    mkFileScribe rotParams fdesc formatter
-  where
-    formatter :: (K.LogItem a) => Handle -> Rendering a -> IO Int
-    formatter h r = do
-        let (mlen, tmsg) = renderJsonMsg r
-        TIO.hPutStrLn h tmsg
-        return mlen
-
 mkFileScribe
-    :: Maybe RotationParameters
+    :: (forall a . K.LogItem a => Handle -> Rendering a -> IO Int)
+    -> Maybe RotationParameters
     -> FileDescription
-    -> (forall a . K.LogItem a => Handle -> Rendering a -> IO Int)
     -> Bool
     -> IO K.Scribe
-mkFileScribe (Just rotParams) fdesc formatter colorize = do
+mkFileScribe formatter (Just rotParams) fdesc colorize = do
     let prefixDir = prefixPath fdesc
     createDirectoryIfMissing True prefixDir
         `catchIO` prtoutException ("cannot log prefix directory: " ++ prefixDir)
@@ -472,7 +449,7 @@ mkFileScribe (Just rotParams) fdesc formatter colorize = do
                         return (h, bytes', rottime)
     return $ K.Scribe logger finalizer (pure . const True)
 -- log rotation disabled.
-mkFileScribe Nothing fdesc formatter colorize = do
+mkFileScribe formatter Nothing fdesc colorize = do
     let prefixDir = prefixPath fdesc
     createDirectoryIfMissing True prefixDir
         `catchIO` prtoutException ("cannot create prefix directory: " ++ prefixDir)
