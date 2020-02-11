@@ -27,7 +27,6 @@ module Cardano.BM.Configuration.Model
     , getGraylogPort
     , getLogOutput
     , getMapOption
-    , getMapOption'
     , getMonitors
     , getOption
     , getPrometheusBindAddr
@@ -35,7 +34,6 @@ module Cardano.BM.Configuration.Model
     , getSetupBackends
     , getSetupScribes
     , getTextOption
-    , getTextOption'
     , inspectSeverity
     , minSeverity
     , setAggregatedKind
@@ -364,10 +362,10 @@ getMapOption :: Configuration -> Text -> IO (Maybe Object)
 getMapOption configuration name =
   flip getMapOption' name . cgOptions <$> readMVar (getCG configuration)
 
-updateOption :: Configuration -> Text -> (Value -> Value) -> IO ()
+updateOption :: Configuration -> Text -> (Maybe Value -> Value) -> IO ()
 updateOption configuration name f =
     modifyMVar_ (getCG configuration) $ \cg ->
-        return cg { cgOptions = HM.update (Just . f) name (cgOptions cg) }
+        return cg { cgOptions = HM.alter (Just . f) name (cgOptions cg) }
 
 setOption :: Configuration -> Text -> Value -> IO ()
 setOption configuration name = updateOption configuration name . const
