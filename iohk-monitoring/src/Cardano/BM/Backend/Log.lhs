@@ -51,14 +51,12 @@ import qualified Data.Text.Lazy.IO as TIO
 import           Data.Time (diffUTCTime)
 import           Data.Time.Clock (UTCTime, getCurrentTime)
 import           Data.Time.Format (defaultTimeLocale, formatTime)
-import           Data.Version (showVersion)
 import           GHC.Conc (atomically)
 import           GHC.IO.Handle (hDuplicate)
 import           System.Directory (createDirectoryIfMissing)
 import           System.FilePath (takeDirectory)
 import           System.IO (BufferMode (LineBuffering), Handle, hClose,
                      hSetBuffering, stderr, stdout, openFile, IOMode (WriteMode))
-import           Paths_iohk_monitoring (version)
 
 import qualified Katip as K
 import qualified Katip.Core as KC
@@ -126,10 +124,11 @@ instance (ToJSON a, FromJSON a) => IsBackend Log a where
         let updateEnv :: K.LogEnv -> IO UTCTime -> K.LogEnv
             updateEnv le timer =
                 le { K._logEnvTimer = timer, K._logEnvHost = "hostname" }
-        cfoKey <- Config.getOptionOrDefault config (pack "cfokey") (pack "<unknown>")
+        ver <- Config.getTextOptionOrDefault config "appversion" "<unknown>"
+        commit <- Config.getTextOptionOrDefault config "appcommit" "00000"
         le0 <- K.initLogEnv
                     (K.Namespace mempty)
-                    (fromString $ unpack cfoKey <> ":" <> showVersion version)
+                    (fromString $ unpack ver <> ":" <> take 5 (unpack commit))
         -- request a new time 'getCurrentTime' at most 100 times a second
         timer <- mkAutoUpdate defaultUpdateSettings { updateAction = getCurrentTime, updateFreq = 10000 }
         let le1 = updateEnv le0 timer

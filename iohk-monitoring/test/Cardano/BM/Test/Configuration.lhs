@@ -107,8 +107,8 @@ unitConfigurationStaticRepresentation =
             , hasPrometheus = Just ("localhost", 12799)
             , logOutput = Nothing
             , options =
-                HM.fromList [ ("test1", (HM.singleton "value" "object1"))
-                            , ("test2", (HM.singleton "value" "object2")) ]
+                HM.fromList [ ("test1", Object (HM.singleton "value" "object1"))
+                            , ("test2", Object (HM.singleton "value" "object2")) ]
             }
     in
     encode r @?=
@@ -253,6 +253,7 @@ unitConfigurationParsed = do
                                             ]
         , cgOptions           = HM.fromList
             [ ("mapSubtrace",
+                Object $
                 HM.fromList [("iohk.benchmarking",
                               Object (HM.fromList [("subtrace",String "ObservableTraceSelf")
                                                   ,("contents",Array $ V.fromList
@@ -260,7 +261,8 @@ unitConfigurationParsed = do
                                                         ,String "MonotonicClock"])]))
                             ,("iohk.deadend",
                               Object (HM.fromList [("subtrace",String "NoTrace")]))])
-            , ("mapMonitors", HM.fromList [("chain.creation.block",Object (HM.fromList
+            , ("mapMonitors", Object $
+                              HM.fromList [("chain.creation.block",Object (HM.fromList
                                             [("monitor",String "((time > (23 s)) Or (time < (17 s)))")
                                             ,("actions",Array $ V.fromList
                                                 [ String "CreateMessage Warning \"chain.creation\""
@@ -272,19 +274,22 @@ unitConfigurationParsed = do
                                                 [ String "CreateMessage Warning \"the observable has been too long too high!\""
                                                 , String "SetGlobalMinimalSeverity Info"
                                                 ])]))])
-            , ("mapSeverity", HM.fromList [("iohk.startup",String "Debug")
+            , ("mapSeverity", Object $
+                              HM.fromList [("iohk.startup",String "Debug")
                                           ,("iohk.background.process",String "Error")
                                           ,("iohk.testing.uncritical",String "Warning")])
-            , ("mapAggregatedkinds", HM.fromList [("iohk.interesting.value",
+            , ("mapAggregatedkinds", Object $
+                                     HM.fromList [("iohk.interesting.value",
                                                         String "EwmaAK {alpha = 0.75}")
                                                  ,("iohk.background.process",
                                                         String "StatsAK")])
-            , ("cfokey",HM.fromList [("value",String "Release-1.0.0")])
-            , ("mapScribes", HM.fromList [("iohk.interesting.value",
+            , ("cfokey", Object $ HM.fromList [("value",String "Release-1.0.0")])
+            , ("mapScribes", Object $ HM.fromList [("iohk.interesting.value",
                                             Array $ V.fromList [String "StdoutSK::stdout"
                                                                ,String "FileSK::testlog"])
                                          ,("iohk.background.process",String "FileSK::testlog")])
-            , ("mapBackends", HM.fromList [("iohk.user.defined",
+            , ("mapBackends", Object $
+                              HM.fromList [("iohk.user.defined",
                                                 Array $ V.fromList [Object (HM.fromList [("kind", String "UserDefinedBK")
                                                                                         ,("name", String "MyBackend")])
                                                                     ,String "KatipBK"

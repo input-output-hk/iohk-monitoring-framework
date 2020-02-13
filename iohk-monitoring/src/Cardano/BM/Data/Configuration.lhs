@@ -56,7 +56,7 @@ data Representation = Representation
     , hasPrometheus   :: Maybe HostPort
     , hasGUI          :: Maybe Port
     , logOutput       :: Maybe FilePath
-    , options         :: HM.HashMap Text Object
+    , options         :: HM.HashMap Text Value
     }
     deriving (Generic, Show, ToJSON, FromJSON)
 
