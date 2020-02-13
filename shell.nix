@@ -1,18 +1,44 @@
-{ withHoogle ? true
-, localLib ? import ./lib.nix
+# This file is used by nix-shell.
+{ config ? {}
+, sourcesOverride ? {}
+, withHoogle ? false
+, pkgs ? import ./nix {
+    inherit config sourcesOverride;
+  }
 }:
+with pkgs;
 let
-  pkgs = localLib.iohkNix.pkgs;
-  default = import ./default.nix {};
+  # This provides a development environment that can be used with nix-shell or
+  # lorri. See https://input-output-hk.github.io/haskell.nix/user-guide/development/
+  shell = iohkMonitoringHaskellPackages.shellFor {
+    name = "cabal-dev-shell";
+
+    # If shellFor local packages selection is wrong,
+    # then list all local packages then include source-repository-package that cabal complains about:
+    #packages = ps: with ps; [
+    #];
+
+    # These programs will be available inside the nix-shell.
+    buildInputs = with haskellPackages; [
+      niv
+    ];
+
+    # Prevents cabal from choosing alternate plans, so that
+    # *all* dependencies are provided by Nix.
+    exactDeps = true;
+
+    inherit withHoogle;
+  };
+
   devops = pkgs.stdenv.mkDerivation {
     name = "devops-shell";
     buildInputs = [
-      localLib.niv
+      niv
     ];
     shellHook = ''
       echo "DevOps Tools" \
-      | ${pkgs.figlet}/bin/figlet -f banner -c \
-      | ${pkgs.lolcat}/bin/lolcat
+      | ${figlet}/bin/figlet -f banner -c \
+      | ${lolcat}/bin/lolcat
 
       echo "NOTE: you may need to export GITHUB_TOKEN if you hit rate limits with niv"
       echo "Commands:
@@ -21,31 +47,7 @@ let
       "
     '';
   };
+
 in
-default.nix-tools._raw.shellFor {
-  packages    = ps: with ps; [
-    iohk-monitoring
-    lobemo-backend-aggregation
-    lobemo-backend-editor
-    lobemo-backend-ekg
-    lobemo-backend-graylog
-    lobemo-backend-monitoring
-    lobemo-examples
-    lobemo-scribe-systemd
-    tracer-transformers
-  ];
-  withHoogle  = withHoogle;
-  buildInputs =
-  (with default.nix-tools._raw; [
-    cabal-install.components.exes.cabal
-    ghcid.components.exes.ghcid
-  ]) ++
-  (with default.nix-tools._raw._config._module.args.pkgs; [
-    tmux
-    zlib
-    libiconv
-    cabal2nix
-    stack
-    numactl
-  ]);
-} // { inherit devops; }
+
+ shell // { inherit devops; }
