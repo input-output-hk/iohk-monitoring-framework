@@ -1,11 +1,3 @@
----
-name: PR template
-about: Pull-request
-title: ''
-labels: ''
-assignees: ''
-
----
 
 description
 -----------
@@ -18,7 +10,7 @@ checklist
 
 - [ ] compiles (`cabal new-clean; cabal new-build`)
 - [ ] tests run successfully (`cabal new-test`)
-- [ ] documentation added and created (`cd docs; nix-shell --run make`)
+- [ ] documentation added
 - [ ] link to an issue
 - [ ] link to an epic
 - [ ] add estimate points
