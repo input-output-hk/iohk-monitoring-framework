@@ -23,7 +23,7 @@ import           Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar,
                      readMVar, withMVar, tryTakeMVar)
 import           Control.Concurrent.STM (atomically)
 import qualified Control.Concurrent.STM.TBQueue as TBQ
-import           Control.Exception.Safe (SomeException, catch, throwM)
+import           Control.Exception.Safe (SomeException, IOException, catch, throwM)
 import           Control.Monad (void)
 import           Control.Monad.IO.Class (liftIO)
 import           Data.Aeson (FromJSON, ToJSON (..), Value, encode, object, (.=))
@@ -183,7 +183,7 @@ spawnDispatcher config evqueue sbtrace =
         case mConn of
             (Just conn) -> do
                 sendLO conn item
-                    `catch` \(e :: SomeException) -> do
+                    `catch` \(e :: IOException) -> do
                         let trace' = Trace.appendName "sending" gltrace
                         mle <- mkLOMeta Error Public
                         Trace.traceNamedObject trace' (mle, LogError (pack $ show e))

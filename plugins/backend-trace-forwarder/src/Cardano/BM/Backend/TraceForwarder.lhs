@@ -23,7 +23,7 @@ module Cardano.BM.Backend.TraceForwarder
 
 import           Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar,
                      withMVar)
-import           Control.Exception (Exception, SomeException, catch, throwIO)
+import           Control.Exception (IOException, Exception, SomeException, catch, throwIO)
 import           Data.Aeson (FromJSON, ToJSON, encode)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BL
@@ -117,7 +117,7 @@ instance (Pipe p, FromJSON a, ToJSON a, Typeable p) => IsBackend (TraceForwarder
         let logToPipe = TraceForwarder ltpref
         pipePath <- fromMaybe "log-pipe" <$> getLogOutput cfg
         h <- open pipePath
-          `catch` (\(e :: SomeException) ->
+          `catch` (\(e :: IOException) ->
                      throwIO
                      . (TraceForwarderPipeError
                         :: String -> BackendFailure (TraceForwarder p))
@@ -127,10 +127,7 @@ instance (Pipe p, FromJSON a, ToJSON a, Typeable p) => IsBackend (TraceForwarder
                             }
         return logToPipe
 
-    unrealize tf = withMVar (getTF tf) (\(TraceForwarderInternal h) ->
-        -- close the pipe
-        close h
-            `catch` (\(_ :: SomeException) -> pure ()))
+    unrealize tf = withMVar (getTF tf) (\(TraceForwarderInternal h) -> close h)
 
 newtype TraceForwarderBackendFailure
   = TraceForwarderPipeError String

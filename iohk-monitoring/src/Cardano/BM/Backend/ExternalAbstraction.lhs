@@ -18,13 +18,12 @@ module Cardano.BM.Backend.ExternalAbstraction
 
 #ifndef mingw32_HOST_OS
 import           Control.Monad (when)
-import           Control.Exception (SomeException (..), catch, fromException,
-                     throw)
+import           Control.Exception (catch, throw)
 #endif
 import qualified Data.ByteString as BS
 #ifndef mingw32_HOST_OS
 import qualified Data.ByteString.Char8 as BSC
-import           GHC.IO.Exception (IOException (..), IOErrorType (..))
+import           GHC.IO.Exception (IOException (..))
 import           GHC.IO.Handle (hDuplicate)
 import           System.IO (IOMode (..), openFile, BufferMode (NoBuffering),
                      Handle, hClose, hSetBuffering, openFile, stderr,
@@ -67,34 +66,44 @@ instance Pipe NoPipe where
 #ifndef mingw32_HOST_OS
 instance Pipe UnixNamedPipe where
     data PipeHandler UnixNamedPipe = P Handle
-    create pipePath =
-        let open_pipe = openFile pipePath ReadWriteMode
-        in
-        (createNamedPipe pipePath stdFileMode >> (P <$> open_pipe))
+    create pipePath = do
         -- use of ReadWriteMode instead of ReadMode in order
         -- EOF not to be written at the end of file
-            `catch` (\(e :: SomeException) ->
-                        case fromException e of
-                            Just (IOError _ AlreadyExists _ _ _ _) -> do
-                                exists <- fileExist pipePath
-                                fstatus <- getFileStatus pipePath
-                                if exists && isNamedPipe fstatus
-                                then
-                                    P <$> open_pipe
-                                else
-                                    throw $ mkIOError userErrorType "cannot open pipe; it's a file" Nothing (Just pipePath)
-                            _                                      -> do
-                                hPutStrLn stderr $ "Creating pipe threw: " ++ show e
-                                throw e)
+        let openPipe   = openFile pipePath ReadWriteMode
+
+        createNamedPipe pipePath stdFileMode
+
+        let retryPipeCreation :: FilePath -> IO (PipeHandler UnixNamedPipe)
+            retryPipeCreation pipePath' = do
+                exists  <- fileExist pipePath'
+                fstatus <- getFileStatus pipePath'
+
+                if exists && isNamedPipe fstatus
+                    then P <$> openPipe
+                    else throw $ mkIOError userErrorType "cannot open pipe; it's a file" Nothing (Just pipePath')
+
+        -- We open up a pipe and catch @IOException@ __only__.
+        -- The current things we need to watch out for when opening a pipe are:
+        --     - if the file is already open and cannot be reopened
+        --     - if the file does not exist
+        --     - if the user does not have permission to open the file.
+        (P <$> openPipe) `catch` \(_ :: IOException) -> retryPipeCreation pipePath
+
     open pipePath = do
         exists <- fileExist pipePath
         when (not exists) $
             throw $ mkIOError doesNotExistErrorType "cannot find pipe to open, reason" Nothing (Just pipePath)
+
         fstatus <- getFileStatus pipePath
         if isNamedPipe fstatus
         then do
+            -- We open up a pipe and catch @IOException@ __only__.
+            -- The current things we need to watch out for when opening a file are:
+            --     - if the file is already open and cannot be reopened
+            --     - if the file does not exist
+            --     - if the user does not have permission to open the file.
             h <- openFile pipePath WriteMode
-                `catch` (\(e :: SomeException) -> do
+                `catch` (\(e :: IOException) -> do
                     hPutStrLn stderr $ "Opening pipe threw: " ++ show e
                                     ++ "\nForwarding its objects to stderr"
                     hDuplicate stderr)
@@ -102,7 +111,7 @@ instance Pipe UnixNamedPipe where
             return $ P h
         else
             throw $ mkIOError userErrorType "cannot open pipe; it's a file" Nothing (Just pipePath)
-    close (P h) = hClose h `catch` (\(_ :: SomeException) -> pure ())
+    close (P h) = hClose h
     getLine (P h) = BS.hGetLine h
     write (P h) bs = BSC.hPutStrLn h $! bs
 

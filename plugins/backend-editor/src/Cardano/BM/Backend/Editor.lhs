@@ -19,7 +19,7 @@ module Cardano.BM.Backend.Editor
 import           Prelude hiding (lookup)
 import qualified Control.Concurrent.Async as Async
 import           Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar, swapMVar, readMVar, withMVar)
-import           Control.Exception.Safe (SomeException, catch)
+import           Control.Exception.Safe (IOException, SomeException, catch)
 import           Control.Monad  (void, when, forM_)
 import           Data.Aeson (FromJSON, ToJSON, encode)
 import qualified Data.ByteString.Lazy.Char8 as BS8
@@ -339,7 +339,7 @@ prepare editor config window = void $ do
             res <- liftIO $ catch
                 (CM.exportConfiguration config filepath >>
                     return ("Configuration was exported to the file: " ++ filepath))
-                (\(e :: SomeException) -> return $ show e)
+                (\(e :: IOException) -> return $ show e)
             setMessage res
             performActionOnId outputTableId $
                 \t -> void $ element t #+ [ mkLinkToFile
