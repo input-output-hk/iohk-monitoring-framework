@@ -63,9 +63,12 @@ We are using an |MVar| because we spawn a set of backends that may try to send m
 the switchboard before it is completely setup.
 
 \begin{code}
+
 type SwitchboardMVar a = MVar (SwitchboardInternal a)
+
 newtype Switchboard a = Switchboard
-    { getSB :: SwitchboardMVar a }
+    { getSB :: SwitchboardMVar a 
+    }
 
 data SwitchboardInternal a = SwitchboardInternal
     { sbQueue     :: TBQ.TBQueue (LogObject a)
@@ -73,9 +76,17 @@ data SwitchboardInternal a = SwitchboardInternal
     , sbLogBuffer :: !(Cardano.BM.Backend.LogBuffer.LogBuffer a)
     , sbLogBE     :: !(Cardano.BM.Backend.Log.Log a)
     , sbBackends  :: NamedBackends a
+    , sbRunning   :: !SwitchboardStatus
     }
 
 type NamedBackends a = [(BackendKind, Backend a)]
+
+-- | A bool isomorphic status for the switchboard
+-- which we can use.
+data SwitchboardStatus
+    = SwitchboardRunning
+    | SwitchboardNotRunning
+    deriving (Eq, Show)
 
 \end{code}
 
@@ -124,8 +135,14 @@ instance IsEffectuator Switchboard a where
                     else atomically $ TBQ.writeTBQueue q i
 
         sb <- readMVar (getSB switchboard)
-        writequeue (sbQueue sb) item
 
+        -- First we check to see if we have the switchboard running.
+        -- If the switchboard is running, we write to the queue,
+        -- otherwise we report the error on the stderr.
+        if (sbRunning sb) == SwitchboardRunning
+            then writequeue (sbQueue sb) item
+            else TIO.hPutStrLn stderr "Error: Switchboard has been shut down, dropping log items!"
+        
     handleOverflow _ = TIO.hPutStrLn stderr "Error: Switchboard's queue full, dropping log items!"
 
 \end{code}
@@ -207,6 +224,7 @@ instance (FromJSON a, ToJSON a) => IsBackend Switchboard a where
 #endif
         q <- atomically $ TBQ.newTBQueue qSize
         sbref <- newEmptyMVar
+
         let sb :: Switchboard a = Switchboard sbref
 
         backends <- getSetupBackends cfg
@@ -226,29 +244,55 @@ instance (FromJSON a, ToJSON a) => IsBackend Switchboard a where
         -- raises an exception, that exception will be re-thrown in the current
         -- thread, wrapped in ExceptionInLinkedThread.
         Async.linkOnly (not . isBlockedIndefinitelyOnSTM) dispatcher
-        putMVar sbref $ SwitchboardInternal {
-                            sbQueue = q,
-                            sbDispatch = dispatcher,
-                            sbLogBuffer = logbuf,
-                            sbLogBE = katipBE,
-                            sbBackends = bs }
+
+        -- Modify the internal state of the switchboard, the switchboard
+        -- is now running.
+        putMVar sbref $ SwitchboardInternal 
+            { sbQueue = q
+            , sbDispatch = dispatcher
+            , sbLogBuffer = logbuf
+            , sbLogBE = katipBE
+            , sbBackends = bs
+            , sbRunning = SwitchboardRunning
+            }
 
         return sb
 
     unrealize switchboard = do
-        let clearMVar :: MVar some -> IO ()
+        -- How is this "clearing" anything?
+        let clearMVar :: MVar (SwitchboardInternal a) -> IO ()
             clearMVar = void . tryTakeMVar
 
+        -- This is kind of weird. This function is generally used for
+        -- the modification of the internal state, not breaking the encapsulation.
         (dispatcher, queue) <- withMVar (getSB switchboard) (\sb -> return (sbDispatch sb, sbQueue sb))
+
         -- send terminating item to the queue
         lo <- LogObject <$> pure ["kill", "switchboard"]
                         <*> (mkLOMeta Warning Confidential)
                         <*> pure KillPill
+
         atomically $ TBQ.writeTBQueue queue lo
         -- wait for the dispatcher to exit
         res <- Async.waitCatch dispatcher
         either throwM return res
-        (clearMVar . getSB) switchboard
+
+        -- Let's switch the flag to not running. Yes, keep everything else the same.
+        let flagSwitchboardStopped :: SwitchboardInternal a -> SwitchboardInternal a
+            flagSwitchboardStopped sb = 
+                SwitchboardInternal 
+                    { sbQueue = sbQueue sb
+                    , sbDispatch = sbDispatch sb
+                    , sbLogBuffer = sbLogBuffer sb
+                    , sbLogBE = sbLogBE sb
+                    , sbBackends = sbBackends sb
+                    , sbRunning = SwitchboardNotRunning
+                    }
+
+        -- Modify the state in the end so we signal that the switchboard is shut down.
+        _ <- withMVar (getSB switchboard) (\sb -> return $ flagSwitchboardStopped sb)
+
+        clearMVar . getSB $ switchboard
 
 isBlockedIndefinitelyOnSTM :: SomeException -> Bool
 isBlockedIndefinitelyOnSTM e =
