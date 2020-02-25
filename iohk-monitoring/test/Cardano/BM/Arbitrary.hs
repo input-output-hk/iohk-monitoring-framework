@@ -70,9 +70,9 @@ instance Arbitrary a => Arbitrary (LOContent a) where
 instance Arbitrary a => Arbitrary (LogObject a) where
   arbitrary = do
     loName <- elements
-      [ ["logger", "for", "nothing"]
-      , ["tracer", "of"]
-      , ["things"]
+      [ "logger.for.nothing"
+      , "tracer.of"
+      , "things"
       ]
     loMeta <- arbitrary
     loContent :: LOContent a <- arbitrary

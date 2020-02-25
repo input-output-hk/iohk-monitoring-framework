@@ -375,27 +375,20 @@ We use Welford's online algorithm to update the estimation of mean and variance 
 (see \url{https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford's_Online_algorithm})
 
 \begin{code}
-updateAggregation :: Measurable -> Aggregated -> Word64 -> Maybe Word64 -> Either Text Aggregated
-updateAggregation v (AggregatedStats s) tstamp resetAfter =
-    let count = fcount (fbasic s)
-        reset = maybe False (count >=) resetAfter
-    in
-    if reset
-    then
-        Right $ singletonStats v
-    else
-        Right $ AggregatedStats $! Stats { flast  = v
-                                         , fold = mkTimestamp
-                                         , fbasic = updateBaseStats 1 v (fbasic s)
-                                         , fdelta = updateBaseStats 2 deltav (fdelta s)
-                                         , ftimed = updateBaseStats 2 timediff (ftimed s)
-                                         }
+updateAggregation :: Measurable -> Aggregated -> Word64 -> Either Text Aggregated
+updateAggregation v (AggregatedStats s) tstamp =
+    Right $ AggregatedStats $! Stats { flast  = v
+                                     , fold = mkTimestamp
+                                     , fbasic = updateBaseStats 1 v (fbasic s)
+                                     , fdelta = updateBaseStats 2 deltav (fdelta s)
+                                     , ftimed = updateBaseStats 2 timediff (ftimed s)
+                                     }
   where
     deltav = subtractMeasurable v (flast s)
     mkTimestamp = Nanoseconds $ tstamp
     timediff = Nanoseconds $ fromInteger $ (getInteger mkTimestamp) - (getInteger $ fold s)
 
-updateAggregation v (AggregatedEWMA e) _ _ =
+updateAggregation v (AggregatedEWMA e) _ =
     let !eitherAvg = ewma e v
     in
         AggregatedEWMA <$> eitherAvg

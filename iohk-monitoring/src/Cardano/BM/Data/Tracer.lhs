@@ -52,11 +52,6 @@ module Cardano.BM.Data.Tracer
     , annotatePublic
     , annotatePrivacyAnnotation
     , filterPrivacyAnnotation
-    -- * annotate context name
-    , addName
-    , setName
-    -- * other transformers
-    , setHostname
     ) where
 
 
@@ -74,6 +69,7 @@ import           Cardano.BM.Data.LogItem (LoggerName, LogObject (..),
                      LOContent (..), LOMeta (..), PrivacyAnnotation (..),
                      mkLOMeta)
 import           Cardano.BM.Data.Severity (Severity (..))
+import           Cardano.BM.Data.Trace
 import           Control.Tracer
 
 \end{code}
@@ -142,26 +138,26 @@ to the transformer |toLogObject'|.
 \begin{code}
 class Monad m => ToLogObject m where
     toLogObject :: (ToObject a, Transformable a m b)
-                => Tracer m (LogObject a) -> Tracer m b
+                => Trace m a -> Tracer m b
     toLogObject' :: (ToObject a, Transformable a m b)
-                 => TracingFormatting -> TracingVerbosity -> Tracer m (LogObject a) -> Tracer m b
+                 => TracingFormatting -> TracingVerbosity -> Trace m a -> Tracer m b
     toLogObjectVerbose :: (ToObject a, Transformable a m b)
-                       => Tracer m (LogObject a) -> Tracer m b
+                       => Trace m a -> Tracer m b
     default toLogObjectVerbose :: (ToObject a, Transformable a m b)
-                       => Tracer m (LogObject a) -> Tracer m b
+                       => Trace m a -> Tracer m b
     toLogObjectVerbose = trTransformer StructuredLogging MaximalVerbosity
     toLogObjectMinimal :: (ToObject a, Transformable a m b)
-                       => Tracer m (LogObject a) -> Tracer m b
+                       => Trace m a -> Tracer m b
     default toLogObjectMinimal :: (ToObject a, Transformable a m b)
-                       => Tracer m (LogObject a) -> Tracer m b
+                       => Trace m a -> Tracer m b
     toLogObjectMinimal = trTransformer StructuredLogging MinimalVerbosity
 
 instance ToLogObject IO where
     toLogObject :: (MonadIO m, ToObject a, Transformable a m b)
-                => Tracer m (LogObject a) -> Tracer m b
+                => Trace m a -> Tracer m b
     toLogObject = trTransformer StructuredLogging NormalVerbosity
     toLogObject' :: (MonadIO m, ToObject a, Transformable a m b)
-                 => TracingFormatting -> TracingVerbosity -> Tracer m (LogObject a) -> Tracer m b
+                 => TracingFormatting -> TracingVerbosity -> Trace m a -> Tracer m b
     toLogObject' = trTransformer
 
 \end{code}
@@ -314,25 +310,27 @@ Depending on the input type it can create objects of |LogValue| for numerical va
 
 \begin{code}
 class (Monad m, DefinePrivacyAnnotation b, DefineSeverity b)  => Transformable a m b where
-    trTransformer :: TracingFormatting -> TracingVerbosity -> Tracer m (LogObject a) -> Tracer m b
-    default trTransformer :: TracingFormatting -> TracingVerbosity -> Tracer m (LogObject a) -> Tracer m b
+    trTransformer :: TracingFormatting -> TracingVerbosity -> Trace m a -> Tracer m b
+    default trTransformer :: TracingFormatting -> TracingVerbosity -> Trace m a -> Tracer m b
     trTransformer _ _ _ = nullTracer
 
 trFromIntegral :: (Integral b, MonadIO m, DefinePrivacyAnnotation b, DefineSeverity b)
-               => Text -> Tracer m (LogObject a) -> Tracer m b
+               => LoggerName -> Trace m a -> Tracer m b
 trFromIntegral name tr = Tracer $ \arg ->
-        traceWith tr =<<
-            LogObject <$> pure mempty
-                      <*> mkLOMeta (defineSeverity arg) (definePrivacyAnnotation arg)
-                      <*> pure (LogValue name $ PureI $ fromIntegral arg)
+        traceWith tr =<< do
+            meta <- mkLOMeta (defineSeverity arg) (definePrivacyAnnotation arg)
+            return ( mempty
+                   , LogObject mempty meta (LogValue name $ PureI $ fromIntegral arg)
+                   )
 
 trFromReal :: (Real b, MonadIO m, DefinePrivacyAnnotation b, DefineSeverity b)
-           => Text -> Tracer m (LogObject a) -> Tracer m b
+           => LoggerName -> Trace m a -> Tracer m b
 trFromReal name tr = Tracer $ \arg ->
-        traceWith tr =<<
-            LogObject <$> pure mempty
-                      <*> mkLOMeta (defineSeverity arg) (definePrivacyAnnotation arg)
-                      <*> pure (LogValue name $ PureD $ realToFrac arg)
+        traceWith tr =<< do
+            meta <- mkLOMeta (defineSeverity arg) (definePrivacyAnnotation arg)
+            return ( mempty
+                   , LogObject mempty meta (LogValue name $ PureD $ realToFrac arg)
+                   )
 
 instance Transformable a IO Int where
     trTransformer StructuredLogging MinimalVerbosity = trFromIntegral ""
@@ -351,28 +349,32 @@ instance Transformable a IO Float where
     trTransformer _ _ = trFromReal "float"
 instance Transformable Text IO Text where
     trTransformer _ _ tr = Tracer $ \arg ->
-        traceWith tr =<<
-            LogObject <$> pure mempty
-                      <*> mkLOMeta (defineSeverity arg) (definePrivacyAnnotation arg)
-                      <*> pure (LogMessage arg)
+        traceWith tr =<< do
+            meta <- mkLOMeta (defineSeverity arg) (definePrivacyAnnotation arg)
+            return ( mempty
+                   , LogObject mempty meta (LogMessage arg)
+                   )
 instance Transformable String IO String where
     trTransformer _ _ tr = Tracer $ \arg ->
-        traceWith tr =<<
-            LogObject <$> pure mempty
-                      <*> mkLOMeta (defineSeverity arg) (definePrivacyAnnotation arg)
-                      <*> pure (LogMessage arg)
+        traceWith tr =<< do
+            meta <- mkLOMeta (defineSeverity arg) (definePrivacyAnnotation arg)
+            return ( mempty
+                   , LogObject mempty meta (LogMessage arg)
+                   )
 instance Transformable Text IO String where
     trTransformer _ _ tr = Tracer $ \arg ->
-        traceWith tr =<<
-            LogObject <$> pure mempty
-                      <*> mkLOMeta (defineSeverity arg) (definePrivacyAnnotation arg)
-                      <*> pure (LogMessage $ T.pack arg)
+        traceWith tr =<< do
+            meta <- mkLOMeta (defineSeverity arg) (definePrivacyAnnotation arg)
+            return ( mempty
+                   , LogObject mempty meta (LogMessage $ T.pack arg)
+                   )
 instance Transformable String IO Text where
     trTransformer _ _ tr = Tracer $ \arg ->
-        traceWith tr =<<
-            LogObject <$> pure mempty
-                      <*> mkLOMeta (defineSeverity arg) (definePrivacyAnnotation arg)
-                      <*> pure (LogMessage $ T.unpack arg)
+        traceWith tr =<< do
+            meta <- mkLOMeta (defineSeverity arg) (definePrivacyAnnotation arg)
+            return ( mempty
+                   , LogObject mempty meta (LogMessage $ T.unpack arg)
+                   )
 
 \end{code}
 
@@ -382,16 +384,16 @@ to their |ToObject| representation and further traces them as a |LogObject| of t
 \label{code:trStructured}\index{trStructured}
 \begin{code}
 trStructured :: (ToObject b, MonadIO m, DefinePrivacyAnnotation b, DefineSeverity b)
-             => TracingVerbosity -> Tracer m (LogObject a) -> Tracer m b
+             => TracingVerbosity -> Trace m a -> Tracer m b
 trStructured verb tr = Tracer $ \arg ->
  let
    obj = toObject verb arg
    tracer = if obj == emptyObject then nullTracer else tr
- in traceWith tracer =<<
-    LogObject
-      <$> pure mempty
-      <*> mkLOMeta (defineSeverity arg) (definePrivacyAnnotation arg)
-      <*> pure (LogStructured obj)
+ in traceWith tracer =<< do
+          meta <- mkLOMeta (defineSeverity arg) (definePrivacyAnnotation arg)
+          return ( mempty
+                 , LogObject mempty meta (LogStructured obj)
+                 )
 
 \end{code}
 
@@ -410,13 +412,13 @@ trStructured verb tr = Tracer $ \arg ->
 \index{severityCritical}\index{severityAlert}\index{severityEmergency}
 The log |Severity| level of a |LogObject| can be altered.
 \begin{code}
-setSeverity :: Severity -> Tracer m (LogObject a) -> Tracer m (LogObject a)
-setSeverity sev tr = Tracer $ \lo@(LogObject _nm meta@(LOMeta _ts _tid _hn _sev _pr) _lc) ->
-                                traceWith tr $ lo { loMeta = meta { severity = sev } }
+setSeverity :: Severity -> Trace m a -> Trace m a
+setSeverity sev tr = Tracer $ \(ctx,lo@(LogObject _nm meta@(LOMeta _ts _tid _hn _sev _pr) _lc)) ->
+                                traceWith tr $ (ctx, lo { loMeta = meta { severity = sev } })
 
 severityDebug, severityInfo, severityNotice,
   severityWarning, severityError, severityCritical,
-  severityAlert, severityEmergency  :: Tracer m (LogObject a) -> Tracer m (LogObject a)
+  severityAlert, severityEmergency  :: Trace m a -> Trace m a
 severityDebug     = setSeverity Debug
 severityInfo      = setSeverity Info
 severityNotice    = setSeverity Notice
@@ -446,11 +448,11 @@ annotateSeverity tr = Tracer $ \arg ->
 The privacy annotation (|PrivacyAnnotation|) of the |LogObject| can
 be altered with the following functions.
 \begin{code}
-setPrivacy :: PrivacyAnnotation -> Tracer m (LogObject a) -> Tracer m (LogObject a)
-setPrivacy prannot tr = Tracer $ \lo@(LogObject _nm meta _lc) ->
-                                traceWith tr $ lo { loMeta = meta { privacy = prannot } }
+setPrivacy :: PrivacyAnnotation -> Trace m a -> Trace m a
+setPrivacy prannot tr = Tracer $ \(ctx,lo@(LogObject _nm meta _lc)) ->
+                                   traceWith tr $ (ctx, lo { loMeta = meta { privacy = prannot }})
 
-annotateConfidential, annotatePublic :: Tracer m (LogObject a) -> Tracer m (LogObject a)
+annotateConfidential, annotatePublic :: Trace m a -> Trace m a
 annotateConfidential = setPrivacy Confidential
 annotatePublic = setPrivacy Public
 
@@ -463,22 +465,6 @@ The traced types need to be of class |DefinePrivacyAnnotation|.
 annotatePrivacyAnnotation :: DefinePrivacyAnnotation a => Tracer m (WithPrivacyAnnotation a) -> Tracer m a
 annotatePrivacyAnnotation tr = Tracer $ \arg ->
     traceWith tr $ WithPrivacyAnnotation (definePrivacyAnnotation arg) arg
-
-\end{code}
-
-
-\subsubsection{Transformers for adding a name to the context}
-\label{code:setName}\index{setName}
-\label{code:addName}\index{addName}
-This functions sets a new context name or adds names to the local context naming of |LogObject|.
-\begin{code}
-setName :: LoggerName -> Tracer m (LogObject a) -> Tracer m (LogObject a)
-setName nm tr = Tracer $ \lo@(LogObject _nm _meta _lc) ->
-                                traceWith tr $ lo { loName = [nm] }
-
-addName :: LoggerName -> Tracer m (LogObject a) -> Tracer m (LogObject a)
-addName nm tr = Tracer $ \lo@(LogObject nm0 _meta _lc) ->
-                                traceWith tr $ lo { loName = nm0 <> [nm] }
 
 \end{code}
 
@@ -587,16 +573,5 @@ instance HasPrivacyAnnotation (WithPrivacyAnnotation a) where
 
 instance HasPrivacyAnnotation a => HasPrivacyAnnotation (WithSeverity a) where
     getPrivacyAnnotation (WithSeverity _ a) = getPrivacyAnnotation a
-
-\end{code}
-
-\subsubsection{Transformer for setting hostname annotation}
-\label{code:setHostname}
-\index{setHostname}
-The hostname annotation of the |LogObject| can be altered.
-\begin{code}
-setHostname :: Text -> Tracer m (LogObject a) -> Tracer m (LogObject a)
-setHostname hn tr = Tracer $ \lo@(LogObject _nm meta _lc) ->
-                                traceWith tr $ lo { loMeta = meta { hostname = hn } }
 
 \end{code}

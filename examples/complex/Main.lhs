@@ -241,7 +241,7 @@ dumpBuffer sb trace = do
         threadDelay 25000000  -- 25 seconds
         buf <- readLogBuffer sb
         forM_ buf $ \(logname, LogObject _ lometa locontent) -> do
-            let tr' = modifyName (\n -> ["#buffer"] <> n <> [logname]) tr
+            let tr' = modifyName (\n -> "#buffer" <> "." <> n <> "." <> logname) tr
             traceNamedObject tr' (lometa, locontent)
         loop tr
 \end{code}
@@ -371,7 +371,7 @@ instance Transformable Text IO Pet where
     -- transform to textual representation using |show|
     trTransformer TextualRepresentation _v tr = Tracer $ \pet -> do
         meta <- mkLOMeta Info Public
-        traceWith tr $ LogObject ["pet"] meta $ (LogMessage . pack . show) pet
+        traceWith tr $ ("pet", LogObject "pet" meta $ (LogMessage . pack . show) pet)
     trTransformer _ _verb _tr = nullTracer
 
 -- default privacy annotation: Public
