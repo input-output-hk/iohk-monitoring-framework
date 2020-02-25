@@ -24,7 +24,6 @@ module Cardano.BM.Data.LogItem
   , mapLogObject
   , mapLOContent
   , loContentEq
-  , lo2name
   , loname2text
   )
   where
@@ -36,7 +35,9 @@ import           Data.Aeson (FromJSON (..), ToJSON (..), Value (..), (.=),
                      (.:), object, withText, withObject)
 import           Data.Aeson.Types (Object, Parser)
 import           Data.Function (on)
+import           Data.List (foldl')
 import           Data.Maybe (fromMaybe)
+import qualified Data.Text as T
 import           Data.Text (Text, pack, stripPrefix)
 import           Data.Time.Clock.POSIX (utcTimeToPOSIXSeconds)
 import           Data.Time.Clock (UTCTime (..), getCurrentTime)
@@ -64,7 +65,7 @@ type LoggerName = Text
 
 \begin{code}
 data LogObject a = LogObject
-                     { loName    :: [LoggerName]
+                     { loName    :: LoggerName
                      , loMeta    :: !LOMeta
                      , loContent :: !(LOContent a)
                      } deriving (Show, Eq)
@@ -400,17 +401,7 @@ loContentEq = (==) `on` loContent
 
 \subsubsection{Render context name as text}
 \label{code:loname2text}\index{loname2text}
-\label{code:lo2name}\index{lo2name}
 \begin{code}
-lo2name :: LogObject a -> Text
-lo2name (LogObject loname _ _) = loname2text loname
 loname2text :: [LoggerName] -> Text
-loname2text [] = ""
-loname2text (nm : nms) = intercalate nm "." nms
-  where
-    intercalate :: Text -> Text -> [Text] -> Text
-    intercalate acc _ [] = acc
-    intercalate acc sep (a : as) = intercalate
-        (acc <> sep <> a)
-        sep as
+loname2text nms = T.init $ foldl' (\el acc -> acc <> "." <> el) "" nms
 \end{code}

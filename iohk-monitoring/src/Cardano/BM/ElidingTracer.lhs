@@ -17,6 +17,7 @@ import           Control.Monad (when)
 
 import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.Aggregated (Measurable(PureI))
+import           Cardano.BM.Data.Trace
 import           Cardano.BM.Data.Tracer
 import           Cardano.BM.Trace (traceNamedObject)
 
@@ -57,29 +58,29 @@ Create a new state |MVar|.
 Internal state transitions.
 \begin{code}
   starteliding :: (ToObject t, Transformable t IO a)
-               => TracingFormatting -> TracingVerbosity -> Tracer IO (LogObject t)
+               => TracingFormatting -> TracingVerbosity -> Trace IO t
                -> a -> IO (Maybe a, Int)
   default starteliding :: (ToObject t, Transformable t IO a)
-                       => TracingFormatting -> TracingVerbosity -> Tracer IO (LogObject t)
+                       => TracingFormatting -> TracingVerbosity -> Trace IO t
                        -> a -> IO (Maybe a, Int)
   starteliding tform tverb tr ev = do
     traceWith (toLogObject' tform tverb tr) ev
     return (Just ev, 0)
 
   conteliding :: (ToObject t, Transformable t IO a)
-              => TracingFormatting -> TracingVerbosity -> Tracer IO (LogObject t)
+              => TracingFormatting -> TracingVerbosity -> Trace IO t
               -> a -> (Maybe a, Int) -> IO (Maybe a, Int)
   default conteliding :: Transformable t IO a
-                      => TracingFormatting -> TracingVerbosity -> Tracer IO (LogObject t)
+                      => TracingFormatting -> TracingVerbosity -> Trace IO t
                       -> a -> (Maybe a, Int) -> IO (Maybe a, Int)
   conteliding _tform _tverb _tr _ (Nothing, _count) = return (Nothing, 0)
   conteliding _tform _tverb _tr ev (_old, count) = return (Just ev, count + 1)
 
   stopeliding :: (ToObject t, Transformable t IO a)
-              => TracingFormatting -> TracingVerbosity -> Tracer IO (LogObject t)
+              => TracingFormatting -> TracingVerbosity -> Trace IO t
               -> a -> (Maybe a, Int) -> IO (Maybe a, Int)
   default stopeliding :: (ToObject t, Transformable t IO a)
-                      => TracingFormatting -> TracingVerbosity -> Tracer IO (LogObject t)
+                      => TracingFormatting -> TracingVerbosity -> Trace IO t
                       -> a -> (Maybe a, Int) -> IO (Maybe a, Int)
   stopeliding tform tverb tr ev (Nothing, _count) = do
     traceWith (toLogObject' tform tverb tr) ev
@@ -94,18 +95,18 @@ Internal state transitions.
     return (Nothing, 0)
 \end{code}
 
-The transformer from a Tracer IO emph{a} to Tracer IO (LogObject t) contains
+The transformer from a Tracer IO emph{a} to |Trace IO t| contains
 the main logic of eliding messages.
 \label{code:elideToLogObject}\index{ElidingTracer!elideToLogObject}
 \begin{code}
   elideToLogObject
       :: (ToObject t, Transformable t IO a)
       => TracingFormatting -> TracingVerbosity -> MVar (Maybe a, Int)
-      -> Tracer IO (LogObject t) -> Tracer IO a
+      -> Trace IO t -> Tracer IO a
   default elideToLogObject
       :: (ToObject t, Transformable t IO a)
       => TracingFormatting -> TracingVerbosity -> MVar (Maybe a, Int)
-      -> Tracer IO (LogObject t) -> Tracer IO a
+      -> Trace IO t -> Tracer IO a
   elideToLogObject tform tverb mvar tr = Tracer $ \ev ->
     modifyMVar_ mvar $ \s@(old, _count) ->
     if doelide ev

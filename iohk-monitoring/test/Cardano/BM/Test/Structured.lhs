@@ -48,7 +48,7 @@ Trace textual messages. This is not structured logging and only here for referen
 logSimpleText :: Assertion
 logSimpleText = do
     cfg <- defaultConfigTesting
-    baseTrace :: Tracer IO (LogObject Text) <- Setup.setupTrace (Right cfg) "logSimpleText"
+    baseTrace :: Trace IO Text <- Setup.setupTrace (Right cfg) "logSimpleText"
 
     traceWith (toLogObject baseTrace) ("This is a simple message." :: Text)
     traceWith (toLogObject baseTrace) (".. and another!" :: String)
@@ -86,7 +86,7 @@ instance Transformable Text IO Pet where
     -- transform to textual representation using |show|
     trTransformer TextualRepresentation _v tr = Tracer $ \pet -> do
         meta <- mkLOMeta Info Public
-        traceWith tr $ LogObject ["pet"] meta $ (LogMessage . pack . show) pet
+        traceWith tr $ ("pet", LogObject "pet" meta $ (LogMessage . pack . show) pet)
     trTransformer _ _verb _tr = nullTracer
 
 -- default privacy annotation: Public
@@ -124,7 +124,7 @@ logStructured = do
 logStructuredStdout :: Assertion
 logStructuredStdout = do
     cfg <- defaultConfigStdout
-    baseTrace :: Tracer IO (LogObject Text) <- Setup.setupTrace (Right cfg) "logStructured"
+    baseTrace :: Trace IO Text <- Setup.setupTrace (Right cfg) "logStructured"
 
     let noticeTracer = severityNotice baseTrace
     let confidentialTracer = annotateConfidential baseTrace
@@ -165,7 +165,7 @@ instance Transformable Text IO Material where
     -- transform to textual representation using |show|
     trTransformer TextualRepresentation _v tr = Tracer $ \mat -> do
         meta <- mkLOMeta Info Public
-        traceWith tr $ LogObject ["material"] meta $ (LogMessage . pack . show) mat
+        traceWith tr $ ("material", LogObject "material" meta $ (LogMessage . pack . show) mat)
     trTransformer _ _verb _tr = nullTracer
 
 instance DefinePrivacyAnnotation Material where

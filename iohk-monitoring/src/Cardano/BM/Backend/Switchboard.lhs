@@ -36,7 +36,7 @@ import           Control.Exception (SomeException(..))
 import           Control.Monad (forM_, when, void)
 import           Data.Aeson (FromJSON, ToJSON)
 import           Data.Maybe (isJust)
-import           Data.Text (Text, splitOn)
+import           Data.Text (Text)
 import qualified Data.Text.IO as TIO
 import           GHC.IO.Exception (BlockedIndefinitelyOnSTM)
 import qualified Katip as K
@@ -50,6 +50,7 @@ import           Cardano.BM.Data.Backend
 import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.SubTrace (SubTrace (..))
+import           Cardano.BM.Data.Trace (Trace)
 import           Cardano.BM.Data.Tracer (Tracer (..))
 import qualified Cardano.BM.Backend.Log
 import qualified Cardano.BM.Backend.LogBuffer
@@ -94,14 +95,15 @@ mainTrace = Tracer . effectuate
 
 This |Tracer| will apply to every message the severity filter as defined in the |Configuration|.
 \begin{code}
-mainTraceConditionally :: IsEffectuator eff a => Configuration -> eff a -> Tracer IO (LogObject a)
-mainTraceConditionally config eff = Tracer $ \item -> do
-    mayItem <- Config.testSubTrace config (lo2name item) item
+mainTraceConditionally :: IsEffectuator eff a => Configuration -> eff a -> Trace IO a
+mainTraceConditionally config eff = Tracer $ \(ctxname,item) -> do
+    mayItem <- Config.testSubTrace config ctxname item
     case mayItem of
-        Just itemF@(LogObject loname meta _) -> do
-            passSevFilter <- Config.testSeverity config (loname2text loname) meta
+        Just itemF@(LogObject _loname meta _) -> do
+            passSevFilter <- Config.testSeverity config ctxname meta
             when passSevFilter $
-                effectuate eff itemF
+                -- pass to backend and insert name
+                effectuate eff itemF { loName = ctxname }
         Nothing -> pure ()
 
 \end{code}
@@ -147,9 +149,9 @@ instance (FromJSON a, ToJSON a) => IsBackend Switchboard a where
                 let sendMessage nli befilter = do
                         let name = case nli of
                                 LogObject loname _ (LogValue valueName _) ->
-                                    loname <> [valueName]
+                                    loname <> "." <> valueName
                                 LogObject loname _ _ -> loname
-                        selectedBackends <- getBackends cfg (loname2text name)
+                        selectedBackends <- getBackends cfg name
                         let selBEs = befilter selectedBackends
                         withMVar (getSB switchboard) $ \sb ->
                             forM_ (sbBackends sb) $ \(bek, be) ->
@@ -163,9 +165,9 @@ instance (FromJSON a, ToJSON a) => IsBackend Switchboard a where
                                       return r
 
                         let processItem nli@(LogObject loname _ loitem) = do
-                                Config.findSubTrace cfg (loname2text loname) >>= \case
+                                Config.findSubTrace cfg loname >>= \case
                                     Just (TeeTrace sndName) ->
-                                        atomically $ TBQ.writeTBQueue queue $ nli{ loName = loname <> [sndName] }
+                                        atomically $ TBQ.writeTBQueue queue $ nli{ loName = loname <> "." <> sndName }
                                     _ -> return ()
 
                                 case loitem of
@@ -189,7 +191,7 @@ instance (FromJSON a, ToJSON a) => IsBackend Switchboard a where
                                         return True
                                     (Command (DumpBufferedTo bk)) -> do
                                         msgs <- Cardano.BM.Backend.LogBuffer.readBuffer logbuf
-                                        forM_ msgs (\(lonm, lobj) -> sendMessage (lobj {loName = splitOn "." lonm}) (const [bk]))
+                                        forM_ msgs (\(lonm, lobj) -> sendMessage (lobj {loName = lonm}) (const [bk]))
                                         return True
                                     _ -> do
                                         sendMessage nli id
@@ -241,7 +243,7 @@ instance (FromJSON a, ToJSON a) => IsBackend Switchboard a where
 
         (dispatcher, queue) <- withMVar (getSB switchboard) (\sb -> return (sbDispatch sb, sbQueue sb))
         -- send terminating item to the queue
-        lo <- LogObject <$> pure ["kill", "switchboard"]
+        lo <- LogObject <$> pure "kill.switchboard"
                         <*> (mkLOMeta Warning Confidential)
                         <*> pure KillPill
         atomically $ TBQ.writeTBQueue queue lo

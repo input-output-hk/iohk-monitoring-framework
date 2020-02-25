@@ -14,7 +14,6 @@ import           Control.Monad.IO.Class (MonadIO (..))
 import qualified Data.HashMap.Strict as HM
 import           Data.ByteString.Builder
 import           Data.ByteString.Char8 (ByteString)
-import           Data.Int (Int64)
 import           Data.Text (Text, replace)
 import           Data.Text.Encoding (encodeUtf8)
 import           Data.Text.Read (double)
@@ -36,13 +35,13 @@ spawnPrometheus ekg host port = Async.async $
     simpleHttpServe config site
   where
     config :: Config Snap a
-    config = setPort port . setBind host . setAccessLog log . setErrorLog log $ defaultConfig
-    log = ConfigNoLog
+    config = setPort port . setBind host . setAccessLog lg . setErrorLog lg $ defaultConfig
+    lg = ConfigNoLog
     site :: Snap ()
     site = route [ ("/metrics/", webhandler ekg) ]
     webhandler :: EKG.Server -> Snap ()
-    webhandler ekg = do
-        samples <- liftIO $ sampleAll $ EKG.serverMetricStore ekg
+    webhandler srv = do
+        samples <- liftIO $ sampleAll $ EKG.serverMetricStore srv
         writeLBS . toLazyByteString . renderSamples $ HM.toList samples
         pure ()
     renderSamples :: [(Text, Value)] -> Builder

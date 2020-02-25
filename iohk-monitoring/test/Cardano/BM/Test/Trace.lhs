@@ -464,7 +464,7 @@ unitTraceInFork = do
     Async.wait $ work1
 
     res <- STM.readTVarIO msgs
-    let names@(_: namesTail) = map lo2name res
+    let names@(_: namesTail) = map loName res
     -- each trace should have its own name and log right after the other
     assertBool
         ("Consecutive loggernames are not different: " ++ show names)
@@ -496,7 +496,7 @@ stressTraceInFork = do
     forM_ ts Async.wait
 
     res <- STM.readTVarIO msgs
-    let resNames = map lo2name res
+    let resNames = map loName res
     let frequencyMap = fromListWith (+) [(x, 1) | x <- resNames]
 
     -- each trace should have traced totalMessages' messages
@@ -541,7 +541,7 @@ unitAppendName = do
         trace2 = appendName bigName trace1
     forM_ [basetrace, trace1, trace2] $ (flip logInfo msg)
     res <- reverse <$> STM.readTVarIO msgs
-    let loggernames = map lo2name res
+    let loggernames = map loName res
     assertBool
         ("AppendName did not work properly. The loggernames for the messages are: " ++
             show loggernames)

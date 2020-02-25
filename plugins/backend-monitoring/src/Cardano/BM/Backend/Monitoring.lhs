@@ -253,9 +253,8 @@ evalMonitoringAction :: Trace.Trace IO a
                      -> LogObject a
                      -> [(VarName, Measurable)]
                      -> IO MonitorMap
-evalMonitoringAction sbtrace mmap logObj@(LogObject logname0 _ content) variables = do
-    let logname1 = loname2text logname0
-        logname = case content of
+evalMonitoringAction sbtrace mmap logObj@(LogObject logname1 _ content) variables = do
+    let logname = case content of
                     ObserveOpen  _ -> logname1 <> ".open"
                     ObserveDiff  _ -> logname1 <> ".diff"
                     ObserveClose _ -> logname1 <> ".close"
@@ -283,17 +282,17 @@ evalMonitoringAction sbtrace mmap logObj@(LogObject logname0 _ content) variable
     updateEnv :: Environment -> LogObject a -> Environment
     updateEnv env (LogObject loname lometa (ObserveOpen (CounterState counters))) =
         let addenv = HM.fromList $ ("timestamp", Nanoseconds $ utc2ns (tstamp lometa))
-                                 : countersEnvPairs ((loname2text loname) <> ".open") counters
+                                 : countersEnvPairs (loname <> ".open") counters
         in
         HM.union addenv env
     updateEnv env (LogObject loname lometa (ObserveDiff (CounterState counters))) =
         let addenv = HM.fromList $ ("timestamp", Nanoseconds $ utc2ns (tstamp lometa))
-                                 : countersEnvPairs ((loname2text loname) <> ".diff") counters
+                                 : countersEnvPairs (loname <> ".diff") counters
         in
         HM.union addenv env
     updateEnv env (LogObject loname lometa (ObserveClose (CounterState counters))) =
         let addenv = HM.fromList $ ("timestamp", Nanoseconds $ utc2ns (tstamp lometa))
-                                 : countersEnvPairs ((loname2text loname) <> ".close") counters
+                                 : countersEnvPairs (loname <> ".close") counters
         in
         HM.union addenv env
     updateEnv env (LogObject _ lometa (LogValue vn val)) =
