@@ -95,7 +95,7 @@ instance ToJSON a => IsEffectuator Log a where
         let logMVar = getK katip
         c <- configuration <$> readMVar logMVar
         setupScribes <- getSetupScribes c
-        selscribes <- getScribes c (lo2name item)
+        selscribes <- getScribes c (loName item)
         let selscribesFiltered =
                 case item of
                     LogObject _ (LOMeta _ _ _ _ Confidential) (LogMessage _)
@@ -298,7 +298,7 @@ passN backend katip (LogObject loname lometa loitem) = do
                     unless (msg == "" && isNothing payload) $ do
                         let threadIdText = KC.ThreadIdText $ tid lometa
                         let itemTime = tstamp lometa
-                        let localname = loname
+                        let localname = [loname]
                         let itemKatip = K.Item {
                                   _itemApp       = env ^. KC.logEnvApp
                                 , _itemEnv       = env ^. KC.logEnvEnv

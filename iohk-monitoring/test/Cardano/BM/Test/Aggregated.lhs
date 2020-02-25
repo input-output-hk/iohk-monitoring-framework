@@ -73,10 +73,10 @@ lometa = unsafePerformIO $ mkLOMeta Debug Public
 prop_Aggregation_comm :: Integer -> Integer -> Aggregated -> Property
 prop_Aggregation_comm v1 v2 ag =
     let ns = utc2ns $ tstamp lometa
-        Right agg2 = updateAggregation (PureI v2) ag ns Nothing
-        Right agg1 = updateAggregation (PureI v1) ag ns Nothing
-        Right (AggregatedStats stats21) = updateAggregation (PureI v1) agg2 ns Nothing
-        Right (AggregatedStats stats12) = updateAggregation (PureI v2) agg1 ns Nothing
+        Right agg2 = updateAggregation (PureI v2) ag ns
+        Right agg1 = updateAggregation (PureI v1) ag ns
+        Right (AggregatedStats stats21) = updateAggregation (PureI v1) agg2 ns
+        Right (AggregatedStats stats12) = updateAggregation (PureI v2) agg1 ns
     in
     fbasic stats21 === fbasic stats12 .&&.
     (v1 == v2) `implies` (flast stats21 === flast stats12)
@@ -93,7 +93,7 @@ implies p1 p2 = property (not p1) .||. p2
 unitAggregationInitialMinus1 :: Assertion
 unitAggregationInitialMinus1 = do
     let ns = utc2ns $ tstamp lometa
-        Right (AggregatedStats stats1) = updateAggregation (-1) firstStateAggregatedStats ns Nothing
+        Right (AggregatedStats stats1) = updateAggregation (-1) firstStateAggregatedStats ns
     flast stats1 @?= (-1)
     (fbasic stats1) @?= BaseStats (-1) 0 2 (-0.5) 0.5
     (fdelta stats1) @?= BaseStats (-1) (-1) 2 (-1) 0
@@ -101,7 +101,7 @@ unitAggregationInitialMinus1 = do
 unitAggregationInitialPlus1 :: Assertion
 unitAggregationInitialPlus1 = do
     let ns = utc2ns $ tstamp lometa
-        Right (AggregatedStats stats1) = updateAggregation 1 firstStateAggregatedStats ns Nothing
+        Right (AggregatedStats stats1) = updateAggregation 1 firstStateAggregatedStats ns
     flast stats1 @?= 1
     (fbasic stats1) @?= BaseStats 0 1 2 0.5 0.5
     (fdelta stats1) @?= BaseStats 1 1 2 1 0
@@ -109,7 +109,7 @@ unitAggregationInitialPlus1 = do
 unitAggregationInitialZero :: Assertion
 unitAggregationInitialZero = do
     let ns = utc2ns $ tstamp lometa
-        Right (AggregatedStats stats1) = updateAggregation 0 firstStateAggregatedStats ns Nothing
+        Right (AggregatedStats stats1) = updateAggregation 0 firstStateAggregatedStats ns
     flast stats1 @?= 0
     (fbasic stats1) @?= BaseStats 0 0 2 0 0
     (fdelta stats1) @?= BaseStats 0 0 2 0 0
@@ -117,8 +117,8 @@ unitAggregationInitialZero = do
 unitAggregationInitialPlus1Minus1 :: Assertion
 unitAggregationInitialPlus1Minus1 = do
     let ns = utc2ns $ tstamp lometa
-        Right agg1 = updateAggregation (PureI 1) firstStateAggregatedStats ns Nothing
-        Right (AggregatedStats stats1) = updateAggregation (PureI (-1)) agg1 ns Nothing
+        Right agg1 = updateAggregation (PureI 1) firstStateAggregatedStats ns
+        Right (AggregatedStats stats1) = updateAggregation (PureI (-1)) agg1 ns
     (fbasic stats1) @?= BaseStats (PureI (-1)) (PureI 1) 3   0.0  2.0
     (fdelta stats1) @?= BaseStats (PureI (-2)) (PureI 1) 3 (-0.5) 4.5
 
@@ -128,24 +128,24 @@ unitAggregationStepwise = do
     -- putStrLn (show stats0)
     threadDelay 50000   -- 0.05 s
     t1 <- mkLOMeta Debug Public
-    Right stats1 <- pure $ updateAggregation (Bytes 5000) stats0 (utc2ns $ tstamp t1) Nothing
+    Right stats1 <- pure $ updateAggregation (Bytes 5000) stats0 (utc2ns $ tstamp t1)
     -- putStrLn (show stats1)
     -- showTimedMean stats1
     threadDelay 50000   -- 0.05 s
     t2 <- mkLOMeta Debug Public
-    Right stats2 <- pure $ updateAggregation (Bytes 1000) stats1 (utc2ns $ tstamp t2) Nothing
+    Right stats2 <- pure $ updateAggregation (Bytes 1000) stats1 (utc2ns $ tstamp t2)
     -- putStrLn (show stats2)
     -- showTimedMean stats2
     checkTimedMean stats2
     threadDelay 50000   -- 0.05 s
     t3 <- mkLOMeta Debug Public
-    Right stats3 <- pure $ updateAggregation (Bytes 3000) stats2 (utc2ns $ tstamp t3) Nothing
+    Right stats3 <- pure $ updateAggregation (Bytes 3000) stats2 (utc2ns $ tstamp t3)
     -- putStrLn (show stats3)
     -- showTimedMean stats3
     checkTimedMean stats3
     threadDelay 50000   -- 0.05 s
     t4 <- mkLOMeta Debug Public
-    Right stats4 <- pure $ updateAggregation (Bytes 1000) stats3 (utc2ns $ tstamp t4) Nothing
+    Right stats4 <- pure $ updateAggregation (Bytes 1000) stats3 (utc2ns $ tstamp t4)
     -- putStrLn (show stats4)
     -- showTimedMean stats4
     checkTimedMean stats4

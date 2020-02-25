@@ -29,6 +29,7 @@ import qualified Cardano.BM.Configuration as Config
 import           Cardano.BM.Data.Backend
 import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.SubTrace (SubTrace (..))
+import           Cardano.BM.Data.Trace (Trace)
 import           Cardano.BM.Data.Tracer (Tracer (..), traceWith)
 
 \end{code}
@@ -48,18 +49,18 @@ instance IsEffectuator MockSwitchboard a where
 \end{code}
 
 \subsubsection{traceMock}\label{code:traceMock}\index{traceMock}
-A |Tracer| which forwards |LogObject|s to |MockSwitchboard| simulating
+A |Trace| which forwards |LogObject|s to |MockSwitchboard| simulating
 functionality of |mainTraceConditionally|.
 
 \begin{code}
-traceMock :: MockSwitchboard a -> Config.Configuration -> Tracer IO (LogObject a)
+traceMock :: MockSwitchboard a -> Config.Configuration -> Trace IO a
 traceMock ms config =
-    Tracer $ \item@(LogObject loname _ _) -> do
-        traceWith mainTrace item
-        subTrace <- fromMaybe Neutral <$> Config.findSubTrace config (loname2text loname)
+    Tracer $ \(ctx, lo) -> do
+        traceWith mainTrace (ctx, lo)
+        subTrace <- fromMaybe Neutral <$> Config.findSubTrace config ctx
         case subTrace of
             TeeTrace secName ->
-                traceWith mainTrace item{ loName = [secName] }
+                traceWith mainTrace (ctx <> "." <> secName, lo)
             _ -> return ()
   where
     mainTrace = mainTraceConditionally config ms
