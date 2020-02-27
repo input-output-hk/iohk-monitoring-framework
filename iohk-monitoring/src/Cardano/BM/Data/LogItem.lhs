@@ -189,11 +189,6 @@ Payload of a |LogObject|:
 \begin{code}
 data LOContent a = LogMessage a
                  | LogError !Text
-                 | LogRepeats
-                   { lrRepeats :: {-# UNPACK #-} !Int
-                   , lrFirst   :: !(LogObject a)
-                   , lrLast    :: !(LogObject a)
-                   }
                  | LogValue !Text !Measurable
                  | LogStructured !Object
                  | ObserveOpen !CounterState
@@ -213,11 +208,6 @@ instance ToJSON a => ToJSON (LOContent a) where
     toJSON (LogError m) =
         object [ "kind" .= String "LogError"
                , "message" .= toJSON m]
-    toJSON (LogRepeats n f l) =
-        object [ "kind" .= String "LogRepeats"
-               , "elided-count" .= toJSON n
-               , "first-elided" .= toJSON f
-               , "last-elided"  .= toJSON l]
     toJSON (LogValue n v) =
         object [ "kind" .= String "LogValue"
                , "name" .= toJSON n
@@ -252,10 +242,6 @@ instance (FromJSON a) => FromJSON (LOContent a) where
                   >>=
                   \case "LogMessage" -> LogMessage <$> v .: "message"
                         "LogError" -> LogError <$> v .: "message"
-                        "LogRepeats" -> LogRepeats
-                          <$> v .: "elided-count"
-                          <*> v .: "first-elided"
-                          <*> v .: "last-elided"
                         "LogValue" -> LogValue <$> v .: "name" <*> v .: "value"
                         "LogStructured" -> LogStructured <$> v .: "data"
                         "ObserveOpen" -> ObserveOpen <$> v .: "counters"
@@ -282,7 +268,6 @@ loTypeEq = locTypeEq `on` loContent
 locTypeEq :: LOContent a -> LOContent a -> Bool
 locTypeEq LogMessage{}        LogMessage{}        = True
 locTypeEq LogError{}          LogError{}          = True
-locTypeEq LogRepeats{}        LogRepeats{}        = True
 locTypeEq LogValue{}          LogValue{}          = True
 locTypeEq LogStructured{}     LogStructured{}     = True
 locTypeEq ObserveOpen{}       ObserveOpen{}       = True
@@ -302,7 +287,6 @@ loType2Name :: LOContent a -> Text
 loType2Name = \case
     LogMessage _        -> "LogMessage"
     LogError _          -> "LogError"
-    LogRepeats{}        -> "LogRepeats"
     LogValue _ _        -> "LogValue"
     LogStructured _     -> "LogStructured"
     ObserveOpen _       -> "ObserveOpen"
@@ -382,7 +366,6 @@ mapLOContent :: (a -> b) -> LOContent a -> LOContent b
 mapLOContent f = \case
     LogMessage msg       -> LogMessage (f msg)
     LogError a           -> LogError a
-    LogRepeats n fir las -> LogRepeats n (mapLogObject f fir) (mapLogObject f las)
     LogStructured m      -> LogStructured m
     LogValue n v         -> LogValue n v
     ObserveOpen st       -> ObserveOpen st
