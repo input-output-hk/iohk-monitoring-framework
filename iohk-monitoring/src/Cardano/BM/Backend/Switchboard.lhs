@@ -265,7 +265,7 @@ instance (FromJSON a, ToJSON a) => IsBackend Switchboard a where
         -- to the queue and we are waiting for the dispather to exit.
         -- At the end of it all, we simply either return the result or
         -- throw an exception.
-        _ <- withMVar (getSB switchboard) $ \sb -> do
+        res <- withMVar (getSB switchboard) $ \sb -> do
             let dispatcher  = sbDispatch sb
             let queue       = sbQueue sb
 
@@ -277,9 +277,10 @@ instance (FromJSON a, ToJSON a) => IsBackend Switchboard a where
             -- Send terminating item to the queue.
             atomically $ TBQ.writeTBQueue queue lo
             -- Wait for the dispatcher to exit.
-            res <- Async.waitCatch dispatcher
-            -- Either raise an exception or return the result.
-            either throwM return res
+            Async.waitCatch dispatcher
+
+        -- Either raise an exception or return the result.
+        either throwM return res
 
         -- Let's switch the flag to not running. Yes, keep everything else the same.
         let flagSwitchboardStopped :: SwitchboardInternal a -> SwitchboardInternal a
@@ -295,9 +296,6 @@ instance (FromJSON a, ToJSON a) => IsBackend Switchboard a where
 
         -- Modify the state in the end so we signal that the switchboard is shut down.
         _ <- withMVar (getSB switchboard) (\sb -> return $ flagSwitchboardStopped sb)
-
-        -- Clear the switchboard and remove any reference to it.
-        _ <- withMVar (getSB switchboard) $ \_ -> newEmptyMVar
 
         pure ()
 
