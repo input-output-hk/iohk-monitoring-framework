@@ -28,12 +28,12 @@ module Cardano.BM.Backend.Switchboard
 
 import qualified Control.Concurrent.Async as Async
 import           Control.Concurrent.MVar (MVar, newEmptyMVar, modifyMVar_,
-                     putMVar, readMVar, tryReadMVar, tryTakeMVar, withMVar)
+                     putMVar, readMVar, tryReadMVar, withMVar)
 import           Control.Concurrent.STM (atomically, retry)
 import qualified Control.Concurrent.STM.TBQueue as TBQ
 import           Control.Exception.Safe (throwM, fromException)
 import           Control.Exception (SomeException(..))
-import           Control.Monad (forM_, when, void)
+import           Control.Monad (forM_, when)
 import           Data.Aeson (FromJSON, ToJSON)
 import           Data.Maybe (isJust)
 import           Data.Text (Text)
@@ -261,23 +261,25 @@ instance (FromJSON a, ToJSON a) => IsBackend Switchboard a where
         return sb
 
     unrealize switchboard = do
-        -- How is this "clearing" anything?
-        let clearMVar :: MVar (SwitchboardInternal a) -> IO ()
-            clearMVar = void . tryTakeMVar
+        -- Here we are doing a modification to send the "kill pill"
+        -- to the queue and we are waiting for the dispather to exit.
+        -- At the end of it all, we simply either return the result or
+        -- throw an exception.
+        _ <- withMVar (getSB switchboard) $ \sb -> do
+            let dispatcher  = sbDispatch sb
+            let queue       = sbQueue sb
 
-        -- This is kind of weird. This function is generally used for
-        -- the modification of the internal state, not breaking the encapsulation.
-        (dispatcher, queue) <- withMVar (getSB switchboard) (\sb -> return (sbDispatch sb, sbQueue sb))
-
-        -- send terminating item to the queue
-        lo <- LogObject <$> pure "kill.switchboard"
-                        <*> (mkLOMeta Warning Confidential)
-                        <*> pure KillPill
-
-        atomically $ TBQ.writeTBQueue queue lo
-        -- wait for the dispatcher to exit
-        res <- Async.waitCatch dispatcher
-        either throwM return res
+            -- Create terminating item, the "kill pill".
+            lo <- LogObject <$> pure "kill.switchboard"
+                            <*> (mkLOMeta Warning Confidential)
+                            <*> pure KillPill
+    
+            -- Send terminating item to the queue.
+            atomically $ TBQ.writeTBQueue queue lo
+            -- Wait for the dispatcher to exit.
+            res <- Async.waitCatch dispatcher
+            -- Either raise an exception or return the result.
+            either throwM return res
 
         -- Let's switch the flag to not running. Yes, keep everything else the same.
         let flagSwitchboardStopped :: SwitchboardInternal a -> SwitchboardInternal a
@@ -294,7 +296,11 @@ instance (FromJSON a, ToJSON a) => IsBackend Switchboard a where
         -- Modify the state in the end so we signal that the switchboard is shut down.
         _ <- withMVar (getSB switchboard) (\sb -> return $ flagSwitchboardStopped sb)
 
-        clearMVar . getSB $ switchboard
+        -- Clear the switchboard and remove any reference to it.
+        _ <- withMVar (getSB switchboard) $ \_ -> newEmptyMVar
+
+        pure ()
+
 
 isBlockedIndefinitelyOnSTM :: SomeException -> Bool
 isBlockedIndefinitelyOnSTM e =
