@@ -168,15 +168,16 @@ instance IsEffectuator EKGView a where
         ekg <- readMVar (getEV ekgview)
         case evQueue ekg of
           Nothing -> pure ()
-          Just queue -> doEnqueue ekg queue
+          Just queue -> doEnqueue queue
      where
-       doEnqueue :: EKGViewInternal a -> TBQ.TBQueue (Maybe (LogObject a)) -> IO ()
-       doEnqueue _ekg queue = do
+       doEnqueue :: TBQ.TBQueue (Maybe (LogObject a)) -> IO ()
+       doEnqueue queue =
          let enqueue a = do
                          nocapacity <- atomically $ TBQ.isFullTBQueue queue
                          if nocapacity
                          then handleOverflow ekgview
                          else atomically $ TBQ.writeTBQueue queue (Just a)
+         in
          case item of
              (LogObject loname lometa (AggregatedMessage ags)) -> liftIO $ do
                  let traceAgg :: [(Text,Aggregated)] -> IO ()
@@ -349,10 +350,10 @@ spawnDispatcher config evqueue _sbtrace ekgtrace =
     processEKGView obj@(LogObject loname0 _ _) _ = do
         obj' <- testSubTrace config ("#ekgview." <> loname0) obj
         case obj' of
-            Just (LogObject loname meta content) ->
-                let trace = Trace.appendName loname ekgtrace
+            Just lo ->
+                let trace = Trace.appendName loname0 ekgtrace
                 in
-                Trace.traceNamedObject trace (meta, content)
+                traceWith trace (loname0, lo)
             Nothing -> pure ()
         pure ()
 
