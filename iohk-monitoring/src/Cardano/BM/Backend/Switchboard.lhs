@@ -24,6 +24,9 @@ module Cardano.BM.Backend.Switchboard
     , addUserDefinedBackend
     , addExternalBackend
     , addExternalScribe
+    -- * testing
+    , realizeSwitchboard
+    , unrealizeSwitchboard
     ) where
 
 import qualified Control.Concurrent.Async as Async
@@ -156,148 +159,161 @@ instance IsEffectuator Switchboard a where
 instance (FromJSON a, ToJSON a) => IsBackend Switchboard a where
     bekind _ = SwitchboardBK
 
-    realize cfg = do
-        -- we setup |LogBuffer| explicitly so we can access it as a |Backend| and as |LogBuffer|
-        logbuf :: Cardano.BM.Backend.LogBuffer.LogBuffer a <- Cardano.BM.Backend.LogBuffer.realize cfg
-        katipBE :: Cardano.BM.Backend.Log.Log a <- Cardano.BM.Backend.Log.realize cfg
-        let spawnDispatcher :: Switchboard a -> TBQ.TBQueue (LogObject a) -> IO (Async.Async ())
-            spawnDispatcher switchboard queue =
+    realize cfg = realizeSwitchboard cfg
+    unrealize switchboard = unrealizeSwitchboard switchboard
 
-                let sendMessage nli befilter = do
-                        let name = case nli of
-                                LogObject loname _ (LogValue valueName _) ->
-                                    loname <> "." <> valueName
-                                LogObject loname _ _ -> loname
-                        selectedBackends <- getBackends cfg name
-                        let selBEs = befilter selectedBackends
-                        withMVar (getSB switchboard) $ \sb ->
-                            forM_ (sbBackends sb) $ \(bek, be) ->
-                                when (bek `elem` selBEs) (bEffectuate be nli)
 
-                    qProc = do
-                        -- read complete queue at once and process items
-                        nlis <- atomically $ do
-                                      r <- TBQ.flushTBQueue queue
-                                      when (null r) retry
-                                      return r
+realizeSwitchboard :: (FromJSON a, ToJSON a) => Configuration -> IO (Switchboard a)
+realizeSwitchboard cfg = do
+    -- we setup |LogBuffer| explicitly so we can access it as a |Backend| and as |LogBuffer|
+    logbuf :: Cardano.BM.Backend.LogBuffer.LogBuffer a <- Cardano.BM.Backend.LogBuffer.realize cfg
+    katipBE :: Cardano.BM.Backend.Log.Log a <- Cardano.BM.Backend.Log.realize cfg
+    let spawnDispatcher :: Switchboard a -> TBQ.TBQueue (LogObject a) -> IO (Async.Async ())
+        spawnDispatcher switchboard queue =
 
-                        let processItem nli@(LogObject loname _ loitem) = do
-                                Config.findSubTrace cfg loname >>= \case
-                                    Just (TeeTrace sndName) ->
-                                        atomically $ TBQ.writeTBQueue queue $ nli{ loName = loname <> "." <> sndName }
-                                    _ -> return ()
+            let sendMessage nli befilter = do
+                    let name = case nli of
+                            LogObject loname _ (LogValue valueName _) ->
+                                loname <> "." <> valueName
+                            LogObject loname _ _ -> loname
+                    selectedBackends <- getBackends cfg name
+                    let selBEs = befilter selectedBackends
+                    withMVar (getSB switchboard) $ \sb ->
+                        forM_ (sbBackends sb) $ \(bek, be) ->
+                            when (bek `elem` selBEs) (bEffectuate be nli)
 
-                                case loitem of
-                                    KillPill -> do
-                                        -- each of the backends will be terminated sequentially
-                                        withMVar (getSB switchboard) $ \sb ->
-                                            forM_ (sbBackends sb) ( \(_, be) -> bUnrealize be )
-                                        -- all backends have terminated
-                                        return False
-                                    (AggregatedMessage _) -> do
-                                        sendMessage nli (filter (/= AggregationBK))
-                                        return True
-                                    (MonitoringEffect (MonitorAlert _)) -> do
-                                        sendMessage nli (filter (/= MonitoringBK))
-                                        return True
-                                    (MonitoringEffect (MonitorAlterGlobalSeverity sev)) -> do
-                                        setMinSeverity cfg sev
-                                        return True
-                                    (MonitoringEffect (MonitorAlterSeverity loggerName sev)) -> do
-                                        setSeverity cfg loggerName (Just sev)
-                                        return True
-                                    (Command (DumpBufferedTo bk)) -> do
-                                        msgs <- Cardano.BM.Backend.LogBuffer.readBuffer logbuf
-                                        forM_ msgs (\(lonm, lobj) -> sendMessage (lobj {loName = lonm}) (const [bk]))
-                                        return True
-                                    _ -> do
-                                        sendMessage nli id
-                                        return True
+                qProc = do
+                    -- read complete queue at once and process items
+                    nlis <- atomically $ do
+                                  r <- TBQ.flushTBQueue queue
+                                  when (null r) retry
+                                  return r
 
-                        res <- mapM processItem nlis
-                        when (and res) $ qProc
-                in
-                Async.async qProc
+                    let processItem nli@(LogObject loname _ loitem) = do
+                            Config.findSubTrace cfg loname >>= \case
+                                Just (TeeTrace sndName) ->
+                                    atomically $ TBQ.writeTBQueue queue $ nli{ loName = loname <> "." <> sndName }
+                                _ -> return ()
+
+                            case loitem of
+                                KillPill -> do
+                                    -- each of the backends will be terminated sequentially
+                                    withMVar (getSB switchboard) $ \sb ->
+                                        forM_ (sbBackends sb) ( \(_, be) -> bUnrealize be )
+                                    -- all backends have terminated
+                                    return False
+                                (AggregatedMessage _) -> do
+                                    sendMessage nli (filter (/= AggregationBK))
+                                    return True
+                                (MonitoringEffect (MonitorAlert _)) -> do
+                                    sendMessage nli (filter (/= MonitoringBK))
+                                    return True
+                                (MonitoringEffect (MonitorAlterGlobalSeverity sev)) -> do
+                                    setMinSeverity cfg sev
+                                    return True
+                                (MonitoringEffect (MonitorAlterSeverity loggerName sev)) -> do
+                                    setSeverity cfg loggerName (Just sev)
+                                    return True
+                                (Command (DumpBufferedTo bk)) -> do
+                                    msgs <- Cardano.BM.Backend.LogBuffer.readBuffer logbuf
+                                    forM_ msgs (\(lonm, lobj) -> sendMessage (lobj {loName = lonm}) (const [bk]))
+                                    return True
+                                _ -> do
+                                    sendMessage nli id
+                                    return True
+
+                    res <- mapM processItem nlis
+                    when (and res) $ qProc
+            in
+            Async.async qProc
 
 #ifdef PERFORMANCE_TEST_QUEUE
-        let qSize = 1000000
+    let qSize = 1000000
 #else
-        let qSize = 2048
+    let qSize = 2048
 #endif
-        q <- atomically $ TBQ.newTBQueue qSize
-        sbref <- newEmptyMVar
+    q <- atomically $ TBQ.newTBQueue qSize
+    sbref <- newEmptyMVar
 
-        let sb :: Switchboard a = Switchboard sbref
+    let sb :: Switchboard a = Switchboard sbref
 
-        backends <- getSetupBackends cfg
-        bs0 <- setupBackends backends cfg sb
-        bs1 <- return (LogBufferBK, MkBackend
-                            { bEffectuate = Cardano.BM.Backend.LogBuffer.effectuate logbuf
-                            , bUnrealize = Cardano.BM.Backend.LogBuffer.unrealize logbuf
-                            })
-        bs2 <- return (KatipBK, MkBackend
-                            { bEffectuate = Cardano.BM.Backend.Log.effectuate katipBE
-                            , bUnrealize = Cardano.BM.Backend.Log.unrealize katipBE
-                            })
+    backends <- getSetupBackends cfg
+    bs0 <- setupBackends backends cfg sb
+    bs1 <- return (LogBufferBK, MkBackend
+                        { bEffectuate = Cardano.BM.Backend.LogBuffer.effectuate logbuf
+                        , bUnrealize = Cardano.BM.Backend.LogBuffer.unrealize logbuf
+                        })
+    bs2 <- return (KatipBK, MkBackend
+                        { bEffectuate = Cardano.BM.Backend.Log.effectuate katipBE
+                        , bUnrealize = Cardano.BM.Backend.Log.unrealize katipBE
+                        })
 
-        let bs = bs2 : bs1 : bs0
-        dispatcher <- spawnDispatcher sb q
-        -- link the given Async to the current thread, such that if the Async
-        -- raises an exception, that exception will be re-thrown in the current
-        -- thread, wrapped in ExceptionInLinkedThread.
-        Async.linkOnly (not . isBlockedIndefinitelyOnSTM) dispatcher
+    let bs = bs2 : bs1 : bs0
+    dispatcher <- spawnDispatcher sb q
+    -- link the given Async to the current thread, such that if the Async
+    -- raises an exception, that exception will be re-thrown in the current
+    -- thread, wrapped in ExceptionInLinkedThread.
+    Async.linkOnly (not . isBlockedIndefinitelyOnSTM) dispatcher
 
-        -- Modify the internal state of the switchboard, the switchboard
-        -- is now running.
-        putMVar sbref $ SwitchboardInternal 
-            { sbQueue = q
-            , sbDispatch = dispatcher
-            , sbLogBuffer = logbuf
-            , sbLogBE = katipBE
-            , sbBackends = bs
-            , sbRunning = SwitchboardRunning
-            }
+    -- Modify the internal state of the switchboard, the switchboard
+    -- is now running.
+    putMVar sbref $ SwitchboardInternal 
+        { sbQueue = q
+        , sbDispatch = dispatcher
+        , sbLogBuffer = logbuf
+        , sbLogBE = katipBE
+        , sbBackends = bs
+        , sbRunning = SwitchboardRunning
+        }
 
-        return sb
+    return sb
 
-    unrealize switchboard = do
-        -- Here we are doing a modification to send the "kill pill"
-        -- to the queue and we are waiting for the dispather to exit.
-        -- At the end of it all, we simply either return the result or
-        -- throw an exception.
-        res <- withMVar (getSB switchboard) $ \sb -> do
-            let dispatcher  = sbDispatch sb
-            let queue       = sbQueue sb
 
-            -- Create terminating item, the "kill pill".
-            lo <- LogObject <$> pure "kill.switchboard"
-                            <*> (mkLOMeta Warning Confidential)
-                            <*> pure KillPill
+
+unrealizeSwitchboard :: Switchboard a -> IO ()
+unrealizeSwitchboard switchboard = do
+    -- Here we are doing a modification to send the "kill pill"
+    -- to the queue and we are waiting for the dispather to exit.
+    -- At the end of it all, we simply either return the result or
+    -- throw an exception.
+    dispatcher <- withMVar (getSB switchboard) $ \sb -> do
+        let dispatcher  = sbDispatch sb
+        let queue       = sbQueue sb
+
+        -- Create terminating item, the "kill pill".
+        lo <- LogObject <$> pure "kill.switchboard"
+                        <*> (mkLOMeta Warning Confidential)
+                        <*> pure KillPill
     
-            -- Send terminating item to the queue.
-            atomically $ TBQ.writeTBQueue queue lo
-            -- Wait for the dispatcher to exit.
-            Async.waitCatch dispatcher
+        -- Send terminating item to the queue.
+        atomically $ TBQ.writeTBQueue queue lo
 
-        -- Either raise an exception or return the result.
-        either throwM return res
+        -- Return the dispatcher.
+        return dispatcher
 
-        -- Let's switch the flag to not running. Yes, keep everything else the same.
-        let flagSwitchboardStopped :: SwitchboardInternal a -> SwitchboardInternal a
-            flagSwitchboardStopped sb = 
-                SwitchboardInternal 
-                    { sbQueue = sbQueue sb
-                    , sbDispatch = sbDispatch sb
-                    , sbLogBuffer = sbLogBuffer sb
-                    , sbLogBE = sbLogBE sb
-                    , sbBackends = sbBackends sb
-                    , sbRunning = SwitchboardNotRunning
-                    }
+    -- Wait for the dispatcher to exit.
+    res <- Async.waitCatch dispatcher
 
-        -- Modify the state in the end so we signal that the switchboard is shut down.
-        _ <- withMVar (getSB switchboard) (\sb -> return $ flagSwitchboardStopped sb)
+    -- Either raise an exception or return the result.
+    either throwM return res
 
-        pure ()
+    -- Let's switch the flag to not running. Yes, keep everything else the same.
+    let flagSwitchboardStopped :: SwitchboardInternal a -> SwitchboardInternal a
+        flagSwitchboardStopped sb = 
+            SwitchboardInternal 
+                { sbQueue = sbQueue sb
+                , sbDispatch = sbDispatch sb
+                , sbLogBuffer = sbLogBuffer sb
+                , sbLogBE = sbLogBE sb
+                , sbBackends = sbBackends sb
+                , sbRunning = SwitchboardNotRunning
+                }
+
+    -- Modify the state in the end so we signal that the switchboard is shut down.
+    _ <- withMVar (getSB switchboard) (\sb -> return $ flagSwitchboardStopped sb)
+
+    pure ()
+
 
 
 isBlockedIndefinitelyOnSTM :: SomeException -> Bool
