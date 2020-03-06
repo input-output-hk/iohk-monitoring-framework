@@ -105,7 +105,8 @@ unitConfigurationStaticRepresentation =
             , hasGraylog = Just 12788
             , hasEKG = Just 18321
             , hasPrometheus = Just ("localhost", 12799)
-            , logOutput = Nothing
+            , traceForwardTo = Just (RemotePipe "to")
+            , traceAcceptAt = Just (RemotePipe "at")
             , options =
                 HM.fromList [ ("test1", Object (HM.singleton "value" "object1"))
                             , ("test2", Object (HM.singleton "value" "object2")) ]
@@ -127,6 +128,12 @@ unitConfigurationStaticRepresentation =
             , "- 12799"
             , "hasGraylog: 12788"
             , "hasGUI: 12789"
+            , "traceForwardTo:"
+            , "  tag: RemotePipe"
+            , "  contents: to"
+            , "traceAcceptAt:"
+            , "  tag: RemotePipe"
+            , "  contents: at"
             , "defaultScribes:"
             , "- - StdoutSK"
             , "  - stdout"
@@ -141,7 +148,6 @@ unitConfigurationStaticRepresentation =
             , "  scKind: StdoutSK"
             , "  scFormat: ScText"
             , "  scPrivacy: ScPublic"
-            , "logOutput: null"
             , "hasEKG: 18321"
             , "minSeverity: Info"
             , "" -- to force a line feed at the end of the file
@@ -166,6 +172,12 @@ unitConfigurationParsedRepresentation = do
             , "hasPrometheus: null"
             , "hasGraylog: 12788"
             , "hasGUI: null"
+            , "traceForwardTo:"
+            , "  tag: RemotePipe"
+            , "  contents: to"
+            , "traceAcceptAt:"
+            , "  tag: RemotePipe"
+            , "  contents: at"
             , "defaultScribes:"
             , "- - StdoutSK"
             , "  - stdout"
@@ -225,7 +237,6 @@ unitConfigurationParsedRepresentation = do
             , "  scKind: StdoutSK"
             , "  scFormat: ScText"
             , "  scPrivacy: ScPublic"
-            , "logOutput: null"
             , "hasEKG: 12789"
             , "minSeverity: Info"
             , "" -- to force a line feed at the end of the file
@@ -368,7 +379,8 @@ unitConfigurationParsed = do
         , cgPortGraylog       = 12788
         , cgBindAddrPrometheus = Nothing
         , cgPortGUI           = 0
-        , cgLogOutput         = Nothing
+        , cgForwardTo         = Just (RemotePipe "to")
+        , cgAcceptAt          = Just (RemotePipe "at")
         }
 
 unitConfigurationExport :: Assertion
@@ -416,7 +428,6 @@ unitConfigurationExportStdout = do
     cgPortGraylog        cfgInternal' @?= cgPortGraylog        cfgInternal
     cgBindAddrPrometheus cfgInternal' @?= cgBindAddrPrometheus cfgInternal
     cgPortGUI            cfgInternal' @?= cgPortGUI            cfgInternal
-    cgLogOutput          cfgInternal' @?= cgLogOutput          cfgInternal
     cfgInternal' @?= cfgInternal
 
 \end{code}

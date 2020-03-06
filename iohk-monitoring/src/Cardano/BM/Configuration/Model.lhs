@@ -19,13 +19,14 @@ module Cardano.BM.Configuration.Model
     , exportConfiguration
     , findSubTrace
     , getAggregatedKind
+    , getAcceptAt
     , getBackends
     , getCachedScribes
     , getDefaultBackends
     , getEKGport
+    , getForwardTo
     , getGUIport
     , getGraylogPort
-    , getLogOutput
     , getMapOption
     , getMonitors
     , getOption
@@ -43,9 +44,9 @@ module Cardano.BM.Configuration.Model
     , setDefaultBackends
     , setDefaultScribes
     , setEKGport
+    , setForwardTo
     , setGUIport
     , setGraylogPort
-    , setLogOutput
     , setMinSeverity
     , setMonitors
     , setOption
@@ -79,6 +80,7 @@ import           Data.Yaml as Yaml
 import           Cardano.BM.Data.AggregatedKind (AggregatedKind(..))
 import           Cardano.BM.Data.BackendKind
 import qualified Cardano.BM.Data.Configuration as R
+import           Cardano.BM.Data.Configuration (RemoteAddr(..))
 import           Cardano.BM.Data.LogItem (LogObject (..), LoggerName, LOContent (..), severity)
 import           Cardano.BM.Data.MonitoringEval (MEvExpr, MEvPreCond, MEvAction)
 import           Cardano.BM.Data.Output (ScribeDefinition (..), ScribeId,
@@ -145,10 +147,12 @@ data ConfigurationInternal = ConfigurationInternal
     -- port to Graylog server
     , cgBindAddrPrometheus :: Maybe (String, Int)
     -- host/port to bind Prometheus server at
+    , cgForwardTo         :: Maybe RemoteAddr
+    -- trace acceptor to forward to
+    , cgAcceptAt          :: Maybe RemoteAddr
+    -- accept remote traces at this address
     , cgPortGUI           :: Int
     -- port for changes at runtime
-    , cgLogOutput         :: Maybe FilePath
-    -- filepath of pipe or file for forwarding of log objects
     } deriving (Show, Eq)
 
 \end{code}
@@ -325,18 +329,14 @@ setGUIport configuration port =
     modifyMVar_ (getCG configuration) $ \cg ->
         return cg { cgPortGUI = port }
 
-\end{code}
+getAcceptAt, getForwardTo :: Configuration -> IO (Maybe RemoteAddr)
+getAcceptAt  = fmap cgAcceptAt  . readMVar . getCG
+getForwardTo = fmap cgForwardTo . readMVar . getCG
 
-\subsubsection{Access port numbers of EKG, Prometheus, GUI}
-\begin{code}
-getLogOutput :: Configuration -> IO (Maybe FilePath)
-getLogOutput configuration =
-    cgLogOutput <$> (readMVar $ getCG configuration)
-
-setLogOutput :: Configuration -> FilePath -> IO ()
-setLogOutput configuration path =
-    modifyMVar_ (getCG configuration) $ \cg ->
-        return cg { cgLogOutput = Just path }
+setForwardTo :: Configuration -> Maybe RemoteAddr -> IO ()
+setForwardTo cf mra =
+    modifyMVar_ (getCG cf) $ \cg ->
+        return cg { cgForwardTo = mra }
 
 \end{code}
 
@@ -492,7 +492,8 @@ setupFromRepresentation r = do
         , cgPortGraylog       = r_hasGraylog r
         , cgBindAddrPrometheus = r_hasPrometheus r
         , cgPortGUI           = r_hasGUI r
-        , cgLogOutput         = R.logOutput r
+        , cgForwardTo         = r_forward r
+        , cgAcceptAt          = r_accept r
         }
     return $ Configuration cgref
   where
@@ -546,6 +547,8 @@ setupFromRepresentation r = do
     r_hasGUI repr = case (R.hasGUI repr) of
                        Nothing -> 0
                        Just p  -> p
+    r_forward repr = R.traceForwardTo repr
+    r_accept repr = R.traceAcceptAt repr
     r_defaultScribes repr = map (\(k,n) -> pack(show k) <> "::" <> n) (R.defaultScribes repr)
 
 parseAggregatedKindMap :: Maybe (HM.HashMap Text Value) -> HM.HashMap LoggerName AggregatedKind
@@ -582,7 +585,8 @@ empty = do
                            , cgPortGraylog       = 0
                            , cgBindAddrPrometheus = Nothing
                            , cgPortGUI           = 0
-                           , cgLogOutput         = Nothing
+                           , cgForwardTo         = Nothing
+                           , cgAcceptAt          = Nothing
                            }
     return $ Configuration cgref
 
@@ -645,7 +649,8 @@ toRepresentation (Configuration c) = do
             , R.hasGraylog      = if portGraylog == 0 then Nothing else Just portGraylog
             , R.hasPrometheus   = cgBindAddrPrometheus cfg
             , R.hasGUI          = if portGUI == 0 then Nothing else Just portGUI
-            , R.logOutput       = cgLogOutput cfg
+            , R.traceForwardTo  = cgForwardTo cfg
+            , R.traceAcceptAt   = cgAcceptAt cfg
             , R.options         = mapSeverities `HM.union`
                                   mapBackends   `HM.union`
                                   mapAggKinds   `HM.union`

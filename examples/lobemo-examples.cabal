@@ -50,6 +50,7 @@ executable example-complex
                        lobemo-backend-editor,
                        lobemo-backend-ekg,
                        lobemo-backend-monitoring,
+                       lobemo-backend-trace-forwarder,
                        lobemo-scribe-systemd,
                        async,
                        bytestring,
@@ -80,3 +81,24 @@ executable example-performance
                        text,
                        unordered-containers
 
+executable example-acceptor
+  hs-source-dirs:      acceptor
+  main-is:             Main.hs
+  default-language:    Haskell2010
+  ghc-options:         -threaded
+                       -Wall
+                       -rtsopts
+                       "-with-rtsopts=-T"
+                       -fno-warn-unticked-promoted-constructors
+
+  build-depends:       base
+                     , contra-tracer
+                     , iohk-monitoring
+                     , lobemo-backend-trace-acceptor
+
+                     , bytestring
+                     , iproute
+                     , network
+                     , optparse-applicative
+                     , serialise
+                     , text

@@ -96,3 +96,11 @@ options:
         "EwmaAK {alpha = 0.75}"
     iohk.background.process:
         "StatsAK"
+
+traceForwardTo:
+  tag: RemotePipe
+  contents: to
+
+traceAcceptAt:
+  tag: RemotePipe
+  contents: at

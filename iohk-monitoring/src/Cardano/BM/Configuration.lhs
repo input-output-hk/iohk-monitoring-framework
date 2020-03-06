@@ -14,7 +14,10 @@ module Cardano.BM.Configuration
     , CM.setMinSeverity
     , CM.inspectSeverity
     , CM.setSeverity
+    , CM.getAcceptAt
     , CM.getBackends
+    , CM.getForwardTo
+    , CM.setForwardTo
     , CM.getOption
     , CM.getMapOption
     , CM.getTextOption
