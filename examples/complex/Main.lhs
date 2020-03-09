@@ -183,8 +183,6 @@ prepare_configuration = do
     CM.setBackends c "complex.random.ewma" (Just [AggregationBK])
     CM.setBackends c "complex.observeIO" (Just [AggregationBK, MonitoringBK])
 
-    CM.setForwardTo c (Just $ RemotePipe "logs/pipe")
-
     forM_ [(1::Int)..10] $ \x -> do
       CM.setBackends c
         ("complex.observeSTM." <> pack (show x))
@@ -205,6 +203,9 @@ prepare_configuration = do
     CM.setEKGport c 12790
     CM.setPrometheusBindAddr c $ Just ("localhost", 12800)
     CM.setGUIport c 13790
+
+    -- CM.setForwardTo c (Just $ RemotePipe "logs/pipe")
+    CM.setForwardTo c (Just $ RemoteSocket "127.0.0.1" "2999")
 
     CM.setMonitors c $ HM.fromList
         [ ( "complex.monitoring"

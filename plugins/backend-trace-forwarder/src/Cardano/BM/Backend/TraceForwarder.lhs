@@ -9,7 +9,6 @@
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE RecursiveDo           #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TypeFamilies          #-}
 
@@ -34,6 +33,7 @@ import           Data.Text.Encoding (encodeUtf8)
 import           Data.Typeable (Typeable)
 
 import           GHC.IO.Handle (hDuplicate)
+import qualified Network.Socket as Socket
 import           System.IO (IOMode (..), openFile, BufferMode (NoBuffering),
                      Handle, hClose, hSetBuffering, openFile, stderr,
                      hPutStrLn)
@@ -53,9 +53,12 @@ import qualified Cardano.BM.Trace as Trace
 \end{code}
 %endif
 
-|TraceForwarder| is a new backend responsible for redirecting the logs into a pipe
-or a socket to be used from another application. It puts |LogObject|s as
-|ByteString|s in the provided handler.
+|TraceForwarder| is a backend responsible for redirecting logs to a
+different process (running a |TraceAcceptor| backend), by means of
+either a pipe or a socket.
+
+Note that if the connection to the trace acceptor is broken,
+the application is terminated.
 
 \subsubsection{Plugin definition}
 \begin{code}
@@ -111,42 +114,35 @@ instance (FromJSON a, ToJSON a) => IsBackend TraceForwarder a where
 
     realize cfg = getForwardTo cfg >>= \case
       Nothing -> fail "Trace forwarder not configured:  option 'forwardTo'"
-      Just addr -> realizeForwarder addr
+      Just addr -> handleError TraceForwarderConnectionError $ do
+        sock <- connectForwarder addr
+        handle <- Socket.socketToHandle sock ReadWriteMode
+        pure TraceForwarder
+          { tfClose = Socket.close sock
+          , tfWrite = \bs -> BSC.hPutStrLn handle $! bs
+          }
 
     unrealize tf = tfClose tf
 
 handleError :: (String -> BackendFailure TraceForwarder) -> IO a -> IO a
 handleError ctor = flip catch $ \(e :: IOException) -> throwIO . ctor . show $ e
 
-realizeForwarder :: RemoteAddr -> IO (TraceForwarder a)
-realizeForwarder (RemotePipe pipePath) = handleError TraceForwarderPipeError $ do
-    exists <- fileExist pipePath
-    when (not exists) $
-        throw $ mkIOError doesNotExistErrorType "cannot find pipe to open, reason" Nothing (Just pipePath)
-
-    fstatus <- getFileStatus pipePath
-    if isNamedPipe fstatus
-    then do
-        -- We open up a pipe and catch @IOException@ __only__.
-        -- The current things we need to watch out for when opening a file are:
-        --     - if the file is already open and cannot be reopened
-        --     - if the file does not exist
-        --     - if the user does not have permission to open the file.
-        h <- openFile pipePath WriteMode
-            `catch` (\(e :: IOException) -> do
-                hPutStrLn stderr $ "Opening pipe threw: " ++ show e
-                                ++ "\nForwarding its objects to stderr"
-                hDuplicate stderr)
-        hSetBuffering h NoBuffering
-        pure TraceForwarder
-          { tfClose = hClose h
-          , tfWrite = \bs -> BSC.hPutStrLn h $! bs
-          }
-    else
-        throw $ mkIOError userErrorType "cannot open pipe; it's a file" Nothing (Just pipePath)
+connectForwarder :: RemoteAddr -> IO Socket.Socket
+connectForwarder (RemotePipe pipePath) = do
+  sock <- Socket.socket Socket.AF_UNIX Socket.Stream Socket.defaultProtocol
+  Socket.connect sock (Socket.SockAddrUnix pipePath)
+  pure sock
+connectForwarder (RemoteSocket host port) = do
+  addrs <- Socket.getAddrInfo Nothing (Just host) (Just port)
+  addr :: Socket.AddrInfo <- case addrs of
+    [] -> throwIO (TraceForwarderSocketError ("bad socket address: " <> host <> ":" <> port))
+    a:_ -> pure a
+  sock <- Socket.socket (Socket.addrFamily addr) (Socket.addrSocketType addr) (Socket.addrProtocol addr)
+  Socket.connect sock (Socket.addrAddress addr)
+  pure sock
 
 data TraceForwarderBackendFailure
-  = TraceForwarderPipeError String
+  = TraceForwarderConnectionError String
   | TraceForwarderSocketError String
   deriving (Show, Typeable)
 

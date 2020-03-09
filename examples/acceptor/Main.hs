@@ -1,20 +1,13 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
-import           Control.Applicative ((<|>))
 import           Control.Concurrent (threadDelay)
 import           Control.Exception (IOException, catch, throwIO)
 import           Control.Monad (forever)
-import           Control.Tracer (Tracer, contramap, traceWith)
-import           Data.Semigroup (First(..), getFirst)
-import           Data.Maybe (isJust)
-import           Data.Semigroup ((<>))
-import           Data.Text (Text, pack)
+import           Data.Text (Text)
 import           Cardano.BM.Backend.TraceAcceptor
-import           Cardano.BM.Data.Configuration
 import           Cardano.BM.Configuration
 import qualified Cardano.BM.Configuration as Config
-import qualified Cardano.BM.Configuration.Model as Config
 import           Cardano.BM.Plugin (loadPlugin)
 import qualified Cardano.BM.Setup as Setup
 import           Cardano.BM.Trace
@@ -34,20 +27,16 @@ cliParser = CLI
    parseFilePath optname desc =
      Opt.strOption $ Opt.long optname <> Opt.metavar "FILEPATH" <> Opt.help desc
 
-   parseRemoteAddr :: String -> String -> Opt.Parser RemoteAddr
-   parseRemoteAddr optname desc =
-     RemotePipe <$>
-       (Opt.strOption $ Opt.long optname <> Opt.metavar "FILEPATH" <> Opt.help desc)
-
 main :: IO ()
 main = do
   cli <- Opt.customExecParser pref opts
   config <- readConfig (cConfig cli)
   acceptAt <- Config.getAcceptAt config
   case acceptAt of
-    Just ra -> do
+    Just _ra -> do
       (tr :: Trace IO Text, sb) <- Setup.setupTrace_ config "cardano"
-      Cardano.BM.Backend.TraceAcceptor.plugin config tr sb
+      let tr' = Trace.appendName "acceptor" tr
+      Cardano.BM.Backend.TraceAcceptor.plugin config tr' sb
         >>= loadPlugin sb
       forever $ threadDelay 1000000
     Nothing ->

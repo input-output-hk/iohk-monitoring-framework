@@ -38,10 +38,16 @@ defaultScribes:
   - - FileSK
     - "logs/acceptor.log"
 
-traceAcceptAt:
-  tag: RemotePipe
-  contents: "logs/pipe"
+# traceAcceptAt:
+#   tag: RemotePipe
+#   contents: "logs/pipe"
 
+traceAcceptAt:
+  tag: RemoteSocket
+  contents:
+    - "127.0.0.1"
+    - "2999"
+  
 # more options which can be passed as key-value pairs:
 options:
   stub:
