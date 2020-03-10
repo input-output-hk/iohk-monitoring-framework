@@ -5,37 +5,47 @@
 
 %if style == newcode
 \begin{code}
+{-# LANGUAGE BlockArguments        #-}
 {-# LANGUAGE CPP                   #-}
 {-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes            #-}
+{-# LANGUAGE RecursiveDo           #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TypeFamilies          #-}
+{-# OPTIONS_GHC -Wextra            #-}
 
 #if !defined(mingw32_HOST_OS)
 #define POSIX
 #endif
 
 module Cardano.BM.Backend.TraceAcceptor
-    ( TraceAcceptor (..)
-    -- * Plugin
+    ( TraceAcceptor
     , plugin
     ) where
 
 import qualified Control.Concurrent.Async as Async
-import           Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar,
-                     withMVar)
-import           Data.Aeson (FromJSON, ToJSON, decodeStrict)
+import           Control.Exception
+import           Control.Monad (forever, unless, when)
+import           Data.Aeson (FromJSON, ToJSON, eitherDecodeStrict)
 import qualified Data.ByteString as BS
+import           Data.Text (pack)
 import           Data.Text.Encoding (decodeUtf8)
+import           Data.Typeable (Typeable)
+import qualified Network.Socket as Socket
+import qualified System.Directory as Dir
+import           System.IO (Handle)
+import qualified System.IO as IO
 
-import qualified Cardano.BM.Backend.ExternalAbstraction as CH
-import           Cardano.BM.Backend.ExternalAbstraction (Pipe (..))
-import           Cardano.BM.Configuration (Configuration)
+import           Cardano.BM.Configuration
 import           Cardano.BM.Data.Backend
 import           Cardano.BM.Data.BackendKind (BackendKind(TraceAcceptorBK))
-import           Cardano.BM.Data.LogItem (LOContent (LogError), LOMeta (..),
-                     PrivacyAnnotation (Public), mkLOMeta)
+import           Cardano.BM.Data.Configuration (RemoteAddr(..))
+import           Cardano.BM.Data.LogItem
+                   ( LOContent (LogError), LOMeta (..)
+                   , PrivacyAnnotation (Public), loName, mkLOMeta
+                   )
 import           Cardano.BM.Data.Severity (Severity (..))
 import           Cardano.BM.Data.Tracer (traceWith)
 import           Cardano.BM.Plugin
@@ -49,99 +59,145 @@ the |LogObject|s to the |SwitchBoard|.
 
 \subsubsection{Plugin definition}
 \begin{code}
-plugin :: (IsEffectuator s a, ToJSON a, FromJSON a)
-       => Configuration -> Trace.Trace IO a -> s a -> FilePath -> IO (Plugin a)
-plugin _ trace _ fp = do
-    be :: (Cardano.BM.Backend.TraceAcceptor.TraceAcceptor PipeType a) <- realizepipe trace fp
+plugin :: forall s a
+       . (IsEffectuator s a, ToJSON a, FromJSON a)
+       => Configuration -> Trace.Trace IO a -> s a -> IO (Plugin a)
+plugin cf trace _ = getAcceptAt cf >>= \case
+  Nothing -> fail "TraceAcceptor not configured:  no traceAcceptAt option"
+  Just addr -> do
+    sock <- mkAcceptor addr
+    server <- Async.async . forever $ acceptConnection trace sock
+    Async.link server
+    let be :: (Cardano.BM.Backend.TraceAcceptor.TraceAcceptor a)
+        be = TraceAcceptor
+             { taServer    = server
+             , taShutdown  = Socket.close sock
+             }
+    IO.hPutStrLn IO.stderr $ "Activating trace acceptor on: " <> show addr
     return $ BackendPlugin
                (MkBackend { bEffectuate = effectuate be
                           , bUnrealize = unrealize be })
                (bekind be)
 
-type PipeType =
-#ifdef POSIX
-    CH.UnixNamedPipe
-#else
-    CH.NoPipe
-#endif
-
-
 \end{code}
 
 \subsubsection{Structure of TraceAcceptor}\label{code:TraceAcceptor}\index{TraceAcceptor}
 \begin{code}
-newtype TraceAcceptor p a = TraceAcceptor
-    { getTA :: TraceAcceptorMVar p a }
-
-type TraceAcceptorMVar p a = MVar (TraceAcceptorInternal p a)
-
-data TraceAcceptorInternal p a = TraceAcceptorInternal
-    { accPipe     :: !(PipeHandler p)
-    , accDispatch :: Async.Async ()
+data TraceAcceptor a = TraceAcceptor
+    { taServer   :: Async.Async ()
+    , taShutdown :: IO ()
     }
 
-instance IsEffectuator (TraceAcceptor p) a where
+instance IsEffectuator TraceAcceptor a where
     effectuate _ta _item = pure ()
     handleOverflow _ta = pure ()
 
-instance (Pipe p, ToJSON a, FromJSON a) => IsBackend (TraceAcceptor p) a where
+instance (ToJSON a, FromJSON a) => IsBackend TraceAcceptor a where
+    type BackendFailure TraceAcceptor = TraceAcceptorBackendFailure
+
     bekind _ = TraceAcceptorBK
 
     realize _ = fail "TraceAcceptor cannot be instantiated by 'realize'"
 
     realizefrom _ _ _ = fail "TraceAcceptor cannot be instantiated by 'realizefrom'"
 
-    unrealize accView = withMVar (getTA accView) $
-        \acc -> do
-            Async.cancel $ accDispatch acc
-            close (accPipe acc)
+    unrealize ta = do
+      Async.cancel $ taServer ta
+      taShutdown ta
 
-realizepipe :: (Pipe p, FromJSON a)
-            => Trace.Trace IO a -> FilePath -> IO (TraceAcceptor p a)
-realizepipe sbtrace pipePath = do
-    elref <- newEmptyMVar
-    let externalLog = TraceAcceptor elref
-    h <- create pipePath
-    dispatcher <- spawnDispatcher h sbtrace
-    -- link the given Async to the current thread, such that if the Async
-    -- raises an exception, that exception will be re-thrown in the current
-    -- thread, wrapped in ExceptionInLinkedThread.
-    Async.link dispatcher
-    putMVar elref $ TraceAcceptorInternal
-                        { accPipe = h
-                        , accDispatch = dispatcher
-                        }
-    return externalLog
+handleError :: (String -> BackendFailure TraceAcceptor) -> IO a -> IO a
+handleError ctor = handle $ \(e :: IOException) -> throwIO . ctor . show $ e
+
+data TraceAcceptorBackendFailure
+  = TraceAcceptorPipeError String
+  | TraceAcceptorSocketError String
+  | TraceAcceptorServerError String
+  | TraceAcceptorClientThreadError String
+  deriving (Show, Typeable)
+
+instance Exception TraceAcceptorBackendFailure
+
+mkAcceptor :: RemoteAddr -> IO Socket.Socket
+mkAcceptor (RemotePipe pipePath) = handleError TraceAcceptorPipeError $ mdo
+  sock <- Socket.socket Socket.AF_UNIX Socket.Stream Socket.defaultProtocol
+  exists <- Dir.doesFileExist pipePath
+  when exists $
+    Dir.removeFile pipePath
+  bindSocket sock (Socket.SockAddrUnix pipePath)
+  Socket.listen sock 1
+  pure sock
+
+mkAcceptor (RemoteSocket host port) = handleError TraceAcceptorSocketError $ mdo
+  addrs <- Socket.getAddrInfo Nothing (Just host) (Just port)
+  addr :: Socket.AddrInfo <- case addrs of
+    [] -> throwIO (TraceAcceptorSocketError ("bad socket address: " <> host <> ":" <> port))
+    a:_ -> pure a
+  sock <- Socket.socket (Socket.addrFamily addr) (Socket.addrSocketType addr) (Socket.addrProtocol addr)
+  bindSocket sock (Socket.addrAddress addr)
+  Socket.listen sock 7
+  pure sock
+
+acceptConnection :: FromJSON a => Trace.Trace IO a -> Socket.Socket -> IO ()
+acceptConnection baseTrace  sock = handleError TraceAcceptorServerError $ do
+  (client, _sa) <- Socket.accept sock
+  handle <- Socket.socketToHandle client IO.ReadWriteMode
+  _client <- Async.async $ clientThread baseTrace handle
+  pure ()
+
+bindSocket :: Socket.Socket -> Socket.SockAddr -> IO ()
+bindSocket sd addr = do
+  let fml = socketAddrFamily addr
+  when (fml == Socket.AF_INET ||
+        fml == Socket.AF_UNIX ||
+        fml == Socket.AF_INET6) $ do
+    Socket.setSocketOption sd Socket.ReuseAddr 1
+#if !defined(mingw32_HOST_OS)
+        -- not supported on Windows 10
+    Socket.setSocketOption sd Socket.ReusePort 1
+#endif
+  when (fml == Socket.AF_INET6)
+    -- An AF_INET6 socket can be used to talk to both IPv4 and IPv6 end points, and
+    -- it is enabled by default on some systems. Disabled here since we run a separate
+    -- IPv4 server instance if configured to use IPv4.
+    $ Socket.setSocketOption sd Socket.IPv6Only 1
+  Socket.bind sd addr
+ where
+   socketAddrFamily
+     :: Socket.SockAddr
+     -> Socket.Family
+   socketAddrFamily Socket.SockAddrInet{}  = Socket.AF_INET
+   socketAddrFamily Socket.SockAddrInet6{} = Socket.AF_INET6
+   socketAddrFamily Socket.SockAddrUnix{}  = Socket.AF_UNIX
 
 \end{code}
 
-\subsubsection{Reading log items from the pipe}
+\subsubsection{Reading log items from the client}
 \begin{code}
-spawnDispatcher :: (Pipe p, FromJSON a)
-                => PipeHandler p
-                -> Trace.Trace IO a
-                -> IO (Async.Async ())
-spawnDispatcher hPipe sbtrace =
-    Async.async $ pProc hPipe
+clientThread
+  :: forall a. (FromJSON a)
+  => Trace.Trace IO a
+  -> Handle
+  -> IO ()
+clientThread sbtrace h = handleError TraceAcceptorClientThreadError pProc
   where
     {-@ lazy pProc @-}
-    pProc h = do
-        hn <- CH.getLine h -- hostname
-        bs <- CH.getLine h -- payload
-        if not (BS.null bs)
-        then do
-            let hname = decodeUtf8 hn
-            case decodeStrict bs of
-                Just lo ->
-                    traceWith sbtrace lo
-                Nothing -> do
-                    lometa0 <- mkLOMeta Warning Public
-                    let trace = Trace.appendName "#external" sbtrace
-                        lometa = lometa0 { hostname = hname }
-                    Trace.traceNamedObject trace =<<
-                        (,) <$> pure lometa
-                            <*> pure (LogError "Could not parse external log objects.")
-            pProc h
-        else return ()  -- stop here
+    pProc :: IO ()
+    pProc = do
+      hn <- BS.hGetLine h -- hostname
+      bs <- BS.hGetLine h -- payload
+      unless (BS.null bs) $ do
+        let hname = decodeUtf8 hn
+        case eitherDecodeStrict bs of
+          Right lo ->
+            traceWith sbtrace (loName lo, lo)
+          Left e -> do
+              lometa0 <- mkLOMeta Warning Public
+              let trace :: Trace.Trace IO a
+                  trace = Trace.appendName "#external" sbtrace
+                  lometa = lometa0 { hostname = hname }
+              Trace.traceNamedObject trace =<<
+                  (,) <$> pure lometa
+                      <*> pure (LogError $ "Could not parse external log objects: " <> pack e)
+        pProc
 
 \end{code}
