@@ -24,8 +24,9 @@ module Main
 
 import           Control.Concurrent (threadDelay)
 import qualified Control.Concurrent.Async as Async
-import           Control.Monad (forM_)
+import           Control.Monad (forM_, when)
 import           Data.Aeson (ToJSON (..), Value (..), (.=))
+import           Data.Maybe (isJust)
 #ifdef ENABLE_OBSERVABLES
 import           Control.Monad (forM)
 import           GHC.Conc.Sync (atomically, STM, TVar, newTVar, readTVar, writeTVar)
@@ -43,6 +44,7 @@ import           Cardano.BM.Backend.Editor
 import           Cardano.BM.Backend.EKGView
 import           Cardano.BM.Backend.Monitoring
 import           Cardano.BM.Backend.Switchboard (Switchboard, readLogBuffer)
+import           Cardano.BM.Backend.TraceForwarder
 #ifdef LINUX
 import           Cardano.BM.Scribe.Systemd
 #endif
@@ -51,6 +53,7 @@ import qualified Cardano.BM.Configuration.Model as CM
 import           Cardano.BM.Data.Aggregated (Measurable (..))
 import           Cardano.BM.Data.AggregatedKind
 import           Cardano.BM.Data.BackendKind
+import           Cardano.BM.Data.Configuration
 import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.MonitoringEval
 import           Cardano.BM.Data.Output
@@ -201,9 +204,8 @@ prepare_configuration = do
     CM.setPrometheusBindAddr c $ Just ("localhost", 12800)
     CM.setGUIport c 13790
 
-    -- if the TraceForwarderBK backend is started
-    -- then it will try to open this pipe to forward messages to another process
-    CM.setLogOutput c "logs/log-pipe"
+    -- CM.setForwardTo c (Just $ RemotePipe "logs/pipe")
+    CM.setForwardTo c (Just $ RemoteSocket "127.0.0.1" "2999")
 
     CM.setMonitors c $ HM.fromList
         [ ( "complex.monitoring"
@@ -412,6 +414,10 @@ main = do
       >>= loadPlugin sb
     Cardano.BM.Backend.EKGView.plugin c tr sb
       >>= loadPlugin sb
+    forwardTo <- CM.getForwardTo c
+    when (isJust forwardTo) $
+      Cardano.BM.Backend.TraceForwarder.plugin c tr sb
+        >>= loadPlugin sb
     Cardano.BM.Backend.Aggregation.plugin c tr sb
       >>= loadPlugin sb
     Cardano.BM.Backend.Monitoring.plugin c tr sb

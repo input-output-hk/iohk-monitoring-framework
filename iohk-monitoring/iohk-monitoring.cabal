@@ -52,7 +52,6 @@ library
                        Cardano.BM.ElidingTracer
                        Cardano.BM.Tracing
 
-                       Cardano.BM.Backend.ExternalAbstraction
                        Cardano.BM.Backend.Log
                        Cardano.BM.Backend.LogBuffer
                        Cardano.BM.Backend.ProcessQueue
@@ -95,6 +94,7 @@ library
                        katip,
                        lens,
                        mtl,
+                       network,
                        safe,
                        safe-exceptions,
                        scientific,

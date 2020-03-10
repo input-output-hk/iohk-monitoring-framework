@@ -1,7 +1,7 @@
 # This file is used by nix-shell.
 { config ? {}
 , sourcesOverride ? {}
-, withHoogle ? false
+, withHoogle ? true
 , pkgs ? import ./nix {
     inherit config sourcesOverride;
   }
@@ -20,6 +20,7 @@ let
 
     # These programs will be available inside the nix-shell.
     buildInputs = with haskellPackages; [
+      cabal-install
       niv
     ];
 

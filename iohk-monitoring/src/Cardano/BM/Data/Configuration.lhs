@@ -18,6 +18,7 @@ module Cardano.BM.Data.Configuration
     Representation (..)
   , Port
   , HostPort
+  , RemoteAddr (..)
   , parseRepresentation
   , readRepresentation
   )
@@ -55,10 +56,16 @@ data Representation = Representation
     , hasGraylog      :: Maybe Port
     , hasPrometheus   :: Maybe HostPort
     , hasGUI          :: Maybe Port
-    , logOutput       :: Maybe FilePath
+    , traceForwardTo  :: Maybe RemoteAddr
+    , traceAcceptAt   :: Maybe RemoteAddr
     , options         :: HM.HashMap Text Value
     }
     deriving (Generic, Show, ToJSON, FromJSON)
+
+data RemoteAddr
+  = RemotePipe FilePath
+  | RemoteSocket String String
+  deriving (Generic, Eq, Show, ToJSON, FromJSON)
 
 \end{code}
 

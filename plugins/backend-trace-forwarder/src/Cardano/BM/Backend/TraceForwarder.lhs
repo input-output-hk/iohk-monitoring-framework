@@ -7,6 +7,7 @@
 \begin{code}
 {-# LANGUAGE CPP                   #-}
 {-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TypeFamilies          #-}
@@ -21,21 +22,30 @@ module Cardano.BM.Backend.TraceForwarder
     , plugin
     ) where
 
-import           Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar,
-                     withMVar)
-import           Control.Exception (IOException, Exception, SomeException, catch, throwIO)
+import           Control.Exception
+import           Control.Monad (when)
 import           Data.Aeson (FromJSON, ToJSON, encode)
 import qualified Data.ByteString as BS
+import qualified Data.ByteString.Char8 as BSC
 import qualified Data.ByteString.Lazy as BL
 import           Data.Maybe (fromMaybe)
 import           Data.Text.Encoding (encodeUtf8)
 import           Data.Typeable (Typeable)
 
-import qualified Cardano.BM.Backend.ExternalAbstraction as CH
-import           Cardano.BM.Backend.ExternalAbstraction (Pipe (..))
-import           Cardano.BM.Configuration (Configuration)
+import           GHC.IO.Handle (hDuplicate)
+import qualified Network.Socket as Socket
+import           System.IO (IOMode (..), openFile, BufferMode (NoBuffering),
+                     Handle, hClose, hSetBuffering, openFile, stderr,
+                     hPutStrLn)
+import           System.IO.Error (mkIOError, doesNotExistErrorType,
+                     userErrorType)
+import           System.PosixCompat.Files (fileExist, getFileStatus,
+                     isNamedPipe, stdFileMode)
+
+import           Cardano.BM.Configuration
 import           Cardano.BM.Configuration.Model
 import           Cardano.BM.Data.Backend
+import           Cardano.BM.Data.Configuration (RemoteAddr(..))
 import           Cardano.BM.Data.LogItem (LOMeta (..), LogObject (..))
 import           Cardano.BM.Plugin
 import qualified Cardano.BM.Trace as Trace
@@ -43,41 +53,32 @@ import qualified Cardano.BM.Trace as Trace
 \end{code}
 %endif
 
-|TraceForwarder| is a new backend responsible for redirecting the logs into a pipe
-or a socket to be used from another application. It puts |LogObject|s as
-|ByteString|s in the provided handler.
+|TraceForwarder| is a backend responsible for redirecting logs to a
+different process (running a |TraceAcceptor| backend), by means of
+either a pipe or a socket.
+
+Note that if the connection to the trace acceptor is broken,
+the application is terminated.
 
 \subsubsection{Plugin definition}
 \begin{code}
 plugin :: (IsEffectuator s a, ToJSON a, FromJSON a)
        => Configuration -> Trace.Trace IO a -> s a -> IO (Plugin a)
 plugin config _trace _sb = do
-    be :: Cardano.BM.Backend.TraceForwarder.TraceForwarder PipeType a <- realize config
+    be :: Cardano.BM.Backend.TraceForwarder.TraceForwarder a <- realize config
     return $ BackendPlugin
                (MkBackend { bEffectuate = effectuate be, bUnrealize = unrealize be })
                (bekind be)
-
-type PipeType =
-#ifdef POSIX
-    CH.UnixNamedPipe
-#else
-    CH.NoPipe
-#endif
 
 \end{code}
 
 \subsubsection{Structure of TraceForwarder}\label{code:TraceForwarder}\index{TraceForwarder}
 Contains the handler to the pipe or to the socket.
 \begin{code}
-newtype TraceForwarder p a = TraceForwarder
-    { getTF :: TraceForwarderMVar p a }
-
-type TraceForwarderMVar p a = MVar (TraceForwarderInternal p a)
-
-newtype Pipe p => TraceForwarderInternal p a =
-    TraceForwarderInternal
-        { tfPipeHandler :: PipeHandler p
-        }
+data TraceForwarder a = TraceForwarder
+  { tfWrite   :: BSC.ByteString -> IO ()
+  , tfClose   :: IO ()
+  }
 
 \end{code}
 
@@ -85,20 +86,19 @@ newtype Pipe p => TraceForwarderInternal p a =
 Every |LogObject| before being written to the given handler is converted to
 |ByteString| through its |JSON| represantation.
 \begin{code}
-instance (Pipe p, ToJSON a) => IsEffectuator (TraceForwarder p) a where
-    effectuate tf lo =
-        withMVar (getTF tf) $ \(TraceForwarderInternal hdl) ->
-            let (_, bs) = jsonToBS lo
-                hn = hostname $ loMeta lo
-            in do
-                write hdl $ encodeUtf8 hn
-                write hdl bs
-    handleOverflow _ = return ()
+instance (ToJSON a) => IsEffectuator TraceForwarder a where
+    effectuate tf lo = do
+        tfWrite tf $ encodeUtf8 (hostname $ loMeta lo)
+        tfWrite tf bs
+      where
+        (_, bs) = jsonToBS lo
 
-jsonToBS :: ToJSON a => a -> (Int, BS.ByteString)
-jsonToBS a =
-    let bs = BL.toStrict $ encode a
-    in (BS.length bs, bs)
+        jsonToBS :: ToJSON b => b -> (Int, BS.ByteString)
+        jsonToBS a =
+          let bs = BL.toStrict $ encode a
+          in (BS.length bs, bs)
+
+    handleOverflow _ = return ()
 
 \end{code}
 
@@ -107,30 +107,43 @@ jsonToBS a =
 
 |TraceForwarder| is an |IsBackend|
 \begin{code}
-instance (Pipe p, FromJSON a, ToJSON a, Typeable p) => IsBackend (TraceForwarder p) a where
-    type BackendFailure (TraceForwarder p) = TraceForwarderBackendFailure
+instance (FromJSON a, ToJSON a) => IsBackend TraceForwarder a where
+    type BackendFailure TraceForwarder = TraceForwarderBackendFailure
 
     bekind _ = TraceForwarderBK
 
-    realize cfg = do
-        ltpref <- newEmptyMVar
-        let logToPipe = TraceForwarder ltpref
-        pipePath <- fromMaybe "log-pipe" <$> getLogOutput cfg
-        h <- open pipePath
-          `catch` (\(e :: IOException) ->
-                     throwIO
-                     . (TraceForwarderPipeError
-                        :: String -> BackendFailure (TraceForwarder p))
-                     . show $ e)
-        putMVar ltpref $ TraceForwarderInternal
-                            { tfPipeHandler = h
-                            }
-        return logToPipe
+    realize cfg = getForwardTo cfg >>= \case
+      Nothing -> fail "Trace forwarder not configured:  option 'forwardTo'"
+      Just addr -> handleError TraceForwarderConnectionError $ do
+        sock <- connectForwarder addr
+        handle <- Socket.socketToHandle sock ReadWriteMode
+        pure TraceForwarder
+          { tfClose = Socket.close sock
+          , tfWrite = \bs -> BSC.hPutStrLn handle $! bs
+          }
 
-    unrealize tf = withMVar (getTF tf) (\(TraceForwarderInternal h) -> close h)
+    unrealize tf = tfClose tf
 
-newtype TraceForwarderBackendFailure
-  = TraceForwarderPipeError String
+handleError :: (String -> BackendFailure TraceForwarder) -> IO a -> IO a
+handleError ctor = flip catch $ \(e :: IOException) -> throwIO . ctor . show $ e
+
+connectForwarder :: RemoteAddr -> IO Socket.Socket
+connectForwarder (RemotePipe pipePath) = do
+  sock <- Socket.socket Socket.AF_UNIX Socket.Stream Socket.defaultProtocol
+  Socket.connect sock (Socket.SockAddrUnix pipePath)
+  pure sock
+connectForwarder (RemoteSocket host port) = do
+  addrs <- Socket.getAddrInfo Nothing (Just host) (Just port)
+  addr :: Socket.AddrInfo <- case addrs of
+    [] -> throwIO (TraceForwarderSocketError ("bad socket address: " <> host <> ":" <> port))
+    a:_ -> pure a
+  sock <- Socket.socket (Socket.addrFamily addr) (Socket.addrSocketType addr) (Socket.addrProtocol addr)
+  Socket.connect sock (Socket.addrAddress addr)
+  pure sock
+
+data TraceForwarderBackendFailure
+  = TraceForwarderConnectionError String
+  | TraceForwarderSocketError String
   deriving (Show, Typeable)
 
 instance Exception TraceForwarderBackendFailure
