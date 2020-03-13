@@ -25,8 +25,8 @@ module Cardano.BM.Backend.Switchboard
     , addExternalBackend
     , addExternalScribe
     -- * testing
-    , realizeSwitchboard
-    , unrealizeSwitchboard
+    --, realizeSwitchboard
+    --, unrealizeSwitchboard
     ) where
 
 import qualified Control.Concurrent.Async as Async
@@ -85,11 +85,9 @@ data SwitchboardInternal a = SwitchboardInternal
 
 type NamedBackends a = [(BackendKind, Backend a)]
 
--- | A bool isomorphic status for the switchboard
--- which we can use.
 data SwitchboardStatus
     = SwitchboardRunning
-    | SwitchboardNotRunning
+    | SwitchboardStopped
     deriving (Eq, Show)
 
 \end{code}
@@ -141,12 +139,9 @@ instance IsEffectuator Switchboard a where
 
         sb <- readMVar (getSB switchboard)
 
-        -- First we check to see if we have the switchboard running.
-        -- If the switchboard is running, we write to the queue,
-        -- otherwise we report the error on the stderr.
         if (sbRunning sb) == SwitchboardRunning
             then writequeue (sbQueue sb) item
-            else TIO.hPutStrLn stderr "Error: Switchboard has been shut down, dropping log items!"
+            else TIO.hPutStrLn stderr "Error: Switchboard is not running, dropping log items!"
         
     handleOverflow _ = TIO.hPutStrLn stderr "Error: Switchboard's queue full, dropping log items!"
 
@@ -274,8 +269,7 @@ unrealizeSwitchboard :: Switchboard a -> IO ()
 unrealizeSwitchboard switchboard = do
     -- Here we are doing a modification to send the "kill pill"
     -- to the queue and we are waiting for the dispather to exit.
-    -- At the end of it all, we simply either return the result or
-    -- throw an exception.
+    -- At the end, either return the result or throw an exception.
     dispatcher <- withMVar (getSB switchboard) $ \sb -> do
         let dispatcher  = sbDispatch sb
         let queue       = sbQueue sb
@@ -297,20 +291,8 @@ unrealizeSwitchboard switchboard = do
     -- Either raise an exception or return the result.
     either throwM return res
 
-    -- Let's switch the flag to not running. Yes, keep everything else the same.
-    let flagSwitchboardStopped :: SwitchboardInternal a -> SwitchboardInternal a
-        flagSwitchboardStopped sb = 
-            SwitchboardInternal 
-                { sbQueue = sbQueue sb
-                , sbDispatch = sbDispatch sb
-                , sbLogBuffer = sbLogBuffer sb
-                , sbLogBE = sbLogBE sb
-                , sbBackends = sbBackends sb
-                , sbRunning = SwitchboardNotRunning
-                }
-
     -- Modify the state in the end so we signal that the switchboard is shut down.
-    _ <- withMVar (getSB switchboard) (\sb -> return $ flagSwitchboardStopped sb)
+    _ <- withMVar (getSB switchboard) (\sb -> return $ sb { sbRunning = SwitchboardStopped })
 
     pure ()
 
