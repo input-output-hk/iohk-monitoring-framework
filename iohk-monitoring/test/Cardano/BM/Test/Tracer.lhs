@@ -209,11 +209,11 @@ data MsgTy = Item1 Int
            | Elided2 Int
            deriving (Show)
 
-instance DefineSeverity MsgTy
-instance DefinePrivacyAnnotation MsgTy
+instance HasSeverityAnnotation MsgTy
+instance HasPrivacyAnnotation MsgTy
 instance Transformable Text IO MsgTy where
     trTransformer _ _verb tr = Tracer $ \s -> do
-        meta <- mkLOMeta (defineSeverity s) (definePrivacyAnnotation s)
+        meta <- mkLOMeta (getSeverityAnnotation s) (getPrivacyAnnotation s)
         traceWith tr ("", LogObject mempty
                                     meta
                                     (LogMessage $ pack $ show s))
@@ -231,7 +231,7 @@ instance ElidingTracer (WithSeverity MsgTy) where
     conteliding _tform _tverb _tr _ (Nothing, _count) = return (Nothing, 0)
     conteliding _tform _tverb tr ev (_old, count) = do
         when (count > 0 && count `mod` 100 == 0) $ do  -- report every 100th elided messages
-            meta <- mkLOMeta (defineSeverity ev) (definePrivacyAnnotation ev)
+            meta <- mkLOMeta (getSeverityAnnotation ev) (getPrivacyAnnotation ev)
             traceNamedObject tr (meta, LogValue "messages elided" (PureI $ toInteger count))
         return (Just ev, count + 1)
 

@@ -140,8 +140,8 @@ mkAcceptor (RemoteSocket host port) = handleError TraceAcceptorSocketError $ mdo
 acceptConnection :: FromJSON a => Trace.Trace IO a -> Socket.Socket -> IO ()
 acceptConnection baseTrace  sock = handleError TraceAcceptorServerError $ do
   (client, _sa) <- Socket.accept sock
-  handle <- Socket.socketToHandle client IO.ReadWriteMode
-  _client <- Async.async $ clientThread baseTrace handle
+  h <- Socket.socketToHandle client IO.ReadWriteMode
+  _client <- Async.async $ clientThread baseTrace h
   pure ()
 
 bindSocket :: Socket.Socket -> Socket.SockAddr -> IO ()
@@ -151,8 +151,8 @@ bindSocket sd addr = do
         fml == Socket.AF_UNIX ||
         fml == Socket.AF_INET6) $ do
     Socket.setSocketOption sd Socket.ReuseAddr 1
-#if !defined(mingw32_HOST_OS)
-        -- not supported on Windows 10
+#if defined(POSIX)
+        -- only supported on POSIX, not Windows
     Socket.setSocketOption sd Socket.ReusePort 1
 #endif
   when (fml == Socket.AF_INET6)

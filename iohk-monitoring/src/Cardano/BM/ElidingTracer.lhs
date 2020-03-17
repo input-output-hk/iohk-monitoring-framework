@@ -87,10 +87,10 @@ Internal state transitions.
     return (Nothing, 0)
   stopeliding tform tverb tr ev (Just ev0, count) = do
     when (count > 1) $ do  -- report the number of elided messages
-      meta <- mkLOMeta (defineSeverity ev0) (definePrivacyAnnotation ev0)
+      meta <- mkLOMeta (getSeverityAnnotation ev0) (getPrivacyAnnotation ev0)
       traceNamedObject tr (meta, LogValue "before next, messages elided" (PureI $ toInteger (count - 1)))
     when (count > 0) $  -- output last elided message
-      traceWith (toLogObject' tform tverb tr) ev0    
+      traceWith (toLogObject' tform tverb tr) ev0
     traceWith (toLogObject' tform tverb tr) ev
     return (Nothing, 0)
 \end{code}

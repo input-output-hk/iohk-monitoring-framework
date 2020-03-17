@@ -25,14 +25,12 @@ import           Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar,
 import           Control.Concurrent.STM (atomically)
 import qualified Control.Concurrent.STM.TBQueue as TBQ
 import           Control.Exception.Safe (throwM)
-import           Control.Monad (unless, void)
+import           Control.Monad (void)
 import           Control.Monad.IO.Class (liftIO)
 import           Data.Aeson (FromJSON, ToJSON)
 import qualified Data.HashMap.Strict as HM
 import           Data.Text (Text, pack)
 import qualified Data.Text.IO as TIO
-import           Data.Word (Word64)
-import           GHC.Clock (getMonotonicTimeNSec)
 import           System.IO (stderr)
 
 import           Cardano.BM.Backend.ProcessQueue (processQueue)

@@ -377,9 +377,9 @@ instance Transformable Text IO Pet where
     trTransformer _ _verb _tr = nullTracer
 
 -- default privacy annotation: Public
-instance DefinePrivacyAnnotation Pet
-instance DefineSeverity Pet where
-    defineSeverity _ = Critical
+instance HasPrivacyAnnotation Pet
+instance HasSeverityAnnotation Pet where
+    getSeverityAnnotation _ = Critical
 
 #ifdef RUN_ProcMessageOutput
 msgThr :: Trace IO Text -> IO (Async.Async ())

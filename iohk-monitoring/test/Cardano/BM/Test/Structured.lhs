@@ -90,9 +90,9 @@ instance Transformable Text IO Pet where
     trTransformer _ _verb _tr = nullTracer
 
 -- default privacy annotation: Public
-instance DefinePrivacyAnnotation Pet
+instance HasPrivacyAnnotation Pet
 -- default severity: Debug
-instance DefineSeverity Pet
+instance HasSeverityAnnotation Pet
 
 
 logStructured :: Assertion
@@ -168,10 +168,10 @@ instance Transformable Text IO Material where
         traceWith tr $ ("material", LogObject "material" meta $ (LogMessage . pack . show) mat)
     trTransformer _ _verb _tr = nullTracer
 
-instance DefinePrivacyAnnotation Material where
-    definePrivacyAnnotation _ = Confidential
-instance DefineSeverity Material where
-    defineSeverity (Material _d w) =
+instance HasPrivacyAnnotation Material where
+    getPrivacyAnnotation _ = Confidential
+instance HasSeverityAnnotation Material where
+    getSeverityAnnotation (Material _d w) =
         if w < 100
         then Debug
         else Info

@@ -23,27 +23,17 @@ module Cardano.BM.Backend.TraceForwarder
     ) where
 
 import           Control.Exception
-import           Control.Monad (when)
 import           Data.Aeson (FromJSON, ToJSON, encode)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as BSC
 import qualified Data.ByteString.Lazy as BL
-import           Data.Maybe (fromMaybe)
 import           Data.Text.Encoding (encodeUtf8)
 import           Data.Typeable (Typeable)
 
-import           GHC.IO.Handle (hDuplicate)
 import qualified Network.Socket as Socket
-import           System.IO (IOMode (..), openFile, BufferMode (NoBuffering),
-                     Handle, hClose, hSetBuffering, openFile, stderr,
-                     hPutStrLn)
-import           System.IO.Error (mkIOError, doesNotExistErrorType,
-                     userErrorType)
-import           System.PosixCompat.Files (fileExist, getFileStatus,
-                     isNamedPipe, stdFileMode)
+import           System.IO (IOMode (..))
 
 import           Cardano.BM.Configuration
-import           Cardano.BM.Configuration.Model
 import           Cardano.BM.Data.Backend
 import           Cardano.BM.Data.Configuration (RemoteAddr(..))
 import           Cardano.BM.Data.LogItem (LOMeta (..), LogObject (..))
@@ -95,8 +85,8 @@ instance (ToJSON a) => IsEffectuator TraceForwarder a where
 
         jsonToBS :: ToJSON b => b -> (Int, BS.ByteString)
         jsonToBS a =
-          let bs = BL.toStrict $ encode a
-          in (BS.length bs, bs)
+          let bs' = BL.toStrict $ encode a
+          in (BS.length bs', bs')
 
     handleOverflow _ = return ()
 
@@ -116,10 +106,10 @@ instance (FromJSON a, ToJSON a) => IsBackend TraceForwarder a where
       Nothing -> fail "Trace forwarder not configured:  option 'forwardTo'"
       Just addr -> handleError TraceForwarderConnectionError $ do
         sock <- connectForwarder addr
-        handle <- Socket.socketToHandle sock ReadWriteMode
+        h <- Socket.socketToHandle sock ReadWriteMode
         pure TraceForwarder
           { tfClose = Socket.close sock
-          , tfWrite = \bs -> BSC.hPutStrLn handle $! bs
+          , tfWrite = \bs -> BSC.hPutStrLn h $! bs
           }
 
     unrealize tf = tfClose tf
