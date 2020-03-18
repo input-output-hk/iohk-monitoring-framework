@@ -80,7 +80,7 @@ import           Data.Yaml as Yaml
 import           Cardano.BM.Data.AggregatedKind (AggregatedKind(..))
 import           Cardano.BM.Data.BackendKind
 import qualified Cardano.BM.Data.Configuration as R
-import           Cardano.BM.Data.Configuration (RemoteAddr(..))
+import           Cardano.BM.Data.Configuration (RemoteAddr(..), RemoteAddrNamed(..))
 import           Cardano.BM.Data.LogItem (LogObject (..), LoggerName, LOContent (..), severity)
 import           Cardano.BM.Data.MonitoringEval (MEvExpr, MEvPreCond, MEvAction)
 import           Cardano.BM.Data.Output (ScribeDefinition (..), ScribeId,
@@ -149,7 +149,7 @@ data ConfigurationInternal = ConfigurationInternal
     -- host/port to bind Prometheus server at
     , cgForwardTo         :: Maybe RemoteAddr
     -- trace acceptor to forward to
-    , cgAcceptAt          :: Maybe RemoteAddr
+    , cgAcceptAt          :: Maybe [RemoteAddrNamed]
     -- accept remote traces at this address
     , cgPortGUI           :: Int
     -- port for changes at runtime
@@ -329,8 +329,10 @@ setGUIport configuration port =
     modifyMVar_ (getCG configuration) $ \cg ->
         return cg { cgPortGUI = port }
 
-getAcceptAt, getForwardTo :: Configuration -> IO (Maybe RemoteAddr)
-getAcceptAt  = fmap cgAcceptAt  . readMVar . getCG
+getAcceptAt :: Configuration -> IO (Maybe [RemoteAddrNamed])
+getAcceptAt = fmap cgAcceptAt . readMVar . getCG
+
+getForwardTo :: Configuration -> IO (Maybe RemoteAddr)
 getForwardTo = fmap cgForwardTo . readMVar . getCG
 
 setForwardTo :: Configuration -> Maybe RemoteAddr -> IO ()

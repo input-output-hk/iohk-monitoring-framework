@@ -106,7 +106,7 @@ unitConfigurationStaticRepresentation =
             , hasEKG = Just 18321
             , hasPrometheus = Just ("localhost", 12799)
             , traceForwardTo = Just (RemotePipe "to")
-            , traceAcceptAt = Just (RemotePipe "at")
+            , traceAcceptAt = Just [RemoteAddrNamed "a" (RemotePipe "at")]
             , options =
                 HM.fromList [ ("test1", Object (HM.singleton "value" "object1"))
                             , ("test2", Object (HM.singleton "value" "object2")) ]
@@ -132,8 +132,10 @@ unitConfigurationStaticRepresentation =
             , "  tag: RemotePipe"
             , "  contents: to"
             , "traceAcceptAt:"
-            , "  tag: RemotePipe"
-            , "  contents: at"
+            , "- remoteAddr:"
+            , "    tag: RemotePipe"
+            , "    contents: at"
+            , "  nodeName: a"
             , "defaultScribes:"
             , "- - StdoutSK"
             , "  - stdout"
@@ -176,8 +178,10 @@ unitConfigurationParsedRepresentation = do
             , "  tag: RemotePipe"
             , "  contents: to"
             , "traceAcceptAt:"
-            , "  tag: RemotePipe"
-            , "  contents: at"
+            , "- remoteAddr:"
+            , "    tag: RemotePipe"
+            , "    contents: at"
+            , "  nodeName: a"
             , "defaultScribes:"
             , "- - StdoutSK"
             , "  - stdout"
@@ -380,7 +384,7 @@ unitConfigurationParsed = do
         , cgBindAddrPrometheus = Nothing
         , cgPortGUI           = 0
         , cgForwardTo         = Just (RemotePipe "to")
-        , cgAcceptAt          = Just (RemotePipe "at")
+        , cgAcceptAt          = Just [RemoteAddrNamed "a" (RemotePipe "at")]
         }
 
 unitConfigurationExport :: Assertion

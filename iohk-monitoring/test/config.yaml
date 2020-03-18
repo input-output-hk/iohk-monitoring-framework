@@ -102,5 +102,7 @@ traceForwardTo:
   contents: to
 
 traceAcceptAt:
-  tag: RemotePipe
-  contents: at
+  - remoteAddr:
+      tag: RemotePipe
+      contents: at
+    nodeName: "a"

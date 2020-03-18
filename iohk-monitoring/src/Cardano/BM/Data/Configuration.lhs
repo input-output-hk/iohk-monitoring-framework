@@ -19,6 +19,7 @@ module Cardano.BM.Data.Configuration
   , Port
   , HostPort
   , RemoteAddr (..)
+  , RemoteAddrNamed (..)
   , parseRepresentation
   , readRepresentation
   )
@@ -57,7 +58,7 @@ data Representation = Representation
     , hasPrometheus   :: Maybe HostPort
     , hasGUI          :: Maybe Port
     , traceForwardTo  :: Maybe RemoteAddr
-    , traceAcceptAt   :: Maybe RemoteAddr
+    , traceAcceptAt   :: Maybe [RemoteAddrNamed]
     , options         :: HM.HashMap Text Value
     }
     deriving (Generic, Show, ToJSON, FromJSON)
@@ -66,6 +67,11 @@ data RemoteAddr
   = RemotePipe FilePath
   | RemoteSocket String String
   deriving (Generic, Eq, Show, ToJSON, FromJSON)
+
+data RemoteAddrNamed = RemoteAddrNamed
+  { nodeName   :: Text
+  , remoteAddr :: RemoteAddr
+  } deriving (Generic, Eq, Show, ToJSON, FromJSON)
 
 \end{code}
 

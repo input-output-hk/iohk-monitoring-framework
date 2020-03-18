@@ -43,11 +43,19 @@ defaultScribes:
 #   contents: "logs/pipe"
 
 traceAcceptAt:
-  tag: RemoteSocket
-  contents:
-    - "127.0.0.1"
-    - "2999"
-  
+  - nodeName: "a"
+    remoteAddr:
+      tag: RemoteSocket
+      contents:
+        - "127.0.0.1"
+        - "2998"
+  - nodeName: "b"
+    remoteAddr:
+      tag: RemoteSocket
+      contents:
+        - "127.0.0.1"
+        - "2999"
+
 # more options which can be passed as key-value pairs:
 options:
   stub:

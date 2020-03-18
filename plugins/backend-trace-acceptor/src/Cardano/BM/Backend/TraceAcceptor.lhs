@@ -27,7 +27,7 @@ module Cardano.BM.Backend.TraceAcceptor
 
 import qualified Control.Concurrent.Async as Async
 import           Control.Exception
-import           Control.Monad (forever, unless, when)
+import           Control.Monad (forever, forM, unless, when)
 import           Data.Aeson (FromJSON, ToJSON, eitherDecodeStrict)
 import qualified Data.ByteString as BS
 import           Data.Text (pack)
@@ -41,7 +41,7 @@ import qualified System.IO as IO
 import           Cardano.BM.Configuration
 import           Cardano.BM.Data.Backend
 import           Cardano.BM.Data.BackendKind (BackendKind(TraceAcceptorBK))
-import           Cardano.BM.Data.Configuration (RemoteAddr(..))
+import           Cardano.BM.Data.Configuration (RemoteAddr(..), RemoteAddrNamed(..))
 import           Cardano.BM.Data.LogItem
                    ( LOContent (LogError), LOMeta (..)
                    , PrivacyAnnotation (Public), loName, mkLOMeta
@@ -62,29 +62,34 @@ the |LogObject|s to the |SwitchBoard|.
 plugin :: forall s a
        . (IsEffectuator s a, ToJSON a, FromJSON a)
        => Configuration -> Trace.Trace IO a -> s a -> IO (Plugin a)
-plugin cf trace _ = getAcceptAt cf >>= \case
-  Nothing -> fail "TraceAcceptor not configured:  no traceAcceptAt option"
-  Just addr -> do
-    sock <- mkAcceptor addr
-    server <- Async.async . forever $ acceptConnection trace sock
-    Async.link server
-    let be :: (Cardano.BM.Backend.TraceAcceptor.TraceAcceptor a)
+plugin cf basicTrace _ = getAcceptAt cf >>= \case
+  Just acceptors -> do
+    socketsNServers <- forM acceptors $ \(RemoteAddrNamed nodeName addr) -> do
+      let trace = Trace.appendName nodeName basicTrace
+      sock <- mkAcceptor addr
+      serverThr <- Async.async . forever $ acceptConnection trace sock
+      Async.link serverThr
+      IO.hPutStrLn IO.stderr $ "Activating trace acceptor on: " <> show addr
+      return (sock, serverThr)
+
+    let (sockets, servers) = unzip socketsNServers
+        be :: (Cardano.BM.Backend.TraceAcceptor.TraceAcceptor a)
         be = TraceAcceptor
-             { taServer    = server
-             , taShutdown  = Socket.close sock
+             { taServers   = servers
+             , taShutdown  = mapM_ Socket.close sockets
              }
-    IO.hPutStrLn IO.stderr $ "Activating trace acceptor on: " <> show addr
     return $ BackendPlugin
                (MkBackend { bEffectuate = effectuate be
                           , bUnrealize = unrealize be })
                (bekind be)
+  Nothing -> fail "TraceAcceptor not configured: no traceAcceptAt option"
 
 \end{code}
 
 \subsubsection{Structure of TraceAcceptor}\label{code:TraceAcceptor}\index{TraceAcceptor}
 \begin{code}
 data TraceAcceptor a = TraceAcceptor
-    { taServer   :: Async.Async ()
+    { taServers  :: [Async.Async ()]
     , taShutdown :: IO ()
     }
 
@@ -102,7 +107,7 @@ instance (ToJSON a, FromJSON a) => IsBackend TraceAcceptor a where
     realizefrom _ _ _ = fail "TraceAcceptor cannot be instantiated by 'realizefrom'"
 
     unrealize ta = do
-      Async.cancel $ taServer ta
+      mapM_ Async.cancel $ taServers ta
       taShutdown ta
 
 handleError :: (String -> BackendFailure TraceAcceptor) -> IO a -> IO a
@@ -168,6 +173,7 @@ bindSocket sd addr = do
    socketAddrFamily Socket.SockAddrInet{}  = Socket.AF_INET
    socketAddrFamily Socket.SockAddrInet6{} = Socket.AF_INET6
    socketAddrFamily Socket.SockAddrUnix{}  = Socket.AF_UNIX
+   socketAddrFamily _                      = error "Impossible happened: unsupported addr family!"
 
 \end{code}
 
