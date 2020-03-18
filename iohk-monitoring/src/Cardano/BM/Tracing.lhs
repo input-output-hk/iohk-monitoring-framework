@@ -14,8 +14,8 @@ module Cardano.BM.Tracing
     , ToLogObject (..)
     , ToObject (..)
     , Transformable (..)
-    , DefinePrivacyAnnotation (..)
-    , DefineSeverity (..)
+    , HasPrivacyAnnotation (..)
+    , HasSeverityAnnotation (..)
     , TracingVerbosity (..)
     , TracingFormatting (..)
     , appendName
@@ -35,10 +35,10 @@ import           Cardano.BM.Data.LogItem (LogObject (..),
                      PrivacyAnnotation (..), mkLOMeta)
 import           Cardano.BM.Data.Severity (Severity (..))
 import           Cardano.BM.Data.Trace (Trace)
-import           Cardano.BM.Data.Tracer (DefinePrivacyAnnotation (..),
-                     DefineSeverity (..), ToLogObject (..), ToObject (..),
-                     TracingFormatting (..), TracingVerbosity (..),
-                     Transformable (..))
+import           Cardano.BM.Data.Tracer (HasPrivacyAnnotation (..),
+                     HasSeverityAnnotation (..), ToLogObject (..),
+                     ToObject (..), TracingFormatting (..),
+                     TracingVerbosity (..), Transformable (..))
 import           Cardano.BM.Setup (setupTrace)
 import           Cardano.BM.Trace (appendName)
 

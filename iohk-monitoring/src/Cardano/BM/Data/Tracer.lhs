@@ -18,8 +18,8 @@ module Cardano.BM.Data.Tracer
     , Transformable (..)
     , ToLogObject (..)
     , ToObject (..)
-    , DefinePrivacyAnnotation (..)
-    , DefineSeverity (..)
+    , HasSeverityAnnotation (..)
+    , HasPrivacyAnnotation (..)
     , WithSeverity (..)
     , WithPrivacyAnnotation (..)
     , contramap
@@ -205,44 +205,6 @@ data TracingVerbosity = MinimalVerbosity | NormalVerbosity | MaximalVerbosity
 
 \end{code}
 
-\subsubsection{Annotations to LogObject}
-\label{code:DefinePrivacyAnnotation}\index{DefinePrivacyAnnotation}
-\label{code:definePrivacyAnnotation}\index{definePrivacyAnnotation}
-\label{code:DefineSeverity}\index{DefineSeverity}
-\label{code:defineSeverity}\index{defineSeverity}
-The tracer transformer to a |LogObject| will need to assign a default
-privacy annotation and severity depending on the traced type. Using the
-following two classes, a user may overwrite the default, severity |Debug|
-and privacy annotation |Public|, and provide her own values for annotating
-the object.
-\begin{code}
-class DefinePrivacyAnnotation a where
-    definePrivacyAnnotation :: a -> PrivacyAnnotation
-    default definePrivacyAnnotation :: a -> PrivacyAnnotation
-    definePrivacyAnnotation _ = Public
-
-class DefineSeverity a where
-    defineSeverity :: a -> Severity
-    default defineSeverity :: a -> Severity
-    defineSeverity _ = Debug
-
--- default instances
-instance DefinePrivacyAnnotation Int
-instance DefineSeverity Int
-instance DefinePrivacyAnnotation Integer
-instance DefineSeverity Integer
-instance DefinePrivacyAnnotation Word64
-instance DefineSeverity Word64
-instance DefinePrivacyAnnotation Double
-instance DefineSeverity Double
-instance DefinePrivacyAnnotation Float
-instance DefineSeverity Float
-instance DefinePrivacyAnnotation Text
-instance DefineSeverity Text
-instance DefinePrivacyAnnotation String
-instance DefineSeverity String
-\end{code}
-
 \subsubsection{ToObject - transforms a logged item to a JSON Object}
 \label{code:ToObject}\index{ToObject}
 \label{code:toObject}\index{ToObject!toObject}
@@ -309,25 +271,25 @@ Depending on the input type it can create objects of |LogValue| for numerical va
 |ToObject| representation.
 
 \begin{code}
-class (Monad m, DefinePrivacyAnnotation b, DefineSeverity b)  => Transformable a m b where
+class (Monad m, HasPrivacyAnnotation b, HasSeverityAnnotation b)  => Transformable a m b where
     trTransformer :: TracingFormatting -> TracingVerbosity -> Trace m a -> Tracer m b
     default trTransformer :: TracingFormatting -> TracingVerbosity -> Trace m a -> Tracer m b
     trTransformer _ _ _ = nullTracer
 
-trFromIntegral :: (Integral b, MonadIO m, DefinePrivacyAnnotation b, DefineSeverity b)
+trFromIntegral :: (Integral b, MonadIO m, HasPrivacyAnnotation b, HasSeverityAnnotation b)
                => LoggerName -> Trace m a -> Tracer m b
 trFromIntegral name tr = Tracer $ \arg ->
         traceWith tr =<< do
-            meta <- mkLOMeta (defineSeverity arg) (definePrivacyAnnotation arg)
+            meta <- mkLOMeta (getSeverityAnnotation arg) (getPrivacyAnnotation arg)
             return ( mempty
                    , LogObject mempty meta (LogValue name $ PureI $ fromIntegral arg)
                    )
 
-trFromReal :: (Real b, MonadIO m, DefinePrivacyAnnotation b, DefineSeverity b)
+trFromReal :: (Real b, MonadIO m, HasPrivacyAnnotation b, HasSeverityAnnotation b)
            => LoggerName -> Trace m a -> Tracer m b
 trFromReal name tr = Tracer $ \arg ->
         traceWith tr =<< do
-            meta <- mkLOMeta (defineSeverity arg) (definePrivacyAnnotation arg)
+            meta <- mkLOMeta (getSeverityAnnotation arg) (getPrivacyAnnotation arg)
             return ( mempty
                    , LogObject mempty meta (LogValue name $ PureD $ realToFrac arg)
                    )
@@ -350,28 +312,28 @@ instance Transformable a IO Float where
 instance Transformable Text IO Text where
     trTransformer _ _ tr = Tracer $ \arg ->
         traceWith tr =<< do
-            meta <- mkLOMeta (defineSeverity arg) (definePrivacyAnnotation arg)
+            meta <- mkLOMeta (getSeverityAnnotation arg) (getPrivacyAnnotation arg)
             return ( mempty
                    , LogObject mempty meta (LogMessage arg)
                    )
 instance Transformable String IO String where
     trTransformer _ _ tr = Tracer $ \arg ->
         traceWith tr =<< do
-            meta <- mkLOMeta (defineSeverity arg) (definePrivacyAnnotation arg)
+            meta <- mkLOMeta (getSeverityAnnotation arg) (getPrivacyAnnotation arg)
             return ( mempty
                    , LogObject mempty meta (LogMessage arg)
                    )
 instance Transformable Text IO String where
     trTransformer _ _ tr = Tracer $ \arg ->
         traceWith tr =<< do
-            meta <- mkLOMeta (defineSeverity arg) (definePrivacyAnnotation arg)
+            meta <- mkLOMeta (getSeverityAnnotation arg) (getPrivacyAnnotation arg)
             return ( mempty
                    , LogObject mempty meta (LogMessage $ T.pack arg)
                    )
 instance Transformable String IO Text where
     trTransformer _ _ tr = Tracer $ \arg ->
         traceWith tr =<< do
-            meta <- mkLOMeta (defineSeverity arg) (definePrivacyAnnotation arg)
+            meta <- mkLOMeta (getSeverityAnnotation arg) (getPrivacyAnnotation arg)
             return ( mempty
                    , LogObject mempty meta (LogMessage $ T.unpack arg)
                    )
@@ -383,14 +345,14 @@ to their |ToObject| representation and further traces them as a |LogObject| of t
 |LogStructured|. If the |ToObject| representation is empty, then no tracing happens.
 \label{code:trStructured}\index{trStructured}
 \begin{code}
-trStructured :: (ToObject b, MonadIO m, DefinePrivacyAnnotation b, DefineSeverity b)
+trStructured :: (ToObject b, MonadIO m, HasPrivacyAnnotation b, HasSeverityAnnotation b)
              => TracingVerbosity -> Trace m a -> Tracer m b
 trStructured verb tr = Tracer $ \arg ->
  let
    obj = toObject verb arg
    tracer = if obj == emptyObject then nullTracer else tr
  in traceWith tracer =<< do
-          meta <- mkLOMeta (defineSeverity arg) (definePrivacyAnnotation arg)
+          meta <- mkLOMeta (getSeverityAnnotation arg) (getPrivacyAnnotation arg)
           return ( mempty
                  , LogObject mempty meta (LogStructured obj)
                  )
@@ -432,11 +394,11 @@ severityEmergency = setSeverity Emergency
 
 \label{code:annotateSeverity}\index{annotateSeverity}
 The |Severity| of any |Tracer| can be set with wrapping it in |WithSeverity|.
-The traced types need to be of class |DefineSeverity|.
+The traced types need to be of class |HasSeverityAnnotation|.
 \begin{code}
-annotateSeverity :: DefineSeverity a => Tracer m (WithSeverity a) -> Tracer m a
+annotateSeverity :: HasSeverityAnnotation a => Tracer m (WithSeverity a) -> Tracer m a
 annotateSeverity tr = Tracer $ \arg ->
-    traceWith tr $ WithSeverity (defineSeverity arg) arg
+    traceWith tr $ WithSeverity (getSeverityAnnotation arg) arg
 
 \end{code}
 
@@ -462,9 +424,9 @@ annotatePublic = setPrivacy Public
 The |PrivacyAnnotation| of any |Tracer| can be set with wrapping it in |WithPrivacyAnnotation|.
 The traced types need to be of class |DefinePrivacyAnnotation|.
 \begin{code}
-annotatePrivacyAnnotation :: DefinePrivacyAnnotation a => Tracer m (WithPrivacyAnnotation a) -> Tracer m a
+annotatePrivacyAnnotation :: HasPrivacyAnnotation a => Tracer m (WithPrivacyAnnotation a) -> Tracer m a
 annotatePrivacyAnnotation tr = Tracer $ \arg ->
-    traceWith tr $ WithPrivacyAnnotation (definePrivacyAnnotation arg) arg
+    traceWith tr $ WithPrivacyAnnotation (getPrivacyAnnotation arg) arg
 
 \end{code}
 
@@ -499,11 +461,6 @@ instance forall m a t. (Monad m, Transformable t m a) => Transformable t m (With
             transformer = trTransformer formatter verb $ setSeverity sev tr
         in traceWith transformer arg
 
-instance DefinePrivacyAnnotation a => DefinePrivacyAnnotation (WithSeverity a) where
-    definePrivacyAnnotation (WithSeverity _ a) = definePrivacyAnnotation a
-instance DefineSeverity (WithSeverity a) where
-    defineSeverity (WithSeverity sev _) = sev
-
 \end{code}
 
 \subsubsection{Transformer for filtering based on \emph{PrivacyAnnotation}}
@@ -537,11 +494,6 @@ instance forall m a t. (Monad m, Transformable t m a) => Transformable t m (With
             transformer = trTransformer formatter verb $ setPrivacy pa tr
         in traceWith transformer arg
 
-instance DefinePrivacyAnnotation (WithPrivacyAnnotation a) where
-    definePrivacyAnnotation (WithPrivacyAnnotation pa _) = pa
-instance DefineSeverity a => DefineSeverity (WithPrivacyAnnotation a) where
-    defineSeverity (WithPrivacyAnnotation _ a) = defineSeverity a
-
 \end{code}
 
 \subsubsection{The properties of being annotated with severity and privacy}
@@ -552,12 +504,23 @@ extract its severity annotation.
 \begin{code}
 class HasSeverityAnnotation a where
     getSeverityAnnotation :: a -> Severity
+    default getSeverityAnnotation :: a -> Severity
+    getSeverityAnnotation _ = Debug
 
 instance HasSeverityAnnotation (WithSeverity a) where
     getSeverityAnnotation (WithSeverity sev _) = sev
 
 instance HasSeverityAnnotation a => HasSeverityAnnotation (WithPrivacyAnnotation a) where
     getSeverityAnnotation (WithPrivacyAnnotation _ a) = getSeverityAnnotation a
+
+-- default instances
+instance HasSeverityAnnotation Double
+instance HasSeverityAnnotation Float
+instance HasSeverityAnnotation Int
+instance HasSeverityAnnotation Integer
+instance HasSeverityAnnotation String
+instance HasSeverityAnnotation Text
+instance HasSeverityAnnotation Word64
 
 \end{code}
 
@@ -567,11 +530,22 @@ And, privacy annotation can be extracted from types with the property |HasPrivac
 \begin{code}
 class HasPrivacyAnnotation a where
     getPrivacyAnnotation :: a -> PrivacyAnnotation
+    default getPrivacyAnnotation :: a -> PrivacyAnnotation
+    getPrivacyAnnotation _ = Public
 
 instance HasPrivacyAnnotation (WithPrivacyAnnotation a) where
     getPrivacyAnnotation (WithPrivacyAnnotation pva _) = pva
 
 instance HasPrivacyAnnotation a => HasPrivacyAnnotation (WithSeverity a) where
     getPrivacyAnnotation (WithSeverity _ a) = getPrivacyAnnotation a
+
+-- default instances
+instance HasPrivacyAnnotation Double
+instance HasPrivacyAnnotation Float
+instance HasPrivacyAnnotation Int
+instance HasPrivacyAnnotation Integer
+instance HasPrivacyAnnotation String
+instance HasPrivacyAnnotation Text
+instance HasPrivacyAnnotation Word64
 
 \end{code}
