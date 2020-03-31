@@ -26,6 +26,7 @@ library
                        bytestring,
                        directory,
                        network,
+                       ouroboros-network-framework,
                        safe-exceptions,
                        stm,
                        text,

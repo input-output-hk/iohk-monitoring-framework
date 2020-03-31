@@ -95,6 +95,7 @@ library
                        lens,
                        mtl,
                        network,
+                       ouroboros-network-framework,
                        safe,
                        safe-exceptions,
                        scientific,

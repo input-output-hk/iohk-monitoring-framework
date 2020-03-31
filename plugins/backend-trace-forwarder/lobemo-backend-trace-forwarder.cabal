@@ -25,6 +25,7 @@ library
                        async,
                        bytestring,
                        network,
+                       ouroboros-network-framework,
                        safe-exceptions,
                        stm,
                        text,
