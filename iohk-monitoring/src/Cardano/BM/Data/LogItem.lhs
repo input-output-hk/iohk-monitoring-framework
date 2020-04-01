@@ -96,10 +96,11 @@ data LOMeta = LOMeta {
                 , hostname :: {-# UNPACK #-} !Text
                 , severity :: !Severity
                 , privacy  :: !PrivacyAnnotation
-                } deriving (Show, Eq)
+                , txtfrmtr :: !(Maybe (Object -> Text))
+                }
 
 instance ToJSON LOMeta where
-    toJSON (LOMeta _tstamp _tid _hn _sev _priv) =
+    toJSON (LOMeta _tstamp _tid _hn _sev _priv _) =
         object [ "tstamp"   .= _tstamp
                , "tid"      .= _tid
                , "hostname" .= _hn
@@ -113,6 +114,13 @@ instance FromJSON LOMeta where
                            <*> v .: "hostname"
                            <*> v .: "severity"
                            <*> v .: "privacy"
+                           <*> pure Nothing
+instance Show LOMeta where
+    show (LOMeta tstamp1 tid1 hn1 _sev1 _priv1 _) =
+        "LOMeta@" ++ show tstamp1 ++ " tid=" ++ show tid1 ++ if (not $ null $ show hn1) then " on " ++ show hn1 else ""
+instance Eq LOMeta where
+    (==) (LOMeta tstamp1 tid1 hn1 sev1 _priv1 _) (LOMeta tstamp2 tid2 hn2 sev2 _priv2 _) =
+        tstamp1 == tstamp2 && tid1 == tid2 && hn1 == hn2 && sev1 == sev2
 
 mkLOMeta :: MonadIO m => Severity -> PrivacyAnnotation -> m LOMeta
 mkLOMeta sev priv =
@@ -121,6 +129,7 @@ mkLOMeta sev priv =
            <*> pure ""
            <*> pure sev
            <*> pure priv
+           <*> pure Nothing
   where
     cleantid threadid = do
         let prefixText = "ThreadId "

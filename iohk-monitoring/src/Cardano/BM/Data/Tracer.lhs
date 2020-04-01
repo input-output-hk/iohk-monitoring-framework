@@ -59,9 +59,11 @@ import           Control.Monad (when)
 import           Control.Monad.IO.Class (MonadIO (..))
 
 import           Data.Aeson (Object, ToJSON (..), Value (..))
+import           Data.Aeson.Text (encodeToLazyText)
 import qualified Data.HashMap.Strict as HM
 import           Data.Text (Text)
 import qualified Data.Text as T
+import qualified Data.Text.Lazy as TL
 import           Data.Word (Word64)
 
 import           Cardano.BM.Data.Aggregated
@@ -230,6 +232,9 @@ class ToObject a where
         Object o     -> o
         s@(String _) -> HM.singleton "string" s
         _            -> mempty
+    textTransformer :: a -> Object -> Text
+    default textTransformer :: a -> Object -> Text
+    textTransformer _ o = TL.toStrict $ encodeToLazyText o
 
 \end{code}
 
@@ -375,7 +380,7 @@ trStructured verb tr = Tracer $ \arg ->
 The log |Severity| level of a |LogObject| can be altered.
 \begin{code}
 setSeverity :: Severity -> Trace m a -> Trace m a
-setSeverity sev tr = Tracer $ \(ctx,lo@(LogObject _nm meta@(LOMeta _ts _tid _hn _sev _pr) _lc)) ->
+setSeverity sev tr = Tracer $ \(ctx,lo@(LogObject _nm meta@(LOMeta _ts _tid _hn _sev _pr _fmt) _lc)) ->
                                 traceWith tr $ (ctx, lo { loMeta = meta { severity = sev } })
 
 severityDebug, severityInfo, severityNotice,

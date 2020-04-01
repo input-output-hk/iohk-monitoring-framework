@@ -93,24 +93,31 @@ data LogInternal = LogInternal
 instance ToJSON a => IsEffectuator Log a where
     effectuate katip item = do
         let logMVar = getK katip
+        -- TODO cache scribe lists, update every n minutes
         c <- configuration <$> readMVar logMVar
         setupScribes <- getSetupScribes c
         selscribes <- getScribes c (loName item)
         let selscribesFiltered =
                 case item of
-                    LogObject _ (LOMeta _ _ _ _ Confidential) (LogMessage _)
+                    LogObject _ (LOMeta _ _ _ _ Confidential _) (LogMessage _)
                         -> removePublicScribes setupScribes selscribes
                     _   -> selscribes
-        forM_ selscribesFiltered $ \sc -> passN sc katip item
+        forM_ (onlyScribes ScText setupScribes selscribesFiltered) $ \sc -> passText sc katip item
+        forM_ (onlyScribes ScJson setupScribes selscribesFiltered) $ \sc -> passStrx sc katip item
       where
-        removePublicScribes allScribes = filter $ \sc ->
-            let (_, nameD) = T.breakOn "::" sc
-                -- drop "::" from the start of name
-                name = T.drop 2 nameD
+        removePublicScribes allScribes = filter $ \scn ->
+            let (_, nameD) = T.breakOn "::" scn
+                name = T.drop 2 nameD -- drop "::" from the start of name
             in
-            case find (\x -> scName x == name) allScribes of
+            case find (\scd -> scName scd == name) allScribes of
                 Nothing     -> False
                 Just scribe -> scPrivacy scribe == ScPrivate
+        onlyScribes :: ScribeFormat -> [ScribeDefinition] -> [Text] -> [Text]
+        onlyScribes form allScribes = filter $ \scn ->
+            case find (\scd -> (pack $ show $ scKind scd) <> "::" <> (scName scd) == scn) allScribes of
+                Nothing     -> False
+                Just scribe -> scFormat scribe == form
+
     handleOverflow _ = TIO.hPutStrLn stderr "Notice: Katip's queue full, dropping log items!"
 
 \end{code}
@@ -200,13 +207,13 @@ example = do
     config <- Config.setup "from_some_path.yaml"
     k <- setup config
     meta <- mkLOMeta Info Public
-    passN (pack (show StdoutSK)) k $ LogObject
+    passText (pack (show StdoutSK)) k $ LogObject
                                             { loName = ["test"]
                                             , loMeta = meta
                                             , loContent = LogMessage "Hello!"
                                             }
     meta' <- mkLOMeta Info Public
-    passN (pack (show StdoutSK)) k $ LogObject
+    passStrx (pack (show StdoutSK)) k $ LogObject
                                             { loName = ["test"]
                                             , loMeta = meta'
                                             , loContent = LogValue "cpu-no" 1
@@ -237,61 +244,30 @@ instance ToJSON a => KC.LogItem (Maybe (LOContent a)) where
 
 \end{code}
 
-\subsubsection{Log.passN}\label{code:passN}
-The following function copies the |LogObject| to the queues of all scribes
-that match on their name.
-Compare start of name of scribe to |(show backend <> "::")|.
-This function is non-blocking.
+\subsubsection{Entering structured log item into katip's queue}\label{code:passStrx}
 \begin{code}
-passN :: forall a. ToJSON a => ScribeId -> Log a -> LogObject a -> IO ()
-passN backend katip (LogObject loname lometa loitem) = do
+passStrx :: forall a. ToJSON a => ScribeId -> Log a -> LogObject a -> IO ()
+passStrx backend katip (LogObject loname lometa loitem) = do
     env <- kLogEnv <$> readMVar (getK katip)
     forM_ (Map.toList $ K._logEnvScribes env) $
           \(scName, (KC.ScribeHandle _ shChan)) ->
               -- check start of name to match |ScribeKind|
                 when (backend `isPrefixOf` scName) $ do
-                    let payload :: Maybe (Either (LOContent a) Value)
-                        (sev, msg, payload) = case loitem of
-                                (LogMessage logItem) ->
-                                     let (text,maylo) = case toJSON logItem of
-                                            (String m)  -> (m, Nothing)
-                                            m           -> (TL.toStrict $ encodeToLazyText m, Nothing)
-                                     in
-                                     (severity lometa, text, maylo)
-                                (LogError text) ->
-                                     (severity lometa, text, Just $ Left loitem)
-                                (LogStructured s) ->
-                                     (severity lometa, "", Just . Right $ Object s)
-                                (LogValue name value) ->
-                                    if name == ""
-                                    then (severity lometa, pack (showSI value), Just $ Left loitem)
-                                    else (severity lometa, name <> " = " <> pack (showSI value), Just $ Left loitem)
-                                (ObserveDiff _) ->
-                                     let text = TL.toStrict (encodeToLazyText loitem)
-                                     in
-                                     (severity lometa, text, Just $ Left loitem)
-                                (ObserveOpen _) ->
-                                     let text = TL.toStrict (encodeToLazyText loitem)
-                                     in
-                                     (severity lometa, text, Just $ Left loitem)
-                                (ObserveClose _) ->
-                                     let text = TL.toStrict (encodeToLazyText loitem)
-                                     in
-                                     (severity lometa, text, Just $ Left loitem)
-                                (AggregatedMessage aggregated) ->
-                                     let text = T.concat $ flip map aggregated $ \(name, agg) ->
-                                                "\n" <> name <> ": " <> pack (show agg)
-                                    in
-                                    (severity lometa, text, Just $ Left loitem)
-                                (MonitoringEffect _) ->
-                                     let text = TL.toStrict (encodeToLazyText loitem)
-                                     in
-                                     (severity lometa, text, Just $ Left loitem)
-                                KillPill ->
-                                    (severity lometa, "Kill pill received!", Nothing)
-                                Command _ ->
-                                    (severity lometa, "Command received!", Nothing)
-                    unless (msg == "" && isNothing payload) $ do
+                    let sev = severity lometa
+                        payload :: Maybe (Either (LOContent a) Value)
+                        payload = case loitem of
+                                (LogMessage _) -> Just $ Left loitem
+                                (LogError _) -> Just $ Left loitem
+                                (LogStructured s) -> Just $ Right (Object s)
+                                (LogValue _ _) -> Just $ Left loitem
+                                (ObserveDiff _) -> Just $ Left loitem
+                                (ObserveOpen _) -> Just $ Left loitem
+                                (ObserveClose _) -> Just $ Left loitem
+                                (AggregatedMessage _) ->Just $ Left loitem
+                                (MonitoringEffect _) ->Just $ Left loitem
+                                KillPill -> Nothing
+                                Command _ -> Nothing
+                    unless (isNothing payload) $ do
                         let threadIdText = KC.ThreadIdText $ tid lometa
                         let itemTime = tstamp lometa
                         let localname = [loname]
@@ -303,6 +279,59 @@ passN backend katip (LogObject loname lometa loitem) = do
                                 , _itemHost      = unpack $ hostname lometa
                                 , _itemProcess   = env ^. KC.logEnvPid
                                 , _itemPayload   = payload
+                                , _itemMessage   = ""
+                                , _itemTime      = itemTime
+                                , _itemNamespace = env ^. KC.logEnvApp <> K.Namespace localname
+                                , _itemLoc       = Nothing
+                                }
+                        void $ atomically $ KC.tryWriteTBQueue shChan (KC.NewItem itemKatip)
+\end{code}
+
+\subsubsection{Entering textual log item into katip's queue}\label{code:passText}
+\begin{code}
+passText :: forall a. ToJSON a => ScribeId -> Log a -> LogObject a -> IO ()
+passText backend katip (LogObject loname lometa loitem) = do
+    env <- kLogEnv <$> readMVar (getK katip)
+    forM_ (Map.toList $ K._logEnvScribes env) $
+          \(scName, (KC.ScribeHandle _ shChan)) ->
+              -- check start of name to match |ScribeKind|
+                when (backend `isPrefixOf` scName) $ do
+                    let sev = severity lometa
+                        msg :: Text
+                        msg = case loitem of
+                                (LogMessage logItem) -> case toJSON logItem of
+                                            (String m)  -> m
+                                            m           -> TL.toStrict $ encodeToLazyText m
+                                (LogError m) -> m
+                                (LogStructured o) -> case txtfrmtr lometa of
+                                                       Just f  -> f o
+                                                       Nothing -> TL.toStrict (encodeToLazyText o)
+                                (LogValue name value) ->
+                                    if name == ""
+                                    then pack (showSI value)
+                                    else name <> " = " <> pack (showSI value)
+                                (ObserveDiff _) -> TL.toStrict (encodeToLazyText loitem)
+                                (ObserveOpen _) -> TL.toStrict (encodeToLazyText loitem)
+                                (ObserveClose _) -> TL.toStrict (encodeToLazyText loitem)
+                                (AggregatedMessage aggregated) ->
+                                    T.concat $ flip map aggregated $ \(name, agg) ->
+                                        "\n" <> name <> ": " <> pack (show agg)
+                                (MonitoringEffect _) ->
+                                    TL.toStrict (encodeToLazyText loitem)
+                                KillPill -> ""
+                                Command _ -> ""
+                    unless (msg == "") $ do
+                        let threadIdText = KC.ThreadIdText $ tid lometa
+                        let itemTime = tstamp lometa
+                        let localname = [loname]
+                        let itemKatip = K.Item {
+                                  _itemApp       = env ^. KC.logEnvApp
+                                , _itemEnv       = env ^. KC.logEnvEnv
+                                , _itemSeverity  = sev2klog sev
+                                , _itemThread    = threadIdText
+                                , _itemHost      = unpack $ hostname lometa
+                                , _itemProcess   = env ^. KC.logEnvPid
+                                , _itemPayload   = ()
                                 , _itemMessage   = K.logStr msg
                                 , _itemTime      = itemTime
                                 , _itemNamespace = env ^. KC.logEnvApp <> K.Namespace localname

@@ -53,7 +53,6 @@ import qualified Cardano.BM.Configuration.Model as CM
 import           Cardano.BM.Data.Aggregated (Measurable (..))
 import           Cardano.BM.Data.AggregatedKind
 import           Cardano.BM.Data.BackendKind
-import           Cardano.BM.Data.Configuration
 import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.MonitoringEval
 import           Cardano.BM.Data.Output
@@ -63,6 +62,7 @@ import           Cardano.BM.Data.SubTrace
 import           Cardano.BM.Data.Trace
 import           Cardano.BM.Data.Tracer
 #ifdef ENABLE_OBSERVABLES
+import           Cardano.BM.Configuration
 import           Cardano.BM.Data.Observable
 import           Cardano.BM.Observer.Monadic (bracketObserveIO)
 import qualified Cardano.BM.Observer.STM as STM
@@ -205,8 +205,8 @@ prepare_configuration = do
     CM.setGUIport c 13790
 
     -- CM.setForwardTo c (Just $ RemotePipe "logs/pipe")
-    -- CM.setForwardTo c (Just $ RemotePipe "\\\\.\\pipe\\acceptor") -- Windows
-    CM.setForwardTo c (Just $ RemoteSocket "127.0.0.1" "2999")
+    -- CM.setForwardTo c (Just $ RemotePipe "\\\\.\\pipe\\acceptor") -- on Windows
+    -- CM.setForwardTo c (Just $ RemoteSocket "127.0.0.1" "2999")
 
     CM.setMonitors c $ HM.fromList
         [ ( "complex.monitoring"

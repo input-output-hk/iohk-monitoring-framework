@@ -341,7 +341,7 @@ unitTraceMinSeverity = do
         ("Found Info message when Warning was minimum severity: " ++ show res)
         (all
             (\case
-                LogObject _ (LOMeta _ _ _ Info _) (LogMessage "Message #2") -> False
+                LogObject _ (LOMeta _ _ _ Info _ _) (LogMessage "Message #2") -> False
                 _ -> True)
             res)
 
@@ -411,7 +411,7 @@ unitNamedMinSeverity = do
         ("Found Info message when Warning was minimum severity: " ++ show res)
         (all
             (\case
-                LogObject _ (LOMeta _ _ _ Info _) (LogMessage "Message #2") -> False
+                LogObject _ (LOMeta _ _ _ Info _ _) (LogMessage "Message #2") -> False
                 _ -> True)
             res)
 
