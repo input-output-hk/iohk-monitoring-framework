@@ -62,6 +62,10 @@ library
                        Cardano.BM.Trace
                        Cardano.BM.Tracer
 
+                       -- shamelessly stolen from ouroboros-network-framework
+                       Cardano.BM.IOManager
+                       Cardano.BM.Snocket
+
   if !flag(disable-observables)
     exposed-modules:   Cardano.BM.Observer.Monadic
                        Cardano.BM.Observer.STM
@@ -107,6 +111,7 @@ library
                        transformers,
                        unordered-containers,
                        vector,
+                       Win32-network,
                        yaml, libyaml
 
   if os(windows)
