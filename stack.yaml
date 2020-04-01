@@ -1,5 +1,6 @@
 resolver: lts-13.26
 compiler: ghc-8.6.5
+
 packages:
   - contra-tracer
   - tracer-transformers
@@ -14,10 +15,17 @@ packages:
   - plugins/scribe-systemd
   - examples
 
+allow-newer: true
+
 extra-deps:
-  - time-units-1.0.0
-  - libsystemd-journal-1.4.4
-  - katip-0.8.3.0
+  - network-3.1.1.1
+  - snap-core-1.0.4.1
+  - snap-server-1.1.1.1
+
+  - git: https://github.com/input-output-hk/ouroboros-network
+    commit: 7e89518148ebb11d9ee6b973c394a69713961de6
+    subdirs:
+        - Win32-network
 
 nix:
-  shell-file: nix/stack-shell.nix
+    shell-file: nix/stack-shell.nix

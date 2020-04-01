@@ -22,17 +22,5 @@
         "type": "tarball",
         "url": "https://github.com/input-output-hk/iohk-nix/archive/ca80aeb33e8ca854dca77c1098a90136b9dabf2e.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
-    },
-    "niv": {
-        "branch": "iohk",
-        "description": "Easy dependency management for Nix projects",
-        "homepage": "https://github.com/nmattia/niv",
-        "owner": "input-output-hk",
-        "repo": "niv",
-        "rev": "89da7b2e7ae0779fd351618fc74df1b1da5e6214",
-        "sha256": "0jn88ahv6mycxdkzihy1v0dz2110q0d42q4ggyj68l2lyba6y0yy",
-        "type": "tarball",
-        "url": "https://github.com/input-output-hk/niv/archive/89da7b2e7ae0779fd351618fc74df1b1da5e6214.tar.gz",
-        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     }
 }

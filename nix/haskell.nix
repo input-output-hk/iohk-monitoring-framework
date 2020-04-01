@@ -16,9 +16,10 @@ let
   # This creates the Haskell package set.
   # https://input-output-hk.github.io/haskell.nix/user-guide/projects/
   pkgSet = haskell-nix.cabalProject {
-    src = haskell-nix.haskellLib.cleanGit { src = ../. ; };
+    src = haskell-nix.haskellLib.cleanGit { src = ../.; };
     ghc = buildPackages.haskell-nix.compiler.${compiler};
     modules = [
+
       # Allow reinstallation of Win32
       { nonReinstallablePkgs =
         [ "rts" "ghc-heap" "ghc-prim" "integer-gmp" "integer-simple" "base"
@@ -36,9 +37,36 @@ let
         ];
       }
       {
-        packages.iohk-monitoring-framework.configureFlags = [ "--ghc-option=-Werror" ];
+        # Packages we wish to ignore version bounds of.
+        # This is similar to jailbreakCabal, however it
+        # does not require any messing with cabal files.
+        packages.katip.doExactConfig = true;
+
+        # split data output for ekg to reduce closure size
+        packages.ekg.components.library.enableSeparateDataOutput = true;
+        packages.iohk-monitoring.configureFlags = [ "--ghc-option=-Werror" ];
+        enableLibraryProfiling = profiling;
       }
+      (lib.optionalAttrs stdenv.hostPlatform.isWindows {
+        # Disable cabal-doctest tests by turning off custom setups
+        packages.comonad.package.buildType = lib.mkForce "Simple";
+        packages.distributive.package.buildType = lib.mkForce "Simple";
+        packages.lens.package.buildType = lib.mkForce "Simple";
+        packages.nonempty-vector.package.buildType = lib.mkForce "Simple";
+        packages.semigroupoids.package.buildType = lib.mkForce "Simple";
+
+        # Make sure we use a buildPackages version of happy
+        packages.pretty-show.components.library.build-tools = [ buildPackages.haskell-nix.haskellPackages.happy ];
+
+        # Remove hsc2hs build-tool dependencies (suitable version will be available as part of the ghc derivation)
+        packages.Win32.components.library.build-tools = lib.mkForce [];
+        packages.terminal-size.components.library.build-tools = lib.mkForce [];
+        packages.network.components.library.build-tools = lib.mkForce [];
+      })
     ];
+    # TODO add flags to packages (like cs-ledger) so we can turn off tests that will
+    # not build for windows on a per package bases (rather than using --disable-tests).
+    configureArgs = lib.optionalString stdenv.hostPlatform.isWindows "--disable-tests";
   };
 in
   pkgSet

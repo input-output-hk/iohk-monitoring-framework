@@ -29,7 +29,7 @@ let
       (pkgs: _: with pkgs; {
 
         # commonLib: mix pkgs.lib with iohk-nix utils and our own:
-        commonLib = lib // iohkNix
+        commonLib = lib // iohkNix // iohkNix.cardanoLib
           // import ./util.nix { inherit haskell-nix; }
           # also expose our sources and overlays
           // { inherit overlays sources; };
