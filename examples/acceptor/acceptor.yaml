@@ -38,17 +38,12 @@ defaultScribes:
   - - FileSK
     - "logs/acceptor.log"
 
-# traceAcceptAt:
-#   tag: RemotePipe
-#   contents: "logs/pipe"
-
 traceAcceptAt:
   - nodeName: "a"
     remoteAddr:
-      tag: RemoteSocket
-      contents:
-        - "127.0.0.1"
-        - "2998"
+      tag: RemotePipe
+      contents: "logs/pipe"
+      # contents: "\\\\.\\pipe\\acceptor" # Windows
   - nodeName: "b"
     remoteAddr:
       tag: RemoteSocket

@@ -1,3 +1,6 @@
+--
+-- Stolen from 'ouroboros-network-framework'
+--
 {-# LANGUAGE CPP        #-}
 {-# LANGUAGE RankNTypes #-}
 

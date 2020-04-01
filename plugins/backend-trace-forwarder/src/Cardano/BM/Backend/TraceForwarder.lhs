@@ -31,13 +31,15 @@ import           Data.Text.Encoding (encodeUtf8)
 import           Data.Typeable (Typeable)
 
 import qualified Network.Socket as Socket
-import           System.IO (IOMode (..))
+import           System.IO (Handle, IOMode (..), hClose)
 
 import           Cardano.BM.Configuration
 import           Cardano.BM.Data.Backend
 import           Cardano.BM.Data.Configuration (RemoteAddr(..))
 import           Cardano.BM.Data.LogItem (LOMeta (..), LogObject (..))
+import           Cardano.BM.IOManager
 import           Cardano.BM.Plugin
+import qualified Cardano.BM.Snocket as Snocket
 import qualified Cardano.BM.Trace as Trace
 
 \end{code}
@@ -104,32 +106,36 @@ instance (FromJSON a, ToJSON a) => IsBackend TraceForwarder a where
 
     realize cfg = getForwardTo cfg >>= \case
       Nothing -> fail "Trace forwarder not configured:  option 'forwardTo'"
-      Just addr -> handleError TraceForwarderConnectionError $ do
-        sock <- connectForwarder addr
-        h <- Socket.socketToHandle sock ReadWriteMode
-        pure TraceForwarder
-          { tfClose = Socket.close sock
-          , tfWrite = \bs -> BSC.hPutStrLn h $! bs
-          }
+      Just addr -> handleError TraceForwarderConnectionError $
+        withIOManager $ \iomgr -> do
+          h <- connectForwarder iomgr addr
+          pure TraceForwarder
+            { tfClose = hClose h
+            , tfWrite = \bs -> BSC.hPutStrLn h $! bs
+            }
 
-    unrealize tf = tfClose tf
+    unrealize = tfClose
 
 handleError :: (String -> BackendFailure TraceForwarder) -> IO a -> IO a
 handleError ctor = flip catch $ \(e :: IOException) -> throwIO . ctor . show $ e
 
-connectForwarder :: RemoteAddr -> IO Socket.Socket
-connectForwarder (RemotePipe pipePath) = do
-  sock <- Socket.socket Socket.AF_UNIX Socket.Stream Socket.defaultProtocol
-  Socket.connect sock (Socket.SockAddrUnix pipePath)
-  pure sock
-connectForwarder (RemoteSocket host port) = do
+connectForwarder :: IOManager -> RemoteAddr -> IO Handle
+connectForwarder iomgr (RemotePipe pipePath) = do
+  let sn = Snocket.localSnocket iomgr pipePath
+  Snocket.localFDToHandle =<< (doConnect sn $ Snocket.localAddressFromPath pipePath)
+connectForwarder iomgr (RemoteSocket host port) = do
+  let sn = Snocket.socketSnocket iomgr
   addrs <- Socket.getAddrInfo Nothing (Just host) (Just port)
-  addr :: Socket.AddrInfo <- case addrs of
+  case addrs of
     [] -> throwIO (TraceForwarderSocketError ("bad socket address: " <> host <> ":" <> port))
-    a:_ -> pure a
-  sock <- Socket.socket (Socket.addrFamily addr) (Socket.addrSocketType addr) (Socket.addrProtocol addr)
-  Socket.connect sock (Socket.addrAddress addr)
-  pure sock
+    a:_ -> doConnect sn (Socket.addrAddress a)
+           >>= flip Socket.socketToHandle ReadWriteMode
+
+doConnect :: Snocket.Snocket IO fd addr -> addr -> IO fd
+doConnect sn remoteAddr = do
+  sd <- Snocket.openToConnect sn remoteAddr
+  Snocket.connect sn sd remoteAddr
+  pure sd
 
 data TraceForwarderBackendFailure
   = TraceForwarderConnectionError String

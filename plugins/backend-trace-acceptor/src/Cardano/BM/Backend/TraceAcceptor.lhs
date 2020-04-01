@@ -27,14 +27,13 @@ module Cardano.BM.Backend.TraceAcceptor
 
 import qualified Control.Concurrent.Async as Async
 import           Control.Exception
-import           Control.Monad (forever, forM, unless, when)
+import           Control.Monad (forM, unless)
 import           Data.Aeson (FromJSON, ToJSON, eitherDecodeStrict)
 import qualified Data.ByteString as BS
 import           Data.Text (pack)
 import           Data.Text.Encoding (decodeUtf8)
 import           Data.Typeable (Typeable)
 import qualified Network.Socket as Socket
-import qualified System.Directory as Dir
 import           System.IO (Handle)
 import qualified System.IO as IO
 
@@ -48,7 +47,9 @@ import           Cardano.BM.Data.LogItem
                    )
 import           Cardano.BM.Data.Severity (Severity (..))
 import           Cardano.BM.Data.Tracer (traceWith)
+import           Cardano.BM.IOManager
 import           Cardano.BM.Plugin
+import qualified Cardano.BM.Snocket as Snocket
 import qualified Cardano.BM.Trace as Trace
 
 \end{code}
@@ -61,22 +62,21 @@ the |LogObject|s to the |SwitchBoard|.
 \begin{code}
 plugin :: forall s a
        . (IsEffectuator s a, ToJSON a, FromJSON a)
-       => Configuration -> Trace.Trace IO a -> s a -> IO (Plugin a)
-plugin cf basicTrace _ = getAcceptAt cf >>= \case
+       => IOManager -> Configuration -> Trace.Trace IO a -> s a -> IO (Plugin a)
+plugin iomgr cf basicTrace _ = getAcceptAt cf >>= \case
   Just acceptors -> do
     socketsNServers <- forM acceptors $ \(RemoteAddrNamed nodeName addr) -> do
       let trace = Trace.appendName nodeName basicTrace
-      sock <- mkAcceptor addr
-      serverThr <- Async.async . forever $ acceptConnection trace sock
+      (serverCleanup, serverThr) <- acceptorForAddress trace iomgr addr
       Async.link serverThr
       IO.hPutStrLn IO.stderr $ "Activating trace acceptor on: " <> show addr
-      return (sock, serverThr)
+      return (serverCleanup, serverThr)
 
-    let (sockets, servers) = unzip socketsNServers
+    let (cleanups, servers) = unzip socketsNServers
         be :: (Cardano.BM.Backend.TraceAcceptor.TraceAcceptor a)
         be = TraceAcceptor
              { taServers   = servers
-             , taShutdown  = mapM_ Socket.close sockets
+             , taShutdown  = sequence_ cleanups
              }
     return $ BackendPlugin
                (MkBackend { bEffectuate = effectuate be
@@ -122,58 +122,51 @@ data TraceAcceptorBackendFailure
 
 instance Exception TraceAcceptorBackendFailure
 
-mkAcceptor :: RemoteAddr -> IO Socket.Socket
-mkAcceptor (RemotePipe pipePath) = handleError TraceAcceptorPipeError $ mdo
-  sock <- Socket.socket Socket.AF_UNIX Socket.Stream Socket.defaultProtocol
-  exists <- Dir.doesFileExist pipePath
-  when exists $
-    Dir.removeFile pipePath
-  bindSocket sock (Socket.SockAddrUnix pipePath)
-  Socket.listen sock 1
-  pure sock
+acceptorForAddress
+  :: FromJSON a
+  => Trace.Trace IO a
+  -> IOManager
+  -> RemoteAddr
+  -> IO (IO (), Async.Async ())
+acceptorForAddress trace iomgr (RemotePipe pipePath) =
+  handleError TraceAcceptorPipeError $
+  acceptorForSnocket
+    trace
+    Snocket.localFDToHandle
+    (Snocket.localSnocket iomgr pipePath)
+    (Snocket.localAddressFromPath pipePath)
 
-mkAcceptor (RemoteSocket host port) = handleError TraceAcceptorSocketError $ mdo
-  addrs <- Socket.getAddrInfo Nothing (Just host) (Just port)
-  addr :: Socket.AddrInfo <- case addrs of
+acceptorForAddress trace iomgr (RemoteSocket host port) = handleError TraceAcceptorSocketError $ do
+  let sn = Snocket.socketSnocket iomgr
+  ainfos <- Socket.getAddrInfo Nothing (Just host) (Just port)
+  case ainfos of
     [] -> throwIO (TraceAcceptorSocketError ("bad socket address: " <> host <> ":" <> port))
-    a:_ -> pure a
-  sock <- Socket.socket (Socket.addrFamily addr) (Socket.addrSocketType addr) (Socket.addrProtocol addr)
-  bindSocket sock (Socket.addrAddress addr)
-  Socket.listen sock 7
-  pure sock
+    a:_ -> acceptorForSnocket
+             trace
+             (flip Socket.socketToHandle IO.ReadWriteMode)
+             sn
+             (Socket.addrAddress a)
 
-acceptConnection :: FromJSON a => Trace.Trace IO a -> Socket.Socket -> IO ()
-acceptConnection baseTrace  sock = handleError TraceAcceptorServerError $ do
-  (client, _sa) <- Socket.accept sock
-  h <- Socket.socketToHandle client IO.ReadWriteMode
-  _client <- Async.async $ clientThread baseTrace h
-  pure ()
-
-bindSocket :: Socket.Socket -> Socket.SockAddr -> IO ()
-bindSocket sd addr = do
-  let fml = socketAddrFamily addr
-  when (fml == Socket.AF_INET ||
-        fml == Socket.AF_UNIX ||
-        fml == Socket.AF_INET6) $ do
-    Socket.setSocketOption sd Socket.ReuseAddr 1
-#if defined(POSIX)
-        -- only supported on POSIX, not Windows
-    Socket.setSocketOption sd Socket.ReusePort 1
-#endif
-  when (fml == Socket.AF_INET6)
-    -- An AF_INET6 socket can be used to talk to both IPv4 and IPv6 end points, and
-    -- it is enabled by default on some systems. Disabled here since we run a separate
-    -- IPv4 server instance if configured to use IPv4.
-    $ Socket.setSocketOption sd Socket.IPv6Only 1
-  Socket.bind sd addr
+acceptorForSnocket
+  :: forall a fd addr. (FromJSON a)
+  => Trace.Trace IO a
+  -> (fd -> IO Handle)
+  -> Snocket.Snocket IO fd addr
+  -> addr
+  -> IO (IO (), Async.Async ())
+acceptorForSnocket trace toHandle sn addr = do
+  sock <- Snocket.mkListeningSocket sn (Just addr) (Snocket.addrFamily sn addr)
+  server <- Async.async $
+    bracket (pure sock) (Snocket.close sn) $
+      \sock -> acceptLoop $ Snocket.accept sn sock
+  pure (Snocket.close sn sock, server)
  where
-   socketAddrFamily
-     :: Socket.SockAddr
-     -> Socket.Family
-   socketAddrFamily Socket.SockAddrInet{}  = Socket.AF_INET
-   socketAddrFamily Socket.SockAddrInet6{} = Socket.AF_INET6
-   socketAddrFamily Socket.SockAddrUnix{}  = Socket.AF_UNIX
-   socketAddrFamily _                      = error "Impossible happened: unsupported addr family!"
+   acceptLoop :: Snocket.Accept addr fd -> IO ()
+   acceptLoop (Snocket.Accept accept) = do
+      (cfd, _caddr, k) <- accept
+      h <- toHandle cfd
+      _client <- Async.async $ clientThread trace h
+      acceptLoop k
 
 \end{code}
 

@@ -205,6 +205,7 @@ prepare_configuration = do
     CM.setGUIport c 13790
 
     -- CM.setForwardTo c (Just $ RemotePipe "logs/pipe")
+    -- CM.setForwardTo c (Just $ RemotePipe "\\\\.\\pipe\\acceptor") -- Windows
     CM.setForwardTo c (Just $ RemoteSocket "127.0.0.1" "2999")
 
     CM.setMonitors c $ HM.fromList

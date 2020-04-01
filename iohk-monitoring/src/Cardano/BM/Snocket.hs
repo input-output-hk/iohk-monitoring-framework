@@ -1,3 +1,6 @@
+--
+-- Stolen from 'ouroboros-network-framework'
+--
 {-# LANGUAGE CPP                 #-}
 {-# LANGUAGE GADTs               #-}
 {-# LANGUAGE RankNTypes          #-}
@@ -21,12 +24,16 @@ module Cardano.BM.Snocket
   , LocalAddress (..)
   , LocalFD
   , localAddressFromPath
+  , localFDToHandle
   ) where
 
 import           Control.Exception
 import           Control.Monad (when)
-import           Network.Socket ( Family (AF_UNIX)
-                                , Socket
+import           Network.Socket (
+#if !defined(mingw32_HOST_OS)
+                                  Family (AF_UNIX),
+#endif
+                                  Socket
                                 , SockAddr (..)
                                 )
 import qualified Network.Socket as Socket
@@ -35,8 +42,10 @@ import           Data.Bits
 import qualified System.Win32            as Win32
 import qualified System.Win32.NamedPipes as Win32
 import qualified System.Win32.Async      as Win32.Async
-
+import           System.Win32.Types (hANDLEToHandle)
 #endif
+
+import qualified System.IO as IO
 
 import           Cardano.BM.IOManager
 
@@ -367,12 +376,15 @@ namedPipeSnocket ioManager path = Snocket {
 --
 
 localSnocket :: IOManager -> FilePath -> LocalSnocket
+localFDToHandle :: LocalFD -> IO IO.Handle
+
 -- | System dependent LocalSnocket type
 #if defined(mingw32_HOST_OS)
 type LocalSnocket = HANDLESnocket
 type LocalFD      = Win32.HANDLE
 
 localSnocket = namedPipeSnocket
+localFDToHandle = hANDLEToHandle
 #else
 type LocalSnocket = Snocket IO Socket LocalAddress
 type LocalFD      = Socket
@@ -412,6 +424,8 @@ localSnocket ioManager _ = Snocket {
           Socket.close sd
           throwIO e
       return sd
+
+localFDToHandle = flip Socket.socketToHandle IO.ReadWriteMode
 #endif
 
 localAddressFromPath :: FilePath -> LocalAddress
