@@ -99,7 +99,7 @@ instance ToJSON a => IsEffectuator Log a where
         selscribes <- getScribes c (loName item)
         let selscribesFiltered =
                 case item of
-                    LogObject _ (LOMeta _ _ _ _ Confidential _) (LogMessage _)
+                    LogObject _ (LOMeta _ _ _ _ Confidential) (LogMessage _)
                         -> removePublicScribes setupScribes selscribes
                     _   -> selscribes
         forM_ (onlyScribes ScText setupScribes selscribesFiltered) $ \sc -> passText sc katip item
@@ -259,6 +259,7 @@ passStrx backend katip (LogObject loname lometa loitem) = do
                                 (LogMessage _) -> Just $ Left loitem
                                 (LogError _) -> Just $ Left loitem
                                 (LogStructured s) -> Just $ Right (Object s)
+                                (LogStructuredText s _t) -> Just $ Right (Object s)
                                 (LogValue _ _) -> Just $ Left loitem
                                 (ObserveDiff _) -> Just $ Left loitem
                                 (ObserveOpen _) -> Just $ Left loitem
@@ -303,9 +304,8 @@ passText backend katip (LogObject loname lometa loitem) = do
                                             (String m)  -> m
                                             m           -> TL.toStrict $ encodeToLazyText m
                                 (LogError m) -> m
-                                (LogStructured o) -> case txtfrmtr lometa of
-                                                       Just f  -> f o
-                                                       Nothing -> TL.toStrict (encodeToLazyText o)
+                                (LogStructured o) -> TL.toStrict (encodeToLazyText o)
+                                (LogStructuredText _o m) -> m
                                 (LogValue name value) ->
                                     if name == ""
                                     then pack (showSI value)

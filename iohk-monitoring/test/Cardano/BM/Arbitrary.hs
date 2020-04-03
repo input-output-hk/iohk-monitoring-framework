@@ -33,7 +33,6 @@ instance Arbitrary LOMeta where
     <*> pure "localhost"
     <*> arbitrary
     <*> arbitrary
-    <*> pure Nothing
 
 instance Arbitrary Measurable where
   arbitrary = QC.oneof

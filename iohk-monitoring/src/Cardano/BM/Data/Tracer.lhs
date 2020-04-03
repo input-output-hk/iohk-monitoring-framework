@@ -18,6 +18,7 @@ module Cardano.BM.Data.Tracer
     , Transformable (..)
     , ToLogObject (..)
     , ToObject (..)
+    , HasTextFormatter (..)
     , HasSeverityAnnotation (..)
     , HasPrivacyAnnotation (..)
     , WithSeverity (..)
@@ -32,6 +33,7 @@ module Cardano.BM.Data.Tracer
     , debugTracer
     , showTracing
     , trStructured
+    , trStructuredText
     -- * conditional tracing
     , condTracing
     , condTracingM
@@ -67,9 +69,9 @@ import qualified Data.Text.Lazy as TL
 import           Data.Word (Word64)
 
 import           Cardano.BM.Data.Aggregated
-import           Cardano.BM.Data.LogItem (LoggerName, LogObject (..),
-                     LOContent (..), LOMeta (..), PrivacyAnnotation (..),
-                     mkLOMeta)
+import           Cardano.BM.Data.LogItem (LoggerName,
+                     LogObject (..), LOContent (..), LOMeta (..),
+                     PrivacyAnnotation (..), mkLOMeta)
 import           Cardano.BM.Data.Severity (Severity (..))
 import           Cardano.BM.Data.Trace
 import           Control.Tracer
@@ -359,7 +361,31 @@ trStructured verb tr = Tracer $ \arg ->
  in traceWith tracer =<< do
           meta <- mkLOMeta (getSeverityAnnotation arg) (getPrivacyAnnotation arg)
           return ( mempty
-                 , LogObject mempty meta (LogStructured obj)
+                 , LogObject mempty meta (LogStructuredText obj (T.pack $ show $ obj))
+                 )
+
+\end{code}
+
+
+\label{code:trStructuredText}\index{trStructuredText}
+\label{code:HasTextFormatter}\index{HasTextFormatter}
+\begin{code}
+class HasTextFormatter a where
+    formatText :: a -> Object -> Text
+    default formatText :: a -> Object -> Text
+    formatText _a = T.pack . show
+
+trStructuredText :: ( ToObject b, MonadIO m, HasTextFormatter b
+                    , HasPrivacyAnnotation b, HasSeverityAnnotation b )
+                 => TracingVerbosity -> Trace m a -> Tracer m b
+trStructuredText verb tr = Tracer $ \arg ->
+ let
+   obj = toObject verb arg
+   tracer = if obj == emptyObject then nullTracer else tr
+ in traceWith tracer =<< do
+          meta <- mkLOMeta (getSeverityAnnotation arg) (getPrivacyAnnotation arg)
+          return ( mempty
+                 , LogObject mempty meta (LogStructuredText obj (formatText arg obj))
                  )
 
 \end{code}
@@ -380,7 +406,7 @@ trStructured verb tr = Tracer $ \arg ->
 The log |Severity| level of a |LogObject| can be altered.
 \begin{code}
 setSeverity :: Severity -> Trace m a -> Trace m a
-setSeverity sev tr = Tracer $ \(ctx,lo@(LogObject _nm meta@(LOMeta _ts _tid _hn _sev _pr _fmt) _lc)) ->
+setSeverity sev tr = Tracer $ \(ctx,lo@(LogObject _nm meta@(LOMeta _ts _tid _hn _sev _pr) _lc)) ->
                                 traceWith tr $ (ctx, lo { loMeta = meta { severity = sev } })
 
 severityDebug, severityInfo, severityNotice,

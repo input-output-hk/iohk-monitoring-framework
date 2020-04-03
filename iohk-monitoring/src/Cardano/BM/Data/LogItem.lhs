@@ -4,6 +4,7 @@
 
 %if style == newcode
 \begin{code}
+{-# LANGUAGE DefaultSignatures  #-}
 {-# LANGUAGE LambdaCase         #-}
 {-# LANGUAGE NumericUnderscores #-}
 
@@ -96,11 +97,10 @@ data LOMeta = LOMeta {
                 , hostname :: {-# UNPACK #-} !Text
                 , severity :: !Severity
                 , privacy  :: !PrivacyAnnotation
-                , txtfrmtr :: !(Maybe (Object -> Text))
                 }
 
 instance ToJSON LOMeta where
-    toJSON (LOMeta _tstamp _tid _hn _sev _priv _) =
+    toJSON (LOMeta _tstamp _tid _hn _sev _priv) =
         object [ "tstamp"   .= _tstamp
                , "tid"      .= _tid
                , "hostname" .= _hn
@@ -114,13 +114,12 @@ instance FromJSON LOMeta where
                            <*> v .: "hostname"
                            <*> v .: "severity"
                            <*> v .: "privacy"
-                           <*> pure Nothing
 instance Show LOMeta where
-    show (LOMeta tstamp1 tid1 hn1 _sev1 _priv1 _) =
+    show (LOMeta tstamp1 tid1 hn1 _sev1 _priv1) =
         "LOMeta@" ++ show tstamp1 ++ " tid=" ++ show tid1 ++ if (not $ null $ show hn1) then " on " ++ show hn1 else ""
 instance Eq LOMeta where
-    (==) (LOMeta tstamp1 tid1 hn1 sev1 _priv1 _) (LOMeta tstamp2 tid2 hn2 sev2 _priv2 _) =
-        tstamp1 == tstamp2 && tid1 == tid2 && hn1 == hn2 && sev1 == sev2
+    (==) (LOMeta tstamp1 tid1 hn1 sev1 priv1) (LOMeta tstamp2 tid2 hn2 sev2 priv2) =
+        tstamp1 == tstamp2 && tid1 == tid2 && hn1 == hn2 && sev1 == sev2 && priv1 == priv2
 
 mkLOMeta :: MonadIO m => Severity -> PrivacyAnnotation -> m LOMeta
 mkLOMeta sev priv =
@@ -129,7 +128,6 @@ mkLOMeta sev priv =
            <*> pure ""
            <*> pure sev
            <*> pure priv
-           <*> pure Nothing
   where
     cleantid threadid = do
         let prefixText = "ThreadId "
@@ -200,6 +198,7 @@ data LOContent a = LogMessage a
                  | LogError !Text
                  | LogValue !Text !Measurable
                  | LogStructured !Object
+                 | LogStructuredText !Object !Text
                  | ObserveOpen !CounterState
                  | ObserveDiff !CounterState
                  | ObserveClose !CounterState
@@ -224,6 +223,10 @@ instance ToJSON a => ToJSON (LOContent a) where
     toJSON (LogStructured m) =
         object [ "kind" .= String "LogStructured"
                , "data" .= m]
+    toJSON (LogStructuredText o t) =
+        object [ "kind" .= String "LogStructuredText"
+               , "data" .= o
+               , "text" .= t]
     toJSON (ObserveOpen c) =
         object [ "kind" .= String "ObserveOpen"
                , "counters" .= toJSON c]
@@ -253,6 +256,7 @@ instance (FromJSON a) => FromJSON (LOContent a) where
                         "LogError" -> LogError <$> v .: "message"
                         "LogValue" -> LogValue <$> v .: "name" <*> v .: "value"
                         "LogStructured" -> LogStructured <$> v .: "data"
+                        "LogStructuredText" -> LogStructuredText <$> v .: "data" <*> v .: "text"
                         "ObserveOpen" -> ObserveOpen <$> v .: "counters"
                         "ObserveDiff" -> ObserveDiff <$> v .: "counters"
                         "ObserveClose" -> ObserveClose <$> v .: "counters"
@@ -298,6 +302,7 @@ loType2Name = \case
     LogError _          -> "LogError"
     LogValue _ _        -> "LogValue"
     LogStructured _     -> "LogStructured"
+    LogStructuredText _ _ -> "LogStructuredText"
     ObserveOpen _       -> "ObserveOpen"
     ObserveDiff _       -> "ObserveDiff"
     ObserveClose _      -> "ObserveClose"
@@ -373,17 +378,18 @@ instance Functor LogObject where
 
 mapLOContent :: (a -> b) -> LOContent a -> LOContent b
 mapLOContent f = \case
-    LogMessage msg       -> LogMessage (f msg)
-    LogError a           -> LogError a
-    LogStructured m      -> LogStructured m
-    LogValue n v         -> LogValue n v
-    ObserveOpen st       -> ObserveOpen st
-    ObserveDiff st       -> ObserveDiff st
-    ObserveClose st      -> ObserveClose st
-    AggregatedMessage ag -> AggregatedMessage ag
-    MonitoringEffect act -> MonitoringEffect act
-    Command v            -> Command v
-    KillPill             -> KillPill
+    LogMessage msg        -> LogMessage (f msg)
+    LogError a            -> LogError a
+    LogStructured o       -> LogStructured o
+    LogStructuredText o m -> LogStructuredText o m
+    LogValue n v          -> LogValue n v
+    ObserveOpen st        -> ObserveOpen st
+    ObserveDiff st        -> ObserveDiff st
+    ObserveClose st       -> ObserveClose st
+    AggregatedMessage ag  -> AggregatedMessage ag
+    MonitoringEffect act  -> MonitoringEffect act
+    Command v             -> Command v
+    KillPill              -> KillPill
 
 -- | Equality between LogObjects based on their log content values.
 loContentEq :: Eq a => LogObject a -> LogObject a -> Bool
