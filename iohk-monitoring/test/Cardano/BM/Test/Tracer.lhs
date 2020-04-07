@@ -212,7 +212,7 @@ data MsgTy = Item1 Int
 instance HasSeverityAnnotation MsgTy
 instance HasPrivacyAnnotation MsgTy
 instance Transformable Text IO MsgTy where
-    trTransformer _ _verb tr = Tracer $ \s -> do
+    trTransformer _verb tr = Tracer $ \s -> do
         meta <- mkLOMeta (getSeverityAnnotation s) (getPrivacyAnnotation s)
         traceWith tr ("", LogObject mempty
                                     meta
@@ -228,8 +228,8 @@ instance ElidingTracer (WithSeverity MsgTy) where
     -- instances of |Elided2| are equivalent if they are equal
     isEquivalent (WithSeverity _ (Elided2 n1)) (WithSeverity _ (Elided2 n2)) = n1 == n2
     isEquivalent _ _ = False
-    conteliding _tform _tverb _tr _ (Nothing, _count) = return (Nothing, 0)
-    conteliding _tform _tverb tr ev (_old, count) = do
+    conteliding _tverb _tr _ (Nothing, _count) = return (Nothing, 0)
+    conteliding _tverb tr ev (_old, count) = do
         when (count > 0 && count `mod` 100 == 0) $ do  -- report every 100th elided messages
             meta <- mkLOMeta (getSeverityAnnotation ev) (getPrivacyAnnotation ev)
             traceNamedObject tr (meta, LogValue "messages elided" (PureI $ toInteger count))
@@ -251,7 +251,7 @@ tracingElidedMessages = do
         msg31 = Item1 42
         msg32 = Item1 42
         infoTracer = annotateSeverity
-                     $ elideToLogObject TextualRepresentation NormalVerbosity s_elide $ baseTrace
+                     $ elideToLogObject NormalVerbosity s_elide $ baseTrace
     traceWith infoTracer msg11
     traceWith infoTracer msg12
     traceWith infoTracer msg31
@@ -290,7 +290,7 @@ tracingElidedMessages1 = do
     let msg11 = Elided1 1400
         msg31 = Item1 42
         tracer = annotateSeverity
-                 $ elideToLogObject TextualRepresentation NormalVerbosity s_elide $ baseTrace
+                 $ elideToLogObject NormalVerbosity s_elide $ baseTrace
     traceWith tracer msg11
     traceWith tracer msg31
 
@@ -315,7 +315,7 @@ tracingElidedMessages2 = do
         msg12 = Elided1 1000
         msg31 = Item1 42
         tracer = annotateSeverity
-                 $ elideToLogObject TextualRepresentation NormalVerbosity s_elide $ baseTrace
+                 $ elideToLogObject NormalVerbosity s_elide $ baseTrace
     traceWith tracer msg11
     traceWith tracer msg12
     traceWith tracer msg31
@@ -341,7 +341,7 @@ tracingElidedMessages3 = do
         msg12 = Elided1 1000
         msg31 = Item1 42
         tracer = annotateSeverity
-                 $ elideToLogObject TextualRepresentation NormalVerbosity s_elide $ baseTrace
+                 $ elideToLogObject NormalVerbosity s_elide $ baseTrace
     traceWith tracer msg11
     traceWith tracer msg12
     traceWith tracer msg12  -- elided
@@ -369,7 +369,7 @@ tracingElidedMessagesRepeat = do
         msg12 = Elided1 1000
         msg31 = Item1 42
         tracer = annotateSeverity
-                 $ elideToLogObject TextualRepresentation NormalVerbosity s_elide $ baseTrace
+                 $ elideToLogObject NormalVerbosity s_elide $ baseTrace
     traceWith tracer msg11
     traceWith tracer msg12
     let mlist = map Elided1 [1..320]

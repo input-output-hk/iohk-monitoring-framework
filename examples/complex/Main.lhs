@@ -370,12 +370,12 @@ instance ToObject Pet where
 
 instance Transformable Text IO Pet where
     -- transform to JSON Object
-    trTransformer StructuredLogging verb tr = trStructured verb tr
+    trTransformer MaximalVerbosity tr = trStructured MaximalVerbosity tr
+    trTransformer MinimalVerbosity _tr = nullTracer
     -- transform to textual representation using |show|
-    trTransformer TextualRepresentation _v tr = Tracer $ \pet -> do
+    trTransformer _v tr = Tracer $ \pet -> do
         meta <- mkLOMeta Info Public
         traceWith tr $ ("pet", LogObject "pet" meta $ (LogMessage . pack . show) pet)
-    trTransformer _ _verb _tr = nullTracer
 
 -- default privacy annotation: Public
 instance HasPrivacyAnnotation Pet
@@ -394,7 +394,7 @@ msgThr trace = do
         logNotice tr "N O T I F I C A T I O N ! ! !"
         logDebug tr "a detailed debug message."
         logError tr "Boooommm .."
-        traceWith (toLogObject' StructuredLogging MaximalVerbosity tr) (Pet "bella" 8)
+        traceWith (toLogObject' MaximalVerbosity tr) (Pet "bella" 8)
         loop tr
 #endif
 

@@ -82,12 +82,12 @@ instance ToObject Pet where
 
 instance Transformable Text IO Pet where
     -- transform to JSON Object
-    trTransformer StructuredLogging verb tr = trStructured verb tr
+    trTransformer MaximalVerbosity tr = trStructured MaximalVerbosity tr
+    trTransformer MinimalVerbosity _tr = nullTracer
     -- transform to textual representation using |show|
-    trTransformer TextualRepresentation _v tr = Tracer $ \pet -> do
+    trTransformer _v tr = Tracer $ \pet -> do
         meta <- mkLOMeta Info Public
         traceWith tr $ ("pet", LogObject "pet" meta $ (LogMessage . pack . show) pet)
-    trTransformer _ _verb _tr = nullTracer
 
 -- default privacy annotation: Public
 instance HasPrivacyAnnotation Pet
@@ -134,9 +134,9 @@ logStructuredStdout = do
     traceWith (toLogObject confidentialTracer) pet
     traceWith (toLogObjectVerbose confidentialTracer) pet
     traceWith (toLogObjectMinimal confidentialTracer) pet
-    traceWith (toLogObject' StructuredLogging MinimalVerbosity noticeTracer) (42 :: Integer)
-    traceWith (toLogObject' StructuredLogging MinimalVerbosity confidentialTracer) pet
-    traceWith (toLogObject' TextualRepresentation MaximalVerbosity noticeTracer) pet
+    traceWith (toLogObject' MinimalVerbosity noticeTracer) (42 :: Integer)
+    traceWith (toLogObject' MinimalVerbosity confidentialTracer) pet
+    traceWith (toLogObject' MaximalVerbosity noticeTracer) pet
 
     assertBool "OK" True
 
@@ -161,12 +161,12 @@ instance ToObject Material where
 
 instance Transformable Text IO Material where
     -- transform to JSON Object
-    trTransformer StructuredLogging verb tr = trStructured verb tr
+    trTransformer MaximalVerbosity tr = trStructured MaximalVerbosity tr
+    trTransformer MinimalVerbosity _tr = nullTracer
     -- transform to textual representation using |show|
-    trTransformer TextualRepresentation _v tr = Tracer $ \mat -> do
+    trTransformer _v tr = Tracer $ \mat -> do
         meta <- mkLOMeta Info Public
         traceWith tr $ ("material", LogObject "material" meta $ (LogMessage . pack . show) mat)
-    trTransformer _ _verb _tr = nullTracer
 
 instance HasPrivacyAnnotation Material where
     getPrivacyAnnotation _ = Confidential

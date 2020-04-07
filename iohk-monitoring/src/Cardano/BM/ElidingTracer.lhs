@@ -58,40 +58,40 @@ Create a new state |MVar|.
 Internal state transitions.
 \begin{code}
   starteliding :: (ToObject t, Transformable t IO a)
-               => TracingFormatting -> TracingVerbosity -> Trace IO t
+               => TracingVerbosity -> Trace IO t
                -> a -> IO (Maybe a, Int)
   default starteliding :: (ToObject t, Transformable t IO a)
-                       => TracingFormatting -> TracingVerbosity -> Trace IO t
+                       => TracingVerbosity -> Trace IO t
                        -> a -> IO (Maybe a, Int)
-  starteliding tform tverb tr ev = do
-    traceWith (toLogObject' tform tverb tr) ev
+  starteliding tverb tr ev = do
+    traceWith (toLogObject' tverb tr) ev
     return (Just ev, 0)
 
   conteliding :: (ToObject t, Transformable t IO a)
-              => TracingFormatting -> TracingVerbosity -> Trace IO t
+              => TracingVerbosity -> Trace IO t
               -> a -> (Maybe a, Int) -> IO (Maybe a, Int)
   default conteliding :: Transformable t IO a
-                      => TracingFormatting -> TracingVerbosity -> Trace IO t
+                      => TracingVerbosity -> Trace IO t
                       -> a -> (Maybe a, Int) -> IO (Maybe a, Int)
-  conteliding _tform _tverb _tr _ (Nothing, _count) = return (Nothing, 0)
-  conteliding _tform _tverb _tr ev (_old, count) = return (Just ev, count + 1)
+  conteliding _tverb _tr _ (Nothing, _count) = return (Nothing, 0)
+  conteliding _tverb _tr ev (_old, count) = return (Just ev, count + 1)
 
   stopeliding :: (ToObject t, Transformable t IO a)
-              => TracingFormatting -> TracingVerbosity -> Trace IO t
+              => TracingVerbosity -> Trace IO t
               -> a -> (Maybe a, Int) -> IO (Maybe a, Int)
   default stopeliding :: (ToObject t, Transformable t IO a)
-                      => TracingFormatting -> TracingVerbosity -> Trace IO t
+                      => TracingVerbosity -> Trace IO t
                       -> a -> (Maybe a, Int) -> IO (Maybe a, Int)
-  stopeliding tform tverb tr ev (Nothing, _count) = do
-    traceWith (toLogObject' tform tverb tr) ev
+  stopeliding tverb tr ev (Nothing, _count) = do
+    traceWith (toLogObject' tverb tr) ev
     return (Nothing, 0)
-  stopeliding tform tverb tr ev (Just ev0, count) = do
+  stopeliding tverb tr ev (Just ev0, count) = do
     when (count > 1) $ do  -- report the number of elided messages
       meta <- mkLOMeta (getSeverityAnnotation ev0) (getPrivacyAnnotation ev0)
       traceNamedObject tr (meta, LogValue "before next, messages elided" (PureI $ toInteger (count - 1)))
     when (count > 0) $  -- output last elided message
-      traceWith (toLogObject' tform tverb tr) ev0
-    traceWith (toLogObject' tform tverb tr) ev
+      traceWith (toLogObject' tverb tr) ev0
+    traceWith (toLogObject' tverb tr) ev
     return (Nothing, 0)
 \end{code}
 
@@ -101,25 +101,25 @@ the main logic of eliding messages.
 \begin{code}
   elideToLogObject
       :: (ToObject t, Transformable t IO a)
-      => TracingFormatting -> TracingVerbosity -> MVar (Maybe a, Int)
+      => TracingVerbosity -> MVar (Maybe a, Int)
       -> Trace IO t -> Tracer IO a
   default elideToLogObject
       :: (ToObject t, Transformable t IO a)
-      => TracingFormatting -> TracingVerbosity -> MVar (Maybe a, Int)
+      => TracingVerbosity -> MVar (Maybe a, Int)
       -> Trace IO t -> Tracer IO a
-  elideToLogObject tform tverb mvar tr = Tracer $ \ev ->
+  elideToLogObject tverb mvar tr = Tracer $ \ev ->
     modifyMVar_ mvar $ \s@(old, _count) ->
     if doelide ev
       then
         case old of
-          Nothing -> starteliding tform tverb tr ev
+          Nothing -> starteliding tverb tr ev
           Just ev0 ->
             if ev `isEquivalent` ev0
               then
-                conteliding tform tverb tr ev s
+                conteliding tverb tr ev s
               else
-                stopeliding tform tverb tr ev s
+                stopeliding tverb tr ev s
       else
-        stopeliding tform tverb tr ev s
+        stopeliding tverb tr ev s
 
 \end{code}

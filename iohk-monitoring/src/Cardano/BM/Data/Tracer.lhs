@@ -14,7 +14,6 @@
 module Cardano.BM.Data.Tracer
     ( Tracer (..)
     , TracingVerbosity (..)
-    , TracingFormatting (..)
     , Transformable (..)
     , ToLogObject (..)
     , ToObject (..)
@@ -135,7 +134,7 @@ The transformer |toLogObject| accepts any type for which a |ToObject| instance
 is available and returns a |LogObject| which can be forwarded into the
 |Switchboard|. It adds a verbosity hint of |NormalVerbosity|.
 \\
-A verbosity level |TracingVerbosity| and a |TracingFormatting| hint can be passed
+A verbosity level |TracingVerbosity| can be passed
 to the transformer |toLogObject'|.
 
 
@@ -144,24 +143,24 @@ class Monad m => ToLogObject m where
     toLogObject :: (ToObject a, Transformable a m b)
                 => Trace m a -> Tracer m b
     toLogObject' :: (ToObject a, Transformable a m b)
-                 => TracingFormatting -> TracingVerbosity -> Trace m a -> Tracer m b
+                 => TracingVerbosity -> Trace m a -> Tracer m b
     toLogObjectVerbose :: (ToObject a, Transformable a m b)
                        => Trace m a -> Tracer m b
     default toLogObjectVerbose :: (ToObject a, Transformable a m b)
                        => Trace m a -> Tracer m b
-    toLogObjectVerbose = trTransformer StructuredLogging MaximalVerbosity
+    toLogObjectVerbose = trTransformer MaximalVerbosity
     toLogObjectMinimal :: (ToObject a, Transformable a m b)
                        => Trace m a -> Tracer m b
     default toLogObjectMinimal :: (ToObject a, Transformable a m b)
                        => Trace m a -> Tracer m b
-    toLogObjectMinimal = trTransformer StructuredLogging MinimalVerbosity
+    toLogObjectMinimal = trTransformer MinimalVerbosity
 
 instance ToLogObject IO where
     toLogObject :: (MonadIO m, ToObject a, Transformable a m b)
                 => Trace m a -> Tracer m b
-    toLogObject = trTransformer StructuredLogging NormalVerbosity
+    toLogObject = trTransformer NormalVerbosity
     toLogObject' :: (MonadIO m, ToObject a, Transformable a m b)
-                 => TracingFormatting -> TracingVerbosity -> Trace m a -> Tracer m b
+                 => TracingVerbosity -> Trace m a -> Tracer m b
     toLogObject' = trTransformer
 
 \end{code}
@@ -180,21 +179,6 @@ instance (MonadFork m, MonadTimer m) => ToLogObject m where
         traceWith tr lo
 
 \end{spec}
-
-\subsubsection{Tracing formatting hint}
-\label{code:TracingFormatting}\index{TracingFormatting}
-\label{code:StructuredLogging}\index{TracingFormatting!StructuredLogging}
-\label{code:TextualRepresentation}\index{TracingFormatting!TextualRepresentation}
-\label{code:UserdefinedFormatting}\index{TracingFormatting!UserdefinedFormatting}
-The tracing formatting hint will be passed to |Transformable| instances and can
-direct the formatting of the traced observables.
-\begin{code}
-data TracingFormatting = StructuredLogging
-                       | TextualRepresentation
-                       | UserdefinedFormatting
-                         deriving (Eq, Ord)
-
-\end{code}
 
 \subsubsection{Verbosity levels}
 \label{code:TracingVerbosity}\index{TracingVerbosity}
@@ -279,9 +263,9 @@ Depending on the input type it can create objects of |LogValue| for numerical va
 
 \begin{code}
 class (Monad m, HasPrivacyAnnotation b, HasSeverityAnnotation b)  => Transformable a m b where
-    trTransformer :: TracingFormatting -> TracingVerbosity -> Trace m a -> Tracer m b
-    default trTransformer :: TracingFormatting -> TracingVerbosity -> Trace m a -> Tracer m b
-    trTransformer _ _ _ = nullTracer
+    trTransformer :: TracingVerbosity -> Trace m a -> Tracer m b
+    default trTransformer :: TracingVerbosity -> Trace m a -> Tracer m b
+    trTransformer _ _ = nullTracer
 
 trFromIntegral :: (Integral b, MonadIO m, HasPrivacyAnnotation b, HasSeverityAnnotation b)
                => LoggerName -> Trace m a -> Tracer m b
@@ -302,43 +286,43 @@ trFromReal name tr = Tracer $ \arg ->
                    )
 
 instance Transformable a IO Int where
-    trTransformer StructuredLogging MinimalVerbosity = trFromIntegral ""
-    trTransformer _ _ = trFromIntegral "int"
+    trTransformer MinimalVerbosity = trFromIntegral ""
+    trTransformer _ = trFromIntegral "int"
 instance Transformable a IO Integer where
-    trTransformer StructuredLogging MinimalVerbosity = trFromIntegral ""
-    trTransformer _ _ = trFromIntegral "integer"
+    trTransformer MinimalVerbosity = trFromIntegral ""
+    trTransformer _ = trFromIntegral "integer"
 instance Transformable a IO Word64 where
-    trTransformer StructuredLogging MinimalVerbosity = trFromIntegral ""
-    trTransformer _ _ = trFromIntegral "word64"
+    trTransformer MinimalVerbosity = trFromIntegral ""
+    trTransformer _ = trFromIntegral "word64"
 instance Transformable a IO Double where
-    trTransformer _ MinimalVerbosity = trFromReal ""
-    trTransformer _ _ = trFromReal "double"
+    trTransformer MinimalVerbosity = trFromReal ""
+    trTransformer _ = trFromReal "double"
 instance Transformable a IO Float where
-    trTransformer _ MinimalVerbosity = trFromReal ""
-    trTransformer _ _ = trFromReal "float"
+    trTransformer MinimalVerbosity = trFromReal ""
+    trTransformer _ = trFromReal "float"
 instance Transformable Text IO Text where
-    trTransformer _ _ tr = Tracer $ \arg ->
+    trTransformer _ tr = Tracer $ \arg ->
         traceWith tr =<< do
             meta <- mkLOMeta (getSeverityAnnotation arg) (getPrivacyAnnotation arg)
             return ( mempty
                    , LogObject mempty meta (LogMessage arg)
                    )
 instance Transformable String IO String where
-    trTransformer _ _ tr = Tracer $ \arg ->
+    trTransformer _ tr = Tracer $ \arg ->
         traceWith tr =<< do
             meta <- mkLOMeta (getSeverityAnnotation arg) (getPrivacyAnnotation arg)
             return ( mempty
                    , LogObject mempty meta (LogMessage arg)
                    )
 instance Transformable Text IO String where
-    trTransformer _ _ tr = Tracer $ \arg ->
+    trTransformer _ tr = Tracer $ \arg ->
         traceWith tr =<< do
             meta <- mkLOMeta (getSeverityAnnotation arg) (getPrivacyAnnotation arg)
             return ( mempty
                    , LogObject mempty meta (LogMessage $ T.pack arg)
                    )
 instance Transformable String IO Text where
-    trTransformer _ _ tr = Tracer $ \arg ->
+    trTransformer _ tr = Tracer $ \arg ->
         traceWith tr =<< do
             meta <- mkLOMeta (getSeverityAnnotation arg) (getPrivacyAnnotation arg)
             return ( mempty
@@ -487,9 +471,9 @@ General instances of |WithSeverity| wrapped observable types.
 
 \begin{code}
 instance forall m a t. (Monad m, Transformable t m a) => Transformable t m (WithSeverity a) where
-    trTransformer formatter verb tr = Tracer $ \(WithSeverity sev arg) ->
+    trTransformer verb tr = Tracer $ \(WithSeverity sev arg) ->
         let transformer :: Tracer m a
-            transformer = trTransformer formatter verb $ setSeverity sev tr
+            transformer = trTransformer verb $ setSeverity sev tr
         in traceWith transformer arg
 
 \end{code}
@@ -520,9 +504,9 @@ General instances of |WithPrivacyAnnotation| wrapped observable types.
 
 \begin{code}
 instance forall m a t. (Monad m, Transformable t m a) => Transformable t m (WithPrivacyAnnotation a) where
-    trTransformer formatter verb tr = Tracer $ \(WithPrivacyAnnotation pa arg) ->
+    trTransformer verb tr = Tracer $ \(WithPrivacyAnnotation pa arg) ->
         let transformer :: Tracer m a
-            transformer = trTransformer formatter verb $ setPrivacy pa tr
+            transformer = trTransformer verb $ setPrivacy pa tr
         in traceWith transformer arg
 
 \end{code}
