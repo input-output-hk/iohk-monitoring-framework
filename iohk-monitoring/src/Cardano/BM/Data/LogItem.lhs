@@ -197,8 +197,8 @@ Payload of a |LogObject|:
 data LOContent a = LogMessage a
                  | LogError !Text
                  | LogValue !Text !Measurable
-                 | LogStructured !Object
                  | LogStructuredText Object Text
+                 | LogStructured Object
                  | ObserveOpen !CounterState
                  | ObserveDiff !CounterState
                  | ObserveClose !CounterState
