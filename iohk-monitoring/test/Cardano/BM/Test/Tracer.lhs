@@ -15,7 +15,7 @@ module Cardano.BM.Test.Tracer (
 
 import qualified Control.Concurrent.STM.TVar as STM
 import           Control.Monad (forM_, void, when)
-import           Data.Functor.Contravariant (Contravariant (..))
+import           Data.Functor.Contravariant ()
 import           Data.Text (Text, pack, unpack)
 
 import           Cardano.BM.Configuration.Static

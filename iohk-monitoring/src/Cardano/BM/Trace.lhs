@@ -36,7 +36,7 @@ import qualified Control.Concurrent.STM.TVar as STM
 import           Control.Monad.IO.Class (MonadIO, liftIO)
 import qualified Control.Monad.STM as STM
 import           Data.Aeson.Text (encodeToLazyText)
-import           Data.Monoid ((<>))
+import           Data.Monoid ()
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import           Data.Text.Lazy (toStrict)

@@ -68,10 +68,10 @@ import           Control.Applicative (Alternative ((<|>)))
 import           Control.Concurrent.MVar (MVar, newMVar, readMVar,
                      modifyMVar_)
 import           Control.Monad (when)
-import           Data.Aeson ((.:))
-import           Data.Aeson.Types (parseMaybe)
+import           Data.Aeson ()
+import           Data.Aeson.Types ()
 import qualified Data.HashMap.Strict as HM
-import           Data.Maybe (maybe, catMaybes, fromMaybe)
+import           Data.Maybe (catMaybes, fromMaybe)
 import qualified Data.Text as T
 import           Data.Text (Text, pack, unpack)
 import qualified Data.Vector as Vector
