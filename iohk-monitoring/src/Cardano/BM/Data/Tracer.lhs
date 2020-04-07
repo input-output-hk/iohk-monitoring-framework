@@ -341,8 +341,7 @@ trStructured :: (ToObject b, MonadIO m, HasPrivacyAnnotation b, HasSeverityAnnot
 trStructured verb tr = Tracer $ \arg ->
  let
    obj = toObject verb arg
-   tracer = if obj == emptyObject then nullTracer else tr
- in traceWith tracer =<< do
+ in traceWith tr =<< do
           meta <- mkLOMeta (getSeverityAnnotation arg) (getPrivacyAnnotation arg)
           return ( mempty
                  , LogObject mempty meta (LogStructuredText obj (T.pack $ show $ obj))
@@ -365,8 +364,7 @@ trStructuredText :: ( ToObject b, MonadIO m, HasTextFormatter b
 trStructuredText verb tr = Tracer $ \arg ->
  let
    obj = toObject verb arg
-   tracer = if obj == emptyObject then nullTracer else tr
- in traceWith tracer =<< do
+ in traceWith tr =<< do
           meta <- mkLOMeta (getSeverityAnnotation arg) (getPrivacyAnnotation arg)
           return ( mempty
                  , LogObject mempty meta (LogStructuredText obj (formatText arg obj))
