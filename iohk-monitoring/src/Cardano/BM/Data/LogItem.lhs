@@ -198,7 +198,7 @@ data LOContent a = LogMessage a
                  | LogError !Text
                  | LogValue !Text !Measurable
                  | LogStructured !Object
-                 | LogStructuredText !Object !Text
+                 | LogStructuredText Object Text
                  | ObserveOpen !CounterState
                  | ObserveDiff !CounterState
                  | ObserveClose !CounterState
@@ -298,18 +298,18 @@ Name of a message content type
 \begin{code}
 loType2Name :: LOContent a -> Text
 loType2Name = \case
-    LogMessage _        -> "LogMessage"
-    LogError _          -> "LogError"
-    LogValue _ _        -> "LogValue"
-    LogStructured _     -> "LogStructured"
+    LogMessage _          -> "LogMessage"
+    LogError _            -> "LogError"
+    LogValue _ _          -> "LogValue"
+    LogStructured _       -> "LogStructured"
     LogStructuredText _ _ -> "LogStructuredText"
-    ObserveOpen _       -> "ObserveOpen"
-    ObserveDiff _       -> "ObserveDiff"
-    ObserveClose _      -> "ObserveClose"
-    AggregatedMessage _ -> "AggregatedMessage"
-    MonitoringEffect _  -> "MonitoringEffect"
-    Command _           -> "Command"
-    KillPill            -> "KillPill"
+    ObserveOpen _         -> "ObserveOpen"
+    ObserveDiff _         -> "ObserveDiff"
+    ObserveClose _        -> "ObserveClose"
+    AggregatedMessage _   -> "AggregatedMessage"
+    MonitoringEffect _    -> "MonitoringEffect"
+    Command _             -> "Command"
+    KillPill              -> "KillPill"
 
 \end{code}
 
