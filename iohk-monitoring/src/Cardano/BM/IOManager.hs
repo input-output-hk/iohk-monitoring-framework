@@ -1,5 +1,5 @@
 --
--- Stolen from 'ouroboros-network-framework'
+-- copied from https://github.com/input-output-hk/ouroboros-network
 --
 {-# LANGUAGE CPP        #-}
 {-# LANGUAGE RankNTypes #-}
