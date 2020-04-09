@@ -15,8 +15,20 @@ let
 
     # If shellFor local packages selection is wrong,
     # then list all local packages then include source-repository-package that cabal complains about:
-    #packages = ps: with ps; [
-    #];
+    packages = ps: with ps; [
+      contra-tracer
+      iohk-monitoring
+      lobemo-backend-aggregation
+      lobemo-backend-editor
+      lobemo-backend-ekg
+      lobemo-backend-graylog
+      lobemo-backend-monitoring
+      lobemo-backend-trace-acceptor
+      lobemo-backend-trace-forwarder
+      lobemo-scribe-systemd
+      lobemo-examples
+      tracer-transformers
+    ];
 
     # These programs will be available inside the nix-shell.
     buildInputs = with haskellPackages; [

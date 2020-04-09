@@ -8,6 +8,7 @@ import           Data.Text (Text)
 import           Cardano.BM.Backend.TraceAcceptor
 import           Cardano.BM.Configuration
 import qualified Cardano.BM.Configuration as Config
+import           Cardano.BM.IOManager
 import           Cardano.BM.Plugin (loadPlugin)
 import qualified Cardano.BM.Setup as Setup
 import           Cardano.BM.Trace
@@ -36,9 +37,10 @@ main = do
     Just _ra -> do
       (tr :: Trace IO Text, sb) <- Setup.setupTrace_ config "cardano"
       let tr' = Trace.appendName "acceptor" tr
-      Cardano.BM.Backend.TraceAcceptor.plugin config tr' sb
-        >>= loadPlugin sb
-      forever $ threadDelay 1000000
+      withIOManager $ \iomgr -> do
+        Cardano.BM.Backend.TraceAcceptor.plugin iomgr config tr' sb
+          >>= loadPlugin sb
+        forever $ threadDelay 1000000
     Nothing ->
       putStrLn $ "Trace acceptor not enabled in config: " <> cConfig cli
  where
