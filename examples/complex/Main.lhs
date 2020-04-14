@@ -12,8 +12,8 @@
 {- define the parallel procedures that create messages -}
 #define RUN_ProcMessageOutput
 #define RUN_ProcObserveIO
-#define RUN_ProcObseverSTM
-#define RUN_ProcObseveDownload
+#undef RUN_ProcObseverSTM
+#undef RUN_ProcObseveDownload
 #define RUN_ProcRandom
 #define RUN_ProcMonitoring
 #define RUN_ProcBufferDump
@@ -26,7 +26,9 @@ import           Control.Concurrent (threadDelay)
 import qualified Control.Concurrent.Async as Async
 import           Control.Monad (forM_, when)
 import           Data.Aeson (ToJSON (..), Value (..), (.=))
+import qualified Data.HashMap.Strict as HM
 import           Data.Maybe (isJust)
+import           Data.Text (Text, pack)
 #ifdef ENABLE_OBSERVABLES
 import           Control.Monad (forM)
 import           GHC.Conc.Sync (atomically, STM, TVar, newTVar, readTVar, writeTVar)
@@ -35,8 +37,6 @@ import qualified Data.ByteString.Char8 as BS8
 import           Network.Download (openURI)
 #endif
 #endif
-import qualified Data.HashMap.Strict as HM
-import           Data.Text (Text, pack)
 import           System.Random
 
 import           Cardano.BM.Backend.Aggregation
@@ -53,7 +53,6 @@ import qualified Cardano.BM.Configuration.Model as CM
 import           Cardano.BM.Data.Aggregated (Measurable (..))
 import           Cardano.BM.Data.AggregatedKind
 import           Cardano.BM.Data.BackendKind
-import           Cardano.BM.Data.Configuration
 import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.MonitoringEval
 import           Cardano.BM.Data.Output
@@ -63,6 +62,7 @@ import           Cardano.BM.Data.SubTrace
 import           Cardano.BM.Data.Trace
 import           Cardano.BM.Data.Tracer
 #ifdef ENABLE_OBSERVABLES
+import           Cardano.BM.Configuration
 import           Cardano.BM.Data.Observable
 import           Cardano.BM.Observer.Monadic (bracketObserveIO)
 import qualified Cardano.BM.Observer.STM as STM
@@ -92,7 +92,7 @@ prepare_configuration = do
     CM.setSetupScribes c [ ScribeDefinition {
                               scName = "stdout"
                             , scKind = StdoutSK
-                            , scFormat = ScJson
+                            , scFormat = ScText
                             , scPrivacy = ScPublic
                             , scRotation = Nothing
                             }
@@ -101,21 +101,33 @@ prepare_configuration = do
                             , scKind = FileSK
                             , scFormat = ScJson
                             , scPrivacy = ScPublic
-                            , scRotation = Nothing
+                            , scRotation = Just $ RotationParameters
+                                              { rpLogLimitBytes = 5000 -- 5kB
+                                              , rpMaxAgeHours   = 24
+                                              , rpKeepFilesNum  = 3
+                                              }
                             }
                          , ScribeDefinition {
                               scName = "logs/out.even.json"
                             , scKind = FileSK
                             , scFormat = ScJson
                             , scPrivacy = ScPublic
-                            , scRotation = Nothing
+                            , scRotation = Just $ RotationParameters
+                                              { rpLogLimitBytes = 5000 -- 5kB
+                                              , rpMaxAgeHours   = 24
+                                              , rpKeepFilesNum  = 3
+                                              }
                             }
                          , ScribeDefinition {
                               scName = "logs/downloading.json"
                             , scKind = FileSK
                             , scFormat = ScJson
                             , scPrivacy = ScPublic
-                            , scRotation = Nothing
+                            , scRotation = Just $ RotationParameters
+                                              { rpLogLimitBytes = 5000 -- 5kB
+                                              , rpMaxAgeHours   = 24
+                                              , rpKeepFilesNum  = 3
+                                              }
                             }
                          , ScribeDefinition {
                               scName = "logs/out.txt"
@@ -205,8 +217,8 @@ prepare_configuration = do
     CM.setGUIport c 13790
 
     -- CM.setForwardTo c (Just $ RemotePipe "logs/pipe")
-    -- CM.setForwardTo c (Just $ RemotePipe "\\\\.\\pipe\\acceptor") -- Windows
-    CM.setForwardTo c (Just $ RemoteSocket "127.0.0.1" "2999")
+    -- CM.setForwardTo c (Just $ RemotePipe "\\\\.\\pipe\\acceptor") -- on Windows
+    -- CM.setForwardTo c (Just $ RemoteSocket "127.0.0.1" "2999")
 
     CM.setMonitors c $ HM.fromList
         [ ( "complex.monitoring"
@@ -315,15 +327,15 @@ observeSTM config trace = do
   proc <- forM [(1::Int)..10] $ \x -> Async.async (loop trace tvar (pack $ show x))
   return proc
   where
-    loop tr tvarlist name = do
+    loop tr tvarlist trname = do
         threadDelay 10000000  -- 10 seconds
-        STM.bracketObserveIO config tr Warning ("observeSTM." <> name) (stmAction tvarlist)
-        loop tr tvarlist name
+        STM.bracketObserveIO config tr Warning ("observeSTM." <> trname) (stmAction tvarlist)
+        loop tr tvarlist trname
 
 stmAction :: TVar [Int] -> STM ()
 stmAction tvarlist = do
   list <- readTVar tvarlist
-  writeTVar tvarlist $ reverse $ init $ reverse $ list
+  writeTVar tvarlist $! (++) [42] $ reverse $ init $ reverse $ list
   pure ()
 #endif
 
@@ -367,15 +379,16 @@ instance ToObject Pet where
         mkObject [ "kind" .= String "Pet"
                  , "name" .= toJSON n
                  , "age" .= toJSON a ]
-
+instance HasTextFormatter Pet where
+    formatText pet _o = "Pet " <> name pet <> " is " <> pack (show (age pet)) <> " years old."
 instance Transformable Text IO Pet where
     -- transform to JSON Object
-    trTransformer StructuredLogging verb tr = trStructured verb tr
+    trTransformer MaximalVerbosity tr = trStructuredText MaximalVerbosity tr
+    trTransformer MinimalVerbosity _tr = nullTracer
     -- transform to textual representation using |show|
-    trTransformer TextualRepresentation _v tr = Tracer $ \pet -> do
+    trTransformer _v tr = Tracer $ \pet -> do
         meta <- mkLOMeta Info Public
         traceWith tr $ ("pet", LogObject "pet" meta $ (LogMessage . pack . show) pet)
-    trTransformer _ _verb _tr = nullTracer
 
 -- default privacy annotation: Public
 instance HasPrivacyAnnotation Pet
@@ -394,7 +407,7 @@ msgThr trace = do
         logNotice tr "N O T I F I C A T I O N ! ! !"
         logDebug tr "a detailed debug message."
         logError tr "Boooommm .."
-        traceWith (toLogObject' StructuredLogging MaximalVerbosity tr) (Pet "bella" 8)
+        traceWith (toLogObject' MaximalVerbosity tr) (Pet "bella" 8)
         loop tr
 #endif
 
