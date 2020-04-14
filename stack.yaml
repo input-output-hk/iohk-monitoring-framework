@@ -25,6 +25,8 @@ extra-deps:
   - time-units-1.0.0
   - katip-0.8.3.0
 
+  - libsystemd-journal-1.4.4
+
   - git: https://github.com/input-output-hk/ouroboros-network
     commit: 5837c635877c11e1bf6c058c8307733c631dc98b
     subdirs:
