@@ -64,9 +64,7 @@ A new context name is added.
 \begin{code}
 appendName :: LoggerName -> Trace m a -> Trace m a
 appendName name tr = Tracer $ \(names0, lo) ->
-    let names = if names0 == T.empty then name else name <> "." <> names0
-    in
-    traceWith tr (names, lo)
+    traceWith tr (name:".":names, lo)
 
 \end{code}
 

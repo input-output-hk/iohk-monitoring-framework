@@ -260,7 +260,7 @@ parseActionAlterSeverity = do
     void $ P.char '\"'
     P.skipSpace
     sev <- parsePureSeverity
-    return $ AlterSeverity loggerName sev
+    return $ AlterSeverity (loggerNameFromText loggerName) sev
 
 parsePureSeverity :: P.Parser Severity
 parsePureSeverity =

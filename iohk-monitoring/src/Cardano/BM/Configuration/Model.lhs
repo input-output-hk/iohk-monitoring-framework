@@ -6,7 +6,9 @@
 \begin{code}
 {-# LANGUAGE CPP               #-}
 {-# LANGUAGE LambdaCase        #-}
+{-# LANGUAGE NamedFieldPuns    #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE PatternSynonyms   #-}
 {-# LANGUAGE ViewPatterns      #-}
 
 {-@ LIQUID "--max-case-expand=4" @-}
@@ -72,6 +74,8 @@ import           Data.Aeson ((.:))
 import           Data.Aeson.Types (parseMaybe)
 import qualified Data.HashMap.Strict as HM
 import           Data.Maybe (maybe, catMaybes, fromMaybe)
+import           Data.Sequence (Seq(..))
+import qualified Data.Sequence as S
 import qualified Data.Text as T
 import           Data.Text (Text, pack, unpack)
 import qualified Data.Vector as Vector
@@ -81,7 +85,7 @@ import           Cardano.BM.Data.AggregatedKind (AggregatedKind(..))
 import           Cardano.BM.Data.BackendKind
 import qualified Cardano.BM.Data.Configuration as R
 import           Cardano.BM.Data.Configuration (RemoteAddr(..), RemoteAddrNamed(..))
-import           Cardano.BM.Data.LogItem (LogObject (..), LoggerName, LOContent (..), severity)
+import           Cardano.BM.Data.LogItem (LogObject (..), LoggerName (..), LOContent (..), severity)
 import           Cardano.BM.Data.MonitoringEval (MEvExpr, MEvPreCond, MEvAction)
 import           Cardano.BM.Data.Output (ScribeDefinition (..), ScribeId,
                      ScribeKind (..))
@@ -162,19 +166,17 @@ For a given context name return the list of backends configured,
 or, in case no such configuration exists, return the default backends.
 \begin{code}
 getBackends :: Configuration -> LoggerName -> IO [BackendKind]
-getBackends configuration name = do
-    cg <- readMVar $ getCG configuration
-    -- let outs = HM.lookup name (cgMapBackend cg)
-    -- case outs of
-    --     Nothing -> return (cgDefBackendKs cg)
-    --     Just os -> return os
-    let defs = cgDefBackendKs cg
-    let mapbks = cgMapBackend cg
-    let find_s [] = defs
-        find_s lnames = case HM.lookup (T.intercalate "." lnames) mapbks of
-            Nothing -> find_s (init lnames)
-            Just os -> os
-    return $ find_s $ T.split (=='.') name
+getBackends c ln = go ln <$> readMVar (getCG c)
+ where
+   -- | Either some backends apply to any to any prefix of the name,
+   --   or defaults do.
+   go :: LoggerName -> ConfigurationInternal -> [BackendKind]
+   go ln@LoggerName{lnRest} cg =
+     case (HM.lookup ln (cgMapBackend cg), lnRest) of
+       (Just bekinds, _)   -> bekinds
+       -- No matching backends in the chain, so defaults apply.
+       (Nothing, SNothing) -> cgDefBackendKs cg
+       (_, SJust xs)       -> go xs cg
 
 getDefaultBackends :: Configuration -> IO [BackendKind]
 getDefaultBackends configuration =
