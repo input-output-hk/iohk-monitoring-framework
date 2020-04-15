@@ -64,7 +64,7 @@ instance Ord Measurable where
     compare (Nanoseconds a) (Nanoseconds b)      = compare a b
     compare (Seconds a) (Microseconds b)         = compare (a * 1000 * 1000) b
     compare (Nanoseconds a) (Microseconds b)     = compare a (b * 1000)
-    compare (Seconds a) (Nanoseconds b)          = compare (a * 1000* 1000 * 1000) b
+    compare (Seconds a) (Nanoseconds b)          = compare (a * 1000 * 1000 * 1000) b
     compare (Microseconds a) (Nanoseconds b)     = compare (a * 1000) b
     compare (Microseconds a) (Seconds b)         = compare a (b * 1000 * 1000)
     compare (Nanoseconds a) (Seconds b)          = compare a (b * 1000 * 1000 * 1000)

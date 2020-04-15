@@ -72,8 +72,14 @@ library
 
   if os(linux)
     exposed-modules:   Cardano.BM.Counters.Linux
-  else
-    exposed-modules:   Cardano.BM.Counters.Dummy
+  if os(windows)
+    exposed-modules:   Cardano.BM.Counters.Windows
+    c-sources:         src/Cardano/BM/Counters/os-support-win.c
+    include-dirs:      src/Cardano/BM/Counters/
+    cc-options:        -DPSAPI_VERSION=2
+    extra-libraries:   psapi
+
+  exposed-modules:     Cardano.BM.Counters.Dummy
 
   other-modules:
 
@@ -178,7 +184,7 @@ test-suite tests
                        vector,
                        void,
                        yaml, libyaml
-  ghc-options:         -Wall -Werror
+  ghc-options:         -Wall -Werror -rtsopts "-with-rtsopts=-T"
 
   if !flag(disable-observables)
     cpp-options:       -DENABLE_OBSERVABLES

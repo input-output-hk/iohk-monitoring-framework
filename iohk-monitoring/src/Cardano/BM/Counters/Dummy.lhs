@@ -19,6 +19,7 @@ module Cardano.BM.Counters.Dummy
 import           Cardano.BM.Counters.Common (getMonoClock, readRTSStats)
 import           Cardano.BM.Data.Observable
 #endif
+import           Cardano.BM.Data.Aggregated (Measurable(..))
 import           Cardano.BM.Data.Counter
 import           Cardano.BM.Data.SubTrace
 \end{code}
@@ -42,9 +43,10 @@ readCounters' :: [ObservableInstance] -> [Counter] -> IO [Counter]
 readCounters' [] acc = return acc
 readCounters' (MonotonicClock : r) acc = getMonoClock >>= \xs -> readCounters' r $ acc ++ xs
 readCounters' (GhcRtsStats    : r) acc = readRTSStats >>= \xs -> readCounters' r $ acc ++ xs
+readCounters' (SysStats       : r) acc = readCounters' r $ acc ++ [Counter SysInfo "Platform" (PureI $ fromIntegral $ fromEnum UnknownPlatform)]
 readCounters' (_              : r) acc = readCounters' r acc
 #else
-readCounters (ObservableTraceSelf _)   = return []
+readCounters (ObservableTraceSelf _)   = return [Counter SysInfo "Platform" (PureI $ fromIntegral $ fromEnum UnknownPlatform)]
 readCounters (ObservableTrace     _ _) = return []
 #endif
 \end{code}

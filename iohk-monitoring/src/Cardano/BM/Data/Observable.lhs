@@ -26,6 +26,7 @@ import           GHC.Generics (Generic)
 \label{code:ProcessStats}\index{ObservableInstance!ProcessStats}
 \label{code:NetStats}\index{ObservableInstance!NetStats}
 \label{code:IOStats}\index{ObservableInstance!IOStats}
+\label{code:SysStats}\index{ObservableInstance!SysStats}
 \label{code:GhcRtsStats}\index{ObservableInstance!GhcRtsStats}
 \begin{code}
 data ObservableInstance = MonotonicClock
@@ -33,6 +34,7 @@ data ObservableInstance = MonotonicClock
                         | ProcessStats
                         | NetStats
                         | IOStats
+                        | SysStats
                         | GhcRtsStats
                           deriving (Generic, Eq, Show, FromJSON, ToJSON, Read)
 

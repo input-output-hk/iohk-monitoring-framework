@@ -12,6 +12,8 @@ module Cardano.BM.Data.Counter
   ( Counter (..)
   , CounterType (..)
   , CounterState (..)
+  , Platform (..)
+  , PlatformCode (..)
   , diffCounters
   , nameCounter
   )
@@ -42,6 +44,7 @@ data Counter = Counter
 
 data CounterType = MonotonicClockTime
                  | MemoryCounter
+                 | SysInfo
                  | StatInfo
                  | IOCounter
                  | NetCounter
@@ -59,6 +62,7 @@ instance ToJSON Microsecond where
 nameCounter :: Counter -> Text
 nameCounter (Counter MonotonicClockTime _ _) = "Clock"
 nameCounter (Counter MemoryCounter      _ _) = "Mem"
+nameCounter (Counter SysInfo            _ _) = "Sys"
 nameCounter (Counter StatInfo           _ _) = "Stat"
 nameCounter (Counter IOCounter          _ _) = "IO"
 nameCounter (Counter NetCounter         _ _) = "Net"
@@ -102,3 +106,14 @@ diffCounters openings closings =
                                      in Just counter {cValue = endValue - startValue}
 
 \end{code}
+
+\subsubsection{Platform information}\label{code:PlatformCode}\index{PlatformCode}
+\begin{code}
+data Platform = UnknownPlatform | Linux | Darwin | Windows
+                deriving (Show, Eq, Ord, Enum)
+newtype PlatformCode = PlatformCode { platform :: Platform }
+
+instance Show PlatformCode where
+    show (PlatformCode p) = show p
+\end{code}
+
