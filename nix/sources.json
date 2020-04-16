@@ -17,10 +17,10 @@
         "homepage": null,
         "owner": "input-output-hk",
         "repo": "iohk-nix",
-        "rev": "ca80aeb33e8ca854dca77c1098a90136b9dabf2e",
-        "sha256": "0sp9v7l68xq1kg4862pcpjji918lgb6jlak4p6lpv2k4h93dypv2",
+        "rev": "dfce0e88fee7d5c29fd6f128d02be3594ae39c88",
+        "sha256": "0z9wn2j2ss03w83n298fcapdw9w3cs13w5hrlp3apwjr9iq7x720",
         "type": "tarball",
-        "url": "https://github.com/input-output-hk/iohk-nix/archive/ca80aeb33e8ca854dca77c1098a90136b9dabf2e.tar.gz",
+        "url": "https://github.com/input-output-hk/iohk-nix/archive/dfce0e88fee7d5c29fd6f128d02be3594ae39c88.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     }
 }
