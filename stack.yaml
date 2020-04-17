@@ -23,7 +23,7 @@ extra-deps:
   - snap-server-1.1.1.1
 
   - time-units-1.0.0
-  - katip-0.8.3.0
+  - katip-0.8.4.0
 
   - libsystemd-journal-1.4.4
 
