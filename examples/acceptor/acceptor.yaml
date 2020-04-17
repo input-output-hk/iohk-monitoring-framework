@@ -49,7 +49,7 @@ traceAcceptAt:
       tag: RemoteSocket
       contents:
         - "127.0.0.1"
-        - "2999"
+        - "42999"
 
 # more options which can be passed as key-value pairs:
 options:
