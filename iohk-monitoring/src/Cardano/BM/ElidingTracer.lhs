@@ -6,6 +6,7 @@
 \begin{code}
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE FlexibleContexts  #-}
+{-# LANGUAGE LambdaCase        #-}
 
 module Cardano.BM.ElidingTracer
     (
@@ -116,7 +117,9 @@ the main logic of eliding messages.
           Just ev0 ->
             if ev `isEquivalent` ev0
               then
-                conteliding tverb tr ev s
+                conteliding tverb tr ev s >>= \case
+                  (Nothing, _) -> stopeliding tverb tr ev s
+                  newpair -> return newpair
               else
                 stopeliding tverb tr ev s
       else
