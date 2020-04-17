@@ -53,6 +53,7 @@ import qualified Cardano.BM.Configuration.Model as CM
 import           Cardano.BM.Data.Aggregated (Measurable (..))
 import           Cardano.BM.Data.AggregatedKind
 import           Cardano.BM.Data.BackendKind
+import           Cardano.BM.Data.Configuration (RemoteAddr(..))
 import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.MonitoringEval
 import           Cardano.BM.Data.Output
@@ -218,7 +219,8 @@ prepare_configuration = do
 
     -- CM.setForwardTo c (Just $ RemotePipe "logs/pipe")
     -- CM.setForwardTo c (Just $ RemotePipe "\\\\.\\pipe\\acceptor") -- on Windows
-    -- CM.setForwardTo c (Just $ RemoteSocket "127.0.0.1" "2999")
+    CM.setForwardTo c (Just $ RemoteSocket "127.0.0.1" "42999")
+    CM.setTextOption c "forwarderMinSeverity" "Warning"  -- sets min severity filter in forwarder
 
     CM.setMonitors c $ HM.fromList
         [ ( "complex.monitoring"
@@ -430,7 +432,7 @@ main = do
       >>= loadPlugin sb
     forwardTo <- CM.getForwardTo c
     when (isJust forwardTo) $
-      Cardano.BM.Backend.TraceForwarder.plugin c tr sb
+      Cardano.BM.Backend.TraceForwarder.plugin c tr sb "forwarderMinSeverity"
         >>= loadPlugin sb
     Cardano.BM.Backend.Aggregation.plugin c tr sb
       >>= loadPlugin sb
