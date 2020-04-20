@@ -169,7 +169,7 @@ realizeSwitchboard cfg = do
             let sendMessage nli befilter = do
                     let name = case nli of
                             LogObject loname _ (LogValue valueName _) ->
-                                loname <> "." <> valueName
+                                loname `consLoggerName` valueName
                             LogObject loname _ _ -> loname
                     selectedBackends <- getBackends cfg name
                     let selBEs = befilter selectedBackends
@@ -187,7 +187,9 @@ realizeSwitchboard cfg = do
                     let processItem nli@(LogObject loname _ loitem) = do
                             Config.findSubTrace cfg loname >>= \case
                                 Just (TeeTrace sndName) ->
-                                    atomically $ TBQ.writeTBQueue queue $ nli{ loName = loname <> "." <> sndName }
+                                    -- TODO:  can we sacrifice nested subtraces?
+                                    -- If yes, we can drop the costly catLoggerNames.
+                                    atomically $ TBQ.writeTBQueue queue $ nli{ loName = loname `catLoggerNames` sndName }
                                 _ -> return ()
 
                             case loitem of
@@ -275,7 +277,7 @@ unrealizeSwitchboard switchboard = do
         let queue       = sbQueue sb
 
         -- Create terminating item, the "kill pill".
-        lo <- LogObject <$> pure "kill.switchboard"
+        lo <- LogObject <$> pure (loggerNameFromText "kill.switchboard")
                         <*> (mkLOMeta Warning Confidential)
                         <*> pure KillPill
     

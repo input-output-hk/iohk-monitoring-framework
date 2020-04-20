@@ -6,6 +6,8 @@
 \begin{code}
 {-# LANGUAGE CPP                   #-}
 {-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE NamedFieldPuns        #-}
+{-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
@@ -67,6 +69,7 @@ module Cardano.BM.Configuration.Model
     ) where
 
 import           Control.Applicative (Alternative ((<|>)))
+import           Control.Arrow ((***))
 import           Control.Concurrent.MVar (MVar, newMVar, readMVar,
                      modifyMVar_)
 import           Control.Monad (when)
@@ -83,7 +86,10 @@ import           Cardano.BM.Data.AggregatedKind (AggregatedKind(..))
 import           Cardano.BM.Data.BackendKind
 import qualified Cardano.BM.Data.Configuration as R
 import           Cardano.BM.Data.Configuration (RemoteAddr(..), RemoteAddrNamed(..))
-import           Cardano.BM.Data.LogItem (LogObject (..), LoggerName, LOContent (..), severity)
+import           Cardano.BM.Data.LogItem
+                    ( LogObject (..), LoggerName, LOContent (..), SMaybe (..)
+                    , consLoggerName, loggerNameFromText, loggerNameRest, loggerNameText
+                    , severity)
 import           Cardano.BM.Data.MonitoringEval (MEvExpr, MEvPreCond, MEvAction)
 import           Cardano.BM.Data.Output (ScribeDefinition (..), ScribeId,
                      ScribeKind (..))
@@ -183,13 +189,26 @@ lookupHierarchyCached name namespace cache nullResult updateCache = do
           Just os -> (False, Just os)
           -- Cache miss; do the expensive hierarchical lookup for
           -- inheritance and request a cache update.
-          Nothing -> (True, find_s $ T.split (=='.') name)
+          Nothing -> (True, find_s $ SJust name)
 
-      find_s :: [LoggerName] -> Maybe a
-      find_s xs
-        | [] <- xs = nullResult
-        | r@Just{} <- HM.lookup (T.intercalate "." xs) namespace = r
-        | otherwise = find_s (init xs)
+      find_s :: SMaybe LoggerName -> Maybe a
+      find_s = \case
+        SNothing -> nullResult
+        SJust ln -> case HM.lookup ln namespace of
+          r@Just{} -> r
+          Nothing -> find_s $ loggerNameRest ln
+
+-- getBackends c ln = go ln <$> readMVar (getCG c)
+--  where
+--    -- | Either some backends apply to any to any prefix of the name,
+--    --   or defaults do.
+--    go :: LoggerName -> ConfigurationInternal -> [BackendKind]
+--    go ln@LoggerName{lnRest} cg =
+--      case (HM.lookup ln (cgMapBackend cg), lnRest) of
+--        (Just bekinds, _)   -> bekinds
+--        -- No matching backends in the chain, so defaults apply.
+--        (Nothing, SNothing) -> cgDefBackendKs cg
+--        (_, SJust xs)       -> go xs cg
 
 \end{code}
 
@@ -415,12 +434,12 @@ setMinSeverity configuration sev =
 
 \subsubsection{Relation of context name to minimum severity}
 \begin{code}
-inspectSeverity :: Configuration -> Text -> IO (Maybe Severity)
+inspectSeverity :: Configuration -> LoggerName -> IO (Maybe Severity)
 inspectSeverity configuration name = do
     cg <- readMVar $ getCG configuration
     return $ HM.lookup name (cgMapSeverity cg)
 
-setSeverity :: Configuration -> Text -> Maybe Severity -> IO ()
+setSeverity :: Configuration -> LoggerName -> Maybe Severity -> IO ()
 setSeverity configuration name sev =
     modifyMVar_ (getCG configuration) $ \cg ->
         return cg { cgMapSeverity = HM.alter (\_ -> sev) name (cgMapSeverity cg) }
@@ -431,11 +450,11 @@ setSeverity configuration name sev =
 A new context may contain a different type of |Trace|.
 The function |appendName| will look up the |SubTrace| for the context's name.
 \begin{code}
-findSubTrace :: Configuration -> Text -> IO (Maybe SubTrace)
+findSubTrace :: Configuration -> LoggerName -> IO (Maybe SubTrace)
 findSubTrace configuration name =
     HM.lookup name <$> cgMapSubtrace <$> (readMVar $ getCG configuration)
 
-setSubTrace :: Configuration -> Text -> Maybe SubTrace -> IO ()
+setSubTrace :: Configuration -> LoggerName -> Maybe SubTrace -> IO ()
 setSubTrace configuration name trafo =
     modifyMVar_ (getCG configuration) $ \cg ->
         return cg { cgMapSubtrace = HM.alter (\_ -> trafo) name (cgMapSubtrace cg) }
@@ -479,7 +498,7 @@ setup fp = do
     r <- R.readRepresentation fp
     setupFromRepresentation r
 
-parseMonitors :: Maybe (HM.HashMap Text Value) -> HM.HashMap LoggerName (MEvPreCond, MEvExpr, [MEvAction])
+parseMonitors :: Maybe (HM.HashMap LoggerName Value) -> HM.HashMap LoggerName (MEvPreCond, MEvExpr, [MEvAction])
 parseMonitors Nothing = HM.empty
 parseMonitors (Just hmv) = HM.mapMaybe mkMonitor hmv
     where
@@ -493,7 +512,7 @@ parseMonitors (Just hmv) = HM.mapMaybe mkMonitor hmv
 
 setupFromRepresentation :: R.Representation -> IO Configuration
 setupFromRepresentation r = do
-    let getMap             = getMapOption' (R.options r)
+    let getMap k           = rekeyMapToLoggerName <$> getMapOption' (R.options r) k
         mapbackends        = parseBackendMap $ getMap "mapBackends"
         mapscribes         = parseScribeMap $ getMap "mapScribes"
         mapsubtraces       = parseSubtraceMap $ getMap "mapSubtrace"
@@ -526,7 +545,10 @@ setupFromRepresentation r = do
         }
     return $ Configuration cgref
   where
-    parseSeverityMap :: Maybe (HM.HashMap Text Value) -> HM.HashMap Text Severity
+    rekeyMapToLoggerName :: HM.HashMap Text a -> HM.HashMap LoggerName a
+    rekeyMapToLoggerName = HM.fromList . fmap (loggerNameFromText *** id) . HM.toList
+
+    parseSeverityMap :: Maybe (HM.HashMap LoggerName Value) -> HM.HashMap LoggerName Severity
     parseSeverityMap Nothing = HM.empty
     parseSeverityMap (Just hmv) = HM.mapMaybe mkSeverity hmv
       where
@@ -559,7 +581,7 @@ setupFromRepresentation r = do
         mkScribe :: Value -> Maybe ScribeId
         mkScribe = parseMaybe parseJSON
 
-    parseSubtraceMap :: Maybe (HM.HashMap Text Value) -> HM.HashMap Text SubTrace
+    parseSubtraceMap :: Maybe (HM.HashMap LoggerName Value) -> HM.HashMap LoggerName SubTrace
     parseSubtraceMap Nothing = HM.empty
     parseSubtraceMap (Just hmv) = HM.mapMaybe mkSubtrace hmv
       where
@@ -580,7 +602,7 @@ setupFromRepresentation r = do
     r_accept repr = R.traceAcceptAt repr
     r_defaultScribes repr = map (\(k,n) -> pack(show k) <> "::" <> n) (R.defaultScribes repr)
 
-parseAggregatedKindMap :: Maybe (HM.HashMap Text Value) -> HM.HashMap LoggerName AggregatedKind
+parseAggregatedKindMap :: Maybe (HM.HashMap LoggerName Value) -> HM.HashMap LoggerName AggregatedKind
 parseAggregatedKindMap Nothing    = HM.empty
 parseAggregatedKindMap (Just hmv) = HM.mapMaybe mkAggregatedKind hmv
     where
@@ -639,6 +661,8 @@ toRepresentation (Configuration c) = do
             let (a,b) = T.breakOn "::" x
             in
                 (read $ unpack a, T.drop 2 b)
+        rekeyMapFromLoggerName :: HM.HashMap LoggerName a -> HM.HashMap Text a
+        rekeyMapFromLoggerName = HM.fromList . fmap (loggerNameText *** id) . HM.toList
         createOption :: Text -> (a -> Value) -> HM.HashMap Text a -> HM.HashMap Text Value
         createOption name f hashmap =
           if null hashmap
@@ -661,12 +685,18 @@ toRepresentation (Configuration c) = do
         toJSON' ss    = toJSON ss
         mapSeverities, mapBackends, mapAggKinds, mapScribes, mapSubtrace, mapMonitors ::
           HM.HashMap Text Value
-        mapSeverities = createOption "mapSeverity"        toJSON   $ cgMapSeverity       cfg
-        mapBackends   = createOption "mapBackends"        toJSON   $ cgMapBackend        cfg
-        mapAggKinds   = createOption "mapAggregatedkinds" toString $ cgMapAggregatedKind cfg
-        mapScribes    = createOption "mapScribes"         toJSON'  $ cgMapScribe         cfg
-        mapSubtrace   = createOption "mapSubtrace"        toJSON   $ cgMapSubtrace       cfg
-        mapMonitors   = createOption "mapMonitors"        toObject $ cgMonitors          cfg
+        mapSeverities = createOption "mapSeverity"        toJSON
+          $ rekeyMapFromLoggerName $ cgMapSeverity        cfg
+        mapBackends   = createOption "mapBackends"        toJSON
+          $ rekeyMapFromLoggerName $ cgMapBackend         cfg
+        mapAggKinds   = createOption "mapAggregatedkinds" toString
+          $ rekeyMapFromLoggerName $ cgMapAggregatedKind  cfg
+        mapScribes    = createOption "mapScribes"         toJSON'
+          $ rekeyMapFromLoggerName $ cgMapScribe          cfg
+        mapSubtrace   = createOption "mapSubtrace"        toJSON
+          $ rekeyMapFromLoggerName $ cgMapSubtrace        cfg
+        mapMonitors   = createOption "mapMonitors"        toObject
+          $ rekeyMapFromLoggerName $ cgMonitors           cfg
 
     return $
         R.Representation
@@ -734,7 +764,7 @@ testSubTrace config loggername lo = do
     testSubTrace' _ NoTrace = Nothing
     testSubTrace' (LogObject _ _ (ObserveOpen _)) DropOpening = Nothing
     testSubTrace' o@(LogObject _ _ (LogValue vname _)) (FilterTrace filters) =
-        if evalFilters filters (loggername <> "." <> vname)
+        if evalFilters filters (loggername `consLoggerName` vname )
         then Just o
         else Nothing
     testSubTrace' o (FilterTrace filters) =
@@ -754,8 +784,8 @@ evalFilters fs nm =
     unhideFilter _ (Unhide []) = False
     unhideFilter name (Unhide us) = any (\sel -> matchName name sel) us
     matchName :: LoggerName -> NameSelector -> Bool
-    matchName name (Exact name') = name == name'
-    matchName name (StartsWith prefix) = T.isPrefixOf prefix name
-    matchName name (EndsWith postfix) = T.isSuffixOf postfix name
-    matchName name (Contains name') = T.isInfixOf name' name
+    matchName n (Exact name') = loggerNameText n == name'
+    matchName n (StartsWith prefix) = T.isPrefixOf prefix (loggerNameText n)
+    matchName n (EndsWith postfix) = T.isSuffixOf postfix (loggerNameText n)
+    matchName n (Contains name') = T.isInfixOf name' (loggerNameText n)
 \end{code}

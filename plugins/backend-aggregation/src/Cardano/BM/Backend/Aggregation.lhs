@@ -77,7 +77,7 @@ data AggregationInternal a = AggregationInternal
 \subsubsection{Relation from context name to aggregated statistics}
 We keep the aggregated values (|Aggregated|) for a named context in a |HashMap|.
 \begin{code}
-type AggregationMap = HM.HashMap Text Aggregated
+type AggregationMap = HM.HashMap LoggerName Aggregated
 \end{code}
 
 \subsubsection{|Aggregation| implements |effectuate|}\index{Aggregation!instance of IsEffectuator}
@@ -162,7 +162,7 @@ spawnDispatcher conf aggMap aggregationQueue basetrace =
         sendAggregated trace loname (severity lm) aggregations
         return (trace, updatedMap)
 
-    createNupdate :: Text -> Measurable -> LOMeta -> AggregationMap -> IO (Either Text Aggregated)
+    createNupdate :: LoggerName -> Measurable -> LOMeta -> AggregationMap -> IO (Either Text Aggregated)
     createNupdate name value lme agmap = do
         case HM.lookup name agmap of
             Nothing -> do
@@ -179,7 +179,7 @@ spawnDispatcher conf aggMap aggregationQueue basetrace =
            -> Trace.Trace IO a
            -> IO (AggregationMap, [(Text, Aggregated)])
     update (LogObject loname lme (LogValue iname value)) agmap trace = do
-        let fullname = loname <> "." <> iname
+        let fullname = loname `consLoggerName` iname
         eitherAggregated <- createNupdate fullname value lme agmap
         case eitherAggregated of
             Right aggregated -> do
@@ -202,7 +202,7 @@ spawnDispatcher conf aggMap aggregationQueue basetrace =
 
     update (LogObject loname lme (LogMessage _)) agmap trace = do
         let iname  = pack $ show (severity lme)
-        let fullname = loname <> "." <> iname
+        let fullname = loname `consLoggerName` iname
         eitherAggregated <- createNupdate fullname (PureI 0) lme agmap
         case eitherAggregated of
             Right aggregated -> do
@@ -221,7 +221,7 @@ spawnDispatcher conf aggMap aggregationQueue basetrace =
 
     updateCounters :: [Counter]
                    -> LOMeta
-                   -> (LoggerName,LoggerName)
+                   -> (LoggerName,Text)
                    -> AggregationMap
                    -> [(Text, Aggregated)]
                    -> Trace.Trace IO a
@@ -229,8 +229,8 @@ spawnDispatcher conf aggMap aggregationQueue basetrace =
     updateCounters [] _ _ aggrMap aggs _ = return (aggrMap, aggs)
     updateCounters (counter : cs) lme (logname, msgname) aggrMap aggs trace = do
         let name = cName counter
-            subname = msgname <> "." <> (nameCounter counter) <> "." <> name
-            fullname = logname <> "." <> subname
+            subname = msgname <> "." <> nameCounter counter <> "." <> name
+            fullname = logname `catLoggerNames` loggerNameFromText subname
             value = cValue counter
         eitherAggregated <- createNupdate fullname value lme aggrMap
         case eitherAggregated of
@@ -245,10 +245,10 @@ spawnDispatcher conf aggMap aggregationQueue basetrace =
                         <*> pure (LogError w)
                 updateCounters cs lme (logname, msgname) aggrMap aggs trace
 
-    sendAggregated :: Trace.Trace IO a -> Text -> Severity -> [(Text, Aggregated)] -> IO ()
+    sendAggregated :: Trace.Trace IO a -> LoggerName -> Severity -> [(Text, Aggregated)] -> IO ()
     sendAggregated _trace _loname _sev [] = pure ()
     sendAggregated trace loname sev v = do
         meta <- mkLOMeta sev Public
-        traceWith trace (loname, LogObject mempty meta (AggregatedMessage v))
+        traceWith trace (loname, LogObject emptyLoggerName meta (AggregatedMessage v))
 
 \end{code}

@@ -18,6 +18,7 @@ import           Data.Aeson (FromJSON)
 
 import           Cardano.BM.Backend.Switchboard (addUserDefinedBackend)
 import           Cardano.BM.Data.Backend
+import           Cardano.BM.Data.LogItem
 import qualified Cardano.BM.Configuration.Model as CM
 import           Cardano.BM.Configuration.Static (defaultConfigStdout)
 #ifdef LINUX
@@ -79,9 +80,9 @@ main = do
                             , scRotation = Nothing
                             }
                          ]
-    CM.setScribes c "simple.systemd" (Just ["JournalSK::cardano"])
+    CM.setScribes c (loggerNameFromText "simple.systemd") (Just ["JournalSK::cardano"])
 #endif
-    CM.setScribes c "simple.json" (Just ["StdoutSK::json"])
+    CM.setScribes c (loggerNameFromText "simple.json") (Just ["StdoutSK::json"])
     (tr :: Trace IO String, sb) <- setupTrace_ c "simple"
     be :: MyBackend String <- realize c
     let mybe = MkBackend { bEffectuate = effectuate be, bUnrealize = unrealize be }

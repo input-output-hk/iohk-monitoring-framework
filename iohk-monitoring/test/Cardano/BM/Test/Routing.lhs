@@ -15,7 +15,7 @@ import           System.Directory (removeFile)
 
 import qualified Cardano.BM.Configuration.Model as CM
 import           Cardano.BM.Data.BackendKind
-import           Cardano.BM.Data.LogItem (LoggerName)
+import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.Output
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Setup
@@ -48,7 +48,7 @@ unit_tests = testGroup "Unit tests" [
             "set_backend_must_log" $
             unit_generic_scribe_backend
                 []
-                [("test.one.alpha", Just [KatipBK])]
+                [(loggerNameFromText "test.one.alpha", Just [KatipBK])]
                 ["FileSK::out-test.txt"]
                 []
                 1
@@ -58,7 +58,7 @@ unit_tests = testGroup "Unit tests" [
                 [KatipBK]
                 []
                 []
-                [("test.one.alpha", Just ["FileSK::out-test.txt"])]
+                [(loggerNameFromText "test.one.alpha", Just ["FileSK::out-test.txt"])]
                 1
       , testCase
             "set_scribe_with_wrong_filename_must_not_log" $
@@ -66,7 +66,7 @@ unit_tests = testGroup "Unit tests" [
                 [KatipBK]
                 []
                 []
-                [("test.one.alpha", Just ["FileSK::out-te.txt"])]
+                [(loggerNameFromText "test.one.alpha", Just ["FileSK::out-te.txt"])]
                 0
       , testCase
             "no_scribe_must_not_log" $

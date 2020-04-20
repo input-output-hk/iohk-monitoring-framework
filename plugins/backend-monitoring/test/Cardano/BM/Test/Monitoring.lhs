@@ -224,10 +224,10 @@ testSetGlobalMinimalSeverity = do
     CM.setDefaultBackends c [MonitoringBK]
     CM.setSetupBackends c [MonitoringBK]
 
-    CM.setBackends c "complex.monitoring.monitMe" (Just [MonitoringBK])
+    CM.setBackends c (loggerNameFromText "complex.monitoring.monitMe") (Just [MonitoringBK])
 
     CM.setMonitors c $ HM.fromList
-        [ ( "complex.monitoring"
+        [ ( (loggerNameFromText "complex.monitoring")
           , ( Nothing
             , Compare "monitMe" (GE, OpMeasurable 10)
             , [SetGlobalMinimalSeverity targetGlobalSeverity]
@@ -251,19 +251,19 @@ testAlterSeverity = do
         targetSeverity  = Debug
 
     c <- CM.empty
-    CM.setSubTrace c "complex" (Just Neutral)
-    CM.setSeverity c "complex.monitoring" (Just Debug)
-    CM.setSeverity c "complex.monitoring.monitMe" (Just initialSeverity)
+    CM.setSubTrace c (unitLoggerName "complex") (Just Neutral)
+    CM.setSeverity c (loggerNameFromText "complex.monitoring") (Just Debug)
+    CM.setSeverity c (loggerNameFromText "complex.monitoring.monitMe") (Just initialSeverity)
     CM.setDefaultBackends c [KatipBK, MonitoringBK]
     CM.setSetupBackends c [KatipBK, MonitoringBK]
 
-    CM.setBackends c "complex.monitoring.monitMe" (Just [MonitoringBK])
+    CM.setBackends c (loggerNameFromText "complex.monitoring.monitMe") (Just [MonitoringBK])
 
     CM.setMonitors c $ HM.fromList
-        [ ( "complex.monitoring"
+        [ ( (loggerNameFromText "complex.monitoring")
           , ( Nothing
             , Compare "monitMe" (GE, OpMeasurable 10)
-            , [AlterSeverity "complex.monitoring.monitMe" targetSeverity]
+            , [AlterSeverity (loggerNameFromText "complex.monitoring.monitMe") targetSeverity]
             )
           )
         ]
@@ -278,7 +278,7 @@ testAlterSeverity = do
 --     _ <- Async.waitCatch procMonitoring
 
     threadDelay 10000  -- 10 ms
-    Just currentSeverity <- CM.inspectSeverity c "complex.monitoring.monitMe"
+    Just currentSeverity <- CM.inspectSeverity c (loggerNameFromText "complex.monitoring.monitMe")
     assertBool ("Severity didn't change! " ++ show currentSeverity) $ targetSeverity == currentSeverity
 
 \end{code}

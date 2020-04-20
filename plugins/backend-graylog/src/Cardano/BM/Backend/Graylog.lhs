@@ -88,10 +88,10 @@ instance IsEffectuator Graylog a where
                 let traceAgg :: [(Text,Aggregated)] -> IO ()
                     traceAgg [] = return ()
                     traceAgg ((n,AggregatedEWMA agewma):r) = do
-                        enqueue $ LogObject (logname <> "." <> n) lometa (LogValue "avg" $ avg agewma)
+                        enqueue $ LogObject (logname `consLoggerName` n) lometa (LogValue "avg" $ avg agewma)
                         traceAgg r
                     traceAgg ((n,AggregatedStats stats):r) = do
-                        let statsname = logname <> "." <> n
+                        let statsname = logname `consLoggerName` n
                             qbasestats s' nm = do
                                 enqueue $ LogObject nm lometa (LogValue "mean" (PureD $ meanOfStats s'))
                                 enqueue $ LogObject nm lometa (LogValue "min" $ fmin s')
@@ -99,9 +99,9 @@ instance IsEffectuator Graylog a where
                                 enqueue $ LogObject nm lometa (LogValue "count" $ PureI $ fromIntegral $ fcount s')
                                 enqueue $ LogObject nm lometa (LogValue "stdev" (PureD $ stdevOfStats s'))
                         enqueue $ LogObject statsname lometa (LogValue "last" $ flast stats)
-                        qbasestats (fbasic stats) $ statsname <> ".basic"
-                        qbasestats (fdelta stats) $ statsname <> ".delta"
-                        qbasestats (ftimed stats) $ statsname <> ".timed"
+                        qbasestats (fbasic stats) $ statsname `consLoggerName` "basic"
+                        qbasestats (fdelta stats) $ statsname `consLoggerName` "delta"
+                        qbasestats (ftimed stats) $ statsname `consLoggerName` "timed"
                         traceAgg r
                 traceAgg ags
             (LogObject _ _ (LogMessage _)) -> enqueue item
@@ -237,7 +237,7 @@ mkGelfItem :: ToJSON a => LogObject a -> GelfItem
 mkGelfItem (LogObject loname lometa locontent) = GelfItem {
         version = "1.1",
         host = "hostname",
-        short_message = loname,
+        short_message = loggerNameText loname,
         full_message = toJSON locontent,
         timestamp = (fromInteger . toInteger $ utc2ns (tstamp lometa) :: Double) / 1000000000,
         level = fromEnum (maxBound @Severity) - fromEnum (severity lometa),

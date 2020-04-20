@@ -140,7 +140,8 @@ instance (ToJSON a, FromJSON a) => IsBackend Editor a where
          -> IO ()
        nullSetup trace mvar nullEditor e = do
          meta <- mkLOMeta Error Public
-         traceWith trace $ ("#editor.realizeFrom", LogObject "#editor.realizeFrom" meta $
+         traceWith trace $ ( loggerNameFromText "#editor.realizeFrom"
+                           , LogObject (loggerNameFromText "#editor.realizeFrom") meta $
            LogError $ "Editor backend disabled due to initialisation error: " <> (pack $ show e))
          _ <- swapMVar mvar nullEditor
          pure ()
@@ -242,12 +243,12 @@ prepare editor config window = void $ do
                                           #+ [ string str ]
     let mkSimpleRow :: ToJSON a => LoggerName -> LogObject a -> UI Element
         mkSimpleRow n lo@(LogObject _lonm _lometa _lov) = UI.tr #. "itemrow" #+
-            [ UI.td #+ [ string (unpack n) ]
+            [ UI.td #+ [ string (unpack $ loggerNameText n) ]
             , UI.td #+ [ string $ BS8.unpack $ encode lo ]
             ]
     let mkTableRow :: Show t => Cmd -> LoggerName -> t -> UI Element
         mkTableRow cmd n v = UI.tr #. "itemrow" #+
-            [ UI.td #+ [ string (unpack n) ]
+            [ UI.td #+ [ string (unpack $ loggerNameText n) ]
             , UI.td #+ [ string (show v) ]
             , UI.td #+
                   [ do
@@ -259,7 +260,7 @@ prepare editor config window = void $ do
                           clean outputMsg
                           enable inputKey
                           enable inputValue
-                          setValueOf inputKey (unpack n)
+                          setValueOf inputKey (unpack $ loggerNameText n)
                           setValueOf inputValue (show v)
                           rememberCurrent cmd
                       return b
@@ -398,7 +399,7 @@ prepare editor config window = void $ do
                                 saveItemButton disable
                                 cancelSaveItemButton disable
                                 setMessage $ "Setting '" ++ k ++ "' to '" ++ v ++ "' in " ++ m
-                                updateItem c (pack k) v
+                                updateItem c (loggerNameFromText $ pack k) v
                                 switchToTab c
                     return b
                 , UI.span #. "key-value-separator" #+ [string ""]

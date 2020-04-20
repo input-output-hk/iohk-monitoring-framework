@@ -67,14 +67,14 @@ setupMockTrace (TraceConfiguration cfg mockSB name subTr) = do
     let logTrace = traceMock mockSB cfg
 
     setSubTrace cfg name (Just subTr)
-    return $ appendName name logTrace
+    return $ appendName (loggerNameText name) logTrace
 
 \end{code}
 
 \begin{code}
 renderNamedItemTracing' :: Show a => Tracer m String -> Trace m a
 renderNamedItemTracing' = contramap $ \(ctx,item) ->
-    unpack ctx ++ ": " ++ show (loContent item) ++ ", (meta): " ++ show (loMeta item)
+    unpack (loggerNameText ctx) ++ ": " ++ show (loContent item) ++ ", (meta): " ++ show (loMeta item)
 
 \end{code}
 
@@ -109,7 +109,7 @@ logObjectFromAnnotated :: Show a
     -> Tracer IO (PrivacyAndSeverityAnnotated a)
 logObjectFromAnnotated tr = Tracer $ \(PSA sev priv a) -> do
     lometa <- mkLOMeta sev priv
-    traceWith tr $ (mempty, LogObject mempty lometa (LogMessage a))
+    traceWith tr $ (emptyLoggerName, LogObject emptyLoggerName lometa (LogMessage a))
 
 \end{code}
 
@@ -132,25 +132,25 @@ filterAppendNameTracing :: Monad m
     -> LoggerName
     -> Trace m a
     -> Trace m a
-filterAppendNameTracing test name = (appendName name) . (condTracingM test)
+filterAppendNameTracing test name = (appendName $ loggerNameText name) . (condTracingM test)
 
 tracingWithPredicateFilter :: Assertion
 tracingWithPredicateFilter = do
     let appendF = filterAppendNameTracing oracle
-        logTrace :: Trace IO Text = appendF "example4" (renderNamedItemTracing' stdoutTracer)
+        logTrace :: Trace IO Text = appendF (unitLoggerName "example4") (renderNamedItemTracing' stdoutTracer)
 
     traceWith (toLogObject logTrace) ("Hello" :: String)
 
-    let logTrace' = appendF "inner" logTrace
+    let logTrace' = appendF (unitLoggerName "inner") logTrace
     traceWith (toLogObject logTrace') ("World" :: String)
 
-    let logTrace'' = appendF "innest" logTrace'
+    let logTrace'' = appendF (unitLoggerName "innest") logTrace'
     traceWith (toLogObject logTrace'') ("!!" :: String)
 
     assertBool "OK" True
   where
     oracle :: Monad m => m ((LoggerName, LogObject a) -> Bool)
-    oracle = return $ \(ctx, _lo) -> ctx /= "example4.inner"
+    oracle = return $ \(ctx, _lo) -> ctx /= loggerNameFromText "example4.inner"
 
 \end{code}
 
@@ -189,15 +189,15 @@ tracingWithComplexFiltering = do
     traceWith logTrace1 $ PSA Debug Confidential ("Hello" :: String)
     traceWith logTrace1 $ PSA Warning Public "World"
     lometa <- mkLOMeta Info Public
-    traceWith logTrace2 $ (mempty, LogObject mempty lometa (LogMessage ", RoW!"))
-    traceWith logTrace3 $ (mempty, LogObject mempty lometa (LogMessage ", RoW!"))
+    traceWith logTrace2 $ (emptyLoggerName, LogObject emptyLoggerName lometa (LogMessage ", RoW!"))
+    traceWith logTrace3 $ (emptyLoggerName, LogObject emptyLoggerName lometa (LogMessage ", RoW!"))
 
     assertBool "OK" True
   where
     oracleSev :: Monad m => m (PrivacyAndSeverityAnnotated a -> Bool)
     oracleSev = return $ \(PSA sev _priv _) -> (sev > Debug)
     oracleName :: Monad m => m ((LoggerName, LogObject a) -> Bool)
-    oracleName = return $ \(ctx, _lo) -> (ctx == "row")
+    oracleName = return $ \(ctx, _lo) -> (ctx == unitLoggerName "row")
 
 \end{code}
 
@@ -214,9 +214,8 @@ instance HasPrivacyAnnotation MsgTy
 instance Transformable Text IO MsgTy where
     trTransformer _verb tr = Tracer $ \s -> do
         meta <- mkLOMeta (getSeverityAnnotation s) (getPrivacyAnnotation s)
-        traceWith tr ("", LogObject mempty
-                                    meta
-                                    (LogMessage $ pack $ show s))
+        traceWith tr (emptyLoggerName,
+                      LogObject emptyLoggerName meta (LogMessage $ pack $ show s))
 
 instance ElidingTracer (WithSeverity MsgTy) where
     -- only |Elided1| and |Elided2| can be elided
@@ -239,7 +238,7 @@ tracingElidedMessages :: Assertion
 tracingElidedMessages = do
     cfg <- defaultConfigStdout
     msgs <- STM.newTVarIO []
-    baseTrace <- setupMockTrace $ TraceConfiguration cfg (MockSB msgs) "eliding" Neutral
+    baseTrace <- setupMockTrace $ TraceConfiguration cfg (MockSB msgs) (unitLoggerName "eliding") Neutral
 
     s_elide <- newstate
 
@@ -283,7 +282,7 @@ tracingElidedMessages1 :: Assertion
 tracingElidedMessages1 = do
     cfg <- defaultConfigStdout
     msgs <- STM.newTVarIO []
-    baseTrace <- setupMockTrace $ TraceConfiguration cfg (MockSB msgs) "eliding2" Neutral
+    baseTrace <- setupMockTrace $ TraceConfiguration cfg (MockSB msgs) (unitLoggerName "eliding2") Neutral
 
     s_elide <- newstate
 
@@ -307,7 +306,7 @@ tracingElidedMessages2 :: Assertion
 tracingElidedMessages2 = do
     cfg <- defaultConfigStdout
     msgs <- STM.newTVarIO []
-    baseTrace <- setupMockTrace $ TraceConfiguration cfg (MockSB msgs) "eliding1" Neutral
+    baseTrace <- setupMockTrace $ TraceConfiguration cfg (MockSB msgs) (unitLoggerName "eliding1") Neutral
 
     s_elide <- newstate
 
@@ -333,7 +332,7 @@ tracingElidedMessages3 :: Assertion
 tracingElidedMessages3 = do
     cfg <- defaultConfigStdout
     msgs <- STM.newTVarIO []
-    baseTrace <- setupMockTrace $ TraceConfiguration cfg (MockSB msgs) "eliding3" Neutral
+    baseTrace <- setupMockTrace $ TraceConfiguration cfg (MockSB msgs) (unitLoggerName "eliding3") Neutral
 
     s_elide <- newstate
 
@@ -361,7 +360,7 @@ tracingElidedMessagesRepeat :: Assertion
 tracingElidedMessagesRepeat = do
     cfg <- defaultConfigStdout
     msgs <- STM.newTVarIO []
-    baseTrace <- setupMockTrace $ TraceConfiguration cfg (MockSB msgs) "eliding3" Neutral
+    baseTrace <- setupMockTrace $ TraceConfiguration cfg (MockSB msgs) (unitLoggerName "eliding3") Neutral
 
     s_elide <- newstate
 

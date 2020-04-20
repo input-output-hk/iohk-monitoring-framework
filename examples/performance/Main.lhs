@@ -36,14 +36,14 @@ prepare_configuration = do
     CM.setDefaultBackends c [ MonitoringBK ]
 
     CM.setMonitors c $ HM.fromList
-        [ ( "performance.monitoring"
+        [ ( loggerNameFromText "performance.monitoring"
           , ( Nothing
             , Compare "monitMe" (GE, (OpMeasurable 42))
             , [SetGlobalMinimalSeverity Debug]
             )
           )
         ]
-    CM.setBackends c "performance.monitoring" (Just [MonitoringBK])
+    CM.setBackends c (loggerNameFromText "performance.monitoring") (Just [MonitoringBK])
     return c
 
 \end{code}

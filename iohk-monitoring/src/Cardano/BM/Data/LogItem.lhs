@@ -4,9 +4,14 @@
 
 %if style == newcode
 \begin{code}
-{-# LANGUAGE DefaultSignatures  #-}
-{-# LANGUAGE LambdaCase         #-}
-{-# LANGUAGE NumericUnderscores #-}
+{-# LANGUAGE DefaultSignatures     #-}
+{-# LANGUAGE DeriveFoldable        #-}
+{-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE NamedFieldPuns        #-}
+{-# LANGUAGE NumericUnderscores    #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE RecordWildCards       #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
 
 module Cardano.BM.Data.LogItem
   ( LogObject (..)
@@ -18,6 +23,14 @@ module Cardano.BM.Data.LogItem
   , locTypeEq
   , CommandValue (..)
   , LoggerName
+  , emptyLoggerName
+  , catLoggerNames
+  , unitLoggerName
+  , consLoggerName
+  , loggerNameFromText
+  , loggerNameText
+  , loggerNameRest
+  , loggerNameStripPrefix
   , MonitorAction (..)
   , PrivacyAnnotation (..)
   , PrivacyAndSeverityAnnotated (..)
@@ -25,7 +38,7 @@ module Cardano.BM.Data.LogItem
   , mapLogObject
   , mapLOContent
   , loContentEq
-  , loname2text
+  , SMaybe(..)
   )
   where
 
@@ -35,14 +48,17 @@ import           Control.Monad.IO.Class (MonadIO, liftIO)
 import           Data.Aeson (FromJSON (..), ToJSON (..), Value (..), (.=),
                      (.:), object, withText, withObject)
 import           Data.Aeson.Types (Object, Parser)
+import           Data.Bits (xor)
 import           Data.Function (on)
-import           Data.List (foldl')
+import qualified Data.Hashable as Hash
 import           Data.Maybe (fromMaybe)
+import           Data.Text (Text, pack, unpack)
 import qualified Data.Text as T
-import           Data.Text (Text, pack, stripPrefix)
 import           Data.Time.Clock.POSIX (utcTimeToPOSIXSeconds)
 import           Data.Time.Clock (UTCTime (..), getCurrentTime)
 import           Data.Word (Word64)
+-- import qualified Text.Builder as TB
+import           Text.Read (Read(..))
 
 import           Cardano.BM.Data.Aggregated (Aggregated (..), Measurable (..))
 import           Cardano.BM.Data.BackendKind
@@ -53,9 +69,119 @@ import           Cardano.BM.Data.Severity
 %endif
 
 \subsubsection{LoggerName}\label{code:LoggerName}\index{LoggerName}
-A |LoggerName| has currently type |Text|.
+A |LoggerName| is a hashed chain of |Text| chunks.
 \begin{code}
-type LoggerName = Text
+data LoggerName =
+  LoggerName
+    { lnHash :: {-# UNPACK #-} !Int
+      -- ^ The hash for the name chain starting with this element.
+    , lnName :: !Text
+      -- ^ Added by the last 'appendName'.
+    , lnFullName :: !Text
+      -- ^ Cache for 'loggerNameText'.
+    , lnRest :: !(SMaybe LoggerName)
+      -- ^ Name component chain, towards the root of the namespace.
+    }
+  deriving (Eq)
+
+instance Show LoggerName where
+  show = unpack . loggerNameText
+
+instance Read LoggerName where
+  readPrec = do
+    tag :: Text <- readPrec
+    pure $ loggerNameFromText tag
+
+instance FromJSON LoggerName where
+  parseJSON = withText "LoggerName" (pure . loggerNameFromText)
+
+instance ToJSON LoggerName where
+  toJSON = toJSON . loggerNameText
+
+instance Hash.Hashable LoggerName where
+  hashWithSalt salt = xor salt . lnHash
+  hash = lnHash
+
+-- | Unusable 'LoggerName'.  Do not call 'consLoggerName' on this value.
+emptyLoggerName :: LoggerName
+emptyLoggerName = unitLoggerName ""
+
+unitLoggerName :: Text -> LoggerName
+unitLoggerName x = LoggerName (Hash.hash x) x x SNothing
+
+-- | Extend the 'LoggerName' at its specific end.
+-- Is somewhat inefficient, but isn't called very often,
+-- except in 'loggerNameFromText'.
+-- If performance becomes a problem, we could employ Text.Builder.
+--
+-- O(n), just because of a single string concatenation.
+consLoggerName :: LoggerName -> Text -> LoggerName
+consLoggerName rest'@LoggerName{lnHash, lnFullName} x =
+  LoggerName
+    (lnHash `xor` Hash.hash x)
+    x
+    (lnFullName <> "." <> x)
+    (SJust rest')
+
+-- | O(n). So costly, we don't want to make it a Semigroup -- too easy to abuse.
+catLoggerNames :: LoggerName -> LoggerName -> LoggerName
+catLoggerNames tl = go . SJust
+  where
+    go :: SMaybe LoggerName -> LoggerName
+    go = \case
+      SNothing -> tl
+      SJust LoggerName{lnRest, lnName} -> go lnRest `consLoggerName` lnName
+-- loggerNameText = TB.run . TB.intercalate (TB.char '.') . go
+--   where go :: LoggerName -> [TB.Builder]
+--         go LoggerName{lnName, lnRest=SNothing} = [TB.text lnName]
+--         go LoggerName{lnName, lnRest=SJust rs} = TB.text lnName : go rs
+
+-- | O(n), Very costly, don't use it.
+loggerNameStripPrefix :: Text -> LoggerName -> Maybe LoggerName
+loggerNameStripPrefix pfx ln = go (SJust ln)
+  where go :: SMaybe LoggerName -> Maybe LoggerName
+        -- degenerate case, shouldn't happen
+        go SNothing = Nothing
+        -- don't care whether or not _this_ one matches, the result is Nothing
+        go (SJust LoggerName{lnRest = SNothing}) = Nothing
+        -- if this is second-to-last, _and_ the last one matches, we have something
+        go (SJust LoggerName{lnRest = SJust
+                              LoggerName{lnName = lastName
+                                        ,lnRest = SNothing}
+                            ,lnName = thisName}) =
+          if lastName == pfx
+          then Just (unitLoggerName thisName)
+          else Nothing
+        -- otherwise, move along (while consing, but it's short)..
+        go (SJust LoggerName{lnRest, lnName}) =
+          (`consLoggerName` lnName) <$> go lnRest
+
+-- | O(1).  Cut the most specific element off the hierarchical name.
+loggerNameRest :: LoggerName -> SMaybe LoggerName
+loggerNameRest = lnRest
+
+-- | O(1).  Get the text rendering of the name.
+loggerNameText :: LoggerName -> Text
+loggerNameText = lnFullName
+
+-- | O(n)
+loggerNameFromText :: Text -> LoggerName
+loggerNameFromText text =
+  case T.break (== '.') text of
+    (x, "") -> unitLoggerName x
+    (x, xs) -> go (T.tail xs) (unitLoggerName x)
+ where
+   go :: Text -> LoggerName -> LoggerName
+   go rest acc =
+     case T.break (== '.') rest of
+       (x, "") -> acc `consLoggerName` x
+       -- This builds up thunks, as it executes, but the chains are short.
+       (x, xs) -> go (T.tail xs) (acc `consLoggerName` x)
+
+data SMaybe a
+  = SNothing
+  | SJust !a
+  deriving (Eq, Foldable)
 
 \end{code}
 
@@ -65,15 +191,17 @@ type LoggerName = Text
 \label{code:LOContent}\index{LOContent}
 
 \begin{code}
-data LogObject a = LogObject
-                     { loName    :: LoggerName
-                     , loMeta    :: !LOMeta
-                     , loContent :: !(LOContent a)
-                     } deriving (Show, Eq)
+data LogObject a
+  = LogObject
+    { loName    :: LoggerName
+    , loMeta    :: !LOMeta
+    , loContent :: !(LOContent a)
+    }
+  deriving (Show, Eq)
 
 instance ToJSON a => ToJSON (LogObject a) where
-    toJSON (LogObject _loname _lometa _locontent) =
-        object [ "loname"    .= _loname
+    toJSON (LogObject ln _lometa _locontent) =
+        object [ "loname"    .= loggerNameText ln
                , "lometa"    .= _lometa
                , "locontent" .= _locontent
                ]
@@ -130,8 +258,7 @@ mkLOMeta sev priv =
            <*> pure priv
   where
     cleantid threadid = do
-        let prefixText = "ThreadId "
-            condStripPrefix s = fromMaybe s $ stripPrefix prefixText s
+        let condStripPrefix s = fromMaybe s $ T.stripPrefix "ThreadId " s
         condStripPrefix $ (pack . show) threadid
 
 \end{code}
@@ -156,10 +283,10 @@ instance ToJSON MonitorAction where
     toJSON (MonitorAlterGlobalSeverity s) =
         object [ "kind"     .= String "MonitorAlterGlobalSeverity"
                , "severity" .= toJSON s ]
-    toJSON (MonitorAlterSeverity n s) =
+    toJSON (MonitorAlterSeverity st s) =
         object [ "kind" .= String "MonitorAlterSeverity"
-               , "name" .= toJSON n
-               , "severity" .= toJSON s ]
+               , "name" .= st
+               , "severity" .= s ]
 instance FromJSON MonitorAction where
     parseJSON = withObject "MonitorAction" $ \v ->
                     (v .: "kind" :: Parser Text)
@@ -167,9 +294,12 @@ instance FromJSON MonitorAction where
                     \case "MonitorAlert" ->
                             MonitorAlert <$> v .: "message"
                           "MonitorAlterGlobalSeverity" ->
-                            MonitorAlterGlobalSeverity <$> v .: "severity"
+                            MonitorAlterGlobalSeverity
+                            <$> v .: "severity"
                           "MonitorAlterSeverity" ->
-                            MonitorAlterSeverity <$> v .: "name" <*> v .: "severity"
+                            MonitorAlterSeverity
+                            <$> v .: "name"
+                            <*> v .: "severity"
                           _ -> fail "unknown MonitorAction"
 
 \end{code}
@@ -395,11 +525,4 @@ mapLOContent f = \case
 loContentEq :: Eq a => LogObject a -> LogObject a -> Bool
 loContentEq = (==) `on` loContent
 
-\end{code}
-
-\subsubsection{Render context name as text}
-\label{code:loname2text}\index{loname2text}
-\begin{code}
-loname2text :: [LoggerName] -> Text
-loname2text nms = T.init $ foldl' (\el acc -> acc <> "." <> el) "" nms
 \end{code}

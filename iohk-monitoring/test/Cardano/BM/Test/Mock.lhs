@@ -60,7 +60,7 @@ traceMock ms config =
         subTrace <- fromMaybe Neutral <$> Config.findSubTrace config ctx
         case subTrace of
             TeeTrace secName ->
-                traceWith mainTrace (ctx <> "." <> secName, lo)
+                traceWith mainTrace (ctx `catLoggerNames` secName, lo)
             _ -> return ()
   where
     mainTrace = mainTraceConditionally config ms
