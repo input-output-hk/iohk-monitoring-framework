@@ -266,6 +266,10 @@ unitConfigurationParsed = do
                                                     ObservableTraceSelf [GhcRtsStats, MonotonicClock])
                                             , ("iohk.deadend", NoTrace)
                                             ]
+        , cgMapSubtraceCache  = HM.fromList [ ("iohk.benchmarking",
+                                                    ObservableTraceSelf [GhcRtsStats, MonotonicClock])
+                                            , ("iohk.deadend", NoTrace)
+                                            ]
         , cgOptions           = HM.fromList
             [ ("mapSubtrace",
                 Object $
@@ -315,6 +319,17 @@ unitConfigurationParsed = do
                                                                    ])])
             ]
         , cgMapBackend        = HM.fromList [ ("iohk.user.defined"
+                                              , [ UserDefinedBK "MyBackend"
+                                                , KatipBK
+                                                ]
+                                              )
+                                            , ("iohk.interesting.value"
+                                              , [ EKGViewBK
+                                                , AggregationBK
+                                                ]
+                                              )
+                                            ]
+        , cgMapBackendCache   = HM.fromList [ ("iohk.user.defined"
                                               , [ UserDefinedBK "MyBackend"
                                                 , KatipBK
                                                 ]
@@ -417,8 +432,10 @@ unitConfigurationExportStdout = do
     cgDefRotation        cfgInternal' @?= cgDefRotation        cfgInternal
     cgMapSeverity        cfgInternal' @?= cgMapSeverity        cfgInternal
     cgMapSubtrace        cfgInternal' @?= cgMapSubtrace        cfgInternal
+    cgMapSubtraceCache   cfgInternal' @?= cgMapSubtraceCache   cfgInternal
     cgOptions            cfgInternal' @?= cgOptions            cfgInternal
     cgMapBackend         cfgInternal' @?= cgMapBackend         cfgInternal
+    cgMapBackendCache    cfgInternal' @?= cgMapBackendCache    cfgInternal
     cgDefBackendKs       cfgInternal' @?= cgDefBackendKs       cfgInternal
     cgSetupBackends      cfgInternal' @?= cgSetupBackends      cfgInternal
     cgMapScribe          cfgInternal' @?= cgMapScribe          cfgInternal

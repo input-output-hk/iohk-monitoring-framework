@@ -4,10 +4,12 @@
 
 %if style == newcode
 \begin{code}
-{-# LANGUAGE CPP               #-}
-{-# LANGUAGE LambdaCase        #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE ViewPatterns      #-}
+{-# LANGUAGE CPP                   #-}
+{-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE RankNTypes            #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE ViewPatterns          #-}
 
 {-@ LIQUID "--max-case-expand=4" @-}
 
@@ -111,36 +113,23 @@ data ConfigurationInternal = ConfigurationInternal
     -- minimum severity level of every object that will be output
     , cgDefRotation       :: Maybe RotationParameters
     -- default rotation parameters
-    , cgMapSeverity       :: HM.HashMap LoggerName Severity
-    -- severity filter per loggername
-    , cgMapSubtrace       :: HM.HashMap LoggerName SubTrace
-    -- type of trace per loggername
     , cgOptions           :: HM.HashMap Text Value
     -- options needed for tracing, logging and monitoring
-    , cgMapBackend        :: HM.HashMap LoggerName [BackendKind]
-    -- backends that will be used for the specific loggername
     , cgDefBackendKs      :: [BackendKind]
     -- backends that will be used if a set of backends for the
     -- specific loggername is not set
     , cgSetupBackends     :: [BackendKind]
     -- backends to setup; every backend to be used must have
     -- been declared here
-    , cgMapScribe         :: HM.HashMap LoggerName [ScribeId]
-    -- katip scribes that will be used for the specific loggername
-    , cgMapScribeCache    :: HM.HashMap LoggerName [ScribeId]
-    -- map to cache info of the cgMapScribe
     , cgDefScribes        :: [ScribeId]
     -- katip scribes that will be used if a set of scribes for the
     -- specific loggername is not set
     , cgSetupScribes      :: [ScribeDefinition]
     -- katip scribes to setup; every scribe to be used must have
     -- been declared here
-    , cgMapAggregatedKind :: HM.HashMap LoggerName AggregatedKind
-    -- kind of Aggregated that will be used for the specific loggername
     , cgDefAggregatedKind :: AggregatedKind
     -- kind of Aggregated that will be used if a set of scribes for the
     -- specific loggername is not set
-    , cgMonitors          :: HM.HashMap LoggerName (MEvPreCond, MEvExpr, [MEvAction])
     , cgPortEKG           :: Int
     -- port for EKG server
     , cgPortGraylog       :: Int
@@ -153,7 +142,54 @@ data ConfigurationInternal = ConfigurationInternal
     -- accept remote traces at this address
     , cgPortGUI           :: Int
     -- port for changes at runtime
+
+    -- Hierarchically-organised namespaces:
+    , cgMapBackend        :: HM.HashMap LoggerName [BackendKind]
+    -- backends that will be used for the specific loggername
+    , cgMapSeverity       :: HM.HashMap LoggerName Severity
+    -- severity filter per loggername
+    , cgMapSubtrace       :: HM.HashMap LoggerName SubTrace
+    -- type of trace per loggername
+    , cgMapScribe         :: HM.HashMap LoggerName [ScribeId]
+    -- katip scribes that will be used for the specific loggername
+    , cgMonitors          :: HM.HashMap LoggerName (MEvPreCond, MEvExpr, [MEvAction])
+    , cgMapAggregatedKind :: HM.HashMap LoggerName AggregatedKind
+    -- kind of Aggregated that will be used for the specific loggername
+
+    -- Caches for expensive hierarchical lookups:
+    , cgMapBackendCache   :: HM.HashMap LoggerName [BackendKind]
+    , cgMapScribeCache    :: HM.HashMap LoggerName [ScribeId]
+    , cgMapSubtraceCache  :: HM.HashMap LoggerName SubTrace
     } deriving (Show, Eq)
+
+lookupHierarchyCached
+  :: forall a
+  .  LoggerName
+  -> HM.HashMap LoggerName a
+  -> HM.HashMap LoggerName a
+  -> Maybe a
+  -> (LoggerName -> Maybe a -> IO ())
+  -> IO (Maybe a)
+lookupHierarchyCached name namespace cache nullResult updateCache = do
+    when needCacheUpdate $
+      updateCache name result
+    pure result
+  where
+      needCacheUpdate :: Bool
+      result :: Maybe a
+      (needCacheUpdate, result) =
+        -- full string name -> [a] cache lookup
+        case HM.lookup name cache of
+          Just os -> (False, Just os)
+          -- Cache miss; do the expensive hierarchical lookup for
+          -- inheritance and request a cache update.
+          Nothing -> (True, find_s $ T.split (=='.') name)
+
+      find_s :: [LoggerName] -> Maybe a
+      find_s xs
+        | [] <- xs = nullResult
+        | r@Just{} <- HM.lookup (T.intercalate "." xs) namespace = r
+        | otherwise = find_s (init xs)
 
 \end{code}
 
@@ -162,19 +198,18 @@ For a given context name return the list of backends configured,
 or, in case no such configuration exists, return the default backends.
 \begin{code}
 getBackends :: Configuration -> LoggerName -> IO [BackendKind]
-getBackends configuration name = do
-    cg <- readMVar $ getCG configuration
-    -- let outs = HM.lookup name (cgMapBackend cg)
-    -- case outs of
-    --     Nothing -> return (cgDefBackendKs cg)
-    --     Just os -> return os
-    let defs = cgDefBackendKs cg
-    let mapbks = cgMapBackend cg
-    let find_s [] = defs
-        find_s lnames = case HM.lookup (T.intercalate "." lnames) mapbks of
-            Nothing -> find_s (init lnames)
-            Just os -> os
-    return $ find_s $ T.split (=='.') name
+getBackends conf name = do
+    cg <- readMVar $ getCG conf
+    fromMaybe [] <$> lookupHierarchyCached name
+      (cgMapBackend cg)
+      (cgMapBackendCache cg)
+      (Just $ cgDefBackendKs cg)
+      (setCachedBackends conf)
+
+setCachedBackends :: Configuration -> LoggerName -> Maybe [BackendKind] -> IO ()
+setCachedBackends configuration name xs =
+    modifyMVar_ (getCG configuration) $ \cg ->
+        return cg { cgMapBackendCache = HM.alter (\_ -> xs) name (cgMapBackendCache cg) }
 
 getDefaultBackends :: Configuration -> IO [BackendKind]
 getDefaultBackends configuration =
@@ -211,25 +246,13 @@ For a given context name return the list of scribes to output to,
 or, in case no such configuration exists, return the default scribes to use.
 \begin{code}
 getScribes :: Configuration -> LoggerName -> IO [ScribeId]
-getScribes configuration name = do
-    cg <- readMVar (getCG configuration)
-    (updateCache, scribes) <- do
-        let defs = cgDefScribes cg
-        let mapscribes = cgMapScribe cg
-        let find_s [] = defs
-            find_s lnames = case HM.lookup (T.intercalate "." lnames) mapscribes of
-                Nothing -> find_s (init lnames)
-                Just os -> os
-        let outs = HM.lookup name (cgMapScribeCache cg)
-        -- look if scribes are already cached
-        return $ case outs of
-            -- if no cached scribes found; search the appropriate scribes that
-            -- they must inherit and update the cached map
-            Nothing -> (True, find_s $ T.split (=='.') name)
-            Just os -> (False, os)
-
-    when updateCache $ setCachedScribes configuration name $ Just scribes
-    return scribes
+getScribes conf name = do
+    cg <- readMVar $ getCG conf
+    fromMaybe [] <$> lookupHierarchyCached name
+      (cgMapScribe cg)
+      (cgMapScribeCache cg)
+      (Just $ cgDefScribes cg)
+      (setCachedScribes conf)
 
 getCachedScribes :: Configuration -> LoggerName -> IO (Maybe [ScribeId])
 getCachedScribes configuration name = do
@@ -471,16 +494,20 @@ parseMonitors (Just hmv) = HM.mapMaybe mkMonitor hmv
 setupFromRepresentation :: R.Representation -> IO Configuration
 setupFromRepresentation r = do
     let getMap             = getMapOption' (R.options r)
+        mapbackends        = parseBackendMap $ getMap "mapBackends"
         mapscribes         = parseScribeMap $ getMap "mapScribes"
+        mapsubtraces       = parseSubtraceMap $ getMap "mapSubtrace"
         defRotation        = R.rotation r
 
     cgref <- newMVar $ ConfigurationInternal
         { cgMinSeverity       = R.minSeverity r
         , cgDefRotation       = defRotation
         , cgMapSeverity       = parseSeverityMap $ getMap "mapSeverity"
-        , cgMapSubtrace       = parseSubtraceMap $ getMap "mapSubtrace"
+        , cgMapSubtrace       = mapsubtraces
+        , cgMapSubtraceCache  = mapsubtraces
         , cgOptions           = R.options r
-        , cgMapBackend        = parseBackendMap $ getMap "mapBackends"
+        , cgMapBackend        = mapbackends
+        , cgMapBackendCache   = mapbackends
         , cgDefBackendKs      = R.defaultBackends r
         , cgSetupBackends     = R.setupBackends r
         , cgMapScribe         = mapscribes
@@ -572,8 +599,10 @@ empty = do
                            , cgDefRotation       = Nothing
                            , cgMapSeverity       = HM.empty
                            , cgMapSubtrace       = HM.empty
+                           , cgMapSubtraceCache  = HM.empty
                            , cgOptions           = HM.empty
                            , cgMapBackend        = HM.empty
+                           , cgMapBackendCache   = HM.empty
                            , cgDefBackendKs      = []
                            , cgSetupBackends     = []
                            , cgMapScribe         = HM.empty
@@ -683,14 +712,18 @@ the evaluation of the filters return |True|.
 
 \begin{code}
 findRootSubTrace :: Configuration -> LoggerName -> IO (Maybe SubTrace)
-findRootSubTrace config loggername =
-    -- Try to find SubTrace by provided name.
-    let find_s :: [Text] -> IO (Maybe SubTrace)
-        find_s [] = return Nothing
-        find_s lnames = findSubTrace config (T.intercalate "." lnames) >>= \case
-                Just subtrace -> return $ Just subtrace
-                Nothing -> find_s (init lnames)
-    in find_s $ T.split (=='.') loggername
+findRootSubTrace conf name = do
+    cg <- readMVar $ getCG conf
+    lookupHierarchyCached name
+      (cgMapSubtrace cg)
+      (cgMapSubtraceCache cg)
+      Nothing
+      (setCachedSubtrace conf)
+
+setCachedSubtrace :: Configuration -> LoggerName -> Maybe SubTrace -> IO ()
+setCachedSubtrace configuration name xs =
+    modifyMVar_ (getCG configuration) $ \cg ->
+        return cg { cgMapSubtraceCache = HM.alter (\_ -> xs) name (cgMapSubtraceCache cg) }
 
 testSubTrace :: Configuration -> LoggerName -> LogObject a -> IO (Maybe (LogObject a))
 testSubTrace config loggername lo = do
