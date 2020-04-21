@@ -99,12 +99,15 @@ type EKGViewMap a = HM.HashMap Text a
 This is an internal |Trace|, named "\#ekgview", which can be used to control
 the messages that are being displayed by EKG.
 \begin{code}
-ekgTrace :: ToJSON a => EKGView a -> Configuration -> Trace IO a
+ekgTrace :: forall a. ToJSON a => EKGView a -> Configuration -> Trace IO a
 ekgTrace ekg _c =
     Trace.appendName "#ekgview" $ ekgTrace' ekg
   where
     ekgTrace' :: ToJSON a => EKGView a -> Trace IO a
-    ekgTrace' ekgview = Tracer $ \(_ctx,lo@(LogObject outerloname _ _)) -> do
+    ekgTrace' ekgview = mkBaseTrace ekgTracer
+      where
+       ekgTracer :: Tracer IO (TraceStatic, LogObject a)
+       ekgTracer = Tracer $ \(_static, lo@(LogObject outerloname _ _)) -> do
         let setLabel :: Text -> Text -> EKGViewInternal a -> IO (Maybe (EKGViewInternal a))
             setLabel name label ekg_i@(EKGViewInternal _ labels _ mserver _ _) =
                 case (HM.lookup name labels, mserver) of
@@ -277,9 +280,9 @@ instance (ToJSON a, FromJSON a) => IsBackend EKGView a where
          -> IO (EKGView a)
        nullSetup trace e = do
          meta <- mkLOMeta Error Public
-         traceWith trace $ ( loggerNameFromText "#ekgview.realizeFrom"
-                           , LogObject (loggerNameFromText "#ekgview.realizeFrom") meta $
-           LogError $ "EKGView backend disabled due to initialisation error: " <> (pack $ show e))
+         Trace.traceLogObject trace $
+           LogObject (loggerNameFromText "#ekgview.realizeFrom") meta $
+           LogError $ "EKGView backend disabled due to initialisation error: " <> (pack $ show e)
          _ <- atomically $ TBQ.newTBQueue 0
          ref <- newEmptyMVar
          putMVar ref $ EKGViewInternal
@@ -352,10 +355,12 @@ spawnDispatcher config evqueue _sbtrace ekgtrace =
         obj' <- testSubTrace config (unitLoggerName "#ekgview." `catLoggerNames` loname0) obj
         case obj' of
             Just lo ->
-                -- TODO:  This name transformation seems a little horrible.
-                let trace = Trace.appendName (loggerNameText loname0) ekgtrace
-                in
-                traceWith trace (loname0, lo)
+                -- TODO:  This name transformation seems a little weird.
+                -- We are basically ignoring the name extension machinery,
+                -- and forcefully graft the accumulated loggername from the
+                -- LogObject to the current trace name.
+                let tr = Trace.appendName (loggerNameText loname0) ekgtrace
+                in Trace.traceLogObject tr lo
             Nothing -> pure ()
         pure ()
 

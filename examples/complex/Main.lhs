@@ -390,10 +390,10 @@ instance Transformable Text IO Pet where
     trTransformer MaximalVerbosity tr = trStructuredText MaximalVerbosity tr
     trTransformer MinimalVerbosity _tr = nullTracer
     -- transform to textual representation using |show|
-    trTransformer _v tr = Tracer $ \pet -> do
+    trTransformer _v Trace{traceStatic=st, traceTracer=trc} = Tracer $ \pet -> do
         meta <- mkLOMeta Info Public
-        traceWith tr $ ( unitLoggerName "pet"
-                       , LogObject (unitLoggerName "pet") meta $ (LogMessage . pack . show) pet)
+        traceWith trc $ ( st { loggerName = unitLoggerName "pet" }
+                        , LogObject (unitLoggerName "pet") meta $ (LogMessage . pack . show) pet)
 
 -- default privacy annotation: Public
 instance HasPrivacyAnnotation Pet

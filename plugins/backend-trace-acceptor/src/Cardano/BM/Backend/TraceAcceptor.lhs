@@ -41,11 +41,7 @@ import           Cardano.BM.Data.Backend
 import           Cardano.BM.Data.BackendKind (BackendKind(TraceAcceptorBK))
 import           Cardano.BM.Data.Configuration (RemoteAddr(..), RemoteAddrNamed(..))
 import           Cardano.BM.Data.LogItem
-                   ( LOContent (LogError), LOMeta (..)
-                   , PrivacyAnnotation (Public), loName, mkLOMeta
-                   )
 import           Cardano.BM.Data.Severity (Severity (..))
-import           Cardano.BM.Data.Tracer (traceWith)
 import           Cardano.BM.IOManager
 import           Cardano.BM.Plugin
 import qualified Cardano.BM.Snocket as Snocket
@@ -187,7 +183,7 @@ clientThread sbtrace h = handleError TraceAcceptorClientThreadError pProc
         let hname = decodeUtf8 hn
         case eitherDecodeStrict bs of
           Right lo ->
-            traceWith sbtrace (loName lo, lo)
+            Trace.traceLogObject sbtrace lo
           Left e -> do
               lometa0 <- mkLOMeta Warning Public
               let trace :: Trace.Trace IO a

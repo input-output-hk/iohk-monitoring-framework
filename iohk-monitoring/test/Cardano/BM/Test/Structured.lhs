@@ -5,6 +5,7 @@
 %if style == newcode
 \begin{code}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Cardano.BM.Test.Structured (
@@ -19,6 +20,7 @@ import           Data.Text (Text, pack)
 import           Cardano.BM.Configuration.Static
 import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Tracing hiding (setupTrace)
+import           Cardano.BM.Data.Trace
 import           Cardano.BM.Data.Tracer
 import           Cardano.BM.Data.SubTrace
 import qualified Cardano.BM.Setup as Setup
@@ -85,9 +87,13 @@ instance Transformable Text IO Pet where
     trTransformer MaximalVerbosity tr = trStructured MaximalVerbosity tr
     trTransformer MinimalVerbosity _tr = nullTracer
     -- transform to textual representation using |show|
-    trTransformer _v tr = Tracer $ \pet -> do
+    trTransformer _v t@Trc{trName=nm, trTracer=trc} = Tracer $ \pet -> do
         meta <- mkLOMeta Info Public
-        traceWith tr $ (unitLoggerName "pet", LogObject (unitLoggerName "pet") meta $ (LogMessage . pack . show) pet)
+        traceWith trc $
+          -- TODO | API:  this is unnecessarily brittle.
+          ( (traceStatic t) { loggerName = nm @:> "pet" }
+          , LogObject (nm @:> "pet") meta
+            $ (LogMessage . pack . show) pet)
 
 -- default privacy annotation: Public
 instance HasPrivacyAnnotation Pet
@@ -164,9 +170,13 @@ instance Transformable Text IO Material where
     trTransformer MaximalVerbosity tr = trStructured MaximalVerbosity tr
     trTransformer MinimalVerbosity _tr = nullTracer
     -- transform to textual representation using |show|
-    trTransformer _v tr = Tracer $ \mat -> do
+    trTransformer _v t@Trc{trName=nm, trTracer=trc} = Tracer $ \mat -> do
         meta <- mkLOMeta Info Public
-        traceWith tr $ (unitLoggerName "material", LogObject (unitLoggerName "material") meta $ (LogMessage . pack . show) mat)
+        traceWith trc $
+          -- TODO | API:  this is unnecessarily brittle.
+          ( (traceStatic t) { loggerName = nm @:> "material" }
+          , LogObject (nm @:> "material") meta
+            $ (LogMessage . pack . show) mat)
 
 instance HasPrivacyAnnotation Material where
     getPrivacyAnnotation _ = Confidential

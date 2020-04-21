@@ -4,13 +4,11 @@
 
 %if style == newcode
 \begin{code}
-{-# LANGUAGE DefaultSignatures     #-}
 {-# LANGUAGE DeriveFoldable        #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE NamedFieldPuns        #-}
 {-# LANGUAGE NumericUnderscores    #-}
 {-# LANGUAGE OverloadedStrings     #-}
-{-# LANGUAGE RecordWildCards       #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 
 module Cardano.BM.Data.LogItem
@@ -23,6 +21,7 @@ module Cardano.BM.Data.LogItem
   , locTypeEq
   , CommandValue (..)
   , LoggerName
+  , (@:>)
   , emptyLoggerName
   , catLoggerNames
   , unitLoggerName
@@ -85,7 +84,7 @@ data LoggerName =
   deriving (Eq)
 
 instance Show LoggerName where
-  show = unpack . loggerNameText
+  show = show . unpack . loggerNameText
 
 instance Read LoggerName where
   readPrec = do
@@ -115,13 +114,15 @@ unitLoggerName x = LoggerName (Hash.hash x) x x SNothing
 -- If performance becomes a problem, we could employ Text.Builder.
 --
 -- O(n), just because of a single string concatenation.
-consLoggerName :: LoggerName -> Text -> LoggerName
+consLoggerName, (@:>) :: LoggerName -> Text -> LoggerName
 consLoggerName rest'@LoggerName{lnHash, lnFullName} x =
   LoggerName
     (lnHash `xor` Hash.hash x)
     x
     (lnFullName <> "." <> x)
     (SJust rest')
+
+(@:>) = consLoggerName
 
 -- | O(n). So costly, we don't want to make it a Semigroup -- too easy to abuse.
 catLoggerNames :: LoggerName -> LoggerName -> LoggerName

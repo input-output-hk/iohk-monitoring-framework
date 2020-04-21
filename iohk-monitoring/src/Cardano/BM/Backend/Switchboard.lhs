@@ -8,6 +8,7 @@
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE NamedFieldPuns        #-}
 {-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 
@@ -53,7 +54,7 @@ import           Cardano.BM.Data.Backend
 import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.SubTrace (SubTrace (..))
-import           Cardano.BM.Data.Trace (Trace)
+import           Cardano.BM.Data.Trace
 import           Cardano.BM.Data.Tracer (Tracer (..))
 import qualified Cardano.BM.Backend.Log
 import qualified Cardano.BM.Backend.LogBuffer
@@ -107,16 +108,28 @@ mainTrace = Tracer . effectuate
 
 This |Tracer| will apply to every message the severity filter as defined in the |Configuration|.
 \begin{code}
-mainTraceConditionally :: IsEffectuator eff a => Configuration -> eff a -> Trace IO a
-mainTraceConditionally config eff = Tracer $ \(ctxname,item) -> do
-    mayItem <- Config.testSubTrace config ctxname item
-    case mayItem of
-        Just itemF@(LogObject _loname meta _) -> do
-            passSevFilter <- Config.testSeverity config ctxname meta
-            when passSevFilter $
-                -- pass to backend and insert name
-                effectuate eff itemF { loName = ctxname }
-        Nothing -> pure ()
+mainTraceConditionally
+  :: IsEffectuator eff a
+  => Configuration -> eff a -> Trace IO a
+mainTraceConditionally config eff = Trace static tracer
+ where
+   static = TraceStatic emptyLoggerName
+   -- The above TraceStatic will be passed on and extended by
+   -- the 'Trace' transformer chain,
+   -- until it reaches the point of Cardano.BM.traceWith,
+   -- which will route the final TraceStatic to the first
+   -- element of the tuple passed to the 'Tracer' chain
+   -- -- and so it will travel, until the final tracer is invoked,
+   -- below:
+   tracer = Tracer $ \(TraceStatic{loggerName}, item) -> do
+     mayItem <- Config.testSubTrace config loggerName item
+     case mayItem of
+         Just itemF@LogObject{loMeta} -> do
+             passSevFilter <- Config.testSeverity config loggerName loMeta
+             when passSevFilter $
+                 -- pass to backend and insert name
+                 effectuate eff itemF { loName = loggerName }
+         Nothing -> pure ()
 
 \end{code}
 
