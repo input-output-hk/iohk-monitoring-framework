@@ -3,25 +3,25 @@
 
 %if style == newcode
 \begin{code}
+{-# LANGUAGE NamedFieldPuns      #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Cardano.BM.Data.Transformers
-  ( liftCounting
-  , liftFolding
-  , setHostname
+  (
+    -- liftCounting,
+    setHostname
   )
   where
 
 import           Data.Text (Text)
 
-import           Cardano.BM.Data.Aggregated (Measurable (..))
-import           Cardano.BM.Data.LogItem (LOContent (..), LOMeta (..),
-                     LogObject (..), LoggerName)
-import           Cardano.BM.Data.Tracer (Tracer (..), traceWith)
+-- import           Cardano.BM.Data.Aggregated (Measurable (..))
+import           Cardano.BM.Data.LogItem
+import           Cardano.BM.Data.Tracer (mapTraceMeta)
 import           Cardano.BM.Data.Trace
 
-import           Control.Tracer.Transformers
+-- import           Control.Tracer.Transformers
 \end{code}
 
 \subsubsection{Transformer for counting events}
@@ -30,36 +30,15 @@ import           Control.Tracer.Transformers
 Lift a 'Counting' tracer into a 'Trace' of 'PureI' messages.
 \begin{code}
 
-liftCounting
-  :: forall m a
-  .  LOMeta -> LoggerName -> Text -> Trace m a
-  -> Tracer m (Counting (LoggerName, LogObject a))
-liftCounting meta name desc tr = Tracer (traceIncrement tr)
- where
-   traceIncrement :: Trace m a -> Counting (LoggerName, LogObject a) -> m ()
-   traceIncrement t (Counting n) =
-    --  traceWith t . LogObject name meta . LogValue desc . PureI $ fromIntegral n
-     traceWith t $ (name, LogObject name meta . LogValue desc . PureI $ fromIntegral n)
-
-\end{code}
-
-\subsubsection{Transformer for state folding}
-\label{code:liftFolding}
-\index{liftFolding}
-Lift a 'Trace' tracer into a 'Trace' of 'PureI' messages,
-thereby specialising it to 'Integral'.
-\begin{code}
-
-liftFolding
-  :: forall m f a
-  .  (Integral f) -- TODO:  generalise
-  => LOMeta -> LoggerName -> Text -> Trace m a
-  -> Tracer m (Folding (LoggerName, LogObject a) f)
-liftFolding meta name desc tr = Tracer (traceIncrement tr)
- where
-   traceIncrement :: Trace m a -> Folding (LoggerName, LogObject a) f -> m ()
-   traceIncrement t (Folding f) =
-     traceWith t $ (name, LogObject name meta . LogValue desc . PureI $ fromIntegral f)
+-- liftCounting
+--   :: forall m a
+--   .  LOMeta -> LoggerName -> Text -> Trace m a
+--   -> Tracer m (Counting (LoggerName, LogObject a))
+-- liftCounting meta name desc = Tracer . traceIncrement
+--  where
+--    traceIncrement :: Trace m a -> Counting (LoggerName, LogObject a) -> m ()
+--    traceIncrement t (Counting n) =
+--      traceWith t $ (name, LogObject name meta . LogValue desc . PureI $ fromIntegral n)
 
 \end{code}
 
@@ -69,7 +48,6 @@ liftFolding meta name desc tr = Tracer (traceIncrement tr)
 The hostname annotation of the |LogObject| can be altered.
 \begin{code}
 setHostname :: Text -> Trace m a -> Trace m a
-setHostname hn tr = Tracer $ \(ctx, lo@(LogObject _ln meta _lc)) ->
-    traceWith tr (ctx, lo { loMeta = meta { hostname = hn }})
+setHostname x = mapTraceMeta (\lo -> lo { hostname = x })
 
 \end{code}

@@ -6,6 +6,7 @@
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE LambdaCase            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE NamedFieldPuns        #-}
 {-# LANGUAGE RecursiveDo           #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 
@@ -120,7 +121,7 @@ instance (ToJSON a, FromJSON a) => IsBackend Editor a where
                                    } $ prepare gui config
           `catch` nullSetup sbtrace gref
                        EditorInternal
-                        { edSBtrace = nullTracer
+                        { edSBtrace = nullTrace
                         , edThread = thd
                         , edBuffer = logbuf
                         }
@@ -138,11 +139,13 @@ instance (ToJSON a, FromJSON a) => IsBackend Editor a where
          -> EditorInternal a
          -> SomeException
          -> IO ()
-       nullSetup trace mvar nullEditor e = do
+       nullSetup Trace{traceTracer, traceStatic} mvar nullEditor e = do
          meta <- mkLOMeta Error Public
-         traceWith trace $ ( loggerNameFromText "#editor.realizeFrom"
-                           , LogObject (loggerNameFromText "#editor.realizeFrom") meta $
-           LogError $ "Editor backend disabled due to initialisation error: " <> (pack $ show e))
+         traceWith traceTracer
+           $ ( traceStatic { loggerName = loggerNameFromText "#editor.realizeFrom" }
+             , LogObject (loggerNameFromText "#editor.realizeFrom") meta
+               $ LogError $ "Editor backend disabled due to initialisation error: "
+                            <> (pack $ show e))
          _ <- swapMVar mvar nullEditor
          pure ()
 

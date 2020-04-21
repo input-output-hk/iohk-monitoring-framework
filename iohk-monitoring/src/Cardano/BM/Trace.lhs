@@ -4,6 +4,7 @@
 
 %if style == newcode
 \begin{code}
+{-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE RankNTypes #-}
 
 module Cardano.BM.Trace
@@ -19,6 +20,7 @@ module Cardano.BM.Trace
     -- * utils
     , natTrace
     -- * log functions
+    , traceLogObject
     , traceNamedObject
     , traceNamedItem
     , logAlert,     logAlertS
@@ -44,8 +46,8 @@ import           System.IO.Unsafe (unsafePerformIO)
 
 import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.Severity
-import           Cardano.BM.Data.Trace (Trace)
-import           Cardano.BM.Data.Tracer (Tracer (..), contramap, natTracer,
+import           Cardano.BM.Data.Trace
+import           Cardano.BM.Data.Tracer (Tracer (..), natTracer,
                      nullTracer, traceWith)
 
 \end{code}
@@ -54,8 +56,10 @@ import           Cardano.BM.Data.Tracer (Tracer (..), contramap, natTracer,
 \subsubsection{Utilities}
 Natural transformation from monad |m| to monad |n|.
 \begin{code}
-natTrace :: (forall x . m x -> n x) -> Tracer m (LoggerName,LogObject a) -> Tracer n (LoggerName,LogObject a)
-natTrace = natTracer
+natTrace
+  :: (forall x . m x -> n x)
+  -> Trace m a -> Trace n a
+natTrace f t@Trace{traceTracer} = t { traceTracer = natTracer f traceTracer }
 
 \end{code}
 
@@ -63,10 +67,10 @@ natTrace = natTracer
 A new context name is added.
 \begin{code}
 appendName :: T.Text -> Trace m a -> Trace m a
-appendName name tr = Tracer $ \(names0, lo) ->
-    traceWith tr (if loggerNameText names0 == ""
-                  then unitLoggerName name
-                  else names0 `consLoggerName` name, lo)
+appendName name = modifyName $ \loggerName ->
+  if loggerNameText loggerName == ""
+  then unitLoggerName name
+  else loggerName @:> name
 
 \end{code}
 
@@ -77,74 +81,24 @@ modifyName
     :: (LoggerName -> LoggerName)
     -> Trace m a
     -> Trace m a
-modifyName k = contramap f
-  where
-    f (names0, lo) = (k names0, lo)
+modifyName f = mapStatic $ \ts@TraceStatic{loggerName} ->
+                             ts { loggerName = f loggerName }
 
 \end{code}
 
-\subsubsection{Contramap a trace and produce the naming context}
-\begin{code}
-named :: Tracer m (LoggerName,LogObject a) -> Tracer m (LOMeta, LOContent a)
-named = contramap $ \(meta, loc) ->
-  (emptyLoggerName, LogObject emptyLoggerName meta loc)
-
-\end{code}
-
-\subsubsection{Trace a |LogObject| through}
+\subsubsection{Trace constituents of |LogObject| through}
 \label{code:traceNamedObject}\index{traceNamedObject}
 \begin{code}
+-- TODO:  the name doesn't reflect actual meaning.
 traceNamedObject
     :: MonadIO m
     => Trace m a
+    -- TODO:  no need to have this in uncurried form
     -> (LOMeta, LOContent a)
     -> m ()
-traceNamedObject logTrace lo =
-    traceWith (named logTrace) lo
-
-\end{code}
-
-\subsubsection{Concrete Trace on stdout}\label{code:stdoutTrace}\index{stdoutTrace}
-
-This function returns a trace with an action of type "|LogObject a -> IO ()|"
-which will output a text message as text and all others as JSON encoded representation
-to the console.
-
-\todo[inline]{TODO remove |locallock|}
-%if style == newcode
-\begin{code}
-{-# NOINLINE locallock #-}
-\end{code}
-%endif
-\begin{code}
-locallock :: MVar ()
-locallock = unsafePerformIO $ newMVar ()
-\end{code}
-
-\begin{code}
-stdoutTrace :: Trace IO T.Text
-stdoutTrace = Tracer $ \(ctx, LogObject _loname _ lc) ->
-    withMVar locallock $ \_ ->
-        case lc of
-            (LogMessage logItem) ->
-                    output ctx logItem
-            obj ->
-                    output ctx $ toStrict (encodeToLazyText obj)
-  where
-    output nm msg = TIO.putStrLn $ loggerNameText nm <> " :: " <> msg
-
-\end{code}
-
-
-\subsubsection{Concrete Trace into a |TVar|}\label{code:traceInTVar}\label{code:traceInTVarIO}\index{traceInTVar}\index{traceInTVarIO}
-
-\begin{code}
-traceInTVar :: STM.TVar [a] -> Tracer STM.STM a
-traceInTVar tvar = Tracer $ \a -> STM.modifyTVar tvar ((:) a)
-
-traceInTVarIO :: STM.TVar [a] -> Tracer IO a
-traceInTVarIO tvar = Tracer $ \a ->
-                         STM.atomically $ STM.modifyTVar tvar ((:) a)
+traceNamedObject Trace{traceStatic = st@TraceStatic {loggerName}, traceTracer}
+                 (meta, loc) =
+    traceWith traceTracer (st, LogObject loggerName meta loc)
 
 \end{code}
 
@@ -164,6 +118,70 @@ traceNamedItem logTrace p s m =
     traceNamedObject logTrace =<<
         (,) <$> liftIO (mkLOMeta s p)
             <*> pure (LogMessage m)
+
+\end{code}
+
+\subsubsection{Trace a |LogObject| through}
+\label{code:traceLogObject}\index{traceLogObject}
+\begin{code}
+traceLogObject
+    :: MonadIO m
+    => Trace m a
+    -> LogObject a
+    -> m ()
+traceLogObject Trace{traceStatic, traceTracer} lo =
+    traceWith traceTracer (traceStatic, lo)
+
+\end{code}
+
+\subsubsection{Concrete Trace on stdout}\label{code:stdoutTrace}\index{stdoutTrace}
+
+This function returns a trace with an action of type "|LogObject a -> IO ()|"
+which will output a text message as text and all others as JSON encoded representation
+to the console.
+
+\todo[inline]{TODO remove |locallock|}
+%if style == newcode
+\begin{code}
+{-# NOINLINE locallock #-}
+\end{code}
+%endif
+\begin{code}
+locallock :: MVar ()
+locallock = unsafePerformIO $ newMVar ()
+
+{-# NOINLINE textToStdout #-}
+textToStdout :: T.Text -> IO ()
+textToStdout msg = withMVar locallock $ \_ -> TIO.putStrLn msg
+\end{code}
+
+\begin{code}
+stdoutTrace :: Trace IO T.Text
+stdoutTrace =
+  mkBaseTrace $ Tracer $
+   \(TraceStatic{loggerName}, LogObject{loContent}) ->
+        textToStdout $!
+          -- TODO:  not particularly efficient, a piecemeal write,
+          -- or a Data.Builder-based approach might be faster.
+          ((loggerNameText loggerName <> " :: ") <>) $
+          case loContent of
+            LogMessage txt -> txt
+            -- TODO: not particularly efficient, because of recoding,
+            -- see the implementation of 'encodeToLazyText'.
+            -- We should convert to a ByteString and write that, instead.
+            obj            -> toStrict (encodeToLazyText obj)
+
+\end{code}
+
+\subsubsection{Concrete Trace into a |TVar|}\label{code:traceInTVar}\label{code:traceInTVarIO}\index{traceInTVar}\index{traceInTVarIO}
+
+\begin{code}
+traceInTVar :: STM.TVar [a] -> Tracer STM.STM a
+traceInTVar tvar = Tracer $ \a -> STM.modifyTVar tvar ((:) a)
+
+traceInTVarIO :: STM.TVar [a] -> Tracer IO a
+traceInTVarIO tvar = Tracer $ \a ->
+                         STM.atomically $ STM.modifyTVar tvar ((:) a)
 
 \end{code}
 

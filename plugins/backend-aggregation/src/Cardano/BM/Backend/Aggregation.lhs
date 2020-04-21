@@ -8,6 +8,7 @@
 {-# LANGUAGE BangPatterns          #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE NamedFieldPuns        #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 
 {-@ embed GHC.Natural.Natural as int @-}
@@ -45,6 +46,7 @@ import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.Severity (Severity (..))
 import           Cardano.BM.Data.Tracer (traceWith)
 import           Cardano.BM.Plugin
+import           Cardano.BM.Data.Trace
 import qualified Cardano.BM.Trace as Trace
 
 \end{code}
@@ -247,8 +249,9 @@ spawnDispatcher conf aggMap aggregationQueue basetrace =
 
     sendAggregated :: Trace.Trace IO a -> LoggerName -> Severity -> [(Text, Aggregated)] -> IO ()
     sendAggregated _trace _loname _sev [] = pure ()
-    sendAggregated trace loname sev v = do
+    sendAggregated Trace{traceStatic=ts, traceTracer=trc} loname sev v = do
         meta <- mkLOMeta sev Public
-        traceWith trace (loname, LogObject emptyLoggerName meta (AggregatedMessage v))
+        traceWith trc ( ts { loggerName = loname }
+                      , LogObject emptyLoggerName meta (AggregatedMessage v))
 
 \end{code}

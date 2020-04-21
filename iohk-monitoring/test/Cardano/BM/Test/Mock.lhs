@@ -29,8 +29,9 @@ import qualified Cardano.BM.Configuration as Config
 import           Cardano.BM.Data.Backend
 import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.SubTrace (SubTrace (..))
-import           Cardano.BM.Data.Trace (Trace)
+import           Cardano.BM.Data.Trace
 import           Cardano.BM.Data.Tracer (Tracer (..), traceWith)
+import           Cardano.BM.Trace
 
 \end{code}
 %endif
@@ -53,16 +54,27 @@ A |Trace| which forwards |LogObject|s to |MockSwitchboard| simulating
 functionality of |mainTraceConditionally|.
 
 \begin{code}
-traceMock :: MockSwitchboard a -> Config.Configuration -> Trace IO a
+traceMock :: forall a. MockSwitchboard a -> Config.Configuration -> Trace IO a
 traceMock ms config =
-    Tracer $ \(ctx, lo) -> do
-        traceWith mainTrace (ctx, lo)
-        subTrace <- fromMaybe Neutral <$> Config.findSubTrace config ctx
+  Trace mainStatic $
+    Tracer $ \(static, lo) -> do
+        -- TODO:  this is an example of how we could benefit from
+        -- a trace combinator that would transparently pass
+        -- the TraceStatic through -- here it is obviously brittle
+        -- and easy to get wrong.
+        traceWith mainTracer (static, lo)
+        subTrace <- fromMaybe Neutral <$>
+                    Config.findSubTrace config (loggerName static)
         case subTrace of
             TeeTrace secName ->
-                traceWith mainTrace (ctx `catLoggerNames` secName, lo)
+                traceLogObject (modifyName (`catLoggerNames` secName) mainTrace) lo
             _ -> return ()
   where
-    mainTrace = mainTraceConditionally config ms
+    mainStatic :: TraceStatic
+    mainTracer :: Tracer IO (TraceStatic, LogObject a)
+    mainTrace :: Trace IO a
+    mainTrace@Trace{ traceStatic = mainStatic
+                   , traceTracer = mainTracer }
+      = mainTraceConditionally config ms
 
 \end{code}

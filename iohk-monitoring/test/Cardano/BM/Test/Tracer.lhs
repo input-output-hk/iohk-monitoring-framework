@@ -6,6 +6,7 @@
 \begin{code}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE NamedFieldPuns        #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE OverloadedStrings     #-}
 
@@ -26,6 +27,7 @@ import           Cardano.BM.Data.Aggregated (Measurable(PureI))
 import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.SubTrace
+import           Cardano.BM.Data.Trace
 import           Cardano.BM.Data.Tracer
 import           Cardano.BM.Test.Mock (MockSwitchboard (..), traceMock)
 import           Cardano.BM.Trace (Trace, appendName, traceNamedObject)
@@ -72,9 +74,13 @@ setupMockTrace (TraceConfiguration cfg mockSB name subTr) = do
 \end{code}
 
 \begin{code}
-renderNamedItemTracing' :: Show a => Tracer m String -> Trace m a
-renderNamedItemTracing' = contramap $ \(ctx,item) ->
-    unpack (loggerNameText ctx) ++ ": " ++ show (loContent item) ++ ", (meta): " ++ show (loMeta item)
+renderNamedItemTracing' :: Show a => Text -> Tracer m String -> Trace m a
+renderNamedItemTracing' name trc = Trace static (mkTracer trc)
+ where
+   static = TraceStatic (loggerNameFromText name)
+   mkTracer = contramap $ \(TraceStatic{loggerName},item) ->
+     unpack (loggerNameText loggerName) ++ ": "
+     ++ show (loContent item) ++ ", (meta): " ++ show (loMeta item)
 
 \end{code}
 
@@ -82,7 +88,7 @@ renderNamedItemTracing' = contramap $ \(ctx,item) ->
 \begin{code}
 tracingInNamedContext :: Assertion
 tracingInNamedContext = do
-    let logTrace = appendName "named" $ renderNamedItemTracing' $ stdoutTracer
+    let logTrace = renderNamedItemTracing' "named" $ stdoutTracer
 
     void $ callFun2 logTrace
 
@@ -107,9 +113,10 @@ A |Tracer| transformer creating a |LogObject| from |PrivacyAndSeverityAnnotated|
 logObjectFromAnnotated :: Show a
     => Trace IO a
     -> Tracer IO (PrivacyAndSeverityAnnotated a)
-logObjectFromAnnotated tr = Tracer $ \(PSA sev priv a) -> do
+logObjectFromAnnotated Trace{traceStatic=ts, traceTracer=trc} =
+  Tracer $ \(PSA sev priv a) -> do
     lometa <- mkLOMeta sev priv
-    traceWith tr $ (emptyLoggerName, LogObject emptyLoggerName lometa (LogMessage a))
+    traceWith trc $ (ts, LogObject (loggerName ts) lometa (LogMessage a))
 
 \end{code}
 
@@ -117,7 +124,7 @@ logObjectFromAnnotated tr = Tracer $ \(PSA sev priv a) -> do
 tracingWithPrivacyAndSeverityAnnotation :: Assertion
 tracingWithPrivacyAndSeverityAnnotation = do
     let logTrace =
-            logObjectFromAnnotated $ appendName "example3" $ renderNamedItemTracing' stdoutTracer
+            logObjectFromAnnotated $ renderNamedItemTracing' "example3" stdoutTracer
 
     traceWith logTrace $ PSA Info Confidential ("Hello" :: String)
     traceWith logTrace $ PSA Warning Public "World"
@@ -127,30 +134,26 @@ tracingWithPrivacyAndSeverityAnnotation = do
 
 \subsubsection{Filter Tracer}
 \begin{code}
-filterAppendNameTracing :: Monad m
-    => m ((LoggerName, LogObject a) -> Bool)
-    -> LoggerName
-    -> Trace m a
-    -> Trace m a
-filterAppendNameTracing test name = (appendName $ loggerNameText name) . (condTracingM test)
 
 tracingWithPredicateFilter :: Assertion
 tracingWithPredicateFilter = do
-    let appendF = filterAppendNameTracing oracle
-        logTrace :: Trace IO Text = appendF (unitLoggerName "example4") (renderNamedItemTracing' stdoutTracer)
+    let appendF :: Monad m => Text -> Trace m a -> Trace m a
+        appendF name = appendName name . mapTracer (condTracingM oracle)
+
+        logTrace :: Trace IO Text = mapTracer (condTracingM oracle) (renderNamedItemTracing' "example4" stdoutTracer)
 
     traceWith (toLogObject logTrace) ("Hello" :: String)
 
-    let logTrace' = appendF (unitLoggerName "inner") logTrace
+    let logTrace' = appendF "inner" logTrace
     traceWith (toLogObject logTrace') ("World" :: String)
 
-    let logTrace'' = appendF (unitLoggerName "innest") logTrace'
+    let logTrace'' = appendF "innest" logTrace'
     traceWith (toLogObject logTrace'') ("!!" :: String)
 
     assertBool "OK" True
   where
-    oracle :: Monad m => m ((LoggerName, LogObject a) -> Bool)
-    oracle = return $ \(ctx, _lo) -> ctx /= loggerNameFromText "example4.inner"
+    oracle :: Monad m => m ((TraceStatic, LogObject a) -> Bool)
+    oracle = return $ \(TraceStatic{loggerName=ln}, _lo) -> loggerNameText ln /= "example4.inner"
 
 \end{code}
 
@@ -161,7 +164,7 @@ tracingWithMonadicFilter = do
     let logTrace =
             condTracingM oracle $
                 logObjectFromAnnotated $
-                    appendName "test5" $ renderNamedItemTracing' stdoutTracer
+                    renderNamedItemTracing' "test5" stdoutTracer
 
     traceWith logTrace $ PSA Debug Confidential ("Hello"::String)
     traceWith logTrace $ PSA Warning Public "World"
@@ -178,26 +181,26 @@ tracing with combined filtering for name and severity
 tracingWithComplexFiltering :: Assertion
 tracingWithComplexFiltering = do
     let logTrace0 =  -- the basis, will output using the local renderer to stdout
-            appendName "test6" $ renderNamedItemTracing' stdoutTracer
+            renderNamedItemTracing' "test6" stdoutTracer
         logTrace1 =  -- the trace from |Privacy...Annotated| to |LogObject|
             condTracingM oracleSev $ logObjectFromAnnotated $ logTrace0
         logTrace2 =
-            appendName "row" $ condTracingM oracleName $ logTrace0
+            appendName "row" $ mapTracer (condTracingM oracleName) $ logTrace0
         logTrace3 =  -- oracle should eliminate messages from this trace
-            appendName "raw" $ condTracingM oracleName $ logTrace0
+            appendName "raw" $ mapTracer (condTracingM oracleName) $ logTrace0
 
     traceWith logTrace1 $ PSA Debug Confidential ("Hello" :: String)
     traceWith logTrace1 $ PSA Warning Public "World"
     lometa <- mkLOMeta Info Public
-    traceWith logTrace2 $ (emptyLoggerName, LogObject emptyLoggerName lometa (LogMessage ", RoW!"))
-    traceWith logTrace3 $ (emptyLoggerName, LogObject emptyLoggerName lometa (LogMessage ", RoW!"))
+    traceNamedObject logTrace2 (lometa, LogMessage ", RoW!")
+    traceNamedObject logTrace3 (lometa, LogMessage ", RoW!")
 
     assertBool "OK" True
   where
     oracleSev :: Monad m => m (PrivacyAndSeverityAnnotated a -> Bool)
     oracleSev = return $ \(PSA sev _priv _) -> (sev > Debug)
-    oracleName :: Monad m => m ((LoggerName, LogObject a) -> Bool)
-    oracleName = return $ \(ctx, _lo) -> (ctx == unitLoggerName "row")
+    oracleName :: Monad m => m ((TraceStatic, LogObject a) -> Bool)
+    oracleName = return $ \(TraceStatic{loggerName=ln}, _lo) -> (loggerNameText ln ==  "row")
 
 \end{code}
 
@@ -212,10 +215,10 @@ data MsgTy = Item1 Int
 instance HasSeverityAnnotation MsgTy
 instance HasPrivacyAnnotation MsgTy
 instance Transformable Text IO MsgTy where
-    trTransformer _verb tr = Tracer $ \s -> do
+    trTransformer _verb Trace{traceStatic, traceTracer=trc} = Tracer $ \s -> do
         meta <- mkLOMeta (getSeverityAnnotation s) (getPrivacyAnnotation s)
-        traceWith tr (emptyLoggerName,
-                      LogObject emptyLoggerName meta (LogMessage $ pack $ show s))
+        traceWith trc (traceStatic,
+                       LogObject emptyLoggerName meta (LogMessage $ pack $ show s))
 
 instance ElidingTracer (WithSeverity MsgTy) where
     -- only |Elided1| and |Elided2| can be elided
@@ -276,7 +279,7 @@ tracingElidedMessages = do
 
 \end{code}
 
-The first elided message is output and the internal counter of elided messages is set to zero. When the non-equivalent message is traced, the last elided message is not output since this is the same as the first one. 
+The first elided message is output and the internal counter of elided messages is set to zero. When the non-equivalent message is traced, the last elided message is not output since this is the same as the first one.
 \begin{code}
 tracingElidedMessages1 :: Assertion
 tracingElidedMessages1 = do

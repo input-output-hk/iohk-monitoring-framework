@@ -11,7 +11,8 @@
 
 %if style == newcode
 \begin{code}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Cardano.BM.Setup
     (
@@ -47,12 +48,23 @@ setupTrace (Left cfgFile) name = do
     fst <$> setupTrace_ c name
 setupTrace (Right c) name = fst <$> setupTrace_ c name
 
-setupTrace_ :: (MonadIO m, ToJSON a, FromJSON a, ToObject a) => Config.Configuration -> Text -> m (Trace m a, Switchboard.Switchboard a)
+setupTrace_
+  :: forall m a
+  . (MonadIO m, ToJSON a, FromJSON a, ToObject a)
+  => Config.Configuration -> Text -> m (Trace m a, Switchboard.Switchboard a)
 setupTrace_ c name = do
     sb <- liftIO $ Switchboard.realize c
 
-    let tr = appendName name $ natTrace liftIO (Switchboard.mainTraceConditionally c sb)
-    return (tr,sb)
+    let sbTrace :: Trace IO a
+        sbTrace = Switchboard.mainTraceConditionally c sb
+
+        liftedSbTrace :: Trace m a
+        liftedSbTrace = natTrace liftIO sbTrace
+
+        finalTrace :: Trace m a
+        finalTrace = appendName name liftedSbTrace
+
+    pure (finalTrace, sb)
 
 \end{code}
 
