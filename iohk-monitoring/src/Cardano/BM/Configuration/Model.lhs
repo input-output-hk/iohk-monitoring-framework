@@ -166,11 +166,11 @@ lookupHierarchyCached
   :: forall a
   .  LoggerName
   -> HM.HashMap LoggerName a
-  -> HM.HashMap LoggerName a
+  -> Maybe (HM.HashMap LoggerName a)
   -> Maybe a
   -> (LoggerName -> Maybe a -> IO ())
   -> IO (Maybe a)
-lookupHierarchyCached name namespace cache nullResult updateCache = do
+lookupHierarchyCached name namespace mCache nullResult updateCache = do
     when needCacheUpdate $
       updateCache name result
     pure result
@@ -179,11 +179,13 @@ lookupHierarchyCached name namespace cache nullResult updateCache = do
       result :: Maybe a
       (needCacheUpdate, result) =
         -- full string name -> [a] cache lookup
-        case HM.lookup name cache of
-          Just os -> (False, Just os)
-          -- Cache miss; do the expensive hierarchical lookup for
-          -- inheritance and request a cache update.
-          Nothing -> (True, find_s $ T.split (=='.') name)
+        case mCache of
+          Nothing -> (False, find_s $ T.split (=='.') name)
+          Just cache -> case HM.lookup name cache of
+            Just os -> (False, Just os)
+            -- Cache miss; do the expensive hierarchical lookup for
+            -- inheritance and request a cache update.
+            Nothing -> (True, find_s $ T.split (=='.') name)
 
       find_s :: [LoggerName] -> Maybe a
       find_s xs
@@ -202,7 +204,7 @@ getBackends conf name = do
     cg <- readMVar $ getCG conf
     fromMaybe [] <$> lookupHierarchyCached name
       (cgMapBackend cg)
-      (cgMapBackendCache cg)
+      Nothing -- (cgMapBackendCache cg)
       (Just $ cgDefBackendKs cg)
       (setCachedBackends conf)
 
@@ -250,7 +252,7 @@ getScribes conf name = do
     cg <- readMVar $ getCG conf
     fromMaybe [] <$> lookupHierarchyCached name
       (cgMapScribe cg)
-      (cgMapScribeCache cg)
+      (Just $ cgMapScribeCache cg)
       (Just $ cgDefScribes cg)
       (setCachedScribes conf)
 
@@ -716,7 +718,7 @@ findRootSubTrace conf name = do
     cg <- readMVar $ getCG conf
     lookupHierarchyCached name
       (cgMapSubtrace cg)
-      (cgMapSubtraceCache cg)
+      Nothing -- (cgMapSubtraceCache cg)
       Nothing
       (setCachedSubtrace conf)
 
