@@ -13,6 +13,7 @@ module Cardano.BM.Test.Configuration (
 
 import           Prelude hiding (Ordering (..))
 
+import           Control.Arrow ((***))
 import           Control.Concurrent.MVar (readMVar)
 import           Data.Aeson.Types (Value (..))
 import           Data.ByteString (intercalate)
@@ -32,6 +33,7 @@ import           Cardano.BM.Configuration.Static (defaultConfigStdout)
 import qualified Cardano.BM.Data.Aggregated as Agg
 import           Cardano.BM.Data.AggregatedKind
 import           Cardano.BM.Data.BackendKind
+import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.MonitoringEval
 import           Cardano.BM.Data.Output
 import           Cardano.BM.Data.Observable (ObservableInstance (..))
@@ -258,15 +260,18 @@ unitConfigurationParsed = do
                                         , rpMaxAgeHours   = 24
                                         , rpKeepFilesNum  = 10
                                         }
-        , cgMapSeverity       = HM.fromList [ ("iohk.startup", Debug)
+        , cgMapSeverity       = HM.fromList $ map (loggerNameFromText *** id)
+                                            [ ("iohk.startup", Debug)
                                             , ("iohk.background.process", Error)
                                             , ("iohk.testing.uncritical", Warning)
                                             ]
-        , cgMapSubtrace       = HM.fromList [ ("iohk.benchmarking",
+        , cgMapSubtrace       = HM.fromList $ map (loggerNameFromText *** id)
+                                            [ ("iohk.benchmarking",
                                                     ObservableTraceSelf [GhcRtsStats, MonotonicClock])
                                             , ("iohk.deadend", NoTrace)
                                             ]
-        , cgMapSubtraceCache  = HM.fromList [ ("iohk.benchmarking",
+        , cgMapSubtraceCache  = HM.fromList $ map (loggerNameFromText *** id)
+                                            [ ("iohk.benchmarking",
                                                     ObservableTraceSelf [GhcRtsStats, MonotonicClock])
                                             , ("iohk.deadend", NoTrace)
                                             ]
@@ -293,7 +298,7 @@ unitConfigurationParsed = do
                                                 [ String "CreateMessage Warning \"the observable has been too long too high!\""
                                                 , String "SetGlobalMinimalSeverity Info"
                                                 ])]))])
-            , ("mapSeverity", Object $
+            , ("mapSeverity", Object $ 
                               HM.fromList [("iohk.startup",String "Debug")
                                           ,("iohk.background.process",String "Error")
                                           ,("iohk.testing.uncritical",String "Warning")])
@@ -303,7 +308,8 @@ unitConfigurationParsed = do
                                                  ,("iohk.background.process",
                                                         String "StatsAK")])
             , ("cfokey", Object $ HM.fromList [("value",String "Release-1.0.0")])
-            , ("mapScribes", Object $ HM.fromList [("iohk.interesting.value",
+            , ("mapScribes", Object $ HM.fromList
+                                         [("iohk.interesting.value",
                                             Array $ V.fromList [String "StdoutSK::stdout"
                                                                ,String "FileSK::testlog"])
                                          ,("iohk.background.process",String "FileSK::testlog")])
@@ -318,7 +324,8 @@ unitConfigurationParsed = do
                                                                    ,String "AggregationBK"
                                                                    ])])
             ]
-        , cgMapBackend        = HM.fromList [ ("iohk.user.defined"
+        , cgMapBackend        = HM.fromList $ map (loggerNameFromText *** id)
+                                            [ ("iohk.user.defined"
                                               , [ UserDefinedBK "MyBackend"
                                                 , KatipBK
                                                 ]
@@ -329,7 +336,8 @@ unitConfigurationParsed = do
                                                 ]
                                               )
                                             ]
-        , cgMapBackendCache   = HM.fromList [ ("iohk.user.defined"
+        , cgMapBackendCache   = HM.fromList $ map (loggerNameFromText *** id)
+                                            [ ("iohk.user.defined"
                                               , [ UserDefinedBK "MyBackend"
                                                 , KatipBK
                                                 ]
@@ -345,11 +353,13 @@ unitConfigurationParsed = do
                                 , EKGViewBK
                                 , KatipBK
                                 ]
-        , cgMapScribe         = HM.fromList [ ("iohk.interesting.value",
+        , cgMapScribe         = HM.fromList $ map (loggerNameFromText *** id)
+                                            [ ("iohk.interesting.value",
                                                     ["StdoutSK::stdout","FileSK::testlog"])
                                             , ("iohk.background.process", ["FileSK::testlog"])
                                             ]
-        , cgMapScribeCache    = HM.fromList [ ("iohk.interesting.value",
+        , cgMapScribeCache    = HM.fromList $ map (loggerNameFromText *** id)
+                                            [ ("iohk.interesting.value",
                                                     ["StdoutSK::stdout","FileSK::testlog"])
                                             , ("iohk.background.process", ["FileSK::testlog"])
                                             ]
@@ -373,15 +383,17 @@ unitConfigurationParsed = do
                                     , scRotation = Nothing
                                     }
                                 ]
-        , cgMapAggregatedKind = HM.fromList [ ("iohk.interesting.value", EwmaAK {alpha = 0.75} )
+        , cgMapAggregatedKind = HM.fromList $ map (loggerNameFromText *** id)
+                                            [ ("iohk.interesting.value", EwmaAK {alpha = 0.75} )
                                             , ("iohk.background.process", StatsAK)
                                             ]
         , cgDefAggregatedKind = StatsAK
-        , cgMonitors          = HM.fromList [ ( "chain.creation.block"
+        , cgMonitors          = HM.fromList $ map (loggerNameFromText *** id)
+                                            [ ( "chain.creation.block"
                                               , ( Nothing
                                                 , (OR (Compare "time" (GT, (OpMeasurable (Agg.Seconds 23)))) (Compare "time" (LT, (OpMeasurable (Agg.Seconds 17)))))
                                                 , [ CreateMessage Warning "chain.creation"
-                                                  , AlterSeverity "chain.creation" Debug
+                                                  , AlterSeverity (loggerNameFromText "chain.creation") Debug
                                                   ]
                                                 )
                                               )
@@ -463,13 +475,14 @@ unitConfigurationCheckScribeCache = do
     setDefaultScribes configuration defScribes
 
     let scribes12 = ["StdoutSK::stdout", "FileSK::out.txt"]
-    setScribes configuration "name1.name2" $ Just scribes12
 
-    scribes1234 <- getScribes configuration "name1.name2.name3.name4"
-    scribes1    <- getScribes configuration "name1"
+    setScribes configuration (loggerNameFromText "name1.name2") $ Just scribes12
 
-    scribes1234cached <- getCachedScribes configuration "name1.name2.name3.name4"
-    scribesXcached    <- getCachedScribes configuration "nameX"
+    scribes1234 <- getScribes configuration (loggerNameFromText "name1.name2.name3.name4")
+    scribes1    <- getScribes configuration (loggerNameFromText "name1")
+
+    scribes1234cached <- getCachedScribes configuration (loggerNameFromText "name1.name2.name3.name4")
+    scribesXcached    <- getCachedScribes configuration (loggerNameFromText "nameX")
 
     assertBool "Scribes for name1.name2.name3.name4 must be the same as name1.name2" $
         scribes1234 == scribes12
@@ -493,10 +506,12 @@ unitConfigurationOps = do
 
     setDefaultAggregatedKind configuration $ EwmaAK 0.01
     -- since loggername does not exist the default must be inherited
-    defAggregatedKind <- getAggregatedKind configuration "non-existent loggername"
+    defAggregatedKind <- getAggregatedKind configuration
+      (loggerNameFromText "non-existent.loggername")
 
-    setAggregatedKind configuration "name1" $ Just StatsAK
-    name1AggregatedKind <- getAggregatedKind configuration "name1"
+    setAggregatedKind configuration (loggerNameFromText "name1") $ Just StatsAK
+    name1AggregatedKind <- getAggregatedKind configuration
+      (loggerNameFromText "name1")
 
     setEKGport configuration 11223
     ekgPort <- getEKGport configuration

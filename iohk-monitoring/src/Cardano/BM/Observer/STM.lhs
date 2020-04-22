@@ -21,7 +21,7 @@ import qualified Data.Text.IO as TIO
 import           System.IO (stderr)
 
 import qualified Cardano.BM.Configuration as Config
-import           Cardano.BM.Data.LogItem (LOContent, LOMeta)
+import           Cardano.BM.Data.LogItem (LoggerName, LOContent, LOMeta)
 import           Cardano.BM.Data.SubTrace
 import           Cardano.BM.Data.Severity (Severity)
 import           Cardano.BM.Observer.Monadic (observeClose, observeOpen)
@@ -40,7 +40,7 @@ stmWithLog action = action
 With given name, create a |SubTrace| according to |Configuration|
 and run the passed |STM| action on it.
 \begin{code}
-bracketObserveIO :: Config.Configuration -> Trace IO a -> Severity -> Text -> STM.STM t -> IO t
+bracketObserveIO :: Config.Configuration -> Trace IO a -> Severity -> LoggerName -> STM.STM t -> IO t
 bracketObserveIO config trace severity name action = do
     subTrace <- fromMaybe Neutral <$> Config.findSubTrace config name
     bracketObserveIO' subTrace severity trace action
@@ -72,7 +72,7 @@ bracketObserveIO config trace severity name action = do
 The |STM| action might output messages, which after "success" will be forwarded to the logging trace.
 Otherwise, this function behaves the same as |bracketObserveIO|.
 \begin{code}
-bracketObserveLogIO :: Config.Configuration -> Trace IO a -> Severity -> Text -> STM.STM (t,[(LOMeta, LOContent a)]) -> IO t
+bracketObserveLogIO :: Config.Configuration -> Trace IO a -> Severity -> LoggerName -> STM.STM (t,[(LOMeta, LOContent a)]) -> IO t
 bracketObserveLogIO config trace severity name action = do
     subTrace <- fromMaybe Neutral <$> Config.findSubTrace config name
     bracketObserveLogIO' subTrace severity trace action

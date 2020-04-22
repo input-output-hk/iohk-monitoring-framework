@@ -22,6 +22,7 @@ module Main
   ( main )
   where
 
+import           Control.Arrow ((***))
 import           Control.Concurrent (threadDelay)
 import qualified Control.Concurrent.Async as Async
 import           Control.Monad (forM_, when)
@@ -147,30 +148,30 @@ prepare_configuration = do
 #else
     CM.setDefaultScribes c ["StdoutSK::stdout"]
 #endif
-    CM.setScribes c "complex.random" (Just ["StdoutSK::stdout", "FileSK::logs/out.txt"])
+    CM.setScribes c (loggerNameFromText "complex.random") (Just ["StdoutSK::stdout", "FileSK::logs/out.txt"])
     forM_ [(1::Int)..10] $ \x ->
       if odd x
       then
-        CM.setScribes c ("complex.#aggregation.complex.observeSTM." <> pack (show x)) $ Just [ "FileSK::logs/out.odd.json" ]
+        CM.setScribes c (loggerNameFromText $ "complex.#aggregation.complex.observeSTM." <> pack (show x)) $ Just [ "FileSK::logs/out.odd.json" ]
       else
-        CM.setScribes c ("complex.#aggregation.complex.observeSTM." <> pack (show x)) $ Just [ "FileSK::logs/out.even.json" ]
+        CM.setScribes c (loggerNameFromText $ "complex.#aggregation.complex.observeSTM." <> pack (show x)) $ Just [ "FileSK::logs/out.even.json" ]
 
 #ifdef LINUX
 #ifdef ENABLE_OBSERVABLES
-    CM.setSubTrace c "complex.observeDownload" (Just $ ObservableTraceSelf [IOStats,NetStats])
+    CM.setSubTrace c (loggerNameFromText "complex.observeDownload") (Just $ ObservableTraceSelf [IOStats,NetStats])
 #endif
-    CM.setBackends c "complex.observeDownload" (Just [KatipBK])
-    CM.setScribes c "complex.observeDownload" (Just ["FileSK::logs/downloading.json"])
+    CM.setBackends c (loggerNameFromText "complex.observeDownload") (Just [KatipBK])
+    CM.setScribes c (loggerNameFromText "complex.observeDownload") (Just ["FileSK::logs/downloading.json"])
 #endif
-    CM.setSubTrace c "#messagecounters.switchboard" $ Just NoTrace
-    CM.setSubTrace c "#messagecounters.katip"       $ Just NoTrace
-    CM.setSubTrace c "#messagecounters.aggregation" $ Just NoTrace
-    CM.setSubTrace c "#messagecounters.ekgview"     $ Just Neutral
-    CM.setBackends c "#messagecounters.switchboard" $ Just [EditorBK, KatipBK]
-    CM.setSubTrace c "#messagecounters.monitoring"  $ Just NoTrace
+    CM.setSubTrace c (loggerNameFromText "#messagecounters.switchboard") $ Just NoTrace
+    CM.setSubTrace c (loggerNameFromText "#messagecounters.katip")       $ Just NoTrace
+    CM.setSubTrace c (loggerNameFromText "#messagecounters.aggregation") $ Just NoTrace
+    CM.setSubTrace c (loggerNameFromText "#messagecounters.ekgview")     $ Just Neutral
+    CM.setBackends c (loggerNameFromText "#messagecounters.switchboard") $ Just [EditorBK, KatipBK]
+    CM.setSubTrace c (loggerNameFromText "#messagecounters.monitoring")  $ Just NoTrace
 
-    CM.setSubTrace c "complex.random" (Just $ TeeTrace "ewma")
-    CM.setSubTrace c "#ekgview"
+    CM.setSubTrace c (loggerNameFromText "complex.random") (Just $ TeeTrace $ loggerNameFromText "ewma")
+    CM.setSubTrace c (loggerNameFromText "#ekgview")
       (Just $ FilterTrace [ (Drop (StartsWith "#ekgview.complex.#aggregation.complex.random"),
                              Unhide [EndsWith ".count",
                                      EndsWith ".avg",
@@ -183,35 +184,35 @@ prepare_configuration = do
                              Unhide [Contains ".timed.m"])
                           ])
 #ifdef ENABLE_OBSERVABLES
-    CM.setSubTrace c "complex.observeIO" (Just $ ObservableTraceSelf [GhcRtsStats,MemoryStats])
+    CM.setSubTrace c (loggerNameFromText "complex.observeIO") (Just $ ObservableTraceSelf [GhcRtsStats,MemoryStats])
     forM_ [(1::Int)..10] $ \x ->
       CM.setSubTrace
         c
-        ("complex.observeSTM." <> (pack $ show x))
+        (loggerNameFromText $ "complex.observeSTM." <> (pack $ show x))
         (Just $ ObservableTraceSelf [GhcRtsStats,MemoryStats])
 #endif
 
-    CM.setBackends c "complex.message" (Just [AggregationBK, KatipBK, TraceForwarderBK])
-    CM.setBackends c "complex.random" (Just [KatipBK, EKGViewBK])
-    CM.setBackends c "complex.random.ewma" (Just [AggregationBK])
-    CM.setBackends c "complex.observeIO" (Just [AggregationBK, MonitoringBK])
+    CM.setBackends c (loggerNameFromText "complex.message") (Just [AggregationBK, KatipBK, TraceForwarderBK])
+    CM.setBackends c (loggerNameFromText "complex.random") (Just [KatipBK, EKGViewBK])
+    CM.setBackends c (loggerNameFromText "complex.random.ewma") (Just [AggregationBK])
+    CM.setBackends c (loggerNameFromText "complex.observeIO") (Just [AggregationBK, MonitoringBK])
 
     forM_ [(1::Int)..10] $ \x -> do
       CM.setBackends c
-        ("complex.observeSTM." <> pack (show x))
+        (loggerNameFromText $ "complex.observeSTM." <> pack (show x))
         (Just [AggregationBK])
       CM.setBackends c
-        ("complex.#aggregation.complex.observeSTM." <> pack (show x))
+        (loggerNameFromText $ "complex.#aggregation.complex.observeSTM." <> pack (show x))
         (Just [KatipBK])
 
-    CM.setAggregatedKind c "complex.random.rr" (Just StatsAK)
-    CM.setAggregatedKind c "complex.random.ewma.rr" (Just (EwmaAK 0.22))
+    CM.setAggregatedKind c (loggerNameFromText "complex.random.rr") (Just StatsAK)
+    CM.setAggregatedKind c (loggerNameFromText "complex.random.ewma.rr") (Just (EwmaAK 0.22))
 
-    CM.setBackends c "complex.#aggregation.complex.random" (Just [EditorBK])
-    CM.setBackends c "complex.#aggregation.complex.random.ewma" (Just [EKGViewBK, EditorBK])
-    CM.setBackends c "complex.#aggregation.complex.message" (Just [EKGViewBK, MonitoringBK])
-    CM.setBackends c "complex.#aggregation.complex.monitoring" (Just [MonitoringBK])
-    CM.setBackends c "complex.#aggregation.complex.observeIO" (Just [EKGViewBK])
+    CM.setBackends c (loggerNameFromText "complex.#aggregation.complex.random") (Just [EditorBK])
+    CM.setBackends c (loggerNameFromText "complex.#aggregation.complex.random.ewma") (Just [EKGViewBK, EditorBK])
+    CM.setBackends c (loggerNameFromText "complex.#aggregation.complex.message") (Just [EKGViewBK, MonitoringBK])
+    CM.setBackends c (loggerNameFromText "complex.#aggregation.complex.monitoring") (Just [MonitoringBK])
+    CM.setBackends c (loggerNameFromText "complex.#aggregation.complex.observeIO") (Just [EKGViewBK])
 
     CM.setEKGport c 12790
     CM.setPrometheusBindAddr c $ Just ("localhost", 12800)
@@ -222,7 +223,8 @@ prepare_configuration = do
     CM.setForwardTo c (Just $ RemoteSocket "127.0.0.1" "42999")
     CM.setTextOption c "forwarderMinSeverity" "Warning"  -- sets min severity filter in forwarder
 
-    CM.setMonitors c $ HM.fromList
+    CM.setMonitors c $ HM.fromList $
+        map (loggerNameFromText *** id)
         [ ( "complex.monitoring"
           , ( Just (Compare "monitMe" (GE, OpMeasurable 10))
             , Compare "monitMe" (GE, OpMeasurable 42)
@@ -242,7 +244,7 @@ prepare_configuration = do
             )
           )
         ]
-    CM.setBackends c "complex.monitoring" (Just [AggregationBK, KatipBK, MonitoringBK])
+    CM.setBackends c (loggerNameFromText "complex.monitoring") (Just [AggregationBK, KatipBK, MonitoringBK])
     return c
 
 \end{code}
@@ -258,7 +260,7 @@ dumpBuffer sb trace = do
         threadDelay 25000000  -- 25 seconds
         buf <- readLogBuffer sb
         forM_ buf $ \(logname, LogObject _ lometa locontent) -> do
-            let tr' = modifyName (\n -> "#buffer" <> "." <> n <> "." <> logname) tr
+            let tr' = modifyName (\n -> n `catLoggerNames` logname) tr
             traceNamedObject tr' (lometa, locontent)
         loop tr
 \end{code}
@@ -310,7 +312,7 @@ observeIO config trace = do
     loop tr = do
         threadDelay 5000000  -- 5 seconds
         let tr' = appendName "observeIO" tr
-        _ <- bracketObserveIO config tr' Warning "complex.observeIO" $ do
+        _ <- bracketObserveIO config tr' Warning (loggerNameFromText "complex.observeIO") $ do
             num <- randomRIO (100000, 200000) :: IO Int
             ls <- return $ reverse $ init $ reverse $ 42 : [1 .. num]
             pure $ const ls ()
@@ -331,7 +333,7 @@ observeSTM config trace = do
   where
     loop tr tvarlist trname = do
         threadDelay 10000000  -- 10 seconds
-        STM.bracketObserveIO config tr Warning ("observeSTM." <> trname) (stmAction tvarlist)
+        STM.bracketObserveIO config tr Warning (loggerNameFromText $ "observeSTM." <> trname) (stmAction tvarlist)
         loop tr tvarlist trname
 
 stmAction :: TVar [Int] -> STM ()
@@ -356,7 +358,7 @@ observeDownload config trace = do
     loop tr = do
         threadDelay 1000000  -- 1 second
         let tr' = appendName "observeDownload" tr
-        bracketObserveIO config tr' Warning "complex.observeDownload" $ do
+        bracketObserveIO config tr' Warning (loggerNameFromText "complex.observeDownload") $ do
             license <- openURI "http://www.gnu.org/licenses/gpl.txt"
             case license of
               Right bs -> logNotice tr' $ pack $ BS8.unpack bs
@@ -390,7 +392,8 @@ instance Transformable Text IO Pet where
     -- transform to textual representation using |show|
     trTransformer _v tr = Tracer $ \pet -> do
         meta <- mkLOMeta Info Public
-        traceWith tr $ ("pet", LogObject "pet" meta $ (LogMessage . pack . show) pet)
+        traceWith tr $ ( unitLoggerName "pet"
+                       , LogObject (unitLoggerName "pet") meta $ (LogMessage . pack . show) pet)
 
 -- default privacy annotation: Public
 instance HasPrivacyAnnotation Pet

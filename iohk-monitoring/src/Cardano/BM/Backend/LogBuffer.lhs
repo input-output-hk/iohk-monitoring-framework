@@ -26,7 +26,7 @@ import           System.IO (stderr)
 import           Cardano.BM.Data.Backend (BackendKind (LogBufferBK),
                      IsBackend (..), IsEffectuator (..))
 import           Cardano.BM.Data.LogItem (LOContent (..), LoggerName,
-                     LogObject (..))
+                     LogObject (..), catLoggerNames, consLoggerName, unitLoggerName)
 
 \end{code}
 %endif
@@ -69,10 +69,16 @@ Function |effectuate| is called to pass in a |LogObject| for log buffering.
 instance IsEffectuator LogBuffer a where
     effectuate buffer lo@(LogObject loname _lometa (LogValue lvname _lvalue)) =
         modifyMVar_ (getLogBuf buffer) $ \currentBuffer ->
-            return $! LogBufferInternal $ HM.insert ("#buffered." <> loname <> "." <> lvname) lo $ logBuffer currentBuffer
+            return $! LogBufferInternal
+            $ HM.insert (consLoggerName
+                         (unitLoggerName "#buffered" `catLoggerNames` loname)
+                         lvname) lo
+            $ logBuffer currentBuffer
     effectuate buffer lo@(LogObject loname _lometa _logitem) =
         modifyMVar_ (getLogBuf buffer) $ \currentBuffer ->
-            return $! LogBufferInternal $ HM.insert ("#buffered." <> loname) lo $ logBuffer currentBuffer
+            return $! LogBufferInternal
+            $ HM.insert (unitLoggerName "#buffered" `catLoggerNames` loname) lo
+            $ logBuffer currentBuffer
 
     handleOverflow _ = TIO.hPutStrLn stderr "Notice: overflow in LogBuffer, dropping log items!"
 

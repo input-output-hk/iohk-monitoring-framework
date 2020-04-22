@@ -87,7 +87,7 @@ instance Transformable Text IO Pet where
     -- transform to textual representation using |show|
     trTransformer _v tr = Tracer $ \pet -> do
         meta <- mkLOMeta Info Public
-        traceWith tr $ ("pet", LogObject "pet" meta $ (LogMessage . pack . show) pet)
+        traceWith tr $ (unitLoggerName "pet", LogObject (unitLoggerName "pet") meta $ (LogMessage . pack . show) pet)
 
 -- default privacy annotation: Public
 instance HasPrivacyAnnotation Pet
@@ -99,7 +99,7 @@ logStructured :: Assertion
 logStructured = do
     cfg <- defaultConfigStdout
     msgs <- STM.newTVarIO []
-    baseTrace <- setupTrace $ TraceConfiguration cfg (MockSB msgs) "logStructured" Neutral
+    baseTrace <- setupTrace $ TraceConfiguration cfg (MockSB msgs) (unitLoggerName "logStructured") Neutral
 
     let noticeTracer = severityNotice baseTrace
     let confidentialTracer = annotateConfidential baseTrace
@@ -166,7 +166,7 @@ instance Transformable Text IO Material where
     -- transform to textual representation using |show|
     trTransformer _v tr = Tracer $ \mat -> do
         meta <- mkLOMeta Info Public
-        traceWith tr $ ("material", LogObject "material" meta $ (LogMessage . pack . show) mat)
+        traceWith tr $ (unitLoggerName "material", LogObject (unitLoggerName "material") meta $ (LogMessage . pack . show) mat)
 
 instance HasPrivacyAnnotation Material where
     getPrivacyAnnotation _ = Confidential
@@ -180,7 +180,7 @@ logFiltered :: Assertion
 logFiltered = do
     cfg <- defaultConfigStdout
     msgs <- STM.newTVarIO []
-    baseTrace <- setupTrace $ TraceConfiguration cfg (MockSB msgs) "logStructured" Neutral
+    baseTrace <- setupTrace $ TraceConfiguration cfg (MockSB msgs) (unitLoggerName "logStructured") Neutral
 
     let stone = Material "stone" 1400
         water = Material "H2O" 1000

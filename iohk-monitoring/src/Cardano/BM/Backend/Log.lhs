@@ -271,7 +271,7 @@ passStrx backend katip (LogObject loname lometa loitem) = do
                     unless (isNothing payload) $ do
                         let threadIdText = KC.ThreadIdText $ tid lometa
                         let itemTime = tstamp lometa
-                        let localname = [loname]
+                        let localname = [loggerNameText loname]
                         let itemKatip = K.Item {
                                   _itemApp       = env ^. KC.logEnvApp
                                 , _itemEnv       = env ^. KC.logEnvEnv
@@ -323,7 +323,7 @@ passText backend katip (LogObject loname lometa loitem) = do
                     unless (msg == "") $ do
                         let threadIdText = KC.ThreadIdText $ tid lometa
                         let itemTime = tstamp lometa
-                        let localname = [loname]
+                        let localname = [loggerNameText loname]
                         let itemKatip = K.Item {
                                   _itemApp       = env ^. KC.logEnvApp
                                 , _itemEnv       = env ^. KC.logEnvEnv

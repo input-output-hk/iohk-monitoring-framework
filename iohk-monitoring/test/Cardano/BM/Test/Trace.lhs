@@ -141,7 +141,7 @@ setupTrace (TraceConfiguration cfg mockSB name subTr) = do
     let logTrace = traceMock mockSB cfg
 
     setSubTrace cfg name (Just subTr)
-    return $ appendName name logTrace
+    return $ appendName (loggerNameText name) logTrace
 
 \end{code}
 
@@ -195,10 +195,10 @@ exampleWithNamedContexts = do
         logInfo tr ("let's see (1): " `append` msg)
         let trInner = appendName "inner-work-1" tr
             observablesSet = [MonotonicClock]
-        setSubTrace cfg "test.complex-work-1.inner-work-1.STM-action" $
+        setSubTrace cfg (loggerNameFromText "test.complex-work-1.inner-work-1.STM-action") $
             Just $ ObservableTraceSelf observablesSet
 #ifdef ENABLE_OBSERVABLES
-        _ <- STMObserver.bracketObserveIO cfg trInner Debug "STM-action" setVar_
+        _ <- STMObserver.bracketObserveIO cfg trInner Debug (unitLoggerName "STM-action") setVar_
 #endif
         logInfo trInner "let's see: done."
 
@@ -237,24 +237,24 @@ timingObservableVsUntimed = do
     msgs1 <- STM.newTVarIO []
     traceObservable <- setupTrace $ TraceConfiguration cfg1
                                     (MockSB msgs1)
-                                    "observables"
+                                    (unitLoggerName "observables")
                                     (ObservableTraceSelf observablesSet)
     cfg2 <- defaultConfigTesting
     msgs2 <- STM.newTVarIO []
     traceUntimed <- setupTrace $ TraceConfiguration cfg2
                                     (MockSB msgs2)
-                                    "no timing"
+                                    (unitLoggerName "no timing")
                                     UntimedTrace
     cfg3 <- defaultConfigTesting
     msgs3 <- STM.newTVarIO []
     traceNoTrace <- setupTrace $ TraceConfiguration cfg3
                                     (MockSB msgs3)
-                                    "no trace"
+                                    (unitLoggerName "no trace")
                                     NoTrace
 
-    t_observable <- runTimedAction cfg1 traceObservable "observables" 100
-    t_untimed    <- runTimedAction cfg2 traceUntimed    "no timing"   100
-    t_notrace    <- runTimedAction cfg3 traceNoTrace    "no trace"    100
+    t_observable <- runTimedAction cfg1 traceObservable (unitLoggerName "observables") 100
+    t_untimed    <- runTimedAction cfg2 traceUntimed    (unitLoggerName "no timing")   100
+    t_notrace    <- runTimedAction cfg3 traceNoTrace    (unitLoggerName "no trace")    100
 
     ms <- STM.readTVarIO msgs1
 
@@ -282,16 +282,16 @@ _unitHierarchy :: Assertion
 _unitHierarchy = do
     cfg <- defaultConfigTesting
     msgs <- STM.newTVarIO []
-    basetrace <- setupTrace $ TraceConfiguration cfg (MockSB msgs) "test" Neutral
+    basetrace <- setupTrace $ TraceConfiguration cfg (MockSB msgs) (unitLoggerName "test") Neutral
     logInfo basetrace "This should have been displayed!"
 
     -- subtrace of trace which traces nothing
-    setSubTrace cfg "test.inner" (Just NoTrace)
+    setSubTrace cfg (loggerNameFromText "test.inner") (Just NoTrace)
 
     let trace1 = appendName "inner" basetrace
     logInfo trace1 "This should NOT have been displayed!"
 
-    setSubTrace cfg "test.inner.innermost" (Just Neutral)
+    setSubTrace cfg (loggerNameFromText "test.inner.innermost") (Just Neutral)
     let trace2 = appendName "innermost" trace1
     logInfo trace2 "This should NOT have been displayed also due to the trace one level above!"
 
@@ -313,7 +313,7 @@ unitTraceMinSeverity :: Assertion
 unitTraceMinSeverity = do
     cfg <- defaultConfigTesting
     msgs <- STM.newTVarIO []
-    trace <- setupTrace $ TraceConfiguration cfg (MockSB msgs) "test min severity" Neutral
+    trace <- setupTrace $ TraceConfiguration cfg (MockSB msgs) (unitLoggerName "test min severity") Neutral
     logInfo trace "Message #1"
 
     -- raise the minimum severity to Warning
@@ -355,11 +355,11 @@ unitTraceDuplicate :: Assertion
 unitTraceDuplicate = do
     cfg <- defaultConfigTesting
     msgs <- STM.newTVarIO []
-    basetrace <- setupTrace $ TraceConfiguration cfg (MockSB msgs) "test-duplicate" Neutral
+    basetrace <- setupTrace $ TraceConfiguration cfg (MockSB msgs) (unitLoggerName "test-duplicate") Neutral
     logInfo basetrace "Message #1"
 
     -- create a subtrace which duplicates all messages
-    setSubTrace cfg "test-duplicate.orig" $ Just (TeeTrace "test-duplicate.dup")
+    setSubTrace cfg (loggerNameFromText "test-duplicate.orig") $ Just (TeeTrace $ loggerNameFromText "test-duplicate.dup")
     let trace = appendName "orig" basetrace
 
     -- this message will be duplicated
@@ -383,20 +383,20 @@ unitNamedMinSeverity :: Assertion
 unitNamedMinSeverity = do
     cfg <- defaultConfigTesting
     msgs <- STM.newTVarIO []
-    basetrace <- setupTrace $ TraceConfiguration cfg (MockSB msgs) "test-named-severity" Neutral
+    basetrace <- setupTrace $ TraceConfiguration cfg (MockSB msgs) (unitLoggerName "test-named-severity") Neutral
     let trace = appendName "sev-change" basetrace
     logInfo trace "Message #1"
 
     -- raise the minimum severity to Warning
-    setSeverity cfg "test-named-severity.sev-change" (Just Warning)
-    msev <- Cardano.BM.Configuration.inspectSeverity cfg "test-named-severity.sev-change"
+    setSeverity cfg (loggerNameFromText "test-named-severity.sev-change") (Just Warning)
+    msev <- Cardano.BM.Configuration.inspectSeverity cfg (loggerNameFromText "test-named-severity.sev-change")
     assertBool ("min severity should be Warning, but is " ++ (show msev))
                (msev == Just Warning)
     -- this message will not be traced
     logInfo trace "Message #2"
 
     -- lower the minimum severity to Info
-    setSeverity cfg "test-named-severity.sev-change" (Just Info)
+    setSeverity cfg (loggerNameFromText "test-named-severity.sev-change") (Just Info)
     -- this message is traced
     logInfo trace "Message #3"
 
@@ -424,18 +424,18 @@ unitHierarchy' subtraces f = do
     let (t1 : t2 : t3 : _) = cycle subtraces
     msgs <- STM.newTVarIO []
     -- create trace of type 1
-    trace1 <- setupTrace $ TraceConfiguration cfg (MockSB msgs) "test" t1
+    trace1 <- setupTrace $ TraceConfiguration cfg (MockSB msgs) (unitLoggerName "test") t1
     logInfo trace1 "Message from level 1."
 
     -- subtrace of type 2
-    setSubTrace cfg "test.inner" (Just t2)
+    setSubTrace cfg (loggerNameFromText "test.inner") (Just t2)
     let trace2 = appendName "inner" trace1
     logInfo trace2 "Message from level 2."
 
     -- subsubtrace of type 3
-    setSubTrace cfg "test.inner.innermost" (Just t3)
+    setSubTrace cfg (loggerNameFromText "test.inner.innermost") (Just t3)
 #ifdef ENABLE_OBSERVABLES
-    _ <- STMObserver.bracketObserveIO cfg trace2 Debug "innermost" setVar_
+    _ <- STMObserver.bracketObserveIO cfg trace2 Debug (unitLoggerName "innermost") setVar_
 #endif
     logInfo trace2 "Message from level 3."
     -- acquire the traced objects
@@ -454,7 +454,7 @@ unitTraceInFork :: Assertion
 unitTraceInFork = do
     cfg <- defaultConfigTesting
     msgs <- STM.newTVarIO []
-    trace <- setupTrace $ TraceConfiguration cfg (MockSB msgs) "test" Neutral
+    trace <- setupTrace $ TraceConfiguration cfg (MockSB msgs) (unitLoggerName "test") Neutral
     let trace0 = appendName "work0" trace
         trace1 = appendName "work1" trace
     work0 <- work trace0
@@ -488,7 +488,7 @@ stressTraceInFork :: Assertion
 stressTraceInFork = do
     cfg <- defaultConfigTesting
     msgs <- STM.newTVarIO []
-    trace <- setupTrace $ TraceConfiguration cfg (MockSB msgs) "test" Neutral
+    trace <- setupTrace $ TraceConfiguration cfg (MockSB msgs) (unitLoggerName "test") Neutral
     let names = map (\a -> ("work-" <> pack (show a))) [1..(10::Int)]
     ts <- forM names $ \name -> do
         let trace' = appendName name trace
@@ -496,7 +496,7 @@ stressTraceInFork = do
     forM_ ts Async.wait
 
     res <- STM.readTVarIO msgs
-    let resNames = map loName res
+    let resNames = map (loggerNameText . loName) res
     let frequencyMap = fromListWith (+) [(x, 1) | x <- resNames]
 
     -- each trace should have traced totalMessages' messages
@@ -518,8 +518,8 @@ unitNoOpeningTrace :: Assertion
 unitNoOpeningTrace = do
     cfg <- defaultConfigTesting
     msgs <- STM.newTVarIO []
-    logTrace <- setupTrace $ TraceConfiguration cfg (MockSB msgs) "test" DropOpening
-    _ <- STMObserver.bracketObserveIO cfg logTrace Debug "setTVar" setVar_
+    logTrace <- setupTrace $ TraceConfiguration cfg (MockSB msgs) (unitLoggerName "test") DropOpening
+    _ <- STMObserver.bracketObserveIO cfg logTrace Debug (loggerNameFromText "setTVar") setVar_
     res <- STM.readTVarIO msgs
     assertBool
         ("Found non-expected ObserveOpen message: " ++ show res)
@@ -536,19 +536,21 @@ unitAppendName :: Assertion
 unitAppendName = do
     cfg <- defaultConfigTesting
     msgs <- STM.newTVarIO []
-    basetrace <- setupTrace $ TraceConfiguration cfg (MockSB msgs) "test" Neutral
+    basetrace <- setupTrace $ TraceConfiguration cfg (MockSB msgs) (unitLoggerName "test") Neutral
     let trace1 = appendName bigName basetrace
         trace2 = appendName bigName trace1
     forM_ [basetrace, trace1, trace2] $ (flip logInfo msg)
     res <- reverse <$> STM.readTVarIO msgs
     let loggernames = map loName res
+        expected = loggerNameFromText <$>
+                   [ "test"
+                   , "test." <> bigName
+                   , "test." <> bigName <> "." <> bigName
+                   ]
     assertBool
         ("AppendName did not work properly. The loggernames for the messages are: " ++
-            show loggernames)
-        (loggernames == [ "test"
-                        , "test." <> bigName
-                        , "test." <> bigName <> "." <> bigName
-                        ])
+            show loggernames ++ ", expected: " ++ show expected)
+        (loggernames == expected)
   where
     bigName = T.replicate 30 "abcdefghijklmnopqrstuvwxyz"
     msg = "Hello!"
@@ -570,8 +572,8 @@ setVar_ = do
 \begin{code}
 unitNameFiltering :: Assertion
 unitNameFiltering = do
-    let contextName = "test.sub.1"
-    let loname = "sum"  -- would be part of a "LogValue loname 42"
+    let contextName = loggerNameFromText "test.sub.1"
+    let loname = unitLoggerName "sum"  -- would be part of a "LogValue loname 42"
 
     let filter1 = [ (Drop (Exact "test.sub.1"), Unhide []) ]
     assertBool ("Dropping a specific name should filter it out and thus return False")
@@ -593,22 +595,22 @@ unitNameFiltering = do
                       Unhide [(EndsWith ".sum"),
                               (EndsWith ".other")]) ]
     assertBool ("Dropping all and unhiding some names, the LogObject should pass the filter")
-               (True == evalFilters filter6a (contextName <> "." <> loname))
+               (True == evalFilters filter6a (contextName `catLoggerNames` loname))
     assertBool ("Dropping all and unhiding some names, another LogObject should not pass the filter")
-               (False == evalFilters filter6a (contextName <> ".value"))
+               (False == evalFilters filter6a (contextName `consLoggerName` "value"))
     let filter6b = [ (Drop (Contains "test."),
                       Unhide [(Contains ".sum"),
                               (Contains ".other")]) ]
     assertBool ("Dropping all and unhiding some names, the LogObject should pass the filter")
-               (True == evalFilters filter6b (contextName <> "." <> loname))
+               (True == evalFilters filter6b (contextName `catLoggerNames` loname))
     assertBool ("Dropping all and unhiding some names, another LogObject should not pass the filter")
-               (False == evalFilters filter6b (contextName <> ".value"))
+               (False == evalFilters filter6b (contextName `consLoggerName` "value"))
     assertBool ("Dropping others and unhiding some names, something different should still pass the filter")
-               (True == evalFilters filter6b "some.other.value")
+               (True == evalFilters filter6b (loggerNameFromText "some.other.value"))
     let filter7 = [ (Drop (StartsWith "test."),
                      Unhide [(EndsWith ".product")]) ]
     assertBool ("Dropping all and unhiding an inexistant named value, the LogObject should not pass the filter")
-               (False == evalFilters filter7 (contextName <> "." <> loname))
+               (False == evalFilters filter7 (contextName `catLoggerNames`  loname))
     let filter8 = [ (Drop (StartsWith "test."),
                      Unhide [(Exact "test.sub.1")]),
                     (Drop (StartsWith "something.else."),
@@ -672,7 +674,7 @@ unitTestLazyEvaluation = do
     work message = Async.async $ do
         cfg <- defaultConfigTesting
         basetrace <- Setup.setupTrace (Right cfg) "test"
-        setSubTrace cfg "test.work" (Just NoTrace)
+        setSubTrace cfg (loggerNameFromText "test.work") (Just NoTrace)
         let trace = appendName "work" basetrace
 
         logInfo trace message

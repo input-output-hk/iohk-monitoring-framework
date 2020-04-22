@@ -62,11 +62,11 @@ natTrace = natTracer
 \subsubsection{Enter new named context}\label{code:appendName}\index{appendName}
 A new context name is added.
 \begin{code}
-appendName :: LoggerName -> Trace m a -> Trace m a
+appendName :: T.Text -> Trace m a -> Trace m a
 appendName name tr = Tracer $ \(names0, lo) ->
-    let names = if names0 == T.empty then name else name <> "." <> names0
-    in
-    traceWith tr (names, lo)
+    traceWith tr (if loggerNameText names0 == ""
+                  then unitLoggerName name
+                  else names0 `consLoggerName` name, lo)
 
 \end{code}
 
@@ -86,7 +86,8 @@ modifyName k = contramap f
 \subsubsection{Contramap a trace and produce the naming context}
 \begin{code}
 named :: Tracer m (LoggerName,LogObject a) -> Tracer m (LOMeta, LOContent a)
-named = contramap $ \(meta, loc) -> (mempty, LogObject mempty meta loc)
+named = contramap $ \(meta, loc) ->
+  (emptyLoggerName, LogObject emptyLoggerName meta loc)
 
 \end{code}
 
@@ -130,7 +131,7 @@ stdoutTrace = Tracer $ \(ctx, LogObject _loname _ lc) ->
             obj ->
                     output ctx $ toStrict (encodeToLazyText obj)
   where
-    output nm msg = TIO.putStrLn $ nm <> " :: " <> msg
+    output nm msg = TIO.putStrLn $ loggerNameText nm <> " :: " <> msg
 
 \end{code}
 

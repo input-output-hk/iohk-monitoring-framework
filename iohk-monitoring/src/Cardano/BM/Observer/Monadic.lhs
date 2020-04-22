@@ -28,7 +28,7 @@ import qualified Data.Text.IO as TIO
 import           System.IO (stderr)
 
 import           Cardano.BM.Data.Counter (CounterState (..), diffCounters)
-import           Cardano.BM.Data.LogItem (LOContent (..), LOMeta,
+import           Cardano.BM.Data.LogItem (LoggerName, LOContent (..), LOMeta,
                      PrivacyAnnotation(Confidential), mkLOMeta)
 import           Cardano.BM.Data.Severity (Severity)
 import qualified Cardano.BM.Configuration as Config
@@ -117,7 +117,7 @@ in a configuration file (YAML) means
 \end{spec}
 
 \begin{code}
-bracketObserveIO :: Config.Configuration -> Trace IO a -> Severity -> Text -> IO t -> IO t
+bracketObserveIO :: Config.Configuration -> Trace IO a -> Severity -> LoggerName -> IO t -> IO t
 bracketObserveIO config trace severity name action = do
     subTrace <- fromMaybe Neutral <$> Config.findSubTrace config name
     bracketObserveIO' subTrace severity trace action
@@ -147,7 +147,7 @@ bracketObserveIO config trace severity name action = do
 \subsubsection{Monadic.bracketObserverM}
 Observes a |MonadIO m => m| action.
 \begin{code}
-bracketObserveM :: (MonadCatch m, MonadIO m) => Config.Configuration -> Trace m a -> Severity -> Text -> m t -> m t
+bracketObserveM :: (MonadCatch m, MonadIO m) => Config.Configuration -> Trace m a -> Severity -> LoggerName -> m t -> m t
 bracketObserveM config trace severity name action = do
     subTrace <- liftIO $ fromMaybe Neutral <$> Config.findSubTrace config name
     bracketObserveM' subTrace severity trace action
@@ -178,7 +178,7 @@ bracketObserveM config trace severity name action = do
 Observes a |MonadIO m => m| action. This observer bracket does not interfere
 on exceptions.
 \begin{code}
-bracketObserveX :: (MonadIO m) => Config.Configuration -> Trace m a -> Severity -> Text -> m t -> m t
+bracketObserveX :: (MonadIO m) => Config.Configuration -> Trace m a -> Severity -> LoggerName -> m t -> m t
 bracketObserveX config trace severity name action = do
     subTrace <- liftIO $ fromMaybe Neutral <$> Config.findSubTrace config name
     bracketObserveX' subTrace severity trace action
