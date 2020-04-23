@@ -66,6 +66,7 @@ takeMeasurements pid tts =
                 , (MemoryStats, readProcStatM pid)
                 , (ProcessStats, readProcStats pid)
                 , (NetStats, readProcNet pid)
+                , (SysStats, readSysStats pid)
                 , (IOStats, readProcIO pid)
                 , (GhcRtsStats, readRTSStats)
                 ]
@@ -105,6 +106,17 @@ readProcList fp = do
         return []
   where
     readable fs = intersectFileModes (fileMode fs) ownerReadMode == ownerReadMode
+#endif
+\end{code}
+
+\subsubsection{readSysStats - generic platform specific information}
+\begin{code}
+#ifdef ENABLE_OBSERVABLES
+readSysStats :: ProcessID -> IO [Counter]
+readSysStats pid = do
+    return [ Counter SysInfo "Pid" (PureI $ fromIntegral pid)
+           , Counter SysInfo "Platform" (PureI $ fromIntegral $ fromEnum Linux)
+           ]
 #endif
 \end{code}
 

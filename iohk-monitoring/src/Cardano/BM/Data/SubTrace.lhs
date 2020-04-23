@@ -11,8 +11,8 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
-#if !defined(mingw32_HOST_OS)
-#define POSIX
+#if defined(mingw32_HOST_OS)
+#define WINDOWS
 #endif
 
 module Cardano.BM.Data.SubTrace
@@ -20,13 +20,16 @@ module Cardano.BM.Data.SubTrace
     SubTrace (..)
   , DropName (..), UnhideNames (..)
   , NameSelector (..)
+#ifdef WINDOWS
+  , ProcessID
+#endif
   )
   where
 
-#ifdef POSIX
-import           System.Posix.Types (ProcessID, CPid (..))
-#else
+#ifdef WINDOWS
 import           System.Win32.Process (ProcessId)
+#else
+import           System.Posix.Types (ProcessID, CPid (..))
 #endif
 import           Data.Aeson (FromJSON (..), ToJSON (..), Value (..), (.:),
                      (.=), object, withObject)
@@ -71,13 +74,7 @@ data SubTrace = Neutral
               | SetSeverity Severity
                 deriving (Generic, Show, Read, Eq)
 
-#ifdef POSIX
-instance ToJSON ProcessID where
-    toJSON (CPid pid) = Number $ fromIntegral pid
-
-instance FromJSON ProcessID where
-    parseJSON v = CPid <$> parseJSON v
-#else
+#ifdef WINDOWS
 -- Wrap the Win32 DWORD type alias so that it can be logged
 newtype ProcessID = ProcessID ProcessId
     deriving (Generic, Show, Read, Eq)
@@ -87,6 +84,12 @@ instance ToJSON ProcessID where
 
 instance FromJSON ProcessID where
     parseJSON v = ProcessID <$> parseJSON v
+#else
+instance ToJSON ProcessID where
+    toJSON (CPid pid) = Number $ fromIntegral pid
+
+instance FromJSON ProcessID where
+    parseJSON v = CPid <$> parseJSON v
 #endif
 
 instance FromJSON SubTrace where

@@ -49,7 +49,7 @@ import           Cardano.BM.Data.Output
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.SubTrace
 #ifdef ENABLE_OBSERVABLES
-import           Cardano.BM.Counters (getMonoClock)
+import           Cardano.BM.Counters (getMonoClock, readCounters)
 import           Cardano.BM.Data.Aggregated
 import           Cardano.BM.Data.Counter
 import qualified Cardano.BM.Observer.Monadic as MonadicObserver
@@ -77,6 +77,7 @@ tests = testGroup "Testing Trace" [
       , testCase "forked traces stress testing" stressTraceInFork
 #ifdef ENABLE_OBSERVABLES
       , testCase "stress testing: ObservableTraceSelf vs. NoTrace" timingObservableVsUntimed
+      , testCase "demonstrate capturing of counters" demoObservableSubtrace
 #endif
       , testCaseInfo "demonstrating logging" simpleDemo
       , testCaseInfo "demonstrating nested named context logging" exampleWithNamedContexts
@@ -120,6 +121,7 @@ unit_tests = testGroup "Unit tests" [
         notObserveDiff = all (\case {LogObject _ _ (ObserveDiff _) -> False; _ -> True})
         onlyLevelOneMessage :: [LogObject Text] -> Bool
         onlyLevelOneMessage = \case
+
             [LogObject _ _ (LogMessage "Message from level 1.")] -> True
             _                                                    -> False
         observeNoMeasures :: [LogObject a] -> Bool
@@ -269,6 +271,27 @@ timingObservableVsUntimed = do
         True
   where
     observablesSet = [MonotonicClock, GhcRtsStats, MemoryStats, IOStats, ProcessStats]
+#endif
+\end{code}
+
+\subsubsection{Demonstrate observable subtrace}
+\begin{code}
+#ifdef ENABLE_OBSERVABLES
+demoObservableSubtrace:: Assertion
+demoObservableSubtrace = do
+    ctrs1 <- readCounters (ObservableTraceSelf observablesSet)
+    putStrLn "\n"
+    logCounters ctrs1
+    putStrLn "\n"
+
+    threadDelay 50000
+
+  where
+    observablesSet = [MonotonicClock, GhcRtsStats, SysStats, IOStats, MemoryStats, NetStats, ProcessStats]
+    logCounters [] = pure ()
+    logCounters (c : cs) = do
+        putStrLn (show c)
+        logCounters cs
 #endif
 \end{code}
 
