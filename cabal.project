@@ -20,8 +20,8 @@ package iohk-monitoring
 source-repository-package
   type: git
   location: https://github.com/input-output-hk/ouroboros-network
-  tag: 5837c635877c11e1bf6c058c8307733c631dc98b
-  --sha256: 1cw1mxwszal0f38m236bfcwdwq2ap1klkqdilv8r836al71djz41
+  tag: c2f1e6b07885ae709446ecb916973c009f16165c
+  --sha256: 0jpqz9jhr297kxsg65gn0l6qls90ydgrypyaxfq2yv8qjx4vpwr2
   subdir: Win32-network
 
 constraints:

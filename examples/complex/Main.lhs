@@ -17,6 +17,7 @@
 #define RUN_ProcRandom
 #define RUN_ProcMonitoring
 #define RUN_ProcBufferDump
+#define RUN_ProcCounterOutput
 
 module Main
   ( main )
@@ -50,10 +51,12 @@ import           Cardano.BM.Scribe.Systemd
 #endif
 
 import qualified Cardano.BM.Configuration.Model as CM
+import           Cardano.BM.Counters (readCounters)
 import           Cardano.BM.Data.Aggregated (Measurable (..))
 import           Cardano.BM.Data.AggregatedKind
 import           Cardano.BM.Data.BackendKind
 import           Cardano.BM.Data.Configuration (RemoteAddr(..))
+import           Cardano.BM.Data.Counter
 import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.MonitoringEval
 import           Cardano.BM.Data.Output
@@ -141,6 +144,17 @@ prepare_configuration = do
                                               , rpKeepFilesNum  = 3
                                               }
                             }
+                         , ScribeDefinition {
+                              scName = "logs/out.json"
+                            , scKind = FileSK
+                            , scFormat = ScJson
+                            , scPrivacy = ScPublic
+                            , scRotation = Just $ RotationParameters
+                                              { rpLogLimitBytes = 50000000 -- 50 MB
+                                              , rpMaxAgeHours   = 24
+                                              , rpKeepFilesNum  = 13
+                                              }
+                            }
                          ]
 #ifdef LINUX
     CM.setDefaultScribes c ["StdoutSK::stdout", "JournalSK::example-complex"]
@@ -212,6 +226,8 @@ prepare_configuration = do
     CM.setBackends c "complex.#aggregation.complex.message" (Just [EKGViewBK, MonitoringBK])
     CM.setBackends c "complex.#aggregation.complex.monitoring" (Just [MonitoringBK])
     CM.setBackends c "complex.#aggregation.complex.observeIO" (Just [EKGViewBK])
+
+    CM.setScribes c "complex.counters" (Just ["StdoutSK::stdout","FileSK::logs/out.json"])
 
     CM.setEKGport c 12790
     CM.setPrometheusBindAddr c $ Just ("localhost", 12800)
@@ -415,6 +431,26 @@ msgThr trace = do
 
 \end{code}
 
+\subsubsection{Thread that periodically outputs operating system counters}
+\begin{code}
+#ifdef RUN_ProcCounterOutput
+countersThr :: Trace IO Text -> IO (Async.Async ())
+countersThr trace = do
+  let trace' = appendName "counters" trace
+  Async.async (loop trace')
+  where
+    loop tr = do
+        threadDelay 3000000  -- 3 seconds
+        let counters = [MemoryStats, ProcessStats, NetStats, IOStats, SysStats]
+        cts <- readCounters (ObservableTraceSelf counters)
+        mle <- mkLOMeta Info Confidential
+        forM_ cts $ \c@(Counter _ct cn cv) ->
+            traceNamedObject tr (mle, LogValue (nameCounter c <> "." <> cn) cv)
+        loop tr
+#endif
+
+\end{code}
+
 \subsubsection{Main entry point}
 \begin{code}
 main :: IO ()
@@ -483,6 +519,17 @@ main = do
 #ifdef RUN_ProcMessageOutput
     -- start a thread to output a text messages every n seconds
     procMsg <- msgThr tr
+#endif
+
+#ifdef RUN_ProcCounterOutput
+    procCounters <- countersThr tr
+#endif
+
+#ifdef RUN_ProcCounterOutput
+    _ <- Async.waitCatch procCounters
+#endif
+
+#ifdef RUN_ProcMessageOutput
     -- wait for message thread to finish, ignoring any exception
     _ <- Async.waitCatch procMsg
 #endif
