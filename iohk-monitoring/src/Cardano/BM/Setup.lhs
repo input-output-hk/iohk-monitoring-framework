@@ -30,7 +30,7 @@ import           System.IO (FilePath)
 import qualified Cardano.BM.Configuration as Config
 import           Cardano.BM.Data.Tracer (ToObject)
 import qualified Cardano.BM.Backend.Switchboard as Switchboard
-import           Cardano.BM.Trace (Trace, appendName, natTrace)
+import           Cardano.BM.Trace (Trace, natTrace)
 
 \end{code}
 %endif
@@ -48,10 +48,10 @@ setupTrace (Left cfgFile) name = do
 setupTrace (Right c) name = fst <$> setupTrace_ c name
 
 setupTrace_ :: (MonadIO m, ToJSON a, FromJSON a, ToObject a) => Config.Configuration -> Text -> m (Trace m a, Switchboard.Switchboard a)
-setupTrace_ c name = do
+setupTrace_ c _name = do
     sb <- liftIO $ Switchboard.realize c
 
-    let tr = appendName name $ natTrace liftIO (Switchboard.mainTraceConditionally c sb)
+    let tr = natTrace liftIO (Switchboard.mainTraceConditionally c sb)
     return (tr,sb)
 
 \end{code}
