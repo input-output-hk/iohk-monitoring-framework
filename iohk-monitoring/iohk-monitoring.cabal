@@ -77,7 +77,6 @@ library
     c-sources:         src/Cardano/BM/Counters/os-support-win.c
     include-dirs:      src/Cardano/BM/Counters/
     cc-options:        -DPSAPI_VERSION=2
-    extra-libraries:   psapi
 
   exposed-modules:     Cardano.BM.Counters.Dummy
 
