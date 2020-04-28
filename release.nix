@@ -8,12 +8,12 @@
 ############################################################################
 
 # The project sources
-{ iohk-monitoring-framework ? { outPath = ./.; rev = "abcdef"; }
+{ iohk-monitoring ? { outPath = ./.; rev = "abcdef"; }
 
 # Function arguments to pass to the project
 , projectArgs ? {
     config = { allowUnfree = false; inHydra = true; };
-    gitrev = iohk-monitoring-framework.rev;
+    gitrev = iohk-monitoring.rev;
   }
 
 # The systems that the jobset will be built for.
@@ -36,8 +36,8 @@
 with (import pkgs.iohkNix.release-lib) {
   inherit pkgs;
   inherit supportedSystems supportedCrossSystems scrubJobs projectArgs;
-  packageSet = import iohk-monitoring-framework;
-  gitrev = iohk-monitoring-framework.rev;
+  packageSet = import iohk-monitoring;
+  gitrev = iohk-monitoring.rev;
 };
 
 with pkgs.lib;
