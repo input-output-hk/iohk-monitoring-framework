@@ -23,6 +23,11 @@ module Cardano.BM.Backend.TraceForwarder
 
 import           Control.Exception
 import           Control.Monad (when)
+import           Control.Concurrent (threadDelay)
+import qualified Control.Concurrent.Async as Async
+import           Control.Concurrent.MVar (MVar, modifyMVar_, newMVar, readMVar)
+import           Control.Concurrent.STM (atomically)
+import qualified Control.Concurrent.STM.TBQueue as TBQ
 import           Data.Aeson (FromJSON, ToJSON, encode)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as BSC
@@ -30,10 +35,12 @@ import qualified Data.ByteString.Lazy as BL
 import           Data.Maybe (fromMaybe)
 import           Data.Text (Text, unpack)
 import           Data.Text.Encoding (encodeUtf8)
+import qualified Data.Text.IO as TIO
 import           Data.Typeable (Typeable)
+import           GHC.Natural (Natural)
 
 import qualified Network.Socket as Socket
-import           System.IO (Handle, IOMode (..), hClose)
+import           System.IO (Handle, IOMode (..), hClose, stderr)
 import           Text.Read (readMaybe)
 
 import           Cardano.BM.Configuration
@@ -53,9 +60,6 @@ import qualified Cardano.BM.Trace as Trace
 different process (running a |TraceAcceptor| backend), by means of
 either a pipe or a socket.
 
-Note that if the connection to the trace acceptor is broken,
-the application is terminated. (TODO)
-
 The |TraceForwarder| is looking up a minimum |Severity| in the options
 section of the configuration. This filters out all messages that have not at
 least the |Severity|.
@@ -64,12 +68,17 @@ least the |Severity|.
 plugin :: forall a s . (IsEffectuator s a, ToJSON a, FromJSON a)
        => Configuration -> Trace.Trace IO a -> s a -> Text -> IO (Plugin a)
 plugin config _trace _sb tfid = do
-    be0 :: Cardano.BM.Backend.TraceForwarder.TraceForwarder a <- realize config
     opts <- getTextOption config tfid
     let minsev = case opts of
                    Nothing -> Debug
                    Just sevtext -> fromMaybe Debug (readMaybe $ unpack sevtext)
-    let be = be0 { tfFilter = minsev }
+    be :: Cardano.BM.Backend.TraceForwarder.TraceForwarder a <- realize config
+    dispatcherThr <- spawnDispatcher (getTF be)
+    modifyMVar_ (getTF be) $ \initialBE ->
+      return $ initialBE
+                 { tfFilter     = minsev
+                 , tfDispatcher = Just dispatcherThr
+                 }
     return $ BackendPlugin
                (MkBackend { bEffectuate = effectuate be, bUnrealize = unrealize be })
                (bekind be)
@@ -79,33 +88,36 @@ plugin config _trace _sb tfid = do
 \subsubsection{Structure of TraceForwarder}\label{code:TraceForwarder}\index{TraceForwarder}
 Contains the handler to the pipe or to the socket.
 \begin{code}
-data TraceForwarder a = TraceForwarder
-  { tfWrite   :: BSC.ByteString -> IO ()
-  , tfClose   :: IO ()
-  , tfFilter  :: Severity
-  }
+newtype TraceForwarder a = TraceForwarder
+    { getTF :: TraceForwarderMVar a }
 
+type TraceForwarderMVar a = MVar (TraceForwarderInternal a)
+
+data TraceForwarderInternal a = TraceForwarderInternal
+    { tfQueue      :: TBQ.TBQueue (LogObject a)
+    , tfHandle     :: Maybe Handle
+    , tfRemoteAddr :: RemoteAddr
+    , tfFilter     :: Severity
+    , tfDispatcher :: Maybe (Async.Async ())
+    }
 \end{code}
 
 \subsubsection{TraceForwarder is an effectuator}\index{TraceForwarder!instance of IsEffectuator}
 Every |LogObject| before being written to the given handler is converted to
-|ByteString| through its |JSON| represantation.
+|ByteString| through its |JSON| representation.
 \begin{code}
 instance (ToJSON a) => IsEffectuator TraceForwarder a where
-    effectuate tf lo =
-        when (severity meta >= tfFilter tf) $ do
-          tfWrite tf $ encodeUtf8 (hostname meta)
-          tfWrite tf bs
-      where
-        meta = loMeta lo
-        (_, bs) = jsonToBS lo
+    effectuate tf lo = do
+        let currentMVar = getTF tf
+        currentTF <- readMVar currentMVar
+        when (severity (loMeta lo) >= tfFilter currentTF) $ do
+          let queue = tfQueue currentTF
+          noCapacity <- atomically $ TBQ.isFullTBQueue queue
+          if noCapacity
+            then handleOverflow tf
+            else atomically $ TBQ.writeTBQueue queue lo
 
-        jsonToBS :: ToJSON b => b -> (Int, BS.ByteString)
-        jsonToBS a =
-          let bs' = BL.toStrict $ encode a
-          in (BS.length bs', bs')
-
-    handleOverflow _ = return ()
+    handleOverflow _ = TIO.hPutStrLn stderr "Notice: TraceForwarder's queue is full, dropping log items!"
 
 \end{code}
 
@@ -121,19 +133,29 @@ instance (FromJSON a, ToJSON a) => IsBackend TraceForwarder a where
 
     realize cfg = getForwardTo cfg >>= \case
       Nothing -> fail "Trace forwarder not configured:  option 'forwardTo'"
-      Just addr -> handleError TraceForwarderConnectionError $
-        withIOManager $ \iomgr -> do
-          h <- connectForwarder iomgr addr
-          pure TraceForwarder
-            { tfClose = hClose h
-            , tfWrite = \bs -> BSC.hPutStrLn h $! bs
-            , tfFilter = Debug  -- default
-            }
+      Just addr -> do
+        queue <- atomically $ TBQ.newTBQueue queueMaxSize
+        tfMVar <- newMVar $ TraceForwarderInternal
+                              { tfQueue      = queue
+                              , tfHandle     = Nothing
+                              , tfRemoteAddr = addr
+                              , tfFilter     = Debug
+                              , tfDispatcher = Nothing
+                              }
+        return $ TraceForwarder tfMVar
 
-    unrealize = tfClose
+    unrealize tf = do
+      currentTF <- readMVar (getTF tf)
+      -- Cancel dispatcher thread.
+      case tfDispatcher currentTF of
+        Nothing  -> return ()
+        Just thr -> Async.uninterruptibleCancel thr
+      -- If there's a handle - close it.
+      closeHandle $ tfHandle currentTF
 
-handleError :: (String -> BackendFailure TraceForwarder) -> IO a -> IO a
-handleError ctor = flip catch $ \(e :: IOException) -> throwIO . ctor . show $ e
+closeHandle :: Maybe Handle -> IO ()
+closeHandle (Just h) = hClose h
+closeHandle Nothing  = return ()
 
 connectForwarder :: IOManager -> RemoteAddr -> IO Handle
 connectForwarder iomgr (RemotePipe pipePath) = do
@@ -159,5 +181,99 @@ data TraceForwarderBackendFailure
   deriving (Show, Typeable)
 
 instance Exception TraceForwarderBackendFailure
+
+\end{code}
+
+\subsubsection{Asynchronously reading log items from the queue and sending them to an acceptor.}
+\begin{code}
+spawnDispatcher :: ToJSON a => TraceForwarderMVar a -> IO (Async.Async ())
+spawnDispatcher tfMVar = Async.async $ processQueue
+ where
+  processQueue :: IO ()
+  processQueue = do
+    currentTF <- readMVar tfMVar
+    -- Read the next log item from the queue. If the queue is still empty -
+    -- blocking and waiting for the next log item.
+    nextItem <- atomically $ TBQ.readTBQueue (tfQueue currentTF)
+    -- Try to write it to the handle. If there's a problem with connection,
+    -- this thread will initiate re-establishing of the connection and
+    -- will wait until it's established.
+    sendItem tfMVar nextItem
+    -- Continue...
+    processQueue
+
+-- | Try to send log item to the handle.
+sendItem :: ToJSON a => TraceForwarderMVar a -> LogObject a -> IO ()
+sendItem tfMVar lo =
+  tfHandle <$> readMVar tfMVar >>= \case
+    Nothing -> do
+      -- There's no handle, initiate the connection.
+      establishConnection 1 1 tfMVar
+      -- Connection is re-established, try to send log item.
+      sendItem tfMVar lo
+    Just h ->
+      try (BSC.hPutStrLn h $! encodedHostname) >>= \case
+        Right _ ->
+          -- Hostname was written to the handler successfully,
+          -- try to write serialized LogObject.
+          try (BSC.hPutStrLn h $! bs) >>= \case
+            Right _ ->
+              -- Everything is ok, LogObject was written to the handler.
+              return () -- Everything is ok, LogObject was written to the handler.
+            Left (_e :: IOException) -> do
+              reConnectIfQueueIsAlmostFull
+              threadDelay 10000
+              sendItem tfMVar lo
+        Left (_e :: IOException) -> do
+          reConnectIfQueueIsAlmostFull
+          threadDelay 10000
+          sendItem tfMVar lo
+ where
+  encodedHostname = encodeUtf8 (hostname . loMeta $ lo)
+
+  (_, bs) = jsonToBS lo
+
+  jsonToBS :: ToJSON b => b -> (Int, BS.ByteString)
+  jsonToBS a =
+    let bs' = BL.toStrict $ encode a
+    in (BS.length bs', bs')
+
+  -- Handle is bad, it looks like the connection is broken.
+  -- Check if the queue is almost full.
+  reConnectIfQueueIsAlmostFull = do
+    currentTF <- readMVar tfMVar
+    currentQueueSize <- atomically $ TBQ.lengthTBQueue (tfQueue currentTF)
+    when (queueIsAlmostFull currentQueueSize) $ do
+      -- The queue is almost full, it means that log items will be dropped soon.
+      -- Initiate re-establishing of connection.
+      closeHandle $ tfHandle currentTF
+      modifyMVar_ tfMVar $ \be -> return $ be { tfHandle = Nothing }
+
+  -- When the queue is almost full (80% of its max size)
+  -- we initiate re-establishing of connection.
+  queueIsAlmostFull queueSize = queueSize >= round almostFullSize
+   where
+    almostFullSize :: Float
+    almostFullSize = 0.8 * fromIntegral queueMaxSize
+
+queueMaxSize :: Natural
+queueMaxSize = 500
+
+establishConnection :: Int -> Int -> TraceForwarderMVar a -> IO ()
+establishConnection delayInSec delayInSec' tfMVar = withIOManager $ \iomgr -> do
+  addr <- tfRemoteAddr <$> readMVar tfMVar
+  try (connectForwarder iomgr addr) >>= \case
+    Right h ->
+      modifyMVar_ tfMVar $ \be -> return $ be { tfHandle = Just h }
+    Left (e :: IOException) -> do
+      -- Cannot establish it, let's try again..
+      threadDelay $ 1000000 * delayInSec'
+      if delayInSec' < 60
+        then
+          -- Next attempt to re-establish the connection will be perform after Fibonacci-calculated delay.
+          establishConnection delayInSec' (delayInSec + delayInSec') tfMVar
+        else
+          -- Next attempt to re-establish the connection will be perform after fixed delay (1 minute).
+          establishConnection 1 60 tfMVar
 
 \end{code}
