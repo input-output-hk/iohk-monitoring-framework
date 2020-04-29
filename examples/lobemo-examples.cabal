@@ -82,6 +82,10 @@ executable example-performance
                        criterion,
                        text,
                        unordered-containers
+  if os(windows)
+     build-depends:    Win32
+  else
+     build-depends:    unix
 
 executable example-acceptor
   hs-source-dirs:      acceptor
@@ -104,3 +108,7 @@ executable example-acceptor
                      , optparse-applicative
                      , serialise
                      , text
+  if os(windows)
+     build-depends:    Win32
+  else
+     build-depends:    unix
