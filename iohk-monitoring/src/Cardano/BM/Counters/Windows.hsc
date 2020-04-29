@@ -144,9 +144,9 @@ typedef struct _SYSTEM_INFO {
 data SystemInfo = SystemInfo
   { --_dummy :: DWORD
     _dwPageSize :: DWORD
-  , _lpMinimumApplicationAddress :: LPVOID
-  , _lpMaximumApplicationAddress :: LPVOID
-  , _dwActiveProcessorMask :: DWORD_PTR
+  --, _lpMinimumApplicationAddress :: LPVOID
+  --, _lpMaximumApplicationAddress :: LPVOID
+  --, _dwActiveProcessorMask :: DWORD_PTR
   , _dwNumberOfProcessors :: DWORD
   , _dwProcessorType :: DWORD
   , _dwAllocationGranularity :: DWORD
@@ -159,9 +159,9 @@ instance Storable SystemInfo where
   sizeOf _    = #size SYSTEM_INFO
   peek ptr    = SystemInfo
                 <$> (#peek SYSTEM_INFO, dwPageSize) ptr
-                <*> (#peek SYSTEM_INFO, lpMinimumApplicationAddress) ptr
-                <*> (#peek SYSTEM_INFO, lpMaximumApplicationAddress) ptr
-                <*> (#peek SYSTEM_INFO, dwActiveProcessorMask) ptr
+                -- <*> (#peek SYSTEM_INFO, lpMinimumApplicationAddress) ptr
+                -- <*> (#peek SYSTEM_INFO, lpMaximumApplicationAddress) ptr
+                -- <*> (#peek SYSTEM_INFO, dwActiveProcessorMask) ptr
                 <*> (#peek SYSTEM_INFO, dwNumberOfProcessors) ptr
                 <*> (#peek SYSTEM_INFO, dwProcessorType) ptr
                 <*> (#peek SYSTEM_INFO, dwAllocationGranularity) ptr
@@ -296,7 +296,7 @@ readSysStats pid = do
         if res <= 0
           then do
             putStrLn $ "c_get_system_info: failure returned: " ++ (show res)
-            return $ SystemInfo 0 (nullPtr) (nullPtr) (nullPtr) 0 0 0 0 0
+            return $ SystemInfo 0 0 0 0 0 0
           else
             peek ptr
 
