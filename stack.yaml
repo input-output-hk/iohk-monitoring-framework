@@ -1,4 +1,4 @@
-resolver: lts-13.26
+resolver: lts-14.27
 compiler: ghc-8.6.5
 
 packages:
@@ -28,7 +28,7 @@ extra-deps:
   - libsystemd-journal-1.4.4
 
   - git: https://github.com/input-output-hk/ouroboros-network
-    commit: 5837c635877c11e1bf6c058c8307733c631dc98b
+    commit: c2f1e6b07885ae709446ecb916973c009f16165c
     subdirs:
         - Win32-network
 

@@ -5,7 +5,7 @@ synopsis:            logging, benchmarking and monitoring framework
 license:             Apache-2.0
 license-files:       LICENSE, NOTICE
 author:              Alexander Diemand, Andreas Triantafyllos
-maintainer:
+maintainer:          operations@iohk.io
 copyright:           2018 IOHK
 category:            Benchmarking
 build-type:          Simple
@@ -32,6 +32,7 @@ library
 
                        Cardano.BM.Counters
                        Cardano.BM.Counters.Common
+                       Cardano.BM.Counters.Dummy
 
                        Cardano.BM.Data.Aggregated
                        Cardano.BM.Data.AggregatedKind
@@ -77,8 +78,10 @@ library
     c-sources:         src/Cardano/BM/Counters/os-support-win.c
     include-dirs:      src/Cardano/BM/Counters/
     cc-options:        -DPSAPI_VERSION=2
-
-  exposed-modules:     Cardano.BM.Counters.Dummy
+  if os(darwin)
+    exposed-modules:   Cardano.BM.Counters.Darwin
+    c-sources:         src/Cardano/BM/Counters/os-support-darwin.c
+    include-dirs:      src/Cardano/BM/Counters/
 
   other-modules:
 
@@ -183,7 +186,7 @@ test-suite tests
                        vector,
                        void,
                        yaml, libyaml
-  ghc-options:         -Wall -Werror -rtsopts "-with-rtsopts=-T"
+  ghc-options:         -Wall -threaded -rtsopts "-with-rtsopts=-T"
 
   if !flag(disable-observables)
     cpp-options:       -DENABLE_OBSERVABLES
