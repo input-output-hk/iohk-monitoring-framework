@@ -10,10 +10,8 @@ module Cardano.BM.Counters.Darwin
 
 #ifdef ENABLE_OBSERVABLES
 import           Data.Foldable (foldrM)
--- import           Data.Text (pack)
 import           Data.Word (Word64, Word32, Word8)
 import           Data.Text (pack)
-import           Foreign.C.String
 import           Foreign.C.Types
 import           Foreign.Marshal.Alloc
 import           Foreign.Ptr
@@ -105,6 +103,7 @@ struct host_basic_info {
 	uint64_t                max_mem;                /* actual size of physical memory */
 }; -}
 
+{- currently unused
 data HostBasicInfo = HostBasicInfo
   { _max_cpus :: !CInt
   , _avail_cpus :: !CInt
@@ -135,8 +134,8 @@ instance Storable HostBasicInfo where
                 <*> (#peek struct host_basic_info, logical_cpu_max) ptr
                 <*> (#peek struct host_basic_info, max_mem) ptr
   poke _ _    = pure ()
-
-foreign import ccall unsafe c_get_host_info :: Ptr HostBasicInfo -> IO CInt
+ -}
+-- foreign import ccall unsafe c_get_host_info :: Ptr HostBasicInfo -> IO CInt
 
 foreign import ccall unsafe c_get_boot_time :: IO CInt
 
@@ -404,7 +403,7 @@ getMemoryInfo pid =
 #ifdef ENABLE_OBSERVABLES
 readSysStats :: ProcessID -> IO [Counter]
 readSysStats _pid = do
-    sysinfo <- getSysInfo
+    -- sysinfo <- getSysInfo
     cpuinfo <- getCpuInfo
     bootsecs <- c_get_boot_time
     return [
@@ -427,16 +426,16 @@ readSysStats _pid = do
            , Counter SysInfo "Platform" (PureI $ fromIntegral $ fromEnum Darwin)
            ]
   where
-    getSysInfo :: IO HostBasicInfo
-    getSysInfo =
-      allocaBytes 128 $ \ptr -> do
-        res <- c_get_host_info ptr
-        if res <= 0
-          then do
-            putStrLn $ "c_get_host_info: failure returned: " ++ (show res)
-            return $ HostBasicInfo 0 0 0 0 0 0 0 0 0 0 0
-          else
-            peek ptr
+    -- getSysInfo :: IO HostBasicInfo
+    -- getSysInfo =
+    --   allocaBytes 128 $ \ptr -> do
+    --     res <- c_get_host_info ptr
+    --     if res <= 0
+    --       then do
+    --         putStrLn $ "c_get_host_info: failure returned: " ++ (show res)
+    --         return $ HostBasicInfo 0 0 0 0 0 0 0 0 0 0 0
+    --       else
+    --         peek ptr
     getCpuInfo :: IO CpuTimes
     getCpuInfo =
       allocaBytes 128 $ \ptr -> do
@@ -473,10 +472,10 @@ readProcIO = do
         -- lsnms = map mkdskname (zip [0..32] (_dsknames dskinfo))
     return $ lsn <> concat lscnt
   where
-    mkdskname :: (Int,String) -> Counter
-    mkdskname (n,nm)=
-      let ifnm = "dsk_" <> pack (show nm)
-      in Counter IOCounter ifnm (PureI (fromIntegral n))
+    -- mkdskname :: (Int,String) -> Counter
+    -- mkdskname (n,nm)=
+    --   let ifnm = "dsk_" <> pack (show nm)
+    --   in Counter IOCounter ifnm (PureI (fromIntegral n))
     mkdskcounters :: (Int,DiskInfo) -> [Counter]
     mkdskcounters (num,dta) =
       let nm = "dsk_" <> pack (show num)

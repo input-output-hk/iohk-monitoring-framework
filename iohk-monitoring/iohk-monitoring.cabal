@@ -133,7 +133,7 @@ library
   if flag(performance-test-queue)
     cpp-options:       -DPERFORMANCE_TEST_QUEUE
 
-  ghc-options:         -Wall
+  ghc-options:         -Wall -Werror
                        -fno-ignore-asserts
 
 test-suite tests

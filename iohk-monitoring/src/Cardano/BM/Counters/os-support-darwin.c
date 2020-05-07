@@ -48,7 +48,7 @@ int c_get_process_memory_info(struct mach_task_basic_info *counters, int pid)
 
 
 /* c_get_host_info */
-
+/* currently this is not used
 int c_get_host_info(struct host_basic_info *counters)
 {
     mach_msg_type_number_t count = HOST_BASIC_INFO_COUNT;
@@ -59,7 +59,7 @@ int c_get_host_info(struct host_basic_info *counters)
     }
     mach_port_deallocate(mach_task_self(), host_port);
     return 1;
-}
+} */
 
 /* c_get_boot_time */
 

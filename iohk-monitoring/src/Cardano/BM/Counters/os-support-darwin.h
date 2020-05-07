@@ -30,7 +30,7 @@ typedef struct _DISK_COUNTERS {
 } DISK_COUNTERS;
 
 int c_get_process_memory_info (struct mach_task_basic_info *counters, int pid);
-int c_get_host_info (struct host_basic_info *counters);
+//int c_get_host_info (struct host_basic_info *counters);
 long c_get_boot_time();
 int c_get_sys_cpu_times(CPU_TIMES *counters);
 int c_get_sys_network_io_counters(NET_IO *counters);
