@@ -7,18 +7,14 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE RecordWildCards #-}
 
-#if defined(linux_HOST_OS)
-#define LINUX
-#endif
-
 module Cardano.BM.Scribe.Systemd
     (
-#if defined(LINUX)
+#if defined(SYSTEMD)
       plugin
 #endif
     ) where
 
-#ifdef LINUX
+#ifdef SYSTEMD
 import           Control.Monad (when)
 import           Data.Aeson (ToJSON, FromJSON, encode)
 import qualified Data.ByteString.Lazy as BL (toStrict)
@@ -53,7 +49,7 @@ to systemd's journal on \emph{Linux}.
 
 \subsubsection{Plugin definition}
 \begin{code}
-#ifdef LINUX
+#ifdef SYSTEMD
 plugin :: (IsEffectuator s a, ToJSON a, FromJSON a)
        => Configuration -> Trace IO a -> s a -> T.Text -> IO (Plugin a)
 plugin _ _ _ syslogIdent =
@@ -66,7 +62,7 @@ plugin _ _ _ syslogIdent =
 
 \subsubsection{Scribe definition}
 \begin{code}
-#ifdef LINUX
+#ifdef SYSTEMD
 mkJournalScribe :: T.Text -> IO K.Scribe
 mkJournalScribe identifier = return $ journalScribe Nothing (sev2klog Debug) identifier K.V3
 
@@ -95,7 +91,7 @@ journalScribe facility severity identifier verbosity =
 Converts a |Katip Item| into a libsystemd-journal |JournalFields| map.
 
 \begin{code}
-#ifdef LINUX
+#ifdef SYSTEMD
 itemToJournalFields :: K.LogItem a
                     => Maybe Facility
                     -> T.Text
