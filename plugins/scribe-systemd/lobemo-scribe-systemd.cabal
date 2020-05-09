@@ -14,7 +14,16 @@ category:            Benchmarking
 build-type:          Simple
 extra-source-files:  README.md
 
+flag systemd
+  Description: Enable systemd support
+  Default:     True
+  Manual:      False
+
 library
+
+  if os(linux) && flag(systemd)
+    cpp-options:       -DSYSTEMD
+
   exposed-modules:     Cardano.BM.Scribe.Systemd
   -- other-modules:
   -- other-extensions:
@@ -33,7 +42,10 @@ library
      build-depends:    unix
 
   if os(linux)
-     build-depends:    hsyslog,
+     build-depends:    hsyslog
+  
+  if os(linux) && flag(systemd)
+     build-depends:
                        libsystemd-journal
 
   hs-source-dirs:      src
