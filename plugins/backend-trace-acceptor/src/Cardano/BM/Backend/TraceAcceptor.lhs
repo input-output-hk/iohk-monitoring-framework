@@ -68,7 +68,6 @@ plugin iomgr cf basicTrace _ = getAcceptAt cf >>= \case
       let trace = Trace.appendName nodeName basicTrace
       (serverCleanup, serverThr) <- acceptorForAddress trace iomgr addr
       Async.link serverThr
-      -- IO.hPutStrLn IO.stderr $ "Activating trace acceptor on: " <> show addr
       return (serverCleanup, serverThr)
 
     let (cleanups, servers) = unzip socketsNServers
