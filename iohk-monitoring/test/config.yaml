@@ -101,6 +101,8 @@ traceForwardTo:
   tag: RemotePipe
   contents: to
 
+forwardDelay: 1000
+
 traceAcceptAt:
   - remoteAddr:
       tag: RemotePipe

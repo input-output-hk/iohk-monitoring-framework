@@ -244,6 +244,8 @@ output could also be forwarded using a pipe:
     CM.setForwardTo c (Just $ RemoteSocket "127.0.0.1" "42999")
     CM.setTextOption c "forwarderMinSeverity" "Warning"  -- sets min severity filter in forwarder
 
+    CM.setForwardDelay c (Just 1000)
+
     CM.setMonitors c $ HM.fromList
         [ ( "complex.monitoring"
           , ( Just (Compare "monitMe" (GE, OpMeasurable 10))

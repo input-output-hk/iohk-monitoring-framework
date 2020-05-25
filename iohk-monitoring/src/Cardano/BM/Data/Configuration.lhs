@@ -58,6 +58,7 @@ data Representation = Representation
     , hasPrometheus   :: Maybe HostPort
     , hasGUI          :: Maybe Port
     , traceForwardTo  :: Maybe RemoteAddr
+    , forwardDelay    :: Maybe Word
     , traceAcceptAt   :: Maybe [RemoteAddrNamed]
     , options         :: HM.HashMap Text Value
     }

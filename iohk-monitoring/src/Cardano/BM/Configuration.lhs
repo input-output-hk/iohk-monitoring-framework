@@ -18,6 +18,8 @@ module Cardano.BM.Configuration
     , CM.getBackends
     , CM.getForwardTo
     , CM.setForwardTo
+    , CM.getForwardDelay
+    , CM.setForwardDelay
     , CM.getOption
     , CM.getMapOption
     , CM.getTextOption
