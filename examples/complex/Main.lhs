@@ -232,9 +232,15 @@ prepare_configuration = do
     CM.setEKGport c 12790
     CM.setPrometheusBindAddr c $ Just ("localhost", 12800)
     CM.setGUIport c 13790
+\end{code}
 
-    -- CM.setForwardTo c (Just $ RemotePipe "logs/pipe")
-    -- CM.setForwardTo c (Just $ RemotePipe "\\\\.\\pipe\\acceptor") -- on Windows
+output could also be forwarded using a pipe:
+\begin{spec}
+    CM.setForwardTo c (Just $ RemotePipe "logs/pipe")
+    CM.setForwardTo c (Just $ RemotePipe "\\\\.\\pipe\\acceptor") -- on Windows
+\end{spec}
+
+\begin{code}
     CM.setForwardTo c (Just $ RemoteSocket "127.0.0.1" "42999")
     CM.setTextOption c "forwarderMinSeverity" "Warning"  -- sets min severity filter in forwarder
 

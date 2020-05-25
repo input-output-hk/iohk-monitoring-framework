@@ -196,20 +196,20 @@ spawnDispatcher tfMVar = Async.async $ processQueue
     -- blocking and waiting for the next log item.
     nextItem <- atomically $ TBQ.readTBQueue (tfQueue currentTF)
     -- Try to write it to the handle. If there's a problem with connection,
-    -- this thread will initiate re-establishing of the connection and
+    -- this thread will initiate re\-establishing of the connection and
     -- will wait until it's established.
     sendItem tfMVar nextItem
     -- Continue...
     processQueue
 
--- | Try to send log item to the handle.
+-- Try to send log item to the handle.
 sendItem :: ToJSON a => TraceForwarderMVar a -> LogObject a -> IO ()
 sendItem tfMVar lo =
   tfHandle <$> readMVar tfMVar >>= \case
     Nothing -> do
       -- There's no handle, initiate the connection.
       establishConnection 1 1 tfMVar
-      -- Connection is re-established, try to send log item.
+      -- Connection is re\-established, try to send log item.
       sendItem tfMVar lo
     Just h ->
       try (BSC.hPutStrLn h $! encodedHostname) >>= \case
@@ -218,7 +218,6 @@ sendItem tfMVar lo =
           -- try to write serialized LogObject.
           try (BSC.hPutStrLn h $! bs) >>= \case
             Right _ ->
-              -- Everything is ok, LogObject was written to the handler.
               return () -- Everything is ok, LogObject was written to the handler.
             Left (_e :: IOException) -> do
               reConnectIfQueueIsAlmostFull
@@ -249,7 +248,7 @@ sendItem tfMVar lo =
       closeHandle $ tfHandle currentTF
       modifyMVar_ tfMVar $ \be -> return $ be { tfHandle = Nothing }
 
-  -- When the queue is almost full (80% of its max size)
+  -- When the queue is almost full (80 percent of its max size)
   -- we initiate re-establishing of connection.
   queueIsAlmostFull queueSize = queueSize >= round almostFullSize
    where

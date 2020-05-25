@@ -274,7 +274,7 @@ instance (FromJSON a) => FromJSON (LOContent a) where
 loType :: LogObject a -> Text
 loType (LogObject _ _ content) = loType2Name content
 
--- | Equality between LogObjects based on their log content types.
+-- Equality between LogObjects based on their log content types.
 loTypeEq :: LogObject a -> LogObject a -> Bool
 loTypeEq = locTypeEq `on` loContent
 
@@ -391,7 +391,7 @@ mapLOContent f = \case
     Command v             -> Command v
     KillPill              -> KillPill
 
--- | Equality between LogObjects based on their log content values.
+-- Equality between LogObjects based on their log content values.
 loContentEq :: Eq a => LogObject a -> LogObject a -> Bool
 loContentEq = (==) `on` loContent
 
