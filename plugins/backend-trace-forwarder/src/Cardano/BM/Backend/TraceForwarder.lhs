@@ -264,7 +264,7 @@ sendItems config tfMVar items@(lo:_) =
     almostFullSize = 0.8 * fromIntegral queueMaxSize
 
 queueMaxSize :: Natural
-queueMaxSize = 500
+queueMaxSize = 2500
 
 establishConnection :: Int -> Int -> TraceForwarderMVar a -> IO ()
 establishConnection delayInSec delayInSec' tfMVar = withIOManager $ \iomgr -> do
