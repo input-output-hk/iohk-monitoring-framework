@@ -40,9 +40,9 @@ int c_get_sys_cpu_times (CPU_TIMES *cputimes) {
     if (! GetSystemTimes(&idlet, &kernelt, &usert) ) {
       return -2;
     }
-    cputimes->usertime = (ULONGLONG)(HI_T * usert.dwHighDateTime + LO_T * usert.dwLowDateTime) * 1e9;
-    ULONGLONG kerneltime = (ULONGLONG)(HI_T * kernelt.dwHighDateTime + LO_T * kernelt.dwLowDateTime) * 1e9;
-    cputimes->idletime = (ULONGLONG)(HI_T * idlet.dwHighDateTime + LO_T * idlet.dwLowDateTime) * 1e9;
+    cputimes->usertime = (ULONGLONG)(HI_T * usert.dwHighDateTime + LO_T * usert.dwLowDateTime)/*  * 1e9 */;
+    ULONGLONG kerneltime = (ULONGLONG)(HI_T * kernelt.dwHighDateTime + LO_T * kernelt.dwLowDateTime)/*  * 1e9 */;
+    cputimes->idletime = (ULONGLONG)(HI_T * idlet.dwHighDateTime + LO_T * idlet.dwLowDateTime)/*  * 1e9 */;
     cputimes->systime = kerneltime - cputimes->idletime;
     return 1;
 }
@@ -58,10 +58,10 @@ int c_get_proc_cpu_times (CPU_TIMES *cputimes, DWORD pid) {
       return -1;
     }
     CloseHandle(hProc);
-    cputimes->usertime = (ULONGLONG)(HI_T * usert.dwHighDateTime + LO_T * usert.dwLowDateTime) * 1e9;
-    cputimes->systime = (ULONGLONG)(HI_T * kernelt.dwHighDateTime + LO_T * kernelt.dwLowDateTime) * 1e9;
+    cputimes->usertime = (ULONGLONG)(HI_T * usert.dwHighDateTime + LO_T * usert.dwLowDateTime)/*  * 1e9 */;
+    cputimes->systime = (ULONGLONG)(HI_T * kernelt.dwHighDateTime + LO_T * kernelt.dwLowDateTime)/*  * 1e9 */;
     // return time since process start in "idletime"
-    cputimes->idletime = (ULONGLONG)(HI_T * createt.dwHighDateTime + LO_T * createt.dwLowDateTime) * 1e9;
+    cputimes->idletime = (ULONGLONG)(HI_T * createt.dwHighDateTime + LO_T * createt.dwLowDateTime)/*  * 1e9 */;
     return 1;
 }
 

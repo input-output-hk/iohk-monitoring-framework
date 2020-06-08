@@ -273,6 +273,7 @@ readSysStats pid = do
            , Counter SysInfo "ProcessorRevision" (PureI $ fromIntegral $ _wProcessorRevision sysinfo)
            , Counter SysInfo "SysUserTime" (Nanoseconds $ usertime cputimes)
            , Counter SysInfo "KernelTime" (Nanoseconds $ systime cputimes)
+           , Counter SysInfo "CPUTime" (Nanoseconds $ (systime cputimes + usertime cputimes) `div` _dwNumberOfProcessors sysinfo)
            , Counter SysInfo "IdleTime" (Nanoseconds $ idletime cputimes)
            , Counter SysInfo "WindowsPlatformBits" (PureI $ fromIntegral winbits) 
            ]
@@ -311,6 +312,7 @@ readProcStats pid = do
            , Counter StatInfo "UserTime" (Nanoseconds $ usertime cputimes)
            , Counter StatInfo "SystemTime" (Nanoseconds $ systime cputimes)
            , Counter StatInfo "StartTime" (Nanoseconds $ idletime cputimes)
+           , Counter StatInfo "CPUTime" (Nanoseconds $ (systime cputimes + usertime cputimes))
            ]
   where
     getCpuTimes :: IO CpuTimes

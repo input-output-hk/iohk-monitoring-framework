@@ -393,9 +393,10 @@ readProcStatM pid = do
 readProcStats :: ProcessID -> IO [Counter]
 readProcStats pid = do
     ps0 <- readProcList (pathProcStat pid)
-    let ps = zip colnames ps0
-        psUseful = filter (("unused" /=) . fst) ps
-    return $ map (\(n,i) -> Counter StatInfo n (PureI i)) psUseful
+    let ticks = if length ps0 > 15 then (ps0 !! 13 + ps0 !! 14) else 0
+    let ps1 = zip colnames ps0
+        ps2 = [("cputicks",ticks)] <> filter (("unused" /=) . fst) ps1
+    return $ map (\(n,i) -> Counter StatInfo n (PureI i)) ps2
   where
     colnames :: [Text]
     colnames = [ "pid","unused","unused","ppid","pgrp","session","ttynr","tpgid","flags","minflt"
