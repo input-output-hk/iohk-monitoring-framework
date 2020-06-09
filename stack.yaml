@@ -28,7 +28,7 @@ extra-deps:
   - libsystemd-journal-1.4.4
 
   - git: https://github.com/input-output-hk/ouroboros-network
-    commit: c2f1e6b07885ae709446ecb916973c009f16165c
+    commit: 3b92f6e936e004753b46f3efabfbbb8539163ea1
     subdirs:
         - Win32-network
 
