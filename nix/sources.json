@@ -5,22 +5,22 @@
         "homepage": "https://input-output-hk.github.io/haskell.nix",
         "owner": "input-output-hk",
         "repo": "haskell.nix",
-        "rev": "141cd02f291e2fd26522d2978d886c06cc65f093",
-        "sha256": "17k6nxizz01grmc94mdi2fwxw8z6ag9zqyzzpypvnzzdkkcazmdy",
+        "rev": "e2a39958269b186b1e83cf2a3fd7f0edadba7652",
+        "sha256": "0b21jkza5crv8shml6xgkyphsyxanimi5m0c8js97w4vb08wg5cz",
         "type": "tarball",
-        "url": "https://github.com/input-output-hk/haskell.nix/archive/141cd02f291e2fd26522d2978d886c06cc65f093.tar.gz",
+        "url": "https://github.com/input-output-hk/haskell.nix/archive/e2a39958269b186b1e83cf2a3fd7f0edadba7652.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     },
     "iohk-nix": {
-        "branch": "master",
+        "branch": "hkm/recursion-fix",
         "description": "nix scripts shared across projects",
         "homepage": null,
         "owner": "input-output-hk",
         "repo": "iohk-nix",
-        "rev": "dfce0e88fee7d5c29fd6f128d02be3594ae39c88",
-        "sha256": "0z9wn2j2ss03w83n298fcapdw9w3cs13w5hrlp3apwjr9iq7x720",
+        "rev": "2ed8569042809a39f5b9e6f6cebc5fb5f5917881",
+        "sha256": "0vz7mb2bm40bvvil159wa2l6gb8943qgs7aycn8j8dvqn726f4im",
         "type": "tarball",
-        "url": "https://github.com/input-output-hk/iohk-nix/archive/dfce0e88fee7d5c29fd6f128d02be3594ae39c88.tar.gz",
+        "url": "https://github.com/input-output-hk/iohk-nix/archive/2ed8569042809a39f5b9e6f6cebc5fb5f5917881.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     }
 }
