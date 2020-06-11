@@ -341,7 +341,7 @@ instance FromJSON CommandValue where
 data PrivacyAnnotation =
       Confidential -- confidential information - handle with care
     | Public       -- indifferent - can be public.
-    deriving (Show, Eq)
+    deriving (Show, Eq, Ord, Enum, Bounded)
 
 instance FromJSON PrivacyAnnotation where
     parseJSON = withText "PrivacyAnnotation" $
