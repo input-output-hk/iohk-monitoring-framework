@@ -271,10 +271,10 @@ readSysStats pid = do
            , Counter SysInfo "AllocationGranularity" (PureI $ fromIntegral $ _dwAllocationGranularity sysinfo)
            , Counter SysInfo "ProcessorLevel" (PureI $ fromIntegral $ _wProcessorLevel sysinfo)
            , Counter SysInfo "ProcessorRevision" (PureI $ fromIntegral $ _wProcessorRevision sysinfo)
-           , Counter SysInfo "SysUserTime" (Nanoseconds $ usertime cputimes)
-           , Counter SysInfo "KernelTime" (Nanoseconds $ systime cputimes)
-           , Counter SysInfo "CPUTime" (Nanoseconds $ (systime cputimes + usertime cputimes) `div` _dwNumberOfProcessors sysinfo)
-           , Counter SysInfo "IdleTime" (Nanoseconds $ idletime cputimes)
+           , Counter SysInfo "SysUserTime" (Microseconds $ usertime cputimes)
+           , Counter SysInfo "KernelTime" (Microseconds $ systime cputimes)
+           , Counter SysInfo "CPUTime" (Microseconds $ (systime cputimes + usertime cputimes))
+           , Counter SysInfo "IdleTime" (Microseconds $ idletime cputimes)
            , Counter SysInfo "WindowsPlatformBits" (PureI $ fromIntegral winbits) 
            ]
   where
@@ -309,10 +309,10 @@ readProcStats :: ProcessId -> IO [Counter]
 readProcStats pid = do
     cputimes <- getCpuTimes
     return [ Counter StatInfo "Pid" (PureI $ fromIntegral pid)
-           , Counter StatInfo "UserTime" (Nanoseconds $ usertime cputimes)
-           , Counter StatInfo "SystemTime" (Nanoseconds $ systime cputimes)
-           , Counter StatInfo "StartTime" (Nanoseconds $ idletime cputimes)
-           , Counter StatInfo "CPUTime" (Nanoseconds $ (systime cputimes + usertime cputimes))
+           , Counter StatInfo "UserTime" (Microseconds $ usertime cputimes)
+           , Counter StatInfo "SystemTime" (Microseconds $ systime cputimes)
+           , Counter StatInfo "StartTime" (Microseconds $ idletime cputimes)
+           , Counter StatInfo "CPUTime" (Microseconds $ (systime cputimes + usertime cputimes))
            ]
   where
     getCpuTimes :: IO CpuTimes
