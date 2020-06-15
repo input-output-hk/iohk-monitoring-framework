@@ -421,6 +421,7 @@ readSysStats _pid = do
              Counter SysInfo "boot_time" (Seconds $ fromIntegral bootsecs)
            , Counter SysInfo "SysUserTime" (Nanoseconds $ fromIntegral (1000 * _usertime cpuinfo))
            , Counter SysInfo "SystemTime" (Nanoseconds $ fromIntegral (1000 * _systime cpuinfo))
+           , Counter SysInfo "CPUTime" (Nanoseconds $ fromIntegral (1000 * (_systime cpuinfo + _usertime cpuinfo)))
            , Counter SysInfo "IdleTime" (Nanoseconds $ fromIntegral (1000 * _idletime cpuinfo))
            , Counter SysInfo "NiceTime" (Nanoseconds $ fromIntegral (1000 * _nicetime cpuinfo))
            , Counter SysInfo "Platform" (PureI $ fromIntegral $ fromEnum Darwin)

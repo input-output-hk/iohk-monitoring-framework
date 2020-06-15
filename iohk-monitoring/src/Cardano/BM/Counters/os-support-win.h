@@ -1,8 +1,8 @@
 
 typedef struct _CPU_TIMES {
-  double usertime;
-  double systime;
-  double idletime;
+  ULONGLONG usertime;
+  ULONGLONG systime;
+  ULONGLONG idletime;
 } CPU_TIMES;
 
 int c_get_process_memory_info (PROCESS_MEMORY_COUNTERS *counters, DWORD pid);
