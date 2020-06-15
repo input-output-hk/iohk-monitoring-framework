@@ -46,7 +46,7 @@ import           Text.Read (readMaybe)
 import           Cardano.BM.Configuration
 import           Cardano.BM.Data.Backend
 import           Cardano.BM.Data.Configuration (RemoteAddr(..))
-import           Cardano.BM.Data.LogItem (LOMeta (..), LogObject (..))
+import           Cardano.BM.Data.LogItem (LOContent (..), LOMeta (..), LogObject (..))
 import           Cardano.BM.Data.Severity (Severity (..))
 import           Cardano.BM.IOManager
 import           Cardano.BM.Plugin
@@ -110,12 +110,30 @@ instance (ToJSON a) => IsEffectuator TraceForwarder a where
     effectuate tf lo = do
         let currentMVar = getTF tf
         currentTF <- readMVar currentMVar
-        when (severity (loMeta lo) >= tfFilter currentTF) $ do
-          let queue = tfQueue currentTF
-          noCapacity <- atomically $ TBQ.isFullTBQueue queue
-          if noCapacity
-            then handleOverflow tf
-            else atomically $ TBQ.writeTBQueue queue lo
+        -- Severity filter allows to ignore LogObjects with too low severity.
+        -- However, errors and metrics should be forwarded in any case,
+        -- regardless their severity.
+        if isError
+          then writeMessageToQueue currentTF
+          else case loContent lo of
+                 LogValue _ _ -> writeMessageToQueue currentTF
+                 _            -> when (severity (loMeta lo) >= tfFilter currentTF) $
+                                   writeMessageToQueue currentTF
+     where
+      isError = errByConstr || errBySev
+       where
+        errByConstr =
+          case loContent lo of
+            LogError _ -> True
+            _          -> False
+        errBySev = severity (loMeta lo) == Error
+
+      writeMessageToQueue currentTF' = do
+        let queue = tfQueue currentTF'
+        noCapacity <- atomically $ TBQ.isFullTBQueue queue
+        if noCapacity
+          then handleOverflow tf
+          else atomically $ TBQ.writeTBQueue queue lo
 
     handleOverflow _ = TIO.hPutStrLn stderr "Notice: TraceForwarder's queue is full, dropping log items!"
 
