@@ -22,7 +22,7 @@ module Cardano.BM.Backend.TraceForwarder
     ) where
 
 import           Control.Exception
-import           Control.Monad (when)
+import           Control.Monad (forever, when)
 import           Control.Concurrent (threadDelay)
 import qualified Control.Concurrent.Async as Async
 import           Control.Concurrent.MVar (MVar, modifyMVar_, newMVar, readMVar)
@@ -73,7 +73,7 @@ plugin config _trace _sb tfid = do
                    Nothing -> Debug
                    Just sevtext -> fromMaybe Debug (readMaybe $ unpack sevtext)
     be :: Cardano.BM.Backend.TraceForwarder.TraceForwarder a <- realize config
-    dispatcherThr <- spawnDispatcher (getTF be)
+    dispatcherThr <- spawnDispatcher config (getTF be)
     modifyMVar_ (getTF be) $ \initialBE ->
       return $ initialBE
                  { tfFilter     = minsev
@@ -186,51 +186,59 @@ instance Exception TraceForwarderBackendFailure
 
 \subsubsection{Asynchronously reading log items from the queue and sending them to an acceptor.}
 \begin{code}
-spawnDispatcher :: ToJSON a => TraceForwarderMVar a -> IO (Async.Async ())
-spawnDispatcher tfMVar = Async.async $ processQueue
+spawnDispatcher :: ToJSON a => Configuration -> TraceForwarderMVar a -> IO (Async.Async ())
+spawnDispatcher config tfMVar = do
+  -- To reduce network traffic it's possible to send log items not one by one,
+  -- but collect them in the queue and periodically send this list as one ByteString.
+  forwardDelay <- getForwardDelay config >>= \case
+    Nothing -> pure defaultDelayInMs
+    Just delayInMs -> pure delayInMs
+  Async.async $ processQueue forwardDelay
  where
-  processQueue :: IO ()
-  processQueue = do
+  -- If the configuration doesn't specify forward delay, use default one.
+  defaultDelayInMs :: Word
+  defaultDelayInMs = 1000
+
+  processQueue :: Word -> IO ()
+  processQueue delayInMs = forever $ do
+    threadDelay $ fromIntegral delayInMs * 1000
     currentTF <- readMVar tfMVar
-    -- Read the next log item from the queue. If the queue is still empty -
-    -- blocking and waiting for the next log item.
-    nextItem <- atomically $ TBQ.readTBQueue (tfQueue currentTF)
+    itemsList <- atomically $ TBQ.flushTBQueue (tfQueue currentTF)
     -- Try to write it to the handle. If there's a problem with connection,
     -- this thread will initiate re\-establishing of the connection and
     -- will wait until it's established.
-    sendItem tfMVar nextItem
-    -- Continue...
-    processQueue
+    sendItems config tfMVar itemsList
 
--- Try to send log item to the handle.
-sendItem :: ToJSON a => TraceForwarderMVar a -> LogObject a -> IO ()
-sendItem tfMVar lo =
+-- Try to send log items to the handle.
+sendItems :: ToJSON a => Configuration -> TraceForwarderMVar a -> [LogObject a] -> IO ()
+sendItems _ _ [] = return ()
+sendItems config tfMVar items@(lo:_) =
   tfHandle <$> readMVar tfMVar >>= \case
     Nothing -> do
       -- There's no handle, initiate the connection.
       establishConnection 1 1 tfMVar
       -- Connection is re\-established, try to send log item.
-      sendItem tfMVar lo
+      sendItems config tfMVar items
     Just h ->
       try (BSC.hPutStrLn h $! encodedHostname) >>= \case
         Right _ ->
           -- Hostname was written to the handler successfully,
-          -- try to write serialized LogObject.
+          -- try to write serialized list of LogObjects.
           try (BSC.hPutStrLn h $! bs) >>= \case
             Right _ ->
-              return () -- Everything is ok, LogObject was written to the handler.
+              return () -- Everything is ok, LogObjects were written to the handler.
             Left (_e :: IOException) -> do
               reConnectIfQueueIsAlmostFull
               threadDelay 10000
-              sendItem tfMVar lo
+              sendItems config tfMVar items
         Left (_e :: IOException) -> do
           reConnectIfQueueIsAlmostFull
           threadDelay 10000
-          sendItem tfMVar lo
+          sendItems config tfMVar items
  where
   encodedHostname = encodeUtf8 (hostname . loMeta $ lo)
 
-  (_, bs) = jsonToBS lo
+  (_, bs) = jsonToBS items
 
   jsonToBS :: ToJSON b => b -> (Int, BS.ByteString)
   jsonToBS a =
@@ -256,7 +264,7 @@ sendItem tfMVar lo =
     almostFullSize = 0.8 * fromIntegral queueMaxSize
 
 queueMaxSize :: Natural
-queueMaxSize = 500
+queueMaxSize = 2500
 
 establishConnection :: Int -> Int -> TraceForwarderMVar a -> IO ()
 establishConnection delayInSec delayInSec' tfMVar = withIOManager $ \iomgr -> do

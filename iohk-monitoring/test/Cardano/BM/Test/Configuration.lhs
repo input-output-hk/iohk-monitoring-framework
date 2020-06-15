@@ -106,6 +106,7 @@ unitConfigurationStaticRepresentation =
             , hasEKG = Just 18321
             , hasPrometheus = Just ("localhost", 12799)
             , traceForwardTo = Just (RemotePipe "to")
+            , forwardDelay = Just 1000
             , traceAcceptAt = Just [RemoteAddrNamed "a" (RemotePipe "at")]
             , options =
                 HM.fromList [ ("test1", Object (HM.singleton "value" "object1"))
@@ -151,6 +152,7 @@ unitConfigurationStaticRepresentation =
             , "  scFormat: ScText"
             , "  scPrivacy: ScPublic"
             , "hasEKG: 18321"
+            , "forwardDelay: 1000"
             , "minSeverity: Info"
             , "" -- to force a line feed at the end of the file
             ]
@@ -242,6 +244,7 @@ unitConfigurationParsedRepresentation = do
             , "  scFormat: ScText"
             , "  scPrivacy: ScPublic"
             , "hasEKG: 12789"
+            , "forwardDelay: 1000"
             , "minSeverity: Info"
             , "" -- to force a line feed at the end of the file
             ]
@@ -384,6 +387,7 @@ unitConfigurationParsed = do
         , cgBindAddrPrometheus = Nothing
         , cgPortGUI           = 0
         , cgForwardTo         = Just (RemotePipe "to")
+        , cgForwardDelay      = Just 1000
         , cgAcceptAt          = Just [RemoteAddrNamed "a" (RemotePipe "at")]
         }
 

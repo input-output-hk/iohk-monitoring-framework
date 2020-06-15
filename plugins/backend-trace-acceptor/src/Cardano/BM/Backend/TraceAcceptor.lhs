@@ -41,7 +41,7 @@ import           Cardano.BM.Data.Backend
 import           Cardano.BM.Data.BackendKind (BackendKind(TraceAcceptorBK))
 import           Cardano.BM.Data.Configuration (RemoteAddr(..), RemoteAddrNamed(..))
 import           Cardano.BM.Data.LogItem
-                   ( LOContent (LogError), LOMeta (..)
+                   ( LOContent (LogError), LOMeta (..), LogObject (..)
                    , PrivacyAnnotation (Public), loName, mkLOMeta
                    )
 import           Cardano.BM.Data.Severity (Severity (..))
@@ -66,7 +66,7 @@ plugin iomgr cf basicTrace _ = getAcceptAt cf >>= \case
   Just acceptors -> do
     socketsNServers <- forM acceptors $ \(RemoteAddrNamed nodeName addr) -> do
       let trace = Trace.appendName nodeName basicTrace
-      (serverCleanup, serverThr) <- acceptorForAddress trace iomgr addr
+      (serverCleanup, serverThr) <- acceptorForAddress cf trace iomgr addr
       Async.link serverThr
       return (serverCleanup, serverThr)
 
@@ -122,24 +122,27 @@ instance Exception TraceAcceptorBackendFailure
 
 acceptorForAddress
   :: FromJSON a
-  => Trace.Trace IO a
+  => Configuration
+  -> Trace.Trace IO a
   -> IOManager
   -> RemoteAddr
   -> IO (IO (), Async.Async ())
-acceptorForAddress trace iomgr (RemotePipe pipePath) =
+acceptorForAddress config trace iomgr (RemotePipe pipePath) =
   handleError TraceAcceptorPipeError $
   acceptorForSnocket
+    config
     trace
     Snocket.localFDToHandle
     (Snocket.localSnocket iomgr pipePath)
     (Snocket.localAddressFromPath pipePath)
 
-acceptorForAddress trace iomgr (RemoteSocket host port) = handleError TraceAcceptorSocketError $ do
+acceptorForAddress config trace iomgr (RemoteSocket host port) = handleError TraceAcceptorSocketError $ do
   let sn = Snocket.socketSnocket iomgr
   ainfos <- Socket.getAddrInfo Nothing (Just host) (Just port)
   case ainfos of
     [] -> throwIO (TraceAcceptorSocketError ("bad socket address: " <> host <> ":" <> port))
     a:_ -> acceptorForSnocket
+             config
              trace
              (flip Socket.socketToHandle IO.ReadWriteMode)
              sn
@@ -147,12 +150,13 @@ acceptorForAddress trace iomgr (RemoteSocket host port) = handleError TraceAccep
 
 acceptorForSnocket
   :: forall a fd addr. (FromJSON a)
-  => Trace.Trace IO a
+  => Configuration
+  -> Trace.Trace IO a
   -> (fd -> IO Handle)
   -> Snocket.Snocket IO fd addr
   -> addr
   -> IO (IO (), Async.Async ())
-acceptorForSnocket trace toHandle sn addr = do
+acceptorForSnocket config trace toHandle sn addr = do
   sock <- Snocket.mkListeningSocket sn (Just addr) (Snocket.addrFamily sn addr)
   server <- Async.async $
     bracket (pure sock) (Snocket.close sn) $
@@ -163,7 +167,7 @@ acceptorForSnocket trace toHandle sn addr = do
    acceptLoop (Snocket.Accept accept) = do
       (cfd, _caddr, k) <- accept
       h <- toHandle cfd
-      _client <- Async.async $ clientThread trace h
+      _client <- Async.async $ clientThread config trace h
       acceptLoop k
 
 \end{code}
@@ -172,10 +176,11 @@ acceptorForSnocket trace toHandle sn addr = do
 \begin{code}
 clientThread
   :: forall a. (FromJSON a)
-  => Trace.Trace IO a
+  => Configuration
+  -> Trace.Trace IO a
   -> Handle
   -> IO ()
-clientThread sbtrace h = handleError TraceAcceptorClientThreadError pProc
+clientThread config sbtrace h = handleError TraceAcceptorClientThreadError pProc
   where
     {-@ lazy pProc @-}
     pProc :: IO ()
@@ -185,8 +190,8 @@ clientThread sbtrace h = handleError TraceAcceptorClientThreadError pProc
       unless (BS.null bs) $ do
         let hname = decodeUtf8 hn
         case eitherDecodeStrict bs of
-          Right lo ->
-            traceWith sbtrace (loName lo, lo)
+          Right (logObjects :: [LogObject a]) ->
+              mapM_ (\lo -> traceWith sbtrace (loName lo, lo)) logObjects
           Left e -> do
               lometa0 <- mkLOMeta Warning Public
               let trace :: Trace.Trace IO a
@@ -196,5 +201,4 @@ clientThread sbtrace h = handleError TraceAcceptorClientThreadError pProc
                   (,) <$> pure lometa
                       <*> pure (LogError $ "Could not parse external log objects: " <> pack e)
         pProc
-
 \end{code}

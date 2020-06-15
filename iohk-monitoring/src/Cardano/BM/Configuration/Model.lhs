@@ -25,6 +25,7 @@ module Cardano.BM.Configuration.Model
     , getDefaultBackends
     , getEKGport
     , getForwardTo
+    , getForwardDelay
     , getGUIport
     , getGraylogPort
     , getMapOption
@@ -45,6 +46,7 @@ module Cardano.BM.Configuration.Model
     , setDefaultScribes
     , setEKGport
     , setForwardTo
+    , setForwardDelay
     , setGUIport
     , setGraylogPort
     , setMinSeverity
@@ -149,6 +151,8 @@ data ConfigurationInternal = ConfigurationInternal
     -- host/port to bind Prometheus server at
     , cgForwardTo         :: Maybe RemoteAddr
     -- trace acceptor to forward to
+    , cgForwardDelay      :: Maybe Word
+    -- delay before sending log items from the queue
     , cgAcceptAt          :: Maybe [RemoteAddrNamed]
     -- accept remote traces at this address
     , cgPortGUI           :: Int
@@ -340,6 +344,13 @@ setForwardTo cf mra =
     modifyMVar_ (getCG cf) $ \cg ->
         return cg { cgForwardTo = mra }
 
+getForwardDelay :: Configuration -> IO (Maybe Word)
+getForwardDelay = fmap cgForwardDelay . readMVar . getCG
+
+setForwardDelay :: Configuration -> Maybe Word -> IO ()
+setForwardDelay cf mc =
+    modifyMVar_ (getCG cf) $ \cg ->
+        return cg { cgForwardDelay = mc }
 \end{code}
 
 \subsubsection{Options}
@@ -495,6 +506,7 @@ setupFromRepresentation r = do
         , cgBindAddrPrometheus = r_hasPrometheus r
         , cgPortGUI           = r_hasGUI r
         , cgForwardTo         = r_forward r
+        , cgForwardDelay      = r_forward_delay r
         , cgAcceptAt          = r_accept r
         }
     return $ Configuration cgref
@@ -550,6 +562,7 @@ setupFromRepresentation r = do
                        Nothing -> 0
                        Just p  -> p
     r_forward repr = R.traceForwardTo repr
+    r_forward_delay repr = R.forwardDelay repr
     r_accept repr = R.traceAcceptAt repr
     r_defaultScribes repr = map (\(k,n) -> pack(show k) <> "::" <> n) (R.defaultScribes repr)
 
@@ -588,6 +601,7 @@ empty = do
                            , cgBindAddrPrometheus = Nothing
                            , cgPortGUI           = 0
                            , cgForwardTo         = Nothing
+                           , cgForwardDelay      = Nothing
                            , cgAcceptAt          = Nothing
                            }
     return $ Configuration cgref
@@ -652,6 +666,7 @@ toRepresentation (Configuration c) = do
             , R.hasPrometheus   = cgBindAddrPrometheus cfg
             , R.hasGUI          = if portGUI == 0 then Nothing else Just portGUI
             , R.traceForwardTo  = cgForwardTo cfg
+            , R.forwardDelay    = cgForwardDelay cfg
             , R.traceAcceptAt   = cgAcceptAt cfg
             , R.options         = mapSeverities `HM.union`
                                   mapBackends   `HM.union`
