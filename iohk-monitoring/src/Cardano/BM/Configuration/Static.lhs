@@ -35,6 +35,8 @@ defaultConfigStdout = do
                             , scKind = StdoutSK
                             , scPrivacy = ScPublic
                             , scRotation = Nothing
+                            , scMinSev = minBound
+                            , scMaxSev = maxBound
                             }
                          ,  ScribeDefinition {
                               scName = "json"
@@ -42,6 +44,8 @@ defaultConfigStdout = do
                             , scKind = StdoutSK
                             , scPrivacy = ScPublic
                             , scRotation = Nothing
+                            , scMinSev = minBound
+                            , scMaxSev = maxBound
                             }
                          ]
     CM.setDefaultScribes c ["StdoutSK::text"]
@@ -63,6 +67,8 @@ defaultConfigTesting = do
                             , scKind = DevNullSK
                             , scPrivacy = ScPublic
                             , scRotation = Nothing
+                            , scMinSev = minBound
+                            , scMaxSev = maxBound
                             }
                       ]
     CM.setDefaultScribes c ["NullSK::nooutput"]

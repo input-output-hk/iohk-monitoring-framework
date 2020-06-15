@@ -102,8 +102,10 @@ instance ToJSON a => IsEffectuator Log a where
                     LogObject _ (LOMeta _ _ _ _ Confidential) (LogMessage _)
                         -> removePublicScribes setupScribes selscribes
                     _   -> selscribes
-        forM_ (onlyScribes ScText setupScribes selscribesFiltered) $ \sc -> passText sc katip item
-        forM_ (onlyScribes ScJson setupScribes selscribesFiltered) $ \sc -> passStrx sc katip item
+            sev :: Severity
+            sev = severity (loMeta item)
+        forM_ (onlyScribes ScText sev setupScribes selscribesFiltered) $ \sc -> passText sc katip item
+        forM_ (onlyScribes ScJson sev setupScribes selscribesFiltered) $ \sc -> passStrx sc katip item
       where
         removePublicScribes allScribes = filter $ \scn ->
             let (_, nameD) = T.breakOn "::" scn
@@ -112,11 +114,11 @@ instance ToJSON a => IsEffectuator Log a where
             case find (\scd -> scName scd == name) allScribes of
                 Nothing     -> False
                 Just scribe -> scPrivacy scribe == ScPrivate
-        onlyScribes :: ScribeFormat -> [ScribeDefinition] -> [Text] -> [Text]
-        onlyScribes form allScribes = filter $ \scn ->
-            case find (\scd -> (pack $ show $ scKind scd) <> "::" <> (scName scd) == scn) allScribes of
+        onlyScribes :: ScribeFormat -> Severity -> [ScribeDefinition] -> [Text] -> [Text]
+        onlyScribes form sev allScribes = filter $ \scn ->
+            case find (\scd -> pack (show $ scKind scd) <> "::" <> scName scd == scn) allScribes of
                 Nothing     -> False
-                Just scribe -> scFormat scribe == form
+                Just scribe -> scFormat scribe == form && scMinSev scribe <= sev && scMaxSev scribe >= sev
 
     handleOverflow _ = TIO.hPutStrLn stderr "Notice: Katip's queue full, dropping log items!"
 

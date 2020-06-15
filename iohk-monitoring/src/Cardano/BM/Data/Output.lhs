@@ -25,6 +25,7 @@ import           Data.Maybe (fromMaybe)
 import           Data.Text (Text)
 
 import           Cardano.BM.Data.Rotation (RotationParameters)
+import           Cardano.BM.Data.Severity
 
 import           GHC.Generics (Generic)
 
@@ -93,6 +94,8 @@ data ScribeDefinition = ScribeDefinition
     , scName     :: Text
     , scPrivacy  :: ScribePrivacy
     , scRotation :: Maybe RotationParameters
+    , scMinSev   :: Severity
+    , scMaxSev   :: Severity
     }
     deriving (Generic, Eq, Ord, Show, ToJSON)
 
@@ -103,12 +106,16 @@ instance FromJSON ScribeDefinition where
         mayFormat  <- o .:? "scFormat"
         mayPrivacy <- o .:? "scPrivacy"
         rotation   <- o .:? "scRotation"
+        mayMinSev  <- o .:? "scMinSev"
+        mayMaxSev  <- o .:? "scMaxSev"
         return $ ScribeDefinition
                     { scKind     = kind
                     , scName     = name
                     , scFormat   = fromMaybe ScJson mayFormat
                     , scPrivacy  = fromMaybe ScPublic mayPrivacy
                     , scRotation = rotation
+                    , scMinSev   = fromMaybe minBound mayMinSev
+                    , scMaxSev   = fromMaybe maxBound mayMaxSev
                     }
     parseJSON invalid = typeMismatch "ScribeDefinition" invalid
 

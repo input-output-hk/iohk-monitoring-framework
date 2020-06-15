@@ -69,6 +69,8 @@ main = do
                             , scFormat = ScText
                             , scKind = StdoutSK
                             , scPrivacy = ScPublic
+                            , scMinSev = minBound
+                            , scMaxSev = maxBound
                             , scRotation = Nothing
                             }
                          ,  ScribeDefinition {
@@ -76,6 +78,8 @@ main = do
                             , scFormat = ScJson
                             , scKind = StdoutSK
                             , scPrivacy = ScPublic
+                            , scMinSev = minBound
+                            , scMaxSev = maxBound
                             , scRotation = Nothing
                             }
                          ]

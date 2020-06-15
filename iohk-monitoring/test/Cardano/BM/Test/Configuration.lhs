@@ -92,10 +92,12 @@ unitConfigurationStaticRepresentation =
                                     , rpKeepFilesNum  = 10
                                     }
             , setupScribes =
-                [ ScribeDefinition { scName = "stdout"
-                                   , scKind = StdoutSK
+                [ ScribeDefinition { scName     = "stdout"
+                                   , scKind     = StdoutSK
                                    , scFormat   = ScText
-                                   , scPrivacy = ScPublic
+                                   , scPrivacy  = ScPublic
+                                   , scMinSev   = minBound
+                                   , scMaxSev   = maxBound
                                    , scRotation = Nothing }
                 ]
             , defaultScribes = [(StdoutSK, "stdout")]
@@ -146,8 +148,10 @@ unitConfigurationStaticRepresentation =
             , "  test1:"
             , "    value: object1"
             , "setupScribes:"
-            , "- scName: stdout"
+            , "- scMaxSev: Emergency"
+            , "  scName: stdout"
             , "  scRotation: null"
+            , "  scMinSev: Debug"
             , "  scKind: StdoutSK"
             , "  scFormat: ScText"
             , "  scPrivacy: ScPublic"
@@ -230,16 +234,20 @@ unitConfigurationParsedRepresentation = do
             , "    - EKGViewBK"
             , "    - AggregationBK"
             , "setupScribes:"
-            , "- scName: testlog"
+            , "- scMaxSev: Emergency"
+            , "  scName: testlog"
             , "  scRotation:"
             , "    rpLogLimitBytes: 25000000"
             , "    rpKeepFilesNum: 3"
             , "    rpMaxAgeHours: 24"
+            , "  scMinSev: Debug"
             , "  scKind: FileSK"
             , "  scFormat: ScText"
             , "  scPrivacy: ScPrivate"
-            , "- scName: stdout"
+            , "- scMaxSev: Emergency"
+            , "  scName: stdout"
             , "  scRotation: null"
+            , "  scMinSev: Debug"
             , "  scKind: StdoutSK"
             , "  scFormat: ScText"
             , "  scPrivacy: ScPublic"
@@ -347,6 +355,8 @@ unitConfigurationParsed = do
                                     , scFormat   = ScText
                                     , scName     = "testlog"
                                     , scPrivacy  = ScPrivate
+                                    , scMinSev   = minBound
+                                    , scMaxSev   = maxBound
                                     , scRotation = Just $ RotationParameters
                                                     { rpLogLimitBytes = 25000000
                                                     , rpMaxAgeHours   = 24
@@ -358,6 +368,8 @@ unitConfigurationParsed = do
                                     , scFormat = ScText
                                     , scName = "stdout"
                                     , scPrivacy = ScPublic
+                                    , scMinSev   = minBound
+                                    , scMaxSev   = maxBound
                                     , scRotation = Nothing
                                     }
                                 ]
