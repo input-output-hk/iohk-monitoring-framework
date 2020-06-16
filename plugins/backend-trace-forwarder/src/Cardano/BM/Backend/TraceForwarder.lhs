@@ -126,7 +126,7 @@ instance (ToJSON a) => IsEffectuator TraceForwarder a where
           case loContent lo of
             LogError _ -> True
             _          -> False
-        errBySev = severity (loMeta lo) == Error
+        errBySev = severity (loMeta lo) >= Error
 
       writeMessageToQueue currentTF' = do
         let queue = tfQueue currentTF'
