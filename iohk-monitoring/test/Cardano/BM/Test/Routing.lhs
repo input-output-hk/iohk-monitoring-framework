@@ -109,6 +109,8 @@ unit_generic_scribe_backend defaultBackends setBackends defaultScribes setScribe
                             , scFormat = ScText
                             , scPrivacy = ScPublic
                             , scRotation = Nothing
+                            , scMinSev = minBound
+                            , scMaxSev = maxBound
                             }
                          ]
 

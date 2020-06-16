@@ -98,6 +98,8 @@ prepare_configuration = do
                             , scKind = StdoutSK
                             , scFormat = ScText
                             , scPrivacy = ScPublic
+                            , scMinSev = Notice
+                            , scMaxSev = maxBound
                             , scRotation = Nothing
                             }
                          , ScribeDefinition {
@@ -105,6 +107,8 @@ prepare_configuration = do
                             , scKind = FileSK
                             , scFormat = ScJson
                             , scPrivacy = ScPublic
+                            , scMinSev = minBound
+                            , scMaxSev = maxBound
                             , scRotation = Just $ RotationParameters
                                               { rpLogLimitBytes = 5000 -- 5kB
                                               , rpMaxAgeHours   = 24
@@ -116,6 +120,8 @@ prepare_configuration = do
                             , scKind = FileSK
                             , scFormat = ScJson
                             , scPrivacy = ScPublic
+                            , scMinSev = minBound
+                            , scMaxSev = maxBound
                             , scRotation = Just $ RotationParameters
                                               { rpLogLimitBytes = 5000 -- 5kB
                                               , rpMaxAgeHours   = 24
@@ -127,6 +133,8 @@ prepare_configuration = do
                             , scKind = FileSK
                             , scFormat = ScJson
                             , scPrivacy = ScPublic
+                            , scMinSev = minBound
+                            , scMaxSev = maxBound
                             , scRotation = Just $ RotationParameters
                                               { rpLogLimitBytes = 5000 -- 5kB
                                               , rpMaxAgeHours   = 24
@@ -138,6 +146,21 @@ prepare_configuration = do
                             , scKind = FileSK
                             , scFormat = ScText
                             , scPrivacy = ScPublic
+                            , scMinSev = Info
+                            , scMaxSev = maxBound
+                            , scRotation = Just $ RotationParameters
+                                              { rpLogLimitBytes = 5000 -- 5kB
+                                              , rpMaxAgeHours   = 24
+                                              , rpKeepFilesNum  = 3
+                                              }
+                            }
+                         , ScribeDefinition {
+                              scName = "logs/info.txt"
+                            , scKind = FileSK
+                            , scFormat = ScText
+                            , scPrivacy = ScPublic
+                            , scMinSev = Debug
+                            , scMaxSev = Info
                             , scRotation = Just $ RotationParameters
                                               { rpLogLimitBytes = 5000 -- 5kB
                                               , rpMaxAgeHours   = 24
@@ -149,6 +172,8 @@ prepare_configuration = do
                             , scKind = FileSK
                             , scFormat = ScJson
                             , scPrivacy = ScPublic
+                            , scMinSev = minBound
+                            , scMaxSev = maxBound
                             , scRotation = Just $ RotationParameters
                                               { rpLogLimitBytes = 50000000 -- 50 MB
                                               , rpMaxAgeHours   = 24
@@ -157,7 +182,7 @@ prepare_configuration = do
                             }
                          ]
 #ifdef LINUX
-    CM.setDefaultScribes c ["StdoutSK::stdout", "JournalSK::example-complex"]
+    CM.setDefaultScribes c ["StdoutSK::stdout", "FileSK::logs/out.txt", "FileSK::logs/info.txt", "JournalSK::example-complex"]
 #else
     CM.setDefaultScribes c ["StdoutSK::stdout"]
 #endif

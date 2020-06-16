@@ -722,6 +722,8 @@ unitLoggingPrivate = do
                             , scFormat   = ScText
                             , scName     = pack privateFile
                             , scPrivacy  = ScPrivate
+                            , scMinSev   = minBound
+                            , scMaxSev   = maxBound
                             , scRotation = Nothing
                             }
                          , ScribeDefinition
@@ -729,6 +731,8 @@ unitLoggingPrivate = do
                             , scFormat   = ScText
                             , scName     = pack publicFile
                             , scPrivacy  = ScPublic
+                            , scMinSev   = minBound
+                            , scMaxSev   = maxBound
                             , scRotation = Nothing
                             }
                          ]
