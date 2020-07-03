@@ -93,7 +93,7 @@ library
                        aeson >= 1.4.2,
                        array,
                        async,
-                       async-timer,
+                       async-timer >= 0.2.0.0,
                        attoparsec,
                        auto-update,
                        base64-bytestring,
