@@ -18,6 +18,7 @@ module Cardano.BM.Data.Configuration
     Representation (..)
   , Port
   , HostPort
+  , Endpoint (..)
   , RemoteAddr (..)
   , RemoteAddrNamed (..)
   , parseRepresentation
@@ -26,11 +27,14 @@ module Cardano.BM.Data.Configuration
   where
 
 import           Control.Exception (throwIO)
+import           Data.Aeson.Types (typeMismatch)
 import           Data.ByteString.Char8 (ByteString)
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.HashMap.Strict as HM
-import           Data.Text (Text)
+import           Data.Text (Text, unpack)
 import qualified Data.Set as Set
+import           Data.Scientific (Scientific, toBoundedInteger)
+import qualified Data.Vector as V
 import           Data.Yaml
 import           GHC.Generics
 
@@ -46,6 +50,47 @@ import           Cardano.BM.Data.Rotation
 \begin{code}
 type Port = Int
 type HostPort = (String, Port)
+newtype Endpoint = Endpoint HostPort
+  deriving (Eq, Generic, Show, ToJSON)
+
+-- It's possible to specify host and port for EKG or port only
+-- (to keep backward compatibility with existing configurations).
+-- For example:
+--   hasEKG:
+--     - "127.0.0.1"
+--     - 12789
+-- or
+--   hasEKG: 12789
+-- That's why we provide a custom FromJSON-instance for Endpoint.
+instance FromJSON Endpoint where
+  parseJSON o@(Array a) =
+    case V.toList a of
+      [h, p] -> do
+        host <-
+          case h of
+            String s -> return s
+            _ -> typeMismatch "String" h
+        port <-
+          case p of
+            Number n ->
+              case mkInt n of
+                Just p' -> return p'
+                Nothing -> typeMismatch "Number" p
+            _ -> typeMismatch "Object" p
+        return $ Endpoint (unpack host, port)
+      _ -> typeMismatch "Array" o
+
+  parseJSON o@(Number n) =
+    case mkInt n of
+      Just port -> return $ Endpoint ("127.0.0.1", port)
+      Nothing -> typeMismatch "Number" o
+
+  parseJSON invalid =
+    typeMismatch "Object" invalid
+
+mkInt :: Scientific -> Maybe Int
+mkInt = toBoundedInteger
+
 data Representation = Representation
     { minSeverity     :: Severity
     , rotation        :: Maybe RotationParameters
@@ -53,7 +98,7 @@ data Representation = Representation
     , defaultScribes  :: [(ScribeKind,Text)]
     , setupBackends   :: [BackendKind]
     , defaultBackends :: [BackendKind]
-    , hasEKG          :: Maybe Port
+    , hasEKG          :: Maybe Endpoint
     , hasGraylog      :: Maybe Port
     , hasPrometheus   :: Maybe HostPort
     , hasGUI          :: Maybe Port
