@@ -55,7 +55,7 @@ import           Cardano.BM.Counters (readCounters)
 import           Cardano.BM.Data.Aggregated (Measurable (..))
 import           Cardano.BM.Data.AggregatedKind
 import           Cardano.BM.Data.BackendKind
-import           Cardano.BM.Data.Configuration (RemoteAddr(..))
+import           Cardano.BM.Data.Configuration (Endpoint(..), RemoteAddr(..))
 import           Cardano.BM.Data.Counter
 import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.MonitoringEval
@@ -254,7 +254,7 @@ prepare_configuration = do
 
     CM.setScribes c "complex.counters" (Just ["StdoutSK::stdout","FileSK::logs/out.json"])
 
-    CM.setEKGport c 12790
+    CM.setEKGBindAddr c $ Just (Endpoint ("localhost", 12790))
     CM.setPrometheusBindAddr c $ Just ("localhost", 12800)
     CM.setGUIport c 13790
 \end{code}

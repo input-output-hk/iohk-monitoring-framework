@@ -28,6 +28,7 @@ import           Control.Exception.Safe (throwM)
 import           Control.Monad (void, forM_)
 import           Control.Monad.IO.Class (liftIO)
 import           Data.Aeson (FromJSON, ToJSON, encode)
+import qualified Data.ByteString.Char8 as BS
 import qualified Data.HashMap.Strict as HM
 import           Data.Int (Int64)
 import           Data.Maybe (fromMaybe)
@@ -46,10 +47,11 @@ import           Paths_iohk_monitoring (version)
 
 import           Cardano.BM.Backend.ProcessQueue (processQueue)
 import           Cardano.BM.Backend.Prometheus (spawnPrometheus)
-import           Cardano.BM.Configuration (Configuration, getEKGport,
+import           Cardano.BM.Configuration (Configuration, getEKGBindAddr,
                      getPrometheusBindAddr, testSubTrace)
 import           Cardano.BM.Data.Aggregated
 import           Cardano.BM.Data.Backend
+import           Cardano.BM.Data.Configuration (Endpoint (..))
 import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.Trace
@@ -221,8 +223,11 @@ instance (ToJSON a, FromJSON a) => IsBackend EKGView a where
     realizefrom config sbtrace _ = do
         evref <- newEmptyMVar
         let ekgview = EKGView evref
-        evport <- getEKGport config
-        ehdl <- (forkServer "127.0.0.1" evport
+        evHostPort <- getEKGBindAddr config
+        (evHost, evPort) <- case evHostPort of
+          Just (Endpoint ehp) -> return ehp
+          Nothing -> fail "EKG Backend is enabled, but its host/port are undefined!"
+        ehdl <- (forkServer (BS.pack evHost) evPort
                  -- This unfortunate delay is to catch the async exception.
                  <* threadDelay 300000)
             `catch` mkHandler EKGServerStartupError

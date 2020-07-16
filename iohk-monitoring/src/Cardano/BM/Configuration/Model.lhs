@@ -23,7 +23,7 @@ module Cardano.BM.Configuration.Model
     , getBackends
     , getCachedScribes
     , getDefaultBackends
-    , getEKGport
+    , getEKGBindAddr
     , getForwardTo
     , getForwardDelay
     , getGUIport
@@ -44,7 +44,7 @@ module Cardano.BM.Configuration.Model
     , setDefaultAggregatedKind
     , setDefaultBackends
     , setDefaultScribes
-    , setEKGport
+    , setEKGBindAddr
     , setForwardTo
     , setForwardDelay
     , setGUIport
@@ -143,8 +143,8 @@ data ConfigurationInternal = ConfigurationInternal
     -- kind of Aggregated that will be used if a set of scribes for the
     -- specific loggername is not set
     , cgMonitors          :: HM.HashMap LoggerName (MEvPreCond, MEvExpr, [MEvAction])
-    , cgPortEKG           :: Int
-    -- port for EKG server
+    , cgBindAddrEKG       :: Maybe R.Endpoint
+    -- host/port for EKG server
     , cgPortGraylog       :: Int
     -- port to Graylog server
     , cgBindAddrPrometheus :: Maybe (String, Int)
@@ -295,16 +295,16 @@ setAggregatedKind configuration name ak =
 
 \end{code}
 
-\subsubsection{Access port numbers of EKG, Prometheus, GUI}
+\subsubsection{Access hosts and port numbers of EKG, Prometheus, GUI}
 \begin{code}
-getEKGport :: Configuration -> IO Int
-getEKGport configuration =
-    cgPortEKG <$> (readMVar $ getCG configuration)
+getEKGBindAddr :: Configuration -> IO (Maybe R.Endpoint)
+getEKGBindAddr configuration =
+    cgBindAddrEKG <$> (readMVar $ getCG configuration)
 
-setEKGport :: Configuration -> Int -> IO ()
-setEKGport configuration port =
+setEKGBindAddr :: Configuration -> Maybe R.Endpoint -> IO ()
+setEKGBindAddr configuration mHostPort =
     modifyMVar_ (getCG configuration) $ \cg ->
-        return cg { cgPortEKG = port }
+        return cg { cgBindAddrEKG = mHostPort }
 
 getGraylogPort :: Configuration -> IO Int
 getGraylogPort configuration =
@@ -501,7 +501,7 @@ setupFromRepresentation r = do
         , cgMapAggregatedKind = parseAggregatedKindMap $ getMap "mapAggregatedkinds"
         , cgDefAggregatedKind = StatsAK
         , cgMonitors          = parseMonitors $ getMap "mapMonitors"
-        , cgPortEKG           = r_hasEKG r
+        , cgBindAddrEKG       = r_hasEKG r
         , cgPortGraylog       = r_hasGraylog r
         , cgBindAddrPrometheus = r_hasPrometheus r
         , cgPortGUI           = r_hasGUI r
@@ -551,9 +551,7 @@ setupFromRepresentation r = do
         mkSubtrace :: Value -> Maybe SubTrace
         mkSubtrace = parseMaybe parseJSON
 
-    r_hasEKG repr = case (R.hasEKG repr) of
-                       Nothing -> 0
-                       Just p  -> p
+    r_hasEKG repr = R.hasEKG repr
     r_hasGraylog repr = case (R.hasGraylog repr) of
                        Nothing -> 0
                        Just p  -> p
@@ -596,7 +594,7 @@ empty = do
                            , cgMapAggregatedKind = HM.empty
                            , cgDefAggregatedKind = StatsAK
                            , cgMonitors          = HM.empty
-                           , cgPortEKG           = 0
+                           , cgBindAddrEKG       = Nothing
                            , cgPortGraylog       = 0
                            , cgBindAddrPrometheus = Nothing
                            , cgPortGUI           = 0
@@ -613,8 +611,7 @@ empty = do
 toRepresentation :: Configuration -> IO R.Representation
 toRepresentation (Configuration c) = do
     cfg <- readMVar c
-    let portEKG = cgPortEKG cfg
-        portGraylog = cgPortGraylog cfg
+    let portGraylog = cgPortGraylog cfg
         portGUI = cgPortGUI cfg
         otherOptions = cgOptions cfg
         defScribes = cgDefScribes cfg
@@ -661,7 +658,7 @@ toRepresentation (Configuration c) = do
             , R.defaultScribes  = map splitScribeId defScribes
             , R.setupBackends   = cgSetupBackends cfg
             , R.defaultBackends = cgDefBackendKs cfg
-            , R.hasEKG          = if portEKG == 0 then Nothing else Just portEKG
+            , R.hasEKG          = cgBindAddrEKG cfg
             , R.hasGraylog      = if portGraylog == 0 then Nothing else Just portGraylog
             , R.hasPrometheus   = cgBindAddrPrometheus cfg
             , R.hasGUI          = if portGUI == 0 then Nothing else Just portGUI

@@ -25,9 +25,9 @@ import           Cardano.BM.Data.Configuration
 import           Cardano.BM.Configuration.Model (Configuration (..),
                      ConfigurationInternal (..), getScribes, getCachedScribes,
                      getDefaultBackends, getAggregatedKind, getGUIport,
-                     getEKGport, empty, setDefaultScribes, setScribes, setup,
+                     getEKGBindAddr, empty, setDefaultScribes, setScribes, setup,
                      setDefaultAggregatedKind, setAggregatedKind, setGUIport,
-                     setEKGport, exportConfiguration)
+                     setEKGBindAddr, exportConfiguration)
 import           Cardano.BM.Configuration.Static (defaultConfigStdout)
 import qualified Cardano.BM.Data.Aggregated as Agg
 import           Cardano.BM.Data.AggregatedKind
@@ -105,7 +105,7 @@ unitConfigurationStaticRepresentation =
             , defaultBackends = [ KatipBK ]
             , hasGUI = Just 12789
             , hasGraylog = Just 12788
-            , hasEKG = Just 18321
+            , hasEKG = Just $ Endpoint ("localhost", 18321)
             , hasPrometheus = Just ("localhost", 12799)
             , traceForwardTo = Just (RemotePipe "to")
             , forwardDelay = Just 1000
@@ -155,7 +155,9 @@ unitConfigurationStaticRepresentation =
             , "  scKind: StdoutSK"
             , "  scFormat: ScText"
             , "  scPrivacy: ScPublic"
-            , "hasEKG: 18321"
+            , "hasEKG:"
+            , "- localhost"
+            , "- 18321"
             , "forwardDelay: 1000"
             , "minSeverity: Info"
             , "" -- to force a line feed at the end of the file
@@ -251,7 +253,9 @@ unitConfigurationParsedRepresentation = do
             , "  scKind: StdoutSK"
             , "  scFormat: ScText"
             , "  scPrivacy: ScPublic"
-            , "hasEKG: 12789"
+            , "hasEKG:"
+            , "- 127.0.0.1"
+            , "- 12789"
             , "forwardDelay: 1000"
             , "minSeverity: Info"
             , "" -- to force a line feed at the end of the file
@@ -394,7 +398,7 @@ unitConfigurationParsed = do
                                                 )
                                               )
                                             ]
-        , cgPortEKG           = 12789
+        , cgBindAddrEKG       = Just $ Endpoint ("127.0.0.1", 12789)
         , cgPortGraylog       = 12788
         , cgBindAddrPrometheus = Nothing
         , cgPortGUI           = 0
@@ -444,7 +448,7 @@ unitConfigurationExportStdout = do
     cgMapAggregatedKind  cfgInternal' @?= cgMapAggregatedKind  cfgInternal
     cgDefAggregatedKind  cfgInternal' @?= cgDefAggregatedKind  cfgInternal
     cgMonitors           cfgInternal' @?= cgMonitors           cfgInternal
-    cgPortEKG            cfgInternal' @?= cgPortEKG            cfgInternal
+    cgBindAddrEKG        cfgInternal' @?= cgBindAddrEKG        cfgInternal
     cgPortGraylog        cfgInternal' @?= cgPortGraylog        cfgInternal
     cgBindAddrPrometheus cfgInternal' @?= cgBindAddrPrometheus cfgInternal
     cgPortGUI            cfgInternal' @?= cgPortGUI            cfgInternal
@@ -497,8 +501,8 @@ unitConfigurationOps = do
     setAggregatedKind configuration "name1" $ Just StatsAK
     name1AggregatedKind <- getAggregatedKind configuration "name1"
 
-    setEKGport configuration 11223
-    ekgPort <- getEKGport configuration
+    setEKGBindAddr configuration (Just $ Endpoint ("localhost", 11223))
+    ekgBindAddr <- getEKGBindAddr configuration
 
     setGUIport configuration 1080
     guiPort <- getGUIport configuration
@@ -512,8 +516,8 @@ unitConfigurationOps = do
     assertBool "Specific name aggregated kind" $
         name1AggregatedKind == StatsAK
 
-    assertBool "Set EKG port" $
-        ekgPort == 11223
+    assertBool "Set EKG host/port" $
+        ekgBindAddr == (Just $ Endpoint ("localhost", 11223))
 
     assertBool "Set GUI port" $
         guiPort == 1080

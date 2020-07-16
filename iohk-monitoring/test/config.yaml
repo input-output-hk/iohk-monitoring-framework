@@ -22,7 +22,7 @@ defaultBackends:
 # if wanted, the GUI is listening on this port:
 # hasGUI: 18321
 
-# if wanted, the EKG interface is listening on this port:
+# if wanted, the EKG interface is listening on this host/port (host is "127.0.0.1" if undefined):
 hasEKG: 12789
 
 # if wanted, we send log items to Graylog on this port:
