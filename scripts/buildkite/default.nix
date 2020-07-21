@@ -8,17 +8,15 @@ with pkgs.lib;
 with pkgs;
 
 let
-  stack-hpc-coveralls = iohkNix.stack-hpc-coveralls;
+  cache-s3 = callPackage ./cache-s3.nix {};
+
   stackRebuild = runCommand "stack-rebuild" {} ''
     ${haskellPackages.ghcWithPackages (ps: [ps.turtle ps.safe ps.transformers])}/bin/ghc -o $out ${./rebuild.hs}
   '';
 
-  buildTools =
-    [ git gzip nix gnumake stack gnused gnutar coreutils stack-hpc-coveralls systemd ];
-
 in
   writeScript "stack-rebuild-wrapped" ''
     #!${stdenv.shell}
-    export PATH=${lib.makeBinPath buildTools}
+    export PATH=${lib.makeBinPath ([ cache-s3 stack gnused coreutils gnutar gzip ] ++ buildTools)}
     exec ${stackRebuild} "$@"
   ''
