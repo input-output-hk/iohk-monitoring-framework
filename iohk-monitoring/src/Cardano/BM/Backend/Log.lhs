@@ -34,7 +34,6 @@ import           Control.Concurrent.MVar (MVar, modifyMVar_, readMVar,
                      newMVar, withMVar)
 import           Control.Exception.Safe (catchIO)
 import           Control.Monad (foldM, forM_, unless, when, void)
-import           Control.Lens ((^.))
 import           Data.Aeson (FromJSON, ToJSON, Result (Success), Value (..),
                      encode, fromJSON, toJSON)
 import           Data.Aeson.Text (encodeToLazyText)
@@ -53,6 +52,7 @@ import           Data.Time.Clock (UTCTime, getCurrentTime)
 import           Data.Time.Format (defaultTimeLocale, formatTime)
 import           GHC.Conc (atomically)
 import           GHC.IO.Handle (hDuplicate)
+import           Lens.Micro ((^.))
 import           System.Directory (createDirectoryIfMissing)
 import           System.FilePath (takeDirectory)
 import           System.IO (BufferMode (LineBuffering), Handle, hClose,
