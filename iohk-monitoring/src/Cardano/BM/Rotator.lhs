@@ -26,13 +26,14 @@ module Cardano.BM.Rotator
        ) where
 
 import           Control.Exception.Safe (Exception (..), catchIO)
+import           Control.Monad (when)
 import           Data.List (sort)
 import qualified Data.List.NonEmpty as NE
 import           Data.List.NonEmpty (NonEmpty)
 import           Data.Time (UTCTime, addUTCTime, diffUTCTime, getCurrentTime,
                      parseTimeM)
 import           Data.Time.Format (defaultTimeLocale, formatTime)
-import           System.Directory (listDirectory, removeFile)
+import           System.Directory (doesFileExist, listDirectory, removeFile)
 import           System.FilePath ((</>), splitExtension, takeBaseName,
                      takeDirectory, takeExtension)
 import           System.IO (BufferMode (LineBuffering), Handle,
@@ -87,7 +88,9 @@ evalRotator rotation filename = do
     let logfilePath = takeFileName fpath
     -- delete a symlink if it already exists and create a new
     -- one that points to the correct file.
-    (removeFile symLinkPath)
+    symLinkExists <- doesFileExist symLinkPath
+    when symLinkExists $
+      (removeFile symLinkPath)
         `catchIO` (prtoutException ("cannot remove symlink: " ++ symLinkPath))
     (createFileLink logfilePath symLinkPath)
         `catchIO` (prtoutException ("cannot create symlink: " ++ symLinkPath))
