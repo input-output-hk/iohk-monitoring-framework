@@ -104,7 +104,6 @@ library
                        directory,
                        filepath,
                        katip,
-                       microlens,
                        mtl,
                        network,
                        safe,

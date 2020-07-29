@@ -52,7 +52,6 @@ import           Data.Time.Clock (UTCTime, getCurrentTime)
 import           Data.Time.Format (defaultTimeLocale, formatTime)
 import           GHC.Conc (atomically)
 import           GHC.IO.Handle (hDuplicate)
-import           Lens.Micro ((^.))
 import           System.Directory (createDirectoryIfMissing)
 import           System.FilePath (takeDirectory)
 import           System.IO (BufferMode (LineBuffering), Handle, hClose,
@@ -275,16 +274,16 @@ passStrx backend katip (LogObject loname lometa loitem) = do
                         let itemTime = tstamp lometa
                         let localname = [loname]
                         let itemKatip = K.Item {
-                                  _itemApp       = env ^. KC.logEnvApp
-                                , _itemEnv       = env ^. KC.logEnvEnv
+                                  _itemApp       = KC._logEnvApp env
+                                , _itemEnv       = KC._logEnvEnv env
                                 , _itemSeverity  = sev2klog sev
                                 , _itemThread    = threadIdText
                                 , _itemHost      = unpack $ hostname lometa
-                                , _itemProcess   = env ^. KC.logEnvPid
+                                , _itemProcess   = KC._logEnvPid env
                                 , _itemPayload   = payload
                                 , _itemMessage   = ""
                                 , _itemTime      = itemTime
-                                , _itemNamespace = env ^. KC.logEnvApp <> K.Namespace localname
+                                , _itemNamespace = KC._logEnvApp env <> K.Namespace localname
                                 , _itemLoc       = Nothing
                                 }
                         void $ atomically $ KC.tryWriteTBQueue shChan (KC.NewItem itemKatip)
@@ -327,16 +326,16 @@ passText backend katip (LogObject loname lometa loitem) = do
                         let itemTime = tstamp lometa
                         let localname = [loname]
                         let itemKatip = K.Item {
-                                  _itemApp       = env ^. KC.logEnvApp
-                                , _itemEnv       = env ^. KC.logEnvEnv
+                                  _itemApp       = KC._logEnvApp env
+                                , _itemEnv       = KC._logEnvEnv env
                                 , _itemSeverity  = sev2klog sev
                                 , _itemThread    = threadIdText
                                 , _itemHost      = unpack $ hostname lometa
-                                , _itemProcess   = env ^. KC.logEnvPid
+                                , _itemProcess   = KC._logEnvPid env
                                 , _itemPayload   = ()
                                 , _itemMessage   = K.logStr msg
                                 , _itemTime      = itemTime
-                                , _itemNamespace = env ^. KC.logEnvApp <> K.Namespace localname
+                                , _itemNamespace = KC._logEnvApp env <> K.Namespace localname
                                 , _itemLoc       = Nothing
                                 }
                         void $ atomically $ KC.tryWriteTBQueue shChan (KC.NewItem itemKatip)
