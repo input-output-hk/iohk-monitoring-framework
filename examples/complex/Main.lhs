@@ -268,6 +268,7 @@ output could also be forwarded using a pipe:
 \begin{code}
     CM.setForwardTo c (Just $ RemoteSocket "127.0.0.1" "42999")
     CM.setTextOption c "forwarderMinSeverity" "Warning"  -- sets min severity filter in forwarder
+    CM.setTextOption c "prometheusOutput" "json"  -- Prometheus' output in JSON-format
 
     CM.setForwardDelay c (Just 1000)
 

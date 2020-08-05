@@ -48,7 +48,7 @@ import           Paths_iohk_monitoring (version)
 import           Cardano.BM.Backend.ProcessQueue (processQueue)
 import           Cardano.BM.Backend.Prometheus (spawnPrometheus)
 import           Cardano.BM.Configuration (Configuration, getEKGBindAddr,
-                     getPrometheusBindAddr, testSubTrace)
+                     getPrometheusBindAddr, getTextOption, testSubTrace)
 import           Cardano.BM.Data.Aggregated
 import           Cardano.BM.Data.Backend
 import           Cardano.BM.Data.Configuration (Endpoint (..))
@@ -247,10 +247,11 @@ instance (ToJSON a, FromJSON a) => IsBackend EKGView a where
         -- thread, wrapped in ExceptionInLinkedThread.
         Async.link dispatcher
         prometheusBindAddr <- getPrometheusBindAddr config
+        prometheusOutput <- getTextOption config "prometheusOutput"
         prometheusDispatcher <-
                 case prometheusBindAddr of
                   Just (host, port) -> do
-                    pd <- spawnPrometheus ehdl (fromString host) port
+                    pd <- spawnPrometheus ehdl (fromString host) port prometheusOutput
                       `catch` mkHandler EKGPrometheusStartupError
                     Async.link pd
                     return (Just pd)
