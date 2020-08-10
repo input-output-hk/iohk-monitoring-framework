@@ -27,3 +27,9 @@ steps:
     command: 'nix-build ./nix -A iohkNix.checkCabalProject -o check-cabal-project.sh && ./check-cabal-project.sh'
     agents:
       system: x86_64-linux
+
+  - label: 'Check Stylish Haskell'
+    command: 'nix-shell --pure --run ./.buildkite/check-stylish.sh nix/stack-shell.nix'
+    agents:
+      system: x86_64-linux
+
