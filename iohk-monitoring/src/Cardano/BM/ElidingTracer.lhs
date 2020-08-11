@@ -11,6 +11,7 @@
 module Cardano.BM.ElidingTracer
     (
       ElidingTracer (..)
+    , defaultelidedreporting
     ) where
 
 import           Control.Concurrent.MVar (MVar, newMVar, modifyMVar_)
@@ -87,13 +88,21 @@ Internal state transitions.
     traceWith (toLogObject' tverb tr) ev
     return (Nothing, 0)
   stopeliding tverb tr ev (Just ev0, count) = do
-    when (count > 1) $ do  -- report the number of elided messages
-      meta <- mkLOMeta (getSeverityAnnotation ev0) (getPrivacyAnnotation ev0)
-      traceNamedObject tr (meta, LogValue "before next, messages elided" (PureI $ toInteger (count - 1)))
+    when (count > 1) $  -- report the number of elided messages
+      reportelided tverb tr ev0 count
     when (count > 0) $  -- output last elided message
       traceWith (toLogObject' tverb tr) ev0
     traceWith (toLogObject' tverb tr) ev
     return (Nothing, 0)
+
+  reportelided :: (ToObject t, Transformable t IO a)
+               => TracingVerbosity -> Trace IO t
+               -> a -> Integer -> IO ()
+  default reportelided :: (ToObject t, Transformable t IO a)
+                       => TracingVerbosity -> Trace IO t
+                       -> a -> Integer -> IO ()
+  reportelided = defaultelidedreporting
+
 \end{code}
 
 The transformer from a Tracer IO emph{a} to |Trace IO t| contains
@@ -124,5 +133,15 @@ the main logic of eliding messages.
                 stopeliding tverb tr ev s
       else
         stopeliding tverb tr ev s
+
+\end{code}
+
+\begin{code}
+defaultelidedreporting :: (ToObject t, Transformable t IO a)
+                       => TracingVerbosity -> Trace IO t
+                       -> a -> Integer -> IO ()
+defaultelidedreporting _tverb tr ev0 count = do
+    meta <- mkLOMeta (getSeverityAnnotation ev0) (getPrivacyAnnotation ev0)
+    traceNamedObject tr (meta, LogValue "before next, messages elided" (PureI $ toInteger (count - 1)))
 
 \end{code}
