@@ -1,13 +1,12 @@
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE Rank2Types #-}
 {-# LANGUAGE TypeFamilies #-}
 
 module Main where
 
-import           Control.Concurrent.MVar (MVar, newEmptyMVar, newMVar,
-                     modifyMVar_, putMVar, readMVar, tryTakeMVar, withMVar)
+import           Control.Concurrent.MVar (MVar, modifyMVar_, newEmptyMVar, newMVar, putMVar,
+                                          readMVar, tryTakeMVar, withMVar)
 import           Control.Monad.IO.Class (MonadIO (..))
 import           Data.Functor.Contravariant (Contravariant (..))
 import           Data.Text (Text)
@@ -50,8 +49,10 @@ main = do
 --- demo code
 
 -- a level of verbosity
-data Verbosity = Silent | Normal | Verbose
-                 deriving (Eq, Ord, Show)
+data Verbosity = Silent
+    | Normal
+    | Verbose
+    deriving (Eq, Ord, Show)
 
 verbosityP :: Monad m => Verbosity -> m Bool
 verbosityP v = do
@@ -70,8 +71,10 @@ condVerbosity v = condTracingM (const <$> verbosityP v)
 -- The distinct message types that you want to expose. This is the set
 -- of observables.
 
-data MyMessages a = MyStart a | MyNormal a | MyWarning (Int, a)
-                  deriving Show
+data MyMessages a = MyStart a
+    | MyNormal a
+    | MyWarning (Int, a)
+    deriving Show
 
 -- some events that may be of interest (with some other IO to give
 -- visual context)
@@ -100,13 +103,17 @@ otherCode trs = do
     traceWith (tr2 trs) $ MyNormal (Timing 99)
 
   -- collection of Tracers
-data BlockActions = BlockAction1 | BlockAction2 deriving (Show)
-data Timing = Timing Int deriving (Show)
+data BlockActions = BlockAction1
+    | BlockAction2
+    deriving (Show)
+data Timing = Timing Int
+    deriving (Show)
 
 data MyCodeTracers m = MyCodeTracers
     { tr1 :: Tracer m (MyMessages BlockActions)
     , tr2 :: Tracer m (MyMessages Timing)
-    }  -- and so forth
+    -- and so forth
+    }
 
 myCodeTracersBenchmarking = MyCodeTracers
     { tr1 = nullTracer

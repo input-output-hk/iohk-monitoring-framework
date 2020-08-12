@@ -1,10 +1,10 @@
-{-# LANGUAGE ConstraintKinds       #-}
-{-# LANGUAGE FlexibleContexts      #-}
-{-# LANGUAGE FlexibleInstances     #-}
-{-# LANGUAGE GADTs                 #-}
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE GADTs #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE ScopedTypeVariables   #-}
-{-# LANGUAGE UndecidableInstances  #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 module Control.Tracer.Transformers
   ( Counting(..)
@@ -16,7 +16,7 @@ module Control.Tracer.Transformers
 
 import           Control.Monad (join)
 import           Control.Monad.IO.Class (MonadIO (..))
-import           Data.IORef (IORef, newIORef, atomicModifyIORef')
+import           Data.IORef (IORef, atomicModifyIORef', newIORef)
 
 import           Control.Tracer
 

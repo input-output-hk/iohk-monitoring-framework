@@ -1,12 +1,12 @@
-{-# LANGUAGE LambdaCase          #-}
-{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 import           Control.Exception
 import           Control.Monad.Trans.Maybe
-import qualified Data.Text                 as T
+import qualified Data.Text as T
 import           Safe
-import           System.Exit               (exitWith)
+import           System.Exit (exitWith)
 import           Turtle
 
 
