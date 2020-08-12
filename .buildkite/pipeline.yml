@@ -4,19 +4,19 @@ steps:
     agents:
       system: x86_64-linux
 
-  - label: "code coverage (stack)"
-    env:
-      STACK_ROOT: "/build/iohk-monitoring.stack"
-    command:
-      - "rm -rf /build/iohk-monitoring"
-      - "cp -R . /build/iohk-monitoring"
-      - "cd /build/iohk-monitoring"
-      - "nix-build scripts/buildkite -o stack-rebuild"
-      - "./stack-rebuild"
-    agents:
-      system: x86_64-linux
-    timeout: 60
-    branches: master
+  #- label: "code coverage (stack)"
+  #  env:
+  #    STACK_ROOT: "/build/iohk-monitoring.stack"
+  #  command:
+  #    - "rm -rf /build/iohk-monitoring"
+  #    - "cp -R . /build/iohk-monitoring"
+  #    - "cd /build/iohk-monitoring"
+  #    - "nix-build scripts/buildkite -o stack-rebuild"
+  #    - "./stack-rebuild"
+  #  agents:
+  #    system: x86_64-linux
+  #  timeout: 60
+  #  branches: master
 
   - label: 'stack-cabal-sync'
     command: 'nix-shell ./nix -A iohkNix.stack-cabal-sync-shell --run scripts/buildkite/stack-cabal-sync.sh'
