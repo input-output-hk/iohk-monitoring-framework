@@ -26,14 +26,19 @@ module Cardano.BM.Rotator
        ) where
 
 import           Control.Exception.Safe (Exception (..), catchIO)
+#ifdef POSIX
 import           Control.Monad (when)
+#endif
 import           Data.List (sort)
 import qualified Data.List.NonEmpty as NE
 import           Data.List.NonEmpty (NonEmpty)
 import           Data.Time (UTCTime, addUTCTime, diffUTCTime, getCurrentTime,
                      parseTimeM)
 import           Data.Time.Format (defaultTimeLocale, formatTime)
-import           System.Directory (doesFileExist, listDirectory, removeFile)
+#ifdef POSIX
+import           System.Directory (doesFileExist)
+#endif
+import           System.Directory (listDirectory, removeFile)
 import           System.FilePath ((</>), splitExtension, takeBaseName,
                      takeDirectory, takeExtension)
 import           System.IO (BufferMode (LineBuffering), Handle,
