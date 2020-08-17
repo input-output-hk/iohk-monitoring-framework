@@ -21,7 +21,7 @@ import           Data.Text (Text, pack, unpack)
 import           Cardano.BM.Configuration.Static
 import           Cardano.BM.Configuration (Configuration)
 import           Cardano.BM.Configuration.Model (setSubTrace)
-import           Cardano.BM.ElidingTracer
+import           Cardano.BM.Internal.ElidingTracer
 import           Cardano.BM.Data.Aggregated (Measurable(PureI))
 import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.Severity

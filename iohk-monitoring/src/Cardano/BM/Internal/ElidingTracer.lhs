@@ -1,6 +1,12 @@
 
-\subsection{Cardano.BM.ElidingTracer}
-\label{code:Cardano.BM.ElidingTracer}
+\subsection{Cardano.BM.Internal.ElidingTracer}
+\label{code:Cardano.BM.Internal.ElidingTracer}
+
+This module is marked \emph{internal} as its use is risky and should only be included
+if one has tested the implemented instances thoroughly.
+
+Disclaimer: Use at your own risk. Eliding of messages can result in the irrevocable removal
+of traced values.
 
 %if style == newcode
 \begin{code}
@@ -8,7 +14,7 @@
 {-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE LambdaCase        #-}
 
-module Cardano.BM.ElidingTracer
+module Cardano.BM.Internal.ElidingTracer
     (
       ElidingTracer (..)
     , defaultelidedreporting
@@ -39,12 +45,14 @@ class ElidingTracer a where
 
 This predicate is |True| for message types for which eliding is enabled. Needs to be
 overwritten in instances of |ElidingTracer|.
+\label{code:doelide}\index{ElidingTracer!doelide}
 \begin{code}
   doelide :: a -> Bool
 \end{code}
 
 The predicate to determine if two messages are |equivalent|. This needs to be
 overwritten in instances of |ElidingTracer|.
+\label{code:isEquivalent}\index{ElidingTracer!isEquivalent}
 \begin{code}
   isEquivalent :: a -> a -> Bool
 \end{code}
@@ -58,6 +66,10 @@ Create a new state |MVar|.
 \end{code}
 
 Internal state transitions.
+\label{code:starteliding}\index{ElidingTracer!starteliding}
+\label{code:conteliding}\index{ElidingTracer!conteliding}
+\label{code:stopeliding}\index{ElidingTracer!stopeliding}
+\label{code:reportelided}\index{ElidingTracer!reportelided}
 \begin{code}
   starteliding :: (ToObject t, Transformable t IO a)
                => TracingVerbosity -> Trace IO t
@@ -135,6 +147,14 @@ the main logic of eliding messages.
         stopeliding tverb tr ev s
 
 \end{code}
+
+\subsubsection{Tracing a summary messages after eliding}
+\label{code:defaultelidedreporting}\index{defaultelidedreporting}
+
+This is the default implementation of tracing a summary message after eliding stopped.
+It simply outputs the internal counter.
+In cases where this state is used for other purposes than counting messages, the
+\ref{reportelided} function should be implemented in the \ref{ElidingTracer} instance.
 
 \begin{code}
 defaultelidedreporting :: (ToObject t, Transformable t IO a)
