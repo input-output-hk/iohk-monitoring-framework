@@ -1,7 +1,7 @@
-{-# LANGUAGE CPP                     #-}
-{-# LANGUAGE FlexibleContexts        #-}
-{-# LANGUAGE NamedFieldPuns          #-}
-{-# LANGUAGE ScopedTypeVariables     #-}
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 {-# OPTIONS_GHC -Wno-orphans #-}
 
@@ -15,8 +15,8 @@ import           Cardano.BM.Data.Aggregated
 import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.Severity
 
-import qualified Test.QuickCheck as QC
 import           Test.QuickCheck (arbitrary, elements)
+import qualified Test.QuickCheck as QC
 import           Test.QuickCheck.Arbitrary (Arbitrary)
 
 instance Arbitrary Severity where

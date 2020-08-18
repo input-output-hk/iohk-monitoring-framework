@@ -5,6 +5,7 @@ import           Control.Concurrent (threadDelay)
 import           Control.Exception (IOException, catch, throwIO)
 import           Control.Monad (forever)
 import           Data.Text (Text)
+
 import           Cardano.BM.Backend.TraceAcceptor
 import           Cardano.BM.Configuration
 import qualified Cardano.BM.Configuration as Config
@@ -17,8 +18,8 @@ import qualified Options.Applicative as Opt
 
 
 data CLI = CLI
-  { cConfig :: FilePath
-  }
+    { cConfig :: FilePath
+    }
 
 cliParser :: Opt.Parser CLI
 cliParser = CLI

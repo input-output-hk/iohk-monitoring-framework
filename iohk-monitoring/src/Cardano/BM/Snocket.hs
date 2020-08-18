@@ -1,9 +1,9 @@
 --
 -- copied from https://github.com/input-output-hk/ouroboros-network
 --
-{-# LANGUAGE CPP                 #-}
-{-# LANGUAGE GADTs               #-}
-{-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Cardano.BM.Snocket
@@ -29,19 +29,13 @@ module Cardano.BM.Snocket
 
 import           Control.Exception
 import           Control.Monad (when)
-import           Network.Socket (
-#if !defined(mingw32_HOST_OS)
-                                  Family (AF_UNIX),
-#endif
-                                  Socket
-                                , SockAddr (..)
-                                )
+import           Network.Socket (SockAddr (..), Socket)
 import qualified Network.Socket as Socket
 #if defined(mingw32_HOST_OS)
 import           Data.Bits
-import qualified System.Win32            as Win32
+import qualified System.Win32 as Win32
+import qualified System.Win32.Async as Win32.Async
 import qualified System.Win32.NamedPipes as Win32
-import qualified System.Win32.Async      as Win32.Async
 import           System.Win32.Types (hANDLEToHandle)
 #endif
 
@@ -168,37 +162,21 @@ instance Show (AddressFamily addr) where
 -- 'Socket'.  Snockets are polymorphic over monad which is used, this feature
 -- is useful for testing and/or simulations.
 --
-data Snocket m fd addr = Snocket {
-    getLocalAddr  :: fd -> m addr
-  , getRemoteAddr :: fd -> m addr
-
-  , addrFamily :: addr -> AddressFamily addr
-
-  -- | Open a file descriptor  (socket / namedPipe).  For named pipes this is
-  -- using 'CreateNamedPipe' syscall, for Berkeley sockets 'socket' is used..
-  --
-  , open          :: AddressFamily addr -> m fd
-
-    -- | A way to create 'fd' to pass to 'connect'.  For named pipes it will
-    -- use 'CreateFile' syscall.  For Berkeley sockets this the same as 'open'.
-    --
-    -- For named pipes we need full 'addr' rather than just address family as
-    -- it is for sockets.
-    --
-  , openToConnect :: addr ->  m fd
-
-    -- | `connect` is only needed for Berkeley sockets, for named pipes this is
-    -- no-op.
-    --
-  , connect       :: fd -> addr -> m ()
-  , bind          :: fd -> addr -> m ()
-  , listen        :: fd -> m ()
-
-  , accept        :: fd -> Accept addr fd
-
-  , close         :: fd -> m ()
-
-  }
+data Snocket m fd addr = Snocket
+    { getLocalAddr  :: fd -> m addr
+    , getRemoteAddr :: fd -> m addr
+    , addrFamily    :: addr -> AddressFamily addr
+    , open          :: AddressFamily addr -> m fd
+    -- |^ Open a file descriptor: socket='socket', namedPipe='CreateNamedPipe'
+    , openToConnect :: addr -> m fd
+    -- |^ A way to create 'fd' to pass to 'connect'.  For named pipes it uses 'CreateFile'
+    , connect       :: fd -> addr -> m ()
+    -- |^ `connect` is only needed for Berkeley sockets, for named pipes this is a no-op.
+    , bind          :: fd -> addr -> m ()
+    , listen        :: fd -> m ()
+    , accept        :: fd -> Accept addr fd
+    , close         :: fd -> m ()
+    }
 
 
 --
@@ -412,7 +390,7 @@ localSnocket ioManager _ = Snocket {
 
     openSocket :: AddressFamily LocalAddress -> IO Socket
     openSocket LocalFamily = do
-      sd <- Socket.socket AF_UNIX Socket.Stream Socket.defaultProtocol
+      sd <- Socket.socket Socket.AF_UNIX Socket.Stream Socket.defaultProtocol
       associateWithIOManager ioManager (Right sd)
         -- open is designed to be used in `bracket`, and thus it's called with
         -- async exceptions masked.  The 'associteWithIOManager' is a blocking

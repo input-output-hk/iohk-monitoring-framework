@@ -5,8 +5,8 @@
 
 module Main where
 
-import           Control.Concurrent.MVar (MVar, newEmptyMVar, newMVar,
-                     modifyMVar_, putMVar, readMVar, tryTakeMVar, withMVar)
+import           Control.Concurrent.MVar (MVar, modifyMVar_, newEmptyMVar, newMVar, putMVar,
+                                          readMVar, tryTakeMVar, withMVar)
 import           Control.Monad.IO.Class (MonadIO (..))
 import           Data.Functor.Contravariant (Contravariant (..))
 import           Data.Time.Clock (DiffTime)
@@ -78,11 +78,10 @@ instance Show (Observable Time Time Time) where
 -- The distict message types that you want to expose. This is the set
 -- of observables.
 
-data MyMessages
-  = MyStart
-  | MyEnd
-  | MyNotice String
-  deriving Show
+data MyMessages = MyStart
+    | MyEnd
+    | MyNotice String
+    deriving Show
 
 -- some events that may be of interest (with some other IO to give
 -- visual context)
