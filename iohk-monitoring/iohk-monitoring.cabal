@@ -1,16 +1,19 @@
-name:                iohk-monitoring
-version:             0.1.10.1
-synopsis:            logging, benchmarking and monitoring framework
+name:                 iohk-monitoring
+version:              0.1.10.1
+synopsis:             logging, benchmarking and monitoring framework
 -- description:
-license:             Apache-2.0
-license-files:       LICENSE, NOTICE
-author:              Alexander Diemand, Andreas Triantafyllos
-maintainer:          operations@iohk.io
-copyright:           2018 IOHK
-category:            Benchmarking
-build-type:          Simple
-extra-source-files:  README.md
-cabal-version:       >=1.10
+license:              Apache-2.0
+license-files:        LICENSE, NOTICE
+author:               Alexander Diemand, Andreas Triantafyllos
+maintainer:           operations@iohk.io
+copyright:            2018 IOHK
+category:             Benchmarking
+build-type:           Simple
+extra-source-files:   README.md
+                      src/Cardano/BM/Counters/os-support-darwin.h
+                      src/Cardano/BM/Counters/os-support-win.h
+
+cabal-version:        >=1.10
 
 flag disable-observables
   description:         Turn off observables, observers.
