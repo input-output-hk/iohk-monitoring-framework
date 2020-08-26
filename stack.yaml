@@ -1,5 +1,10 @@
+  # GHC 8.6.5
 resolver: lts-14.27
 compiler: ghc-8.6.5
+
+  # GHC 8.10.2
+#resolver: nightly-2020-08-26
+#compiler: ghc-8.10.2
 
 packages:
   - contra-tracer
@@ -15,9 +20,11 @@ packages:
   - plugins/scribe-systemd
   - examples
 
-allow-newer: true
+allow-newer: false
 
 extra-deps:
+  # needed for GHC 8.10.2
+  #- async-timer-0.2.0.0
   - network-3.1.1.1
   - snap-core-1.0.4.1
   - snap-server-1.1.1.1
@@ -33,4 +40,16 @@ extra-deps:
         - Win32-network
 
 nix:
-    shell-file: nix/stack-shell.nix
+  # GHC 8.6.5
+  shell-file: nix/stack-shell.nix
+  # GHC 8.10.2
+#  pure: false
+#  packages: [ zlib.dev, zlib.out
+#            , openssl.dev, openssl.out
+#            , libsodium.dev, libsodium.out
+#            #, haskell.compiler.ghc865
+#            , haskell.compiler.ghc8102
+#            , pkg-config
+#            , systemd.dev
+#            ]
+
