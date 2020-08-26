@@ -19,13 +19,13 @@ library
   other-modules:       Cardano.BM.Backend.Prometheus
   -- other-extensions:
   default-extensions:  OverloadedStrings
-  build-depends:       base < 4.13,
-                       iohk-monitoring,
+  build-depends:       base,
                        aeson,
                        async,
                        bytestring,
                        ekg,
                        ekg-core,
+                       iohk-monitoring,
                        safe-exceptions,
                        snap-core,
                        snap-server,

@@ -11,7 +11,6 @@
 
 %if style == newcode
 \begin{code}
-{-# LANGUAGE OverloadedStrings #-}
 
 module Cardano.BM.Setup
     (
@@ -25,8 +24,6 @@ import           Control.Exception.Safe (MonadMask, bracket)
 import           Control.Monad.IO.Class (MonadIO, liftIO)
 import           Data.Aeson (FromJSON, ToJSON)
 import           Data.Text (Text)
-import           System.IO (FilePath)
-
 import qualified Cardano.BM.Configuration as Config
 import           Cardano.BM.Data.Tracer (ToObject)
 import qualified Cardano.BM.Backend.Switchboard as Switchboard
