@@ -32,12 +32,15 @@ extra-deps:
   - time-units-1.0.0
   - katip-0.8.4.0
 
-  - libsystemd-journal-1.4.4
-
   - git: https://github.com/input-output-hk/ouroboros-network
-    commit: fbfae1dbed1f22ba4cceacd881e60a2bc25a39d3
+    commit: 64351aaa3b27fd5a28fc7d1f9c48f9e5a815dab2
     subdirs:
         - Win32-network
+
+  - git: https://github.com/CodiePP/libsystemd-journal
+    commit: 4371464d5ae3fe1df4e3e77ab33156ad2d3bf1bd
+    subdirs:
+        - .
 
 nix:
   # GHC 8.6.5
