@@ -38,7 +38,7 @@ extra-deps:
         - Win32-network
 
   - git: https://github.com/CodiePP/libsystemd-journal
-    commit: 49ad111e668e0d6e06e759a13d8de311bc91e149
+    commit: 4371464d5ae3fe1df4e3e77ab33156ad2d3bf1bd
     subdirs:
         - .
 
