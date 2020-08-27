@@ -38,7 +38,6 @@ import qualified System.IO as IO
 
 import           Cardano.BM.Configuration
 import           Cardano.BM.Data.Backend
-import           Cardano.BM.Data.BackendKind (BackendKind(TraceAcceptorBK))
 import           Cardano.BM.Data.Configuration (RemoteAddr(..), RemoteAddrNamed(..))
 import           Cardano.BM.Data.LogItem
                    ( LOContent (LogError), LOMeta (..), LogObject (..)
@@ -180,7 +179,7 @@ clientThread
   -> Trace.Trace IO a
   -> Handle
   -> IO ()
-clientThread config sbtrace h = handleError TraceAcceptorClientThreadError pProc
+clientThread _config sbtrace h = handleError TraceAcceptorClientThreadError pProc
   where
     {-@ lazy pProc @-}
     pProc :: IO ()
