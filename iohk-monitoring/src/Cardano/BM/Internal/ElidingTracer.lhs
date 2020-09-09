@@ -1,6 +1,12 @@
 
-\subsection{Cardano.BM.ElidingTracer}
-\label{code:Cardano.BM.ElidingTracer}
+\subsection{Cardano.BM.Internal.ElidingTracer}
+\label{code:Cardano.BM.Internal.ElidingTracer}
+
+This module is marked \emph{internal} as its use is risky and should only be included
+if one has tested the implemented instances thoroughly.
+
+Disclaimer: Use at your own risk. Eliding of messages can result in the irrevocable removal
+of traced values.
 
 %if style == newcode
 \begin{code}
@@ -8,9 +14,10 @@
 {-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE LambdaCase        #-}
 
-module Cardano.BM.ElidingTracer
+module Cardano.BM.Internal.ElidingTracer
     (
       ElidingTracer (..)
+    , defaultelidedreporting
     ) where
 
 import           Control.Concurrent.MVar (MVar, newMVar, modifyMVar_)
@@ -38,12 +45,14 @@ class ElidingTracer a where
 
 This predicate is |True| for message types for which eliding is enabled. Needs to be
 overwritten in instances of |ElidingTracer|.
+\label{code:doelide}\index{ElidingTracer!doelide}
 \begin{code}
   doelide :: a -> Bool
 \end{code}
 
 The predicate to determine if two messages are |equivalent|. This needs to be
 overwritten in instances of |ElidingTracer|.
+\label{code:isEquivalent}\index{ElidingTracer!isEquivalent}
 \begin{code}
   isEquivalent :: a -> a -> Bool
 \end{code}
@@ -57,6 +66,10 @@ Create a new state |MVar|.
 \end{code}
 
 Internal state transitions.
+\label{code:starteliding}\index{ElidingTracer!starteliding}
+\label{code:conteliding}\index{ElidingTracer!conteliding}
+\label{code:stopeliding}\index{ElidingTracer!stopeliding}
+\label{code:reportelided}\index{ElidingTracer!reportelided}
 \begin{code}
   starteliding :: (ToObject t, Transformable t IO a)
                => TracingVerbosity -> Trace IO t
@@ -87,13 +100,21 @@ Internal state transitions.
     traceWith (toLogObject' tverb tr) ev
     return (Nothing, 0)
   stopeliding tverb tr ev (Just ev0, count) = do
-    when (count > 1) $ do  -- report the number of elided messages
-      meta <- mkLOMeta (getSeverityAnnotation ev0) (getPrivacyAnnotation ev0)
-      traceNamedObject tr (meta, LogValue "before next, messages elided" (PureI $ toInteger (count - 1)))
+    when (count > 1) $  -- report the number of elided messages
+      reportelided tverb tr ev0 count
     when (count > 0) $  -- output last elided message
       traceWith (toLogObject' tverb tr) ev0
     traceWith (toLogObject' tverb tr) ev
     return (Nothing, 0)
+
+  reportelided :: (ToObject t, Transformable t IO a)
+               => TracingVerbosity -> Trace IO t
+               -> a -> Integer -> IO ()
+  default reportelided :: (ToObject t, Transformable t IO a)
+                       => TracingVerbosity -> Trace IO t
+                       -> a -> Integer -> IO ()
+  reportelided = defaultelidedreporting
+
 \end{code}
 
 The transformer from a Tracer IO emph{a} to |Trace IO t| contains
@@ -124,5 +145,23 @@ the main logic of eliding messages.
                 stopeliding tverb tr ev s
       else
         stopeliding tverb tr ev s
+
+\end{code}
+
+\subsubsection{Tracing a summary messages after eliding}
+\label{code:defaultelidedreporting}\index{defaultelidedreporting}
+
+This is the default implementation of tracing a summary message after eliding stopped.
+It simply outputs the internal counter.
+In cases where this state is used for other purposes than counting messages, the
+\ref{reportelided} function should be implemented in the \ref{ElidingTracer} instance.
+
+\begin{code}
+defaultelidedreporting :: (ToObject t, Transformable t IO a)
+                       => TracingVerbosity -> Trace IO t
+                       -> a -> Integer -> IO ()
+defaultelidedreporting _tverb tr ev0 count = do
+    meta <- mkLOMeta (getSeverityAnnotation ev0) (getPrivacyAnnotation ev0)
+    traceNamedObject tr (meta, LogValue "before next, messages elided" (PureI $ toInteger (count - 1)))
 
 \end{code}
