@@ -38,6 +38,7 @@ module Cardano.BM.Configuration.Model
     , getTextOption
     , inspectSeverity
     , minSeverity
+    , setAcceptAt
     , setAggregatedKind
     , setBackends
     , setCachedScribes
@@ -335,6 +336,11 @@ setGUIport configuration port =
 
 getAcceptAt :: Configuration -> IO (Maybe [RemoteAddrNamed])
 getAcceptAt = fmap cgAcceptAt . readMVar . getCG
+
+setAcceptAt :: Configuration -> Maybe [RemoteAddrNamed] -> IO ()
+setAcceptAt cf mran =
+    modifyMVar_ (getCG cf) $ \cg ->
+        return cg { cgAcceptAt = mran }
 
 getForwardTo :: Configuration -> IO (Maybe RemoteAddr)
 getForwardTo = fmap cgForwardTo . readMVar . getCG
