@@ -20,7 +20,7 @@ executable example-simple
   default-extensions:  OverloadedStrings
   other-extensions:    CPP, FlexibleInstances, MultiParamTypeClasses, ScopedTypeVariables
   ghc-options:         -threaded -Wall -Werror -O2 "-with-rtsopts=-T"
-  build-depends:       base ^>=4.12.0.0
+  build-depends:       base >= 4.12 && < 4.15
   hs-source-dirs:      simple
   default-language:    Haskell2010
   build-depends:       base,
@@ -42,7 +42,7 @@ executable example-counters
   default-extensions:  OverloadedStrings
   other-extensions:    CPP, FlexibleInstances, MultiParamTypeClasses, ScopedTypeVariables
   ghc-options:         -threaded -Wall -Werror -O2 "-with-rtsopts=-T"
-  build-depends:       base ^>=4.12.0.0
+  build-depends:       base >= 4.12 && < 4.15
   hs-source-dirs:      counters
   default-language:    Haskell2010
   build-depends:       base,
