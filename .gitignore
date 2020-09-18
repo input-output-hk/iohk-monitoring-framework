@@ -35,3 +35,6 @@ cabal.project.local~
 .dir-locals.el
 
 tags
+
+/.vscode
+
