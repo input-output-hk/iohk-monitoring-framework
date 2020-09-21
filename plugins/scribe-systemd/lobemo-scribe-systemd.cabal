@@ -19,7 +19,7 @@ library
   -- other-modules:
   -- other-extensions:
   default-extensions:  OverloadedStrings
-  build-depends:       base >=4.11,
+  build-depends:       base >= 4.11 && < 4.15,
                        iohk-monitoring,
                        aeson,
                        bytestring,

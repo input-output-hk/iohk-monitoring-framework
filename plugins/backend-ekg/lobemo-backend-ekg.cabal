@@ -19,7 +19,7 @@ library
   other-modules:       Cardano.BM.Backend.Prometheus
   -- other-extensions:
   default-extensions:  OverloadedStrings
-  build-depends:       base,
+  build-depends:       base >= 4.11 && < 4.15,
                        aeson,
                        async,
                        bytestring,
