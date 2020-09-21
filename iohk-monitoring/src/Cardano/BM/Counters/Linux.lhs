@@ -16,7 +16,6 @@ import           Data.Foldable (foldrM)
 import           Data.Maybe (catMaybes)
 import           Data.Text (Text, pack)
 import           System.FilePath.Posix ((</>))
-import           System.IO (FilePath)
 import           System.Posix.Files (getFileStatus,fileMode,ownerReadMode,
                      intersectFileModes)
 import           System.Posix.Process (getProcessID)

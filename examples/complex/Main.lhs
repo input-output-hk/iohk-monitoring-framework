@@ -31,9 +31,13 @@ import qualified Data.HashMap.Strict as HM
 import           Data.Maybe (isJust)
 import           Data.Text (Text, pack)
 #ifdef ENABLE_OBSERVABLES
+#ifdef RUN_ProcObseverSTM
 import           Control.Monad (forM)
 import           GHC.Conc.Sync (atomically, STM, TVar, newTVar, readTVar, writeTVar)
+#endif
+#endif
 #ifdef LINUX
+#ifdef RUN_ProcObseveDownload
 import qualified Data.ByteString.Char8 as BS8
 import           Network.Download (openURI)
 #endif
@@ -69,7 +73,9 @@ import           Cardano.BM.Data.Tracer
 import           Cardano.BM.Configuration
 import           Cardano.BM.Data.Observable
 import           Cardano.BM.Observer.Monadic (bracketObserveIO)
+#ifdef RUN_ProcObseverSTM
 import qualified Cardano.BM.Observer.STM as STM
+#endif
 #endif
 import           Cardano.BM.Plugin
 import           Cardano.BM.Setup
@@ -370,6 +376,7 @@ observeIO config trace = do
 
 \subsubsection{Threads that observe |STM| actions on the same TVar}
 \begin{code}
+#ifdef RUN_ProcObseverSTM
 #ifdef ENABLE_OBSERVABLES
 observeSTM :: Configuration -> Trace IO Text -> IO [Async.Async ()]
 observeSTM config trace = do
@@ -390,13 +397,14 @@ stmAction tvarlist = do
   writeTVar tvarlist $! (++) [42] $ reverse $ init $ reverse $ list
   pure ()
 #endif
-
+#endif
 \end{code}
 
 \subsubsection{Thread that observes an |IO| action which downloads a text in
 order to observe the I/O statistics}
 \begin{code}
 #ifdef LINUX
+#ifdef RUN_ProcObseveDownload
 #ifdef ENABLE_OBSERVABLES
 observeDownload :: Configuration -> Trace IO Text -> IO (Async.Async ())
 observeDownload config trace = do
@@ -414,6 +422,7 @@ observeDownload config trace = do
             threadDelay 50000  -- .05 second
             pure ()
         loop tr
+#endif
 #endif
 #endif
 \end{code}

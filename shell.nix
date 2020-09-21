@@ -34,7 +34,7 @@ let
     buildInputs = with haskellPackages; [
       cabal-install
       niv
-    ];
+    ] ++ (lib.optionals stdenv.isLinux [ pkg-config systemd ]);
 
     # Prevents cabal from choosing alternate plans, so that
     # *all* dependencies are provided by Nix.

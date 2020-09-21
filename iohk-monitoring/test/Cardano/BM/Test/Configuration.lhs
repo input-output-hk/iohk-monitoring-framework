@@ -4,8 +4,6 @@
 
 %if style == newcode
 \begin{code}
-{-# LANGUAGE CPP               #-}
-{-# LANGUAGE OverloadedStrings #-}
 
 module Cardano.BM.Test.Configuration (
     tests
@@ -14,7 +12,6 @@ module Cardano.BM.Test.Configuration (
 import           Prelude hiding (Ordering (..))
 
 import           Control.Concurrent.MVar (readMVar)
-import           Data.Aeson.Types (Value (..))
 import           Data.ByteString (intercalate)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Vector as V
