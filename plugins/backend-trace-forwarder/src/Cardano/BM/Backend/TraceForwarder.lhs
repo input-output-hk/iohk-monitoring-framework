@@ -32,6 +32,7 @@ import           Data.Aeson (FromJSON, ToJSON, encode)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as BSC
 import qualified Data.ByteString.Lazy as BL
+import           Data.IORef (IORef, modifyIORef', newIORef, readIORef, writeIORef)
 import           Data.Maybe (fromMaybe)
 import           Data.Text (Text, unpack)
 import           Data.Text.Encoding (encodeUtf8)
@@ -99,6 +100,7 @@ data TraceForwarderInternal a = TraceForwarderInternal
     , tfRemoteAddr :: RemoteAddr
     , tfFilter     :: Severity
     , tfDispatcher :: Maybe (Async.Async ())
+    , tfQueueFullCounter :: IORef Int
     }
 \end{code}
 
@@ -132,10 +134,17 @@ instance (ToJSON a) => IsEffectuator TraceForwarder a where
         let queue = tfQueue currentTF'
         noCapacity <- atomically $ TBQ.isFullTBQueue queue
         if noCapacity
-          then handleOverflow tf
+          then do
+            let counterIORef = tfQueueFullCounter currentTF'
+                criticalNum = 200
+            count <- readIORef counterIORef
+            when (count >= criticalNum) $ do
+              modifyIORef' counterIORef (const 0)
+              handleOverflow tf
+            writeIORef counterIORef $ count + 1
           else atomically $ TBQ.writeTBQueue queue lo
 
-    handleOverflow _ = TIO.hPutStrLn stderr "Notice: TraceForwarder's queue is full, dropping log items!"
+    handleOverflow _ = TIO.hPutStrLn stderr "Notice: TraceForwarder's queue is full, 200 log items were dropped!"
 
 \end{code}
 
@@ -153,12 +162,14 @@ instance (FromJSON a, ToJSON a) => IsBackend TraceForwarder a where
       Nothing -> fail "Trace forwarder not configured:  option 'forwardTo'"
       Just addr -> do
         queue <- atomically $ TBQ.newTBQueue queueMaxSize
+        counter <- newIORef 0
         tfMVar <- newMVar $ TraceForwarderInternal
                               { tfQueue      = queue
                               , tfHandle     = Nothing
                               , tfRemoteAddr = addr
                               , tfFilter     = Debug
                               , tfDispatcher = Nothing
+                              , tfQueueFullCounter = counter
                               }
         return $ TraceForwarder tfMVar
 
