@@ -71,7 +71,6 @@ import           Control.Concurrent.MVar (MVar, newMVar, readMVar,
                      modifyMVar_)
 import           Control.Monad (when)
 import qualified Data.HashMap.Strict as HM
-import           Data.Maybe (catMaybes, fromMaybe)
 import qualified Data.Text as T
 import           Data.Text (Text, pack, unpack)
 import qualified Data.Vector as Vector
@@ -88,6 +87,9 @@ import           Cardano.BM.Data.Output (ScribeDefinition (..), ScribeId,
 import           Cardano.BM.Data.Rotation (RotationParameters (..))
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.SubTrace
+
+import qualified Data.Maybe as M
+
 
 \end{code}
 %endif
@@ -525,7 +527,7 @@ setupFromRepresentation r = do
     fillRotationParams defaultRotation = map $ \sd ->
         if scKind sd == FileSK
         then
-            sd { scRotation = maybe defaultRotation Just (scRotation sd) }
+            sd { scRotation = M.maybe defaultRotation Just (scRotation sd) }
         else
             -- stdout, stderr, /dev/null and systemd cannot be rotated
             sd { scRotation = Nothing }
@@ -533,7 +535,7 @@ setupFromRepresentation r = do
     parseBackendMap Nothing = HM.empty
     parseBackendMap (Just hmv) = HM.map mkBackends hmv
       where
-        mkBackends (Array bes) = catMaybes $ map mkBackend $ Vector.toList bes
+        mkBackends (Array bes) = M.catMaybes $ map mkBackend $ Vector.toList bes
         mkBackends _ = []
         mkBackend :: Value -> Maybe BackendKind
         mkBackend = parseMaybe parseJSON
@@ -541,7 +543,7 @@ setupFromRepresentation r = do
     parseScribeMap Nothing = HM.empty
     parseScribeMap (Just hmv) = HM.map mkScribes hmv
       where
-        mkScribes (Array scs) = catMaybes $ map mkScribe $ Vector.toList scs
+        mkScribes (Array scs) = M.catMaybes $ map mkScribe $ Vector.toList scs
         mkScribes (String s) = [(s :: ScribeId)]
         mkScribes _ = []
         mkScribe :: Value -> Maybe ScribeId
@@ -709,7 +711,7 @@ findRootSubTrace config loggername =
 
 testSubTrace :: Configuration -> LoggerName -> LogObject a -> IO (Maybe (LogObject a))
 testSubTrace config loggername lo = do
-    subtrace <- fromMaybe Neutral <$> findRootSubTrace config loggername
+    subtrace <- M.fromMaybe Neutral <$> findRootSubTrace config loggername
     return $ testSubTrace' lo subtrace
   where
     testSubTrace' :: LogObject a -> SubTrace -> Maybe (LogObject a)

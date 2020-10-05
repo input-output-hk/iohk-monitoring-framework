@@ -33,7 +33,7 @@ extra-deps:
   - katip-0.8.4.0
 
   - git: https://github.com/input-output-hk/ouroboros-network
-    commit: 64351aaa3b27fd5a28fc7d1f9c48f9e5a815dab2
+    commit: 7789e638776b1f4049dab623aadf7961c2023b4a
     subdirs:
         - Win32-network
 
