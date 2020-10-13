@@ -32,9 +32,9 @@ import           Data.Aeson (FromJSON, ToJSON, encode)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as BSC
 import qualified Data.ByteString.Lazy as BL
-import           Data.IORef (IORef, modifyIORef', newIORef, readIORef, writeIORef)
+import           Data.IORef (IORef, atomicModifyIORef', newIORef, readIORef)
 import           Data.Maybe (fromMaybe)
-import           Data.Text (Text, unpack)
+import           Data.Text (Text, pack, unpack)
 import           Data.Text.Encoding (encodeUtf8)
 import qualified Data.Text.IO as TIO
 import           Data.Typeable (Typeable)
@@ -136,15 +136,19 @@ instance (ToJSON a) => IsEffectuator TraceForwarder a where
         if noCapacity
           then do
             let counterIORef = tfQueueFullCounter currentTF'
-                criticalNum = 200
-            count <- readIORef counterIORef
-            when (count >= criticalNum) $ do
-              modifyIORef' counterIORef (const 0)
-              handleOverflow tf
-            writeIORef counterIORef $ count + 1
+            overflowed <- atomicModifyIORef' counterIORef $ \counter ->
+              if counter >= overflowCriticalNum
+                then (1, True)
+                else (counter + 1, False)
+            when overflowed $ handleOverflow tf
           else atomically $ TBQ.writeTBQueue queue lo
 
-    handleOverflow _ = TIO.hPutStrLn stderr "Notice: TraceForwarder's queue is full, 200 log items were dropped!"
+    handleOverflow _ = TIO.hPutStrLn stderr $ "Notice: TraceForwarder's queue is full, "
+                                              <> pack (show overflowCriticalNum)
+                                              <> " log items were dropped!"
+
+overflowCriticalNum :: Int
+overflowCriticalNum = 200
 
 \end{code}
 
