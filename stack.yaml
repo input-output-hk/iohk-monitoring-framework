@@ -33,7 +33,7 @@ extra-deps:
   - katip-0.8.4.0
 
   - git: https://github.com/input-output-hk/ouroboros-network
-    commit: 64351aaa3b27fd5a28fc7d1f9c48f9e5a815dab2
+    commit: a09f209bb6bbb1a1a9a5b31d671da0189001e175
     subdirs:
         - Win32-network
 
@@ -43,16 +43,14 @@ extra-deps:
         - .
 
 nix:
-  # GHC 8.6.5
-  shell-file: nix/stack-shell.nix
-  # GHC 8.10.2
-#  pure: false
-#  packages: [ zlib.dev, zlib.out
-#            , openssl.dev, openssl.out
-#            , libsodium.dev, libsodium.out
-#            #, haskell.compiler.ghc865
-#            , haskell.compiler.ghc8102
-#            , pkg-config
-#            , systemd.dev
-#            ]
+  pure: false
+#  shell-file: nix/stack-shell.nix
+  packages: [ zlib.dev, zlib.out
+            , openssl.dev, openssl.out
+            , libsodium.dev, libsodium.out
+            , haskell.compiler.ghc865
+            #, haskell.compiler.ghc8102
+            , pkg-config
+            , systemd.dev
+            ]
 
