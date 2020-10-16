@@ -395,7 +395,17 @@ readProcStats pid = do
     let ticks = if length ps0 > 15 then (ps0 !! 13 + ps0 !! 14) else 0
     let ps1 = zip colnames ps0
         ps2 = [("cputicks",ticks)] <> filter (("unused" /=) . fst) ps1
-    return $ map (\(n,i) -> Counter StatInfo n (PureI i)) ps2
+        metricWanted = \case
+          0  -> True -- cputicks
+          20 -> True -- numthreads
+          24 -> True -- rss
+          42 -> True -- blkio
+          _ -> False
+    return $ catMaybes $ map (\((val,i), nr) ->
+                                if metricWanted nr
+                                then Just $ Counter StatInfo val (PureI i)
+                                else Nothing) $
+                             zip ps2 [0::Int ..]
   where
     colnames :: [Text]
     colnames = [ "pid","unused","unused","ppid","pgrp","session","ttynr","tpgid","flags","minflt"
