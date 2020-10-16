@@ -5,10 +5,11 @@
 %if style == newcode
 \begin{code}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE LambdaCase #-}
 
 module Cardano.BM.Counters.Linux
-    (
-      readCounters
+    ( readCounters
+    , readProcessStats
     ) where
 
 #ifdef ENABLE_OBSERVABLES
@@ -27,6 +28,7 @@ import           Text.Read (readMaybe)
 import           Cardano.BM.Counters.Common (getMonoClock, readRTSStats)
 import           Cardano.BM.Data.Observable
 import           Cardano.BM.Data.Aggregated (Measurable(..))
+import           Cardano.BM.Stats.Types (ProcessStats(..))
 #endif
 import           Cardano.BM.Data.Counter
 import           Cardano.BM.Data.SubTrace
@@ -38,6 +40,24 @@ import           Cardano.BM.Data.SubTrace
 
 \label{code:Linux.readCounters}\index{Counters!Linux!readCounters}
 \begin{code}
+
+readProcessStats :: IO (Maybe ProcessStats)
+readProcessStats =
+  parseProcStats . fmap fromIntegral <$> readProcList "/proc/self/stat"
+ where
+   parseProcStats :: [Word] -> Maybe ProcessStats
+   parseProcStats (_:_:_:_:_:_:_:_:_:_            -- 00-09
+                  :_:_:_:user:sys:_:_:_:_:threads -- 10-19
+                  :_:_:_:rss:_:_:_:_:_:_          -- 20-29
+                  :_:_:_:_:_:_:_:_:_:_            -- 30-39
+                  :_:blkio:_rest) =               -- 40-42
+     Just $ ProcessStatsLinux
+       { psCentiSecsCpu    = user + sys
+       , psRSS             = rss
+       , psCentiSecsIOWait = blkio
+       , psThreads         = threads
+       }
+   parseProcStats _ = Nothing
 
 readCounters :: SubTrace -> IO [Counter]
 readCounters NoTrace                   = return []

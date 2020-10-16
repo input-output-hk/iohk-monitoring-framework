@@ -3,8 +3,8 @@
 {-# LANGUAGE ForeignFunctionInterface #-}
 
 module Cardano.BM.Counters.Darwin
-    (
-      readCounters
+    ( readCounters
+    , readProcessStats
     , DiskInfo (..)
     ) where
 
@@ -22,6 +22,7 @@ import           System.Posix.Types (ProcessID)
 import           Cardano.BM.Counters.Common (getMonoClock, readRTSStats)
 import           Cardano.BM.Data.Observable
 import           Cardano.BM.Data.Aggregated (Measurable(..))
+import           Cardano.BM.Stats.Types (ProcessStats(..))
 #endif
 import           Cardano.BM.Data.Counter
 import           Cardano.BM.Data.SubTrace
@@ -401,6 +402,20 @@ getMemoryInfo pid =
 
 
 #ifdef ENABLE_OBSERVABLES
+readProcessStats :: IO (Maybe ProcessStats)
+readProcessStats = getProcessID >>= \pid -> do
+  cpu <- getCpuTimes   pid
+  mem <- getMemoryInfo pid
+  pure . Just $
+    ProcessStatsDarwin
+    { psCentiSecsCpu = timeValToCenti   (_user_time cpu)
+                     + timeValToCenti (_system_time cpu)
+    , psRSS          = fromIntegral (_resident_size mem)
+    }
+ where
+   timeValToCenti :: TIME_VALUE_T -> Word
+   timeValToCenti = fromIntegral . ceiling . (/ 10000) . usFromTimeValue
+
 readSysStats :: ProcessID -> IO [Counter]
 readSysStats _pid = do
     -- sysinfo <- getSysInfo
