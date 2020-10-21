@@ -5,6 +5,7 @@ where
 data ProcessStats
   = ProcessStatsDarwin
     { psCentiSecsCpu    :: !Word
+    , psCentiSecsGC     :: !Word
     , psRSS             :: !Word
     }
   | ProcessStatsDummy
@@ -12,12 +13,14 @@ data ProcessStats
     }
   | ProcessStatsLinux
     { psCentiSecsCpu    :: !Word
+    , psCentiSecsGC     :: !Word
     , psRSS             :: !Word
     , psCentiSecsIOWait :: !Word
     , psThreads         :: !Word
     }
   | ProcessStatsWindows
     { psCentiSecsCpu    :: !Word
+    , psCentiSecsGC     :: !Word
     , psRSS             :: !Word
     }
   deriving Show

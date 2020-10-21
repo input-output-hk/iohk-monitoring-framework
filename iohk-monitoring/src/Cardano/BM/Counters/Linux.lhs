@@ -16,6 +16,7 @@ module Cardano.BM.Counters.Linux
 import           Data.Foldable (foldrM)
 import           Data.Maybe (catMaybes)
 import           Data.Text (Text, pack)
+import qualified GHC.Stats as GhcStats
 import           System.FilePath.Posix ((</>))
 import           System.Posix.Files (getFileStatus,fileMode,ownerReadMode,
                      intersectFileModes)
@@ -42,22 +43,27 @@ import           Cardano.BM.Data.SubTrace
 \begin{code}
 
 readProcessStats :: IO (Maybe ProcessStats)
-readProcessStats =
-  parseProcStats . fmap fromIntegral <$> readProcList "/proc/self/stat"
+readProcessStats = do
+  rts <- GhcStats.getRTSStats
+  mkProcStats rts . fmap fromIntegral <$> readProcList "/proc/self/stat"
  where
-   parseProcStats :: [Word] -> Maybe ProcessStats
-   parseProcStats (_:_:_:_:_:_:_:_:_:_            -- 00-09
-                  :_:_:_:user:sys:_:_:_:_:threads -- 10-19
-                  :_:_:_:rss:_:_:_:_:_:_          -- 20-29
-                  :_:_:_:_:_:_:_:_:_:_            -- 30-39
-                  :_:blkio:_rest) =               -- 40-42
+   mkProcStats :: GhcStats.RTSStats -> [Word] -> Maybe ProcessStats
+   mkProcStats rts
+               (_:_:_:_:_:_:_:_:_:_            -- 00-09
+               :_:_:_:user:sys:_:_:_:_:threads -- 10-19
+               :_:_:_:rss:_:_:_:_:_:_          -- 20-29
+               :_:_:_:_:_:_:_:_:_:_            -- 30-39
+               :_:blkio:_rest) =               -- 40-42
      Just $ ProcessStatsLinux
        { psCentiSecsCpu    = user + sys
+       , psCentiSecsGC     = nsToCenti $ GhcStats.gc_cpu_ns rts
        , psRSS             = rss
        , psCentiSecsIOWait = blkio
        , psThreads         = threads
        }
-   parseProcStats _ = Nothing
+   mkProcStats _ _ = Nothing
+   nsToCenti :: GhcStats.RtsTime -> Word
+   nsToCenti = floor . (/ (10000000 :: Double)) . fromIntegral
 
 readCounters :: SubTrace -> IO [Counter]
 readCounters NoTrace                   = return []

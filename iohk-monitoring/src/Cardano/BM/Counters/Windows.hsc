@@ -16,6 +16,7 @@ import           Foreign.C.Types
 import           Foreign.Marshal.Alloc
 import           Foreign.Ptr
 import           Foreign.Storable
+import qualified GHC.Stats as GhcStats
 import           System.Win32.Process (ProcessId, getCurrentProcessId)
 import           System.Win32.Types
 
@@ -310,14 +311,18 @@ readProcessStats :: IO (Maybe ProcessStats)
 readProcessStats = getCurrentProcessId >>= \pid -> do
   cpu <- getCpuTimes   pid
   mem <- getMemoryInfo pid
+  rts <- GhcStats.getRTSStats
   pure . Just $
     ProcessStatsWindows
     { psCentiSecsCpu = usecsToCenti $ usertime cpu + systime cpu
+       , psCentiSecsGC     = nsToCenti $ GhcStats.gc_cpu_ns rts
     , psRSS          = fromIntegral (_workingSetSize mem)
     }
  where
    usecsToCenti :: ULONGLONG -> Word
    usecsToCenti = ceiling . (/ 10000)
+   nsToCenti :: GhcStats.RtsTime -> Word
+   nsToCenti = fromIntegral . (/ 10000000)
 
 readProcStats :: ProcessId -> IO [Counter]
 readProcStats pid = do
