@@ -54,6 +54,31 @@ data Severity = Debug
               | Emergency
                 deriving (Show, Eq, Ord, Bounded, Enum, Generic, ToJSON, Read)
 
+\end{code}
+
+|Severity| is a \href{https://www.wikiwand.com/en/Semilattice}{lower
+semilattice}, and thus a monoid:
+\begin{code}
+instance Semigroup Severity where
+  Debug     <> _         = Debug
+  _         <> Debug     = Debug
+  Info      <> _         = Info
+  _         <> Info      = Info
+  Notice    <> _         = Notice
+  _         <> Notice    = Notice
+  Warning   <> _         = Warning
+  _         <> Warning   = Warning
+  Error     <> _         = Error
+  _         <> Error     = Error
+  Critical  <> _         = Critical
+  _         <> Critical  = Critical
+  Alert     <> _         = Alert
+  _         <> Alert     = Alert
+  Emergency <> Emergency = Emergency
+
+instance Monoid Severity where
+  mempty = Emergency
+
 instance FromJSON Severity where
     parseJSON = withText "severity" $ \case
                     "Debug"     -> pure Debug
