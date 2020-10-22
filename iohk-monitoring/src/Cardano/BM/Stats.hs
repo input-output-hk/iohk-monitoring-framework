@@ -1,11 +1,12 @@
 {-# LANGUAGE CPP #-}
 module Cardano.BM.Stats
-    ( ProcessStats(..)
-    , Platform.readProcessStats
+    ( Resources
+    , ResourceStats
+    , Platform.readResourceStats
     )
 where
 
-import Cardano.BM.Stats.Types (ProcessStats(..))
+import Cardano.BM.Stats.Resources
 
 #if defined(linux_HOST_OS)
 import qualified Cardano.BM.Counters.Linux   as Platform

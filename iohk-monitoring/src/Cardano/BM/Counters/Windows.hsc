@@ -5,7 +5,7 @@
 
 module Cardano.BM.Counters.Windows
     ( readCounters
-    , readProcessStats
+    , readResourceStats
     ) where
 
 #ifdef ENABLE_OBSERVABLES
@@ -23,7 +23,7 @@ import           System.Win32.Types
 import           Cardano.BM.Counters.Common (getMonoClock, readRTSStats)
 import           Cardano.BM.Data.Observable
 import           Cardano.BM.Data.Aggregated (Measurable(..))
-import           Cardano.BM.Stats.Types (ProcessStats(..))
+import           Cardano.BM.Stats.Resources
 #endif
 import           Cardano.BM.Data.Counter
 import           Cardano.BM.Data.SubTrace
@@ -307,21 +307,28 @@ readSysStats pid = do
 
 
 #ifdef ENABLE_OBSERVABLES
-readProcessStats :: IO (Maybe ProcessStats)
-readProcessStats = getCurrentProcessId >>= \pid -> do
+readResourceStats :: IO (Maybe ResourceStats)
+readResourceStats = getCurrentProcessId >>= \pid -> do
   cpu <- getCpuTimes   pid
   mem <- getMemoryInfo pid
   rts <- GhcStats.getRTSStats
   pure . Just $
-    ProcessStatsWindows
-    { psCentiSecsCpu = usecsToCenti $ usertime cpu + systime cpu
-       , psCentiSecsGC     = nsToCenti $ GhcStats.gc_cpu_ns rts
-    , psRSS          = fromIntegral (_workingSetSize mem)
+    Resources
+    { rCentiCpu   = usecsToCenti $ usertime cpu + systime cpu
+    , rCentiGC    = nsToCenti $ GhcStats.gc_cpu_ns rts
+    , rCentiMut   = nsToCenti $ GhcStats.mutator_cpu_ns rts
+    , rGcsMajor   = fromIntegral $ GhcStats.major_gcs rts
+    , rGcsMinor   = fromIntegral $ GhcStats.gcs rts - GhcStats.major_gcs rts
+    , rAlloc      = GhcStats.allocated_bytes rts
+    , rLive       = GhcStats.gcdetails_live_bytes $ GhcStats.gc rts
+    , rRSS        = fromIntegral (_workingSetSize mem)
+    , rCentiBlkIO = 0
+    , rThreads    = 0
     }
  where
-   usecsToCenti :: ULONGLONG -> Word
+   usecsToCenti :: ULONGLONG -> Word64
    usecsToCenti = ceiling . (/ 10000)
-   nsToCenti :: GhcStats.RtsTime -> Word
+   nsToCenti :: GhcStats.RtsTime -> Word64
    nsToCenti = fromIntegral . (/ 10000000)
 
 readProcStats :: ProcessId -> IO [Counter]

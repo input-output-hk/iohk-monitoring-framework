@@ -4,7 +4,7 @@
 
 module Cardano.BM.Counters.Darwin
     ( readCounters
-    , readProcessStats
+    , readResourceStats
     , DiskInfo (..)
     ) where
 
@@ -23,7 +23,7 @@ import           System.Posix.Types (ProcessID)
 import           Cardano.BM.Counters.Common (getMonoClock, readRTSStats)
 import           Cardano.BM.Data.Observable
 import           Cardano.BM.Data.Aggregated (Measurable(..))
-import           Cardano.BM.Stats.Types (ProcessStats(..))
+import           Cardano.BM.Stats.Resources
 #endif
 import           Cardano.BM.Data.Counter
 import           Cardano.BM.Data.SubTrace
@@ -403,22 +403,29 @@ getMemoryInfo pid =
 
 
 #ifdef ENABLE_OBSERVABLES
-readProcessStats :: IO (Maybe ProcessStats)
-readProcessStats = getProcessID >>= \pid -> do
+readResourceStats :: IO (Maybe ResourceStats)
+readResourceStats = getProcessID >>= \pid -> do
   cpu <- getCpuTimes   pid
   rts <- GhcStats.getRTSStats
   mem <- getMemoryInfo pid
   pure . Just $
-    ProcessStatsDarwin
-    { psCentiSecsCpu = timeValToCenti   (_user_time cpu)
-                     + timeValToCenti (_system_time cpu)
-    , psCentiSecsGC  = nsToCenti $ GhcStats.gc_cpu_ns rts
-    , psRSS          = fromIntegral (_resident_size mem)
+    Resources
+    { rCentiCpu   = timeValToCenti   (_user_time cpu)
+                  + timeValToCenti (_system_time cpu)
+    , rCentiGC    = nsToCenti $ GhcStats.gc_cpu_ns rts
+    , rCentiMut   = nsToCenti $ GhcStats.mutator_cpu_ns rts
+    , rGcsMajor   = fromIntegral $ GhcStats.major_gcs rts
+    , rGcsMinor   = fromIntegral $ GhcStats.gcs rts - GhcStats.major_gcs rts
+    , rAlloc      = GhcStats.allocated_bytes rts
+    , rLive       = GhcStats.gcdetails_live_bytes $ GhcStats.gc rts
+    , rRSS        = fromIntegral (_resident_size mem)
+    , rCentiBlkIO = 0
+    , rThreads    = 0
     }
  where
-   nsToCenti :: GhcStats.RtsTime -> Word
+   nsToCenti :: GhcStats.RtsTime -> Word64
    nsToCenti = fromIntegral . (/ 10000000)
-   timeValToCenti :: TIME_VALUE_T -> Word
+   timeValToCenti :: TIME_VALUE_T -> Word64
    timeValToCenti = fromIntegral . ceiling . (/ 10000) . usFromTimeValue
 
 readSysStats :: ProcessID -> IO [Counter]

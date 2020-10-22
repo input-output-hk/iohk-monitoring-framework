@@ -9,7 +9,7 @@
 
 module Cardano.BM.Counters.Linux
     ( readCounters
-    , readProcessStats
+    , readResourceStats
     ) where
 
 #ifdef ENABLE_OBSERVABLES
@@ -29,7 +29,7 @@ import           Text.Read (readMaybe)
 import           Cardano.BM.Counters.Common (getMonoClock, readRTSStats)
 import           Cardano.BM.Data.Observable
 import           Cardano.BM.Data.Aggregated (Measurable(..))
-import           Cardano.BM.Stats.Types (ProcessStats(..))
+import           Cardano.BM.Stats.Resources
 #endif
 import           Cardano.BM.Data.Counter
 import           Cardano.BM.Data.SubTrace
@@ -42,27 +42,32 @@ import           Cardano.BM.Data.SubTrace
 \label{code:Linux.readCounters}\index{Counters!Linux!readCounters}
 \begin{code}
 
-readProcessStats :: IO (Maybe ProcessStats)
-readProcessStats = do
+readResourceStats :: IO (Maybe ResourceStats)
+readResourceStats = do
   rts <- GhcStats.getRTSStats
   mkProcStats rts . fmap fromIntegral <$> readProcList "/proc/self/stat"
  where
-   mkProcStats :: GhcStats.RTSStats -> [Word] -> Maybe ProcessStats
+   mkProcStats :: GhcStats.RTSStats -> [Word64] -> Maybe ResourceStats
    mkProcStats rts
                (_:_:_:_:_:_:_:_:_:_            -- 00-09
                :_:_:_:user:sys:_:_:_:_:threads -- 10-19
                :_:_:_:rss:_:_:_:_:_:_          -- 20-29
                :_:_:_:_:_:_:_:_:_:_            -- 30-39
                :_:blkio:_rest) =               -- 40-42
-     Just $ ProcessStatsLinux
-       { psCentiSecsCpu    = user + sys
-       , psCentiSecsGC     = nsToCenti $ GhcStats.gc_cpu_ns rts
-       , psRSS             = rss
-       , psCentiSecsIOWait = blkio
-       , psThreads         = threads
+     Just $ Resources
+       { rCentiCpu   = user + sys
+       , rCentiGC    = nsToCenti $ GhcStats.gc_cpu_ns rts
+       , rCentiMut   = nsToCenti $ GhcStats.mutator_cpu_ns rts
+       , rGcsMajor   = fromIntegral $ GhcStats.major_gcs rts
+       , rGcsMinor   = fromIntegral $ GhcStats.gcs rts - GhcStats.major_gcs rts
+       , rAlloc      = GhcStats.allocated_bytes rts
+       , rLive       = GhcStats.gcdetails_live_bytes $ GhcStats.gc rts
+       , rRSS        = rss * 4096 -- TODO:  this is really PAGE_SIZE.
+       , rCentiBlkIO = blkio
+       , rThreads    = threads
        }
    mkProcStats _ _ = Nothing
-   nsToCenti :: GhcStats.RtsTime -> Word
+   nsToCenti :: GhcStats.RtsTime -> Word64
    nsToCenti = floor . (/ (10000000 :: Double)) . fromIntegral
 
 readCounters :: SubTrace -> IO [Counter]

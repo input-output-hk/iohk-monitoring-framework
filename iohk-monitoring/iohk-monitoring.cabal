@@ -38,7 +38,7 @@ library
                        Cardano.BM.Counters.Dummy
 
                        Cardano.BM.Stats
-                       Cardano.BM.Stats.Types
+                       Cardano.BM.Stats.Resources
 
                        Cardano.BM.Data.Aggregated
                        Cardano.BM.Data.AggregatedKind
