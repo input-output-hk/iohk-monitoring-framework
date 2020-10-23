@@ -39,12 +39,12 @@ module Cardano.BM.Configuration
     , CM.testSubTrace
     ) where
 
+import           Data.Foldable (fold)
 import           Data.Text (Text)
 import           Data.Maybe (fromMaybe)
 
 import qualified Cardano.BM.Configuration.Model as CM
 import           Cardano.BM.Data.LogItem
-import           Cardano.BM.Data.Severity (Severity (..))
 
 \end{code}
 %endif
@@ -66,7 +66,7 @@ testSeverity :: CM.Configuration -> LoggerName -> LOMeta -> IO Bool
 testSeverity config loggername meta = do
     globminsev  <- CM.minSeverity config
     globnamesev <- CM.inspectSeverity config loggername
-    let minsev = max globminsev $ fromMaybe Debug globnamesev
+    let minsev = globminsev <> fold globnamesev
     return $ (severity meta) >= minsev
 
 \end{code}
