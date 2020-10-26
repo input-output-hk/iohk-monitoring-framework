@@ -124,11 +124,11 @@ library
                        transformers,
                        unordered-containers,
                        vector,
-                       Win32-network,
                        yaml, libyaml
 
   if os(windows)
-     build-depends:    Win32
+     build-depends:    Win32,
+                       Win32-network
   else
      build-depends:    unix
 
