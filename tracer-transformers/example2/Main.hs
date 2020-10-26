@@ -109,11 +109,12 @@ data BlockActions = BlockAction1
 data Timing = Timing Int
     deriving (Show)
 
-data MyCodeTracers m = MyCodeTracers
-    { tr1 :: Tracer m (MyMessages BlockActions)
-    , tr2 :: Tracer m (MyMessages Timing)
-    -- and so forth
-    }
+data MyCodeTracers m
+  = MyCodeTracers
+      { tr1 :: Tracer m (MyMessages BlockActions)
+      , tr2 :: Tracer m (MyMessages Timing)
+        -- and so forth
+      }
 
 myCodeTracersBenchmarking = MyCodeTracers
     { tr1 = nullTracer

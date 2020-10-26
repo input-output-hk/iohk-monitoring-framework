@@ -17,9 +17,10 @@ import qualified Cardano.BM.Tracing as Trace
 import qualified Options.Applicative as Opt
 
 
-data CLI = CLI
-    { cConfig :: FilePath
-    }
+data CLI
+  = CLI
+      { cConfig :: FilePath
+      }
 
 cliParser :: Opt.Parser CLI
 cliParser = CLI

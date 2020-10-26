@@ -162,21 +162,22 @@ instance Show (AddressFamily addr) where
 -- 'Socket'.  Snockets are polymorphic over monad which is used, this feature
 -- is useful for testing and/or simulations.
 --
-data Snocket m fd addr = Snocket
-    { getLocalAddr  :: fd -> m addr
-    , getRemoteAddr :: fd -> m addr
-    , addrFamily    :: addr -> AddressFamily addr
-    , open          :: AddressFamily addr -> m fd
-    -- |^ Open a file descriptor: socket='socket', namedPipe='CreateNamedPipe'
-    , openToConnect :: addr -> m fd
-    -- |^ A way to create 'fd' to pass to 'connect'.  For named pipes it uses 'CreateFile'
-    , connect       :: fd -> addr -> m ()
-    -- |^ `connect` is only needed for Berkeley sockets, for named pipes this is a no-op.
-    , bind          :: fd -> addr -> m ()
-    , listen        :: fd -> m ()
-    , accept        :: fd -> Accept addr fd
-    , close         :: fd -> m ()
-    }
+data Snocket m fd addr
+  = Snocket
+      { getLocalAddr  :: fd -> m addr
+      , getRemoteAddr :: fd -> m addr
+      , addrFamily    :: addr -> AddressFamily addr
+      , open          :: AddressFamily addr -> m fd
+        -- |^ Open a file descriptor: socket='socket', namedPipe='CreateNamedPipe'
+      , openToConnect :: addr -> m fd
+        -- |^ A way to create 'fd' to pass to 'connect'.  For named pipes it uses 'CreateFile'
+      , connect       :: fd -> addr -> m ()
+        -- |^ `connect` is only needed for Berkeley sockets, for named pipes this is a no-op.
+      , bind          :: fd -> addr -> m ()
+      , listen        :: fd -> m ()
+      , accept        :: fd -> Accept addr fd
+      , close         :: fd -> m ()
+      }
 
 
 --

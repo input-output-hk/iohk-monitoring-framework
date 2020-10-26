@@ -48,8 +48,7 @@ nix:
   packages: [ zlib.dev, zlib.out
             , openssl.dev, openssl.out
             , libsodium.dev, libsodium.out
-            , haskell.compiler.ghc865
-            #, haskell.compiler.ghc8102
+            , haskell.compiler.ghc8102
             , pkg-config
             , systemd.dev
             ]
