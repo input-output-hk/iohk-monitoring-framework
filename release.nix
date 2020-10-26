@@ -53,11 +53,11 @@ let
       map (drv: drv // { inherit packageName; }) (collectComponents' package)
     ) ds);
 
-  inherit (systems.examples) mingwW64 musl64;
+  # inherit (systems.examples) mingwW64 musl64;
 
   jobs = {
     native = mapTestOn (__trace (__toJSON (packagePlatforms project)) (packagePlatforms project));
-    "${mingwW64.config}" = mapTestOnCross mingwW64 (packagePlatformsCross project);
+    # "${mingwW64.config}" = mapTestOnCross mingwW64 (packagePlatformsCross project);
   } // (mkRequiredJob (
       collectComponents jobs.native.tests ++
       collectComponents jobs.native.benchmarks ++
