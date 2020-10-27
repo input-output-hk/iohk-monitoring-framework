@@ -58,7 +58,7 @@ defaultConfigStdout = do
 defaultConfigTesting :: IO CM.Configuration
 defaultConfigTesting = do
     c <- CM.empty
-    CM.setMinSeverity c Debug
+    CM.setMinSeverity c Warning
     CM.setSetupBackends c [KatipBK, AggregationBK]
     CM.setDefaultBackends c [KatipBK, AggregationBK]
     CM.setSetupScribes c [ ScribeDefinition {

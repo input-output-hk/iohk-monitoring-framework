@@ -410,16 +410,16 @@ unitNamedMinSeverity = do
     let trace = appendName "sev-change" basetrace
     logInfo trace "Message #1"
 
-    -- raise the minimum severity to Warning
-    setSeverity cfg "test-named-severity.sev-change" (Just Warning)
+    -- lower the minimum severity of a particular trace to Warning
+    setSeverity cfg "test-named-severity.sev-change" (Just Info)
     msev <- Cardano.BM.Configuration.inspectSeverity cfg "test-named-severity.sev-change"
     assertBool ("min severity should be Warning, but is " ++ (show msev))
-               (msev == Just Warning)
+               (msev == Just Info)
     -- this message will not be traced
     logInfo trace "Message #2"
 
-    -- lower the minimum severity to Info
-    setSeverity cfg "test-named-severity.sev-change" (Just Info)
+    -- raise the minimum severity to Error
+    setSeverity cfg "test-named-severity.sev-change" (Just Error)
     -- this message is traced
     logInfo trace "Message #3"
 
@@ -430,13 +430,6 @@ unitNamedMinSeverity = do
     assertBool
         ("Found more or less messages than expected: " ++ show res)
         (length res == 2)
-    assertBool
-        ("Found Info message when Warning was minimum severity: " ++ show res)
-        (all
-            (\case
-                LogObject _ (LOMeta _ _ _ Info _) (LogMessage "Message #2") -> False
-                _ -> True)
-            res)
 
 \end{code}
 
