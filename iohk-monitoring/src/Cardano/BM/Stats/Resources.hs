@@ -8,9 +8,9 @@ module Cardano.BM.Stats.Resources
   )
 where
 
-import Data.Aeson
-import Data.Word
-import GHC.Generics (Generic)
+import           Data.Aeson
+import           Data.Word
+import           GHC.Generics (Generic)
 
 -- | Concrete data provided by 'readResourceStats'.
 --   (See platform-specific files in Cardano.BM.Counters)
@@ -20,17 +20,17 @@ type ResourceStats = Resources Word64
 --
 data Resources a
   = Resources
-    { rCentiCpu     :: !a
-    , rCentiGC      :: !a
-    , rCentiMut     :: !a
-    , rGcsMajor     :: !a
-    , rGcsMinor     :: !a
-    , rAlloc        :: !a
-    , rLive         :: !a
-    , rRSS          :: !a
-    , rCentiBlkIO   :: !a
-    , rThreads      :: !a
-    }
+      { rCentiCpu   :: !a
+      , rCentiGC    :: !a
+      , rCentiMut   :: !a
+      , rGcsMajor   :: !a
+      , rGcsMinor   :: !a
+      , rAlloc      :: !a
+      , rLive       :: !a
+      , rRSS        :: !a
+      , rCentiBlkIO :: !a
+      , rThreads    :: !a
+      }
   deriving (Functor, Generic, Show)
 
 instance Applicative Resources where
