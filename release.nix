@@ -59,7 +59,7 @@ let
     native = mapTestOn (__trace (__toJSON (packagePlatforms project)) (packagePlatforms project));
     # "${mingwW64.config}" = mapTestOnCross mingwW64 (packagePlatformsCross project);
   } // (mkRequiredJob (
-      collectComponents jobs.native.tests ++
+      collectComponents jobs.native.checks ++
       collectComponents jobs.native.benchmarks ++
       collectComponents jobs.native.libs ++
       collectComponents jobs.native.exes
