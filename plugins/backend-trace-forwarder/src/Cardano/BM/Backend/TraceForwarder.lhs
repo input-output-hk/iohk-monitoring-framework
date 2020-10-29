@@ -64,11 +64,21 @@ either a pipe or a socket.
 The |TraceForwarder| is looking up a minimum |Severity| in the options
 section of the configuration. This filters out all messages that have not at
 least the |Severity|.
+
+The callback 'getStateDigest' is used as a source of |LogObject|s
+that should be sent additionally, only once after the connection is
+re\-established. The application that uses 'lobemo-backend-trace-forwarder'
+plugin provides this callback.
 \subsubsection{Plugin definition}
 \begin{code}
 plugin :: forall a s . (IsEffectuator s a, ToJSON a, FromJSON a)
-       => Configuration -> Trace.Trace IO a -> s a -> Text -> IO (Plugin a)
-plugin config _trace _sb tfid = do
+       => Configuration
+       -> Trace.Trace IO a
+       -> s a
+       -> Text
+       -> IO [LogObject a]
+       -> IO (Plugin a)
+plugin config _trace _sb tfid getStateDigest = do
     opts <- getTextOption config tfid
     let minsev = case opts of
                    Nothing -> Debug
@@ -77,8 +87,9 @@ plugin config _trace _sb tfid = do
     dispatcherThr <- spawnDispatcher config (getTF be)
     modifyMVar_ (getTF be) $ \initialBE ->
       return $ initialBE
-                 { tfFilter     = minsev
-                 , tfDispatcher = Just dispatcherThr
+                 { tfFilter         = minsev
+                 , tfDispatcher     = Just dispatcherThr
+                 , tfGetStateDigest = getStateDigest
                  }
     return $ BackendPlugin
                (MkBackend { bEffectuate = effectuate be, bUnrealize = unrealize be })
@@ -95,12 +106,13 @@ newtype TraceForwarder a = TraceForwarder
 type TraceForwarderMVar a = MVar (TraceForwarderInternal a)
 
 data TraceForwarderInternal a = TraceForwarderInternal
-    { tfQueue      :: TBQ.TBQueue (LogObject a)
-    , tfHandle     :: Maybe Handle
-    , tfRemoteAddr :: RemoteAddr
-    , tfFilter     :: Severity
-    , tfDispatcher :: Maybe (Async.Async ())
+    { tfQueue            :: TBQ.TBQueue (LogObject a)
+    , tfHandle           :: Maybe Handle
+    , tfRemoteAddr       :: RemoteAddr
+    , tfFilter           :: Severity
+    , tfDispatcher       :: Maybe (Async.Async ())
     , tfQueueFullCounter :: IORef Int
+    , tfGetStateDigest   :: IO [LogObject a]
     }
 \end{code}
 
@@ -168,12 +180,13 @@ instance (FromJSON a, ToJSON a) => IsBackend TraceForwarder a where
         queue <- atomically $ TBQ.newTBQueue queueMaxSize
         counter <- newIORef 0
         tfMVar <- newMVar $ TraceForwarderInternal
-                              { tfQueue      = queue
-                              , tfHandle     = Nothing
-                              , tfRemoteAddr = addr
-                              , tfFilter     = Debug
-                              , tfDispatcher = Nothing
+                              { tfQueue            = queue
+                              , tfHandle           = Nothing
+                              , tfRemoteAddr       = addr
+                              , tfFilter           = Debug
+                              , tfDispatcher       = Nothing
                               , tfQueueFullCounter = counter
+                              , tfGetStateDigest   = return []
                               }
         return $ TraceForwarder tfMVar
 
@@ -236,22 +249,31 @@ spawnDispatcher config tfMVar = do
   processQueue delayInMs = forever $ do
     threadDelay $ fromIntegral delayInMs * 1000
     currentTF <- readMVar tfMVar
+    let getStateDigest = tfGetStateDigest currentTF
     itemsList <- atomically $ TBQ.flushTBQueue (tfQueue currentTF)
     -- Try to write it to the handle. If there's a problem with connection,
     -- this thread will initiate re\-establishing of the connection and
     -- will wait until it's established.
-    sendItems config tfMVar itemsList
+    sendItems config tfMVar itemsList getStateDigest
 
 -- Try to send log items to the handle.
-sendItems :: ToJSON a => Configuration -> TraceForwarderMVar a -> [LogObject a] -> IO ()
-sendItems _ _ [] = return ()
-sendItems config tfMVar items@(lo:_) =
+sendItems :: ToJSON a
+          => Configuration
+          -> TraceForwarderMVar a
+          -> [LogObject a]
+          -> IO [LogObject a]
+          -> IO ()
+sendItems _ _ [] _ = return ()
+sendItems config tfMVar items@(lo:_) getStateDigest =
   tfHandle <$> readMVar tfMVar >>= \case
     Nothing -> do
       -- There's no handle, initiate the connection.
       establishConnection 1 1 tfMVar
       -- Connection is re\-established, try to send log item.
-      sendItems config tfMVar items
+      -- Since the connection is re\-established, add state digest items as well.
+      additionalItems <- getStateDigest
+      let allItems = additionalItems ++ items
+      sendItems config tfMVar allItems getStateDigest
     Just h ->
       try (BSC.hPutStrLn h $! encodedHostname) >>= \case
         Right _ ->
@@ -263,11 +285,11 @@ sendItems config tfMVar items@(lo:_) =
             Left (_e :: IOException) -> do
               reConnectIfQueueIsAlmostFull
               threadDelay 10000
-              sendItems config tfMVar items
+              sendItems config tfMVar items getStateDigest
         Left (_e :: IOException) -> do
           reConnectIfQueueIsAlmostFull
           threadDelay 10000
-          sendItems config tfMVar items
+          sendItems config tfMVar items getStateDigest
  where
   encodedHostname = encodeUtf8 (hostname . loMeta $ lo)
 

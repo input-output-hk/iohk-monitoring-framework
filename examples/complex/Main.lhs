@@ -511,7 +511,7 @@ main = do
       >>= loadPlugin sb
     forwardTo <- CM.getForwardTo c
     when (isJust forwardTo) $
-      Cardano.BM.Backend.TraceForwarder.plugin c tr sb "forwarderMinSeverity"
+      Cardano.BM.Backend.TraceForwarder.plugin c tr sb "forwarderMinSeverity" (return [])
         >>= loadPlugin sb
     Cardano.BM.Backend.Aggregation.plugin c tr sb
       >>= loadPlugin sb
