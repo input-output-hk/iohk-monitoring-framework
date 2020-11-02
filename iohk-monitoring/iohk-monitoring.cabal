@@ -37,6 +37,9 @@ library
                        Cardano.BM.Counters.Common
                        Cardano.BM.Counters.Dummy
 
+                       Cardano.BM.Stats
+                       Cardano.BM.Stats.Resources
+
                        Cardano.BM.Data.Aggregated
                        Cardano.BM.Data.AggregatedKind
                        Cardano.BM.Data.Backend

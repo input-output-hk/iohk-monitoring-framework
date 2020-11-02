@@ -11,13 +11,14 @@ The only supported measurements are monotonic clock time and RTS statistics for 
 \begin{code}
 {-# LANGUAGE CPP               #-}
 module Cardano.BM.Counters.Dummy
-    (
-      readCounters
+    ( readCounters
+    , readResourceStats
     ) where
 
 #ifdef ENABLE_OBSERVABLES
 import           Cardano.BM.Counters.Common (getMonoClock, readRTSStats)
 import           Cardano.BM.Data.Observable
+import           Cardano.BM.Stats.Resources
 #endif
 import           Cardano.BM.Data.Aggregated (Measurable(..))
 import           Cardano.BM.Data.Counter
@@ -27,6 +28,9 @@ import           Cardano.BM.Data.SubTrace
 
 \label{code:Dummy.readCounters}\index{Counters!Dummy!readCounters}
 \begin{code}
+readResourceStats :: IO (Maybe ResourceStats)
+readResourceStats = pure . Just $ pure 0
+
 readCounters :: SubTrace -> IO [Counter]
 readCounters NoTrace                       = return []
 readCounters Neutral                       = return []

@@ -4,8 +4,8 @@
 {-# LANGUAGE TypeApplications #-}
 
 module Cardano.BM.Counters.Windows
-    (
-      readCounters
+    ( readCounters
+    , readResourceStats
     ) where
 
 #ifdef ENABLE_OBSERVABLES
@@ -16,12 +16,14 @@ import           Foreign.C.Types
 import           Foreign.Marshal.Alloc
 import           Foreign.Ptr
 import           Foreign.Storable
+import qualified GHC.Stats as GhcStats
 import           System.Win32.Process (ProcessId, getCurrentProcessId)
 import           System.Win32.Types
 
 import           Cardano.BM.Counters.Common (getMonoClock, readRTSStats)
 import           Cardano.BM.Data.Observable
 import           Cardano.BM.Data.Aggregated (Measurable(..))
+import           Cardano.BM.Stats.Resources
 #endif
 import           Cardano.BM.Data.Counter
 import           Cardano.BM.Data.SubTrace
@@ -121,7 +123,7 @@ foreign import ccall unsafe c_get_io_counters :: Ptr IOCounters -> CInt -> IO CI
 
 
 {- system information -}
-  {- 
+  {-
 typedef struct _SYSTEM_INFO {
     union {
         DWORD dwOemId;          // Obsolete field...do not use
@@ -231,7 +233,7 @@ readCounters (ObservableTrace     _ _) = return []
 #ifdef ENABLE_OBSERVABLES
 readProcMem :: ProcessId -> IO [Counter]
 readProcMem pid = do
-    meminfo <- getMemoryInfo
+    meminfo <- getMemoryInfo pid
     return [ Counter MemoryCounter "Pid" (PureI $ fromIntegral pid)
            , Counter MemoryCounter "WorkingSetSize" (PureI $ fromIntegral (_workingSetSize meminfo))
            , Counter MemoryCounter "PeakWorkingSetSize" (PureI $ fromIntegral (_peakWorkingSetSize meminfo))
@@ -243,17 +245,17 @@ readProcMem pid = do
            , Counter MemoryCounter "PeakPagefileUsage" (PureI $ fromIntegral (_peakPagefileUsage meminfo))
            , Counter MemoryCounter "PageFaultCount" (PureI $ fromIntegral (_pageFaultCount meminfo))
            ]
-  where
-    getMemoryInfo :: IO ProcessMemoryCounters
-    getMemoryInfo =
-      allocaBytes 128 $ \ptr -> do
-        res <- c_get_process_memory_info ptr (fromIntegral pid)
-        if res <= 0
-          then do
-            putStrLn $ "c_get_process_memory_info: failure returned: " ++ (show res)
-            return $ ProcessMemoryCounters 0 0 0 0 0 0 0 0 0 0
-          else
-            peek ptr
+
+getMemoryInfo :: ProcessId -> IO ProcessMemoryCounters
+getMemoryInfo pid =
+  allocaBytes 128 $ \ptr -> do
+    res <- c_get_process_memory_info ptr (fromIntegral pid)
+    if res <= 0
+      then do
+        putStrLn $ "c_get_process_memory_info: failure returned: " ++ (show res)
+        return $ ProcessMemoryCounters 0 0 0 0 0 0 0 0 0 0
+      else
+        peek ptr
 #endif
 
 
@@ -261,7 +263,7 @@ readProcMem pid = do
 readSysStats :: ProcessId -> IO [Counter]
 readSysStats pid = do
     sysinfo <- getSysInfo
-    cputimes <- getCpuTimes
+    cputimes <- getCpuTimes pid
     winbits <- getWinBits
     return [ Counter SysInfo "Pid" (PureI $ fromIntegral pid)
            , Counter SysInfo "Platform" (PureI $ fromIntegral $ fromEnum Windows)
@@ -275,7 +277,7 @@ readSysStats pid = do
            , Counter SysInfo "KernelTime" (Microseconds $ systime cputimes)
            , Counter SysInfo "CPUTime" (Microseconds $ (systime cputimes + usertime cputimes))
            , Counter SysInfo "IdleTime" (Microseconds $ idletime cputimes)
-           , Counter SysInfo "WindowsPlatformBits" (PureI $ fromIntegral winbits) 
+           , Counter SysInfo "WindowsPlatformBits" (PureI $ fromIntegral winbits)
            ]
   where
     getWinBits :: IO CInt
@@ -305,6 +307,30 @@ readSysStats pid = do
 
 
 #ifdef ENABLE_OBSERVABLES
+readResourceStats :: IO (Maybe ResourceStats)
+readResourceStats = getCurrentProcessId >>= \pid -> do
+  cpu <- getCpuTimes   pid
+  mem <- getMemoryInfo pid
+  rts <- GhcStats.getRTSStats
+  pure . Just $
+    Resources
+    { rCentiCpu   = usecsToCenti $ usertime cpu + systime cpu
+    , rCentiGC    = nsToCenti $ GhcStats.gc_cpu_ns rts
+    , rCentiMut   = nsToCenti $ GhcStats.mutator_cpu_ns rts
+    , rGcsMajor   = fromIntegral $ GhcStats.major_gcs rts
+    , rGcsMinor   = fromIntegral $ GhcStats.gcs rts - GhcStats.major_gcs rts
+    , rAlloc      = GhcStats.allocated_bytes rts
+    , rLive       = GhcStats.gcdetails_live_bytes $ GhcStats.gc rts
+    , rRSS        = fromIntegral (_workingSetSize mem)
+    , rCentiBlkIO = 0
+    , rThreads    = 0
+    }
+ where
+   usecsToCenti :: ULONGLONG -> Word64
+   usecsToCenti = ceiling . (/ 10000)
+   nsToCenti :: GhcStats.RtsTime -> Word64
+   nsToCenti = fromIntegral . (/ 10000000)
+
 readProcStats :: ProcessId -> IO [Counter]
 readProcStats pid = do
     cputimes <- getCpuTimes
@@ -314,17 +340,17 @@ readProcStats pid = do
            , Counter StatInfo "StartTime" (Microseconds $ idletime cputimes)
            , Counter StatInfo "CPUTime" (Microseconds $ (systime cputimes + usertime cputimes))
            ]
-  where
-    getCpuTimes :: IO CpuTimes
-    getCpuTimes =
-      allocaBytes 128 $ \ptr -> do
-        res <- c_get_proc_cpu_times ptr (fromIntegral pid)
-        if res <= 0
-          then do
-            putStrLn $ "c_get_proc_cpu_times: failure returned: " ++ (show res)
-            return $ CpuTimes 0 0 0
-          else
-            peek ptr
+
+getCpuTimes :: ProcessId -> IO CpuTimes
+getCpuTimes pid =
+  allocaBytes 128 $ \ptr -> do
+    res <- c_get_proc_cpu_times ptr (fromIntegral pid)
+    if res <= 0
+      then do
+        putStrLn $ "c_get_proc_cpu_times: failure returned: " ++ (show res)
+        return $ CpuTimes 0 0 0
+      else
+        peek ptr
 
 #endif
 

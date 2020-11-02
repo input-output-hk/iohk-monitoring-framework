@@ -5,16 +5,18 @@
 %if style == newcode
 \begin{code}
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE LambdaCase #-}
 
 module Cardano.BM.Counters.Linux
-    (
-      readCounters
+    ( readCounters
+    , readResourceStats
     ) where
 
 #ifdef ENABLE_OBSERVABLES
 import           Data.Foldable (foldrM)
 import           Data.Maybe (catMaybes)
 import           Data.Text (Text, pack)
+import qualified GHC.Stats as GhcStats
 import           System.FilePath.Posix ((</>))
 import           System.Posix.Files (getFileStatus,fileMode,ownerReadMode,
                      intersectFileModes)
@@ -27,6 +29,7 @@ import           Text.Read (readMaybe)
 import           Cardano.BM.Counters.Common (getMonoClock, readRTSStats)
 import           Cardano.BM.Data.Observable
 import           Cardano.BM.Data.Aggregated (Measurable(..))
+import           Cardano.BM.Stats.Resources
 #endif
 import           Cardano.BM.Data.Counter
 import           Cardano.BM.Data.SubTrace
@@ -38,6 +41,34 @@ import           Cardano.BM.Data.SubTrace
 
 \label{code:Linux.readCounters}\index{Counters!Linux!readCounters}
 \begin{code}
+
+readResourceStats :: IO (Maybe ResourceStats)
+readResourceStats = do
+  rts <- GhcStats.getRTSStats
+  mkProcStats rts . fmap fromIntegral <$> readProcList "/proc/self/stat"
+ where
+   mkProcStats :: GhcStats.RTSStats -> [Word64] -> Maybe ResourceStats
+   mkProcStats rts
+               (_:_:_:_:_:_:_:_:_:_            -- 00-09
+               :_:_:_:user:sys:_:_:_:_:threads -- 10-19
+               :_:_:_:rss:_:_:_:_:_:_          -- 20-29
+               :_:_:_:_:_:_:_:_:_:_            -- 30-39
+               :_:blkio:_rest) =               -- 40-42
+     Just $ Resources
+       { rCentiCpu   = user + sys
+       , rCentiGC    = nsToCenti $ GhcStats.gc_cpu_ns rts
+       , rCentiMut   = nsToCenti $ GhcStats.mutator_cpu_ns rts
+       , rGcsMajor   = fromIntegral $ GhcStats.major_gcs rts
+       , rGcsMinor   = fromIntegral $ GhcStats.gcs rts - GhcStats.major_gcs rts
+       , rAlloc      = GhcStats.allocated_bytes rts
+       , rLive       = GhcStats.gcdetails_live_bytes $ GhcStats.gc rts
+       , rRSS        = rss * 4096 -- TODO:  this is really PAGE_SIZE.
+       , rCentiBlkIO = blkio
+       , rThreads    = threads
+       }
+   mkProcStats _ _ = Nothing
+   nsToCenti :: GhcStats.RtsTime -> Word64
+   nsToCenti = floor . (/ (10000000 :: Double)) . fromIntegral
 
 readCounters :: SubTrace -> IO [Counter]
 readCounters NoTrace                   = return []
@@ -395,7 +426,17 @@ readProcStats pid = do
     let ticks = if length ps0 > 15 then (ps0 !! 13 + ps0 !! 14) else 0
     let ps1 = zip colnames ps0
         ps2 = [("cputicks",ticks)] <> filter (("unused" /=) . fst) ps1
-    return $ map (\(n,i) -> Counter StatInfo n (PureI i)) ps2
+        metricWanted = \case
+          0  -> True -- cputicks
+          20 -> True -- numthreads
+          24 -> True -- rss
+          42 -> True -- blkio
+          _ -> False
+    return $ catMaybes $ map (\((val,i), nr) ->
+                                if metricWanted nr
+                                then Just $ Counter StatInfo val (PureI i)
+                                else Nothing) $
+                             zip ps2 [0::Int ..]
   where
     colnames :: [Text]
     colnames = [ "pid","unused","unused","ppid","pgrp","session","ttynr","tpgid","flags","minflt"
