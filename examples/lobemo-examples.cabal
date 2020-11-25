@@ -54,6 +54,25 @@ executable example-counters
   else
      build-depends:    unix
 
+executable example-stats
+  main-is:             Main.lhs
+  -- other-modules:
+  default-extensions:  OverloadedStrings
+  ghc-options:         -threaded -Wall -Werror -O2 "-with-rtsopts=-T"
+  hs-source-dirs:      stats
+  default-language:    Haskell2010
+  build-depends:       base,
+                       aeson,
+                       iohk-monitoring,
+                       async,
+                       bytestring,
+                       mtl,
+                       text
+  if os(windows)
+     build-depends:    Win32
+  else
+     build-depends:    unix
+
 executable example-complex
   hs-source-dirs:      complex
   main-is:             Main.lhs

@@ -399,18 +399,15 @@ getMemoryInfo pid =
         return $ MachTaskBasicInfo 0 0 0 (TIME_VALUE_T 0 0) (TIME_VALUE_T 0 0) 0 0
       else
         peek ptr
-#endif
 
-
-#ifdef ENABLE_OBSERVABLES
 readResourceStats :: IO (Maybe ResourceStats)
 readResourceStats = getProcessID >>= \pid -> do
-  cpu <- getCpuTimes   pid
+  cpu <- getMemoryInfo pid
   rts <- GhcStats.getRTSStats
   mem <- getMemoryInfo pid
   pure . Just $
     Resources
-    { rCentiCpu   = timeValToCenti   (_user_time cpu)
+    { rCentiCpu   = timeValToCenti (_user_time cpu)
                   + timeValToCenti (_system_time cpu)
     , rCentiGC    = nsToCenti $ GhcStats.gc_cpu_ns rts
     , rCentiMut   = nsToCenti $ GhcStats.mutator_cpu_ns rts
@@ -424,9 +421,9 @@ readResourceStats = getProcessID >>= \pid -> do
     }
  where
    nsToCenti :: GhcStats.RtsTime -> Word64
-   nsToCenti = fromIntegral . (/ 10000000)
+   nsToCenti = fromIntegral . (`div` 10000000)
    timeValToCenti :: TIME_VALUE_T -> Word64
-   timeValToCenti = fromIntegral . ceiling . (/ 10000) . usFromTimeValue
+   timeValToCenti = fromIntegral . (`div` 10000) . usFromTimeValue
 
 readSysStats :: ProcessID -> IO [Counter]
 readSysStats _pid = do
@@ -454,16 +451,6 @@ readSysStats _pid = do
            , Counter SysInfo "Platform" (PureI $ fromIntegral $ fromEnum Darwin)
            ]
   where
-    -- getSysInfo :: IO HostBasicInfo
-    -- getSysInfo =
-    --   allocaBytes 128 $ \ptr -> do
-    --     res <- c_get_host_info ptr
-    --     if res <= 0
-    --       then do
-    --         putStrLn $ "c_get_host_info: failure returned: " ++ (show res)
-    --         return $ HostBasicInfo 0 0 0 0 0 0 0 0 0 0 0
-    --       else
-    --         peek ptr
     getCpuInfo :: IO CpuTimes
     getCpuInfo =
       allocaBytes 128 $ \ptr -> do
@@ -474,6 +461,16 @@ readSysStats _pid = do
             return $ CpuTimes 0 0 0 0
           else
             peek ptr
+  --   getSysInfo :: IO HostBasicInfo
+  --   getSysInfo =
+  --     allocaBytes 128 $ \ptr -> do
+  --       res <- c_get_host_info ptr
+  --       if res <= 0
+  --         then do
+  --           putStrLn $ "c_get_host_info: failure returned: " ++ (show res)
+  --           return $ HostBasicInfo 0 0 0 0 0 0 0 0 0 0 0
+  --         else
+  --           peek ptr
 #endif
 
 
