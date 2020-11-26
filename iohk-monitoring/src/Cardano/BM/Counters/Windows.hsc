@@ -10,7 +10,6 @@ module Cardano.BM.Counters.Windows
 
 #ifdef ENABLE_OBSERVABLES
 import           Data.Foldable (foldrM)
-import           Data.Word (Word64)
 -- import           Foreign.C.String
 import           Foreign.C.Types
 import           Foreign.Marshal.Alloc
