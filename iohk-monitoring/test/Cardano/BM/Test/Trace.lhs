@@ -20,6 +20,7 @@ import           Prelude hiding (lookup)
 
 import qualified Control.Concurrent.STM.TVar as STM
 
+import           Control.Arrow ((&&&))
 import           Control.Concurrent (threadDelay)
 import qualified Control.Concurrent.Async as Async
 import           Control.Monad (forM, forM_)
@@ -488,10 +489,11 @@ unitTraceInFork = do
     Async.wait $ work1
 
     res <- STM.readTVarIO msgs
-    let names@(_: namesTail) = map loName res
+    let entries = map (loName &&& tstamp . loMeta) res
+        names@(_: namesTail) = map fst entries
     -- each trace should have its own name and log right after the other
     assertBool
-        ("Consecutive loggernames are not different: " ++ show names)
+        ("Consecutive loggernames are not different: " ++ show entries)
         (and $ zipWith (/=) names namesTail)
   where
     work :: Trace IO Text -> IO (Async.Async ())
