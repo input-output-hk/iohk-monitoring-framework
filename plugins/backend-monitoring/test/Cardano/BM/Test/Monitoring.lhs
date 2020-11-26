@@ -1,13 +1,16 @@
-
 \subsection{Testing parsing of monitoring expressions and actions}
 
 %if style == newcode
 \begin{code}
+{-# LANGUAGE CPP #-}
+
 module Cardano.BM.Test.Monitoring (
     tests
   ) where
 
+#if ! defined(mingw32_HOST_OS)
 import qualified Control.Concurrent.Async as Async
+#endif
 import           Control.Concurrent (threadDelay)
 import qualified Data.HashMap.Strict as HM
 import           Data.Text (Text)
@@ -171,10 +174,13 @@ unitTests = testGroup "Unit tests" [
 
 actionsTests :: TestTree
 actionsTests = testGroup "Actions tests" [
+#if ! defined(mingw32_HOST_OS)
                      testCase
                          "test SetGlobalMinimalSeverity"
                          testSetGlobalMinimalSeverity
-                   , testCase
+                   ,
+#endif
+                     testCase
                          "test AlterSeverity"
                          testAlterSeverity
                ]
@@ -197,6 +203,14 @@ parseEvalExpression t res env =
 \subsubsection{Actions tests}
 
 \begin{code}
+startupTraceWithPlugin :: Configuration -> Text -> IO (Trace IO Text)
+startupTraceWithPlugin c nm = do
+    (tr, sb) <- setupTrace_ c nm
+    Cardano.BM.Backend.Monitoring.plugin c tr sb
+      >>= loadPlugin sb
+    return tr
+
+#if ! defined(mingw32_HOST_OS)
 monitoringThr :: Trace IO Text -> IO (Async.Async ())
 monitoringThr trace = do
     let trace' = appendName "monitoring" trace
@@ -206,13 +220,6 @@ monitoringThr trace = do
         (,) <$> mkLOMeta Warning Public
             <*> pure (LogValue "monitMe" (PureI 100))
         >>= traceNamedObject tr
-
-startupTraceWithPlugin :: Configuration -> Text -> IO (Trace IO Text)
-startupTraceWithPlugin c nm = do
-    (tr, sb) <- setupTrace_ c nm
-    Cardano.BM.Backend.Monitoring.plugin c tr sb
-      >>= loadPlugin sb
-    return tr
 
 testSetGlobalMinimalSeverity :: Assertion
 testSetGlobalMinimalSeverity = do
@@ -244,6 +251,7 @@ testSetGlobalMinimalSeverity = do
     currentGlobalSeverity <- CM.minSeverity c
     assertBool "Global minimal severity didn't change!" $
         currentGlobalSeverity == targetGlobalSeverity
+#endif
 
 testAlterSeverity :: Assertion
 testAlterSeverity = do

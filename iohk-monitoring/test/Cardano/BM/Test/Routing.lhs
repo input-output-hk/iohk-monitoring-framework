@@ -4,6 +4,7 @@
 
 %if style == newcode
 \begin{code}
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Cardano.BM.Test.Routing (
@@ -36,6 +37,7 @@ tests = testGroup "Routing tests" [
 
 unit_tests :: TestTree
 unit_tests = testGroup "Unit tests" [
+#if ! defined(mingw32_HOST_OS)
         testCase
             "default_scribe_must_log" $
             unit_generic_scribe_backend
@@ -76,6 +78,7 @@ unit_tests = testGroup "Unit tests" [
                 []
                 []
                 0
+#endif
     ]
 
 \end{code}
@@ -93,6 +96,7 @@ Scribes explicitly declarated for a particular namespace should log.
 If no |Scribe| is declared either by default or explicitly then no messages should be logged.
 
 \begin{code}
+#if ! defined(mingw32_HOST_OS)
 unit_generic_scribe_backend :: [BackendKind]
                             -> [(LoggerName, Maybe [BackendKind])]
                             -> [ScribeId]
@@ -149,5 +153,6 @@ unit_generic_scribe_backend defaultBackends setBackends defaultScribes setScribe
          " setScribes: " ++ show setScribes ++
          " numMsgs: " ++ show numMsgs)
         (numMsgs == expectedLines)
+#endif
 
 \end{code}

@@ -110,7 +110,9 @@ unit_tests = testGroup "Unit tests" [
       , testCase "testing name filtering" unitNameFiltering
       , testCase "testing throwing of exceptions" unitExceptionThrowing
       , testCase "NoTrace: check lazy evaluation" unitTestLazyEvaluation
+#if !defined(mingw32_HOST_OS)
       , testCase "private messages should not be logged into private files" unitLoggingPrivate
+#endif
       ]
       where
         observablesSet = [MonotonicClock, MemoryStats]
