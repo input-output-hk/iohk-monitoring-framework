@@ -263,7 +263,7 @@ getMemoryInfo pid =
 readSysStats :: ProcessId -> IO [Counter]
 readSysStats pid = do
     sysinfo <- getSysInfo
-    cputimes <- getCpuTimes pid
+    cputimes <- getSysCpuTimes
     winbits <- getWinBits
     return [ Counter SysInfo "Pid" (PureI $ fromIntegral pid)
            , Counter SysInfo "Platform" (PureI $ fromIntegral $ fromEnum Windows)
@@ -282,8 +282,8 @@ readSysStats pid = do
   where
     getWinBits :: IO CInt
     getWinBits = c_get_win_bits (fromIntegral pid)
-    getCpuTimes :: IO CpuTimes
-    getCpuTimes =
+    getSysCpuTimes :: IO CpuTimes
+    getSysCpuTimes =
       allocaBytes 128 $ \ptr -> do
         res <- c_get_sys_cpu_times ptr
         if res <= 0
@@ -327,13 +327,13 @@ readResourceStats = getCurrentProcessId >>= \pid -> do
     }
  where
    usecsToCenti :: ULONGLONG -> Word64
-   usecsToCenti = ceiling . (/ 10000)
+   usecsToCenti = fromIntegral . (`div` 10000)
    nsToCenti :: GhcStats.RtsTime -> Word64
-   nsToCenti = fromIntegral . (/ 10000000)
+   nsToCenti = fromIntegral . (`div` 10000000)
 
 readProcStats :: ProcessId -> IO [Counter]
 readProcStats pid = do
-    cputimes <- getCpuTimes
+    cputimes <- getCpuTimes pid
     return [ Counter StatInfo "Pid" (PureI $ fromIntegral pid)
            , Counter StatInfo "UserTime" (Microseconds $ usertime cputimes)
            , Counter StatInfo "SystemTime" (Microseconds $ systime cputimes)
