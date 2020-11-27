@@ -10,7 +10,7 @@ module Cardano.BM.Counters.Darwin
 
 #ifdef ENABLE_OBSERVABLES
 import           Data.Foldable (foldrM)
-import           Data.Word (Word64, Word32, Word8)
+import           Data.Word (Word32, Word8)
 import           Data.Text (pack)
 import           Foreign.C.Types
 import           Foreign.Marshal.Alloc

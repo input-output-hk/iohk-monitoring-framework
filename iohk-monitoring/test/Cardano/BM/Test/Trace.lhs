@@ -20,6 +20,7 @@ import           Prelude hiding (lookup)
 
 import qualified Control.Concurrent.STM.TVar as STM
 
+import           Control.Arrow ((&&&))
 import           Control.Concurrent (threadDelay)
 import qualified Control.Concurrent.Async as Async
 import           Control.Monad (forM, forM_)
@@ -109,7 +110,9 @@ unit_tests = testGroup "Unit tests" [
       , testCase "testing name filtering" unitNameFiltering
       , testCase "testing throwing of exceptions" unitExceptionThrowing
       , testCase "NoTrace: check lazy evaluation" unitTestLazyEvaluation
+#if !defined(mingw32_HOST_OS)
       , testCase "private messages should not be logged into private files" unitLoggingPrivate
+#endif
       ]
       where
         observablesSet = [MonotonicClock, MemoryStats]
@@ -482,16 +485,17 @@ unitTraceInFork = do
     let trace0 = appendName "work0" trace
         trace1 = appendName "work1" trace
     work0 <- work trace0
-    threadDelay 5000
+    threadDelay 500000
     work1 <- work trace1
     Async.wait $ work0
     Async.wait $ work1
 
     res <- STM.readTVarIO msgs
-    let names@(_: namesTail) = map loName res
+    let entries = map (loName &&& tstamp . loMeta) res
+        names@(_: namesTail) = map fst entries
     -- each trace should have its own name and log right after the other
     assertBool
-        ("Consecutive loggernames are not different: " ++ show names)
+        ("Consecutive loggernames are not different: " ++ show entries)
         (and $ zipWith (/=) names namesTail)
   where
     work :: Trace IO Text -> IO (Async.Async ())
@@ -502,7 +506,7 @@ unitTraceInFork = do
     logInfoDelay :: Trace IO Text -> Text -> IO ()
     logInfoDelay trace msg =
         logInfo trace msg >>
-        threadDelay 10000
+        threadDelay 1000000
 
 \end{code}
 
