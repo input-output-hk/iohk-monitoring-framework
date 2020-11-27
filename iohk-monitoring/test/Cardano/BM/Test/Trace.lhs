@@ -485,7 +485,7 @@ unitTraceInFork = do
     let trace0 = appendName "work0" trace
         trace1 = appendName "work1" trace
     work0 <- work trace0
-    threadDelay 5000
+    threadDelay 500000
     work1 <- work trace1
     Async.wait $ work0
     Async.wait $ work1
@@ -506,7 +506,7 @@ unitTraceInFork = do
     logInfoDelay :: Trace IO Text -> Text -> IO ()
     logInfoDelay trace msg =
         logInfo trace msg >>
-        threadDelay 10000
+        threadDelay 1000000
 
 \end{code}
 
