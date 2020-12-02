@@ -33,7 +33,7 @@ import           Data.Text (Text, pack)
 #ifdef ENABLE_OBSERVABLES
 #ifdef RUN_ProcObseverSTM
 import           Control.Monad (forM)
-import           GHC.Conc.Sync (atomically, STM, TVar, newTVar, readTVar, writeTVar)
+import           GHC.Conc.Sync (STM, TVar, newTVar, readTVar, writeTVar)
 #endif
 #endif
 #ifdef LINUX
@@ -381,7 +381,7 @@ observeIO config trace = do
 observeSTM :: Configuration -> Trace IO Text -> IO [Async.Async ()]
 observeSTM config trace = do
   logInfo trace "starting STM observer"
-  tvar <- atomically $ newTVar ([1..1000]::[Int])
+  tvar <- labelledAtomically $ newTVar ([1..1000]::[Int])
   -- spawn 10 threads
   proc <- forM [(1::Int)..10] $ \x -> Async.async (loop trace tvar (pack $ show x))
   return proc

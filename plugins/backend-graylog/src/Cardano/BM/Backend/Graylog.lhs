@@ -21,7 +21,6 @@ import           Control.Concurrent (threadDelay)
 import qualified Control.Concurrent.Async as Async
 import           Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar,
                      readMVar, withMVar, tryTakeMVar)
-import           Control.Concurrent.STM (atomically)
 import qualified Control.Concurrent.STM.TBQueue as TBQ
 import           Control.Exception.Safe (SomeException, IOException, catch, throwM)
 import           Control.Monad (void)
@@ -41,6 +40,7 @@ import           Cardano.BM.Data.Aggregated
 import           Cardano.BM.Data.Backend
 import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.Severity
+import           Cardano.BM.Internal.STM
 import           Cardano.BM.Plugin
 import qualified Cardano.BM.Trace as Trace
 
@@ -79,10 +79,10 @@ instance IsEffectuator Graylog a where
     effectuate graylog item = do
         gelf <- readMVar (getGL graylog)
         let enqueue a = do
-                        nocapacity <- atomically $ TBQ.isFullTBQueue (glQueue gelf)
+                        nocapacity <- labelledAtomically $ TBQ.isFullTBQueue (glQueue gelf)
                         if nocapacity
                         then handleOverflow graylog
-                        else atomically $ TBQ.writeTBQueue (glQueue gelf) (Just a)
+                        else labelledAtomically $ TBQ.writeTBQueue (glQueue gelf) (Just a)
         case item of
             (LogObject logname lometa (AggregatedMessage ags)) -> liftIO $ do
                 let traceAgg :: [(Text,Aggregated)] -> IO ()
@@ -129,7 +129,7 @@ instance (ToJSON a, FromJSON a) => IsBackend Graylog a where
 #else
         let qSize = 1024
 #endif
-        queue <- atomically $ TBQ.newTBQueue qSize
+        queue <- labelledAtomically $ TBQ.newTBQueue qSize
         dispatcher <- spawnDispatcher config queue sbtrace
         -- link the given Async to the current thread, such that if the Async
         -- raises an exception, that exception will be re-thrown in the current
@@ -148,7 +148,7 @@ instance (ToJSON a, FromJSON a) => IsBackend Graylog a where
         (dispatcher, queue) <- withMVar (getGL graylog) (\gelf ->
                                 return (glDispatch gelf, glQueue gelf))
         -- send terminating item to the queue
-        atomically $ TBQ.writeTBQueue queue Nothing
+        labelledAtomically $ TBQ.writeTBQueue queue Nothing
         -- wait for the dispatcher to exit
         res <- Async.waitCatch dispatcher
         either throwM return res

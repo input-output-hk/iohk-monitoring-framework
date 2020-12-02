@@ -32,7 +32,7 @@ module Cardano.BM.Backend.Switchboard
 import qualified Control.Concurrent.Async as Async
 import           Control.Concurrent.MVar (MVar, newEmptyMVar, modifyMVar_,
                      putMVar, readMVar, tryReadMVar, withMVar)
-import           Control.Concurrent.STM (atomically, retry)
+import           Control.Concurrent.STM (retry)
 import qualified Control.Concurrent.STM.TBQueue as TBQ
 import           Control.Exception.Safe (throwM, fromException)
 import           Control.Exception (SomeException(..))
@@ -55,6 +55,7 @@ import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.SubTrace (SubTrace (..))
 import           Cardano.BM.Data.Trace (Trace)
 import           Cardano.BM.Data.Tracer (Tracer (..))
+import           Cardano.BM.Internal.STM
 import qualified Cardano.BM.Backend.Log
 import qualified Cardano.BM.Backend.LogBuffer
 
@@ -132,10 +133,10 @@ instance IsEffectuator Switchboard a where
     effectuate switchboard item = do
         let writequeue :: TBQ.TBQueue (LogObject a) -> LogObject a -> IO ()
             writequeue q i = do
-                    nocapacity <- atomically $ TBQ.isFullTBQueue q
+                    nocapacity <- labelledAtomically $ TBQ.isFullTBQueue q
                     if nocapacity
                     then handleOverflow switchboard
-                    else atomically $ TBQ.writeTBQueue q i
+                    else labelledAtomically $ TBQ.writeTBQueue q i
 
         sb <- readMVar (getSB switchboard)
 
@@ -179,7 +180,7 @@ realizeSwitchboard cfg = do
 
                 qProc = do
                     -- read complete queue at once and process items
-                    nlis <- atomically $ do
+                    nlis <- labelledAtomically $ do
                                   r <- TBQ.flushTBQueue queue
                                   when (null r) retry
                                   return r
@@ -187,7 +188,7 @@ realizeSwitchboard cfg = do
                     let processItem nli@(LogObject loname _ loitem) = do
                             Config.findSubTrace cfg loname >>= \case
                                 Just (TeeTrace sndName) ->
-                                    atomically $ TBQ.writeTBQueue queue $ nli{ loName = loname <> "." <> sndName }
+                                    labelledAtomically $ TBQ.writeTBQueue queue $ nli{ loName = loname <> "." <> sndName }
                                 _ -> return ()
 
                             case loitem of
@@ -227,7 +228,7 @@ realizeSwitchboard cfg = do
 #else
     let qSize = 2048
 #endif
-    q <- atomically $ TBQ.newTBQueue qSize
+    q <- labelledAtomically $ TBQ.newTBQueue qSize
     sbref <- newEmptyMVar
 
     let sb :: Switchboard a = Switchboard sbref
@@ -280,7 +281,7 @@ unrealizeSwitchboard switchboard = do
                         <*> pure KillPill
     
         -- Send terminating item to the queue.
-        atomically $ TBQ.writeTBQueue queue lo
+        labelledAtomically $ TBQ.writeTBQueue queue lo
 
         -- Return the dispatcher.
         return dispatcher

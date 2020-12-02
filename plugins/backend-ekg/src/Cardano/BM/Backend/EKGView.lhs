@@ -21,7 +21,6 @@ import           Control.Concurrent (killThread, threadDelay)
 import qualified Control.Concurrent.Async as Async
 import           Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar,
                      readMVar, withMVar, modifyMVar_, tryTakeMVar)
-import           Control.Concurrent.STM (atomically)
 import qualified Control.Concurrent.STM.TBQueue as TBQ
 import           Control.Exception (Exception, SomeException, catch, throwIO)
 import           Control.Exception.Safe (throwM)
@@ -56,6 +55,7 @@ import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.Trace
 import           Cardano.BM.Data.Tracer (Tracer (..), traceWith)
+import           Cardano.BM.Internal.STM
 import           Cardano.BM.Plugin
 import qualified Cardano.BM.Trace as Trace
 
@@ -175,10 +175,10 @@ instance IsEffectuator EKGView a where
        doEnqueue :: TBQ.TBQueue (Maybe (LogObject a)) -> IO ()
        doEnqueue queue =
          let enqueue a = do
-                         nocapacity <- atomically $ TBQ.isFullTBQueue queue
+                         nocapacity <- labelledAtomically $ TBQ.isFullTBQueue queue
                          if nocapacity
                          then handleOverflow ekgview
-                         else atomically $ TBQ.writeTBQueue queue (Just a)
+                         else labelledAtomically $ TBQ.writeTBQueue queue (Just a)
          in
          case item of
              (LogObject loname lometa (AggregatedMessage ags)) -> liftIO $ do
@@ -239,7 +239,7 @@ instance (ToJSON a, FromJSON a) => IsBackend EKGView a where
 #else
         let qSize = 5120
 #endif
-        queue <- atomically $ TBQ.newTBQueue qSize
+        queue <- labelledAtomically $ TBQ.newTBQueue qSize
         dispatcher <- spawnDispatcher config queue sbtrace ekgtrace
           `catch` mkHandler EKGDispatcherStartupError
         -- link the given Async to the current thread, such that if the Async
@@ -285,7 +285,7 @@ instance (ToJSON a, FromJSON a) => IsBackend EKGView a where
          meta <- mkLOMeta Error Public
          traceWith trace $ ("#ekgview.realizeFrom", LogObject "#ekgview.realizeFrom" meta $
            LogError $ "EKGView backend disabled due to initialisation error: " <> (pack $ show e))
-         _ <- atomically $ TBQ.newTBQueue 0
+         _ <- labelledAtomically $ TBQ.newTBQueue 0
          ref <- newEmptyMVar
          putMVar ref $ EKGViewInternal
            { evLabels = HM.empty
@@ -306,7 +306,7 @@ instance (ToJSON a, FromJSON a) => IsBackend EKGView a where
             forM_ (evQueue ev) $
                 -- send terminating item to the queue
                 \queue ->
-                    atomically $ TBQ.writeTBQueue queue Nothing
+                    labelledAtomically $ TBQ.writeTBQueue queue Nothing
 
             forM_ (evDispatch ev) $
                 -- wait for the dispatcher to exit

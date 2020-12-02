@@ -24,6 +24,7 @@ import qualified Cardano.BM.Configuration as Config
 import           Cardano.BM.Data.LogItem (LOContent, LOMeta)
 import           Cardano.BM.Data.SubTrace
 import           Cardano.BM.Data.Severity (Severity)
+import           Cardano.BM.Internal.STM
 import           Cardano.BM.Observer.Monadic (observeClose, observeOpen)
 import           Cardano.BM.Trace (Trace)
 
@@ -47,12 +48,12 @@ bracketObserveIO config trace severity name action = do
   where
     bracketObserveIO' :: SubTrace -> Severity -> Trace IO a -> STM.STM t -> IO t
     bracketObserveIO' NoTrace _ _ act =
-        STM.atomically act
+        labelledAtomically act
     bracketObserveIO' subtrace sev logTrace act = do
         mCountersid <- observeOpen subtrace sev logTrace
 
         -- run action; if an exception is caught, then it will be logged and rethrown.
-        t <- (STM.atomically act) `catch` (\(e :: SomeException) -> (TIO.hPutStrLn stderr (pack (show e)) >> throwM e))
+        t <- (labelledAtomically act) `catch` (\(e :: SomeException) -> (TIO.hPutStrLn stderr (pack (show e)) >> throwM e))
 
         case mCountersid of
             Left openException ->
@@ -79,14 +80,14 @@ bracketObserveLogIO config trace severity name action = do
   where
     bracketObserveLogIO' :: SubTrace -> Severity -> Trace IO a -> STM.STM (t,[(LOMeta, LOContent a)]) -> IO t
     bracketObserveLogIO' NoTrace _ _ act = do
-        (t, _) <- STM.atomically $ stmWithLog act
+        (t, _) <- labelledAtomically $ stmWithLog act
         pure t
     bracketObserveLogIO' subtrace sev logTrace act = do
         mCountersid <- observeOpen subtrace sev logTrace
 
         -- run action, return result and log items; if an exception is
         -- caught, then it will be logged and rethrown.
-        (t, as) <- (STM.atomically $ stmWithLog act) `catch`
+        (t, as) <- (labelledAtomically $ stmWithLog act) `catch`
                     (\(e :: SomeException) -> (TIO.hPutStrLn stderr (pack (show e)) >> throwM e))
 
         case mCountersid of

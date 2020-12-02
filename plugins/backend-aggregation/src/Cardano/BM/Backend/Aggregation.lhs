@@ -22,7 +22,6 @@ module Cardano.BM.Backend.Aggregation
 import qualified Control.Concurrent.Async as Async
 import           Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar,
                      readMVar, tryTakeMVar, withMVar)
-import           Control.Concurrent.STM (atomically)
 import qualified Control.Concurrent.STM.TBQueue as TBQ
 import           Control.Exception.Safe (throwM)
 import           Control.Monad (void)
@@ -44,6 +43,7 @@ import           Cardano.BM.Data.Counter (Counter (..), CounterState (..),
 import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.Severity (Severity (..))
 import           Cardano.BM.Data.Tracer (traceWith)
+import           Cardano.BM.Internal.STM
 import           Cardano.BM.Plugin
 import qualified Cardano.BM.Trace as Trace
 
@@ -88,10 +88,10 @@ Enter the log item into the |Aggregation| queue.
 instance IsEffectuator Aggregation a where
     effectuate agg item = do
         ag <- readMVar (getAg agg)
-        nocapacity <- atomically $ TBQ.isFullTBQueue (agQueue ag)
+        nocapacity <- labelledAtomically $ TBQ.isFullTBQueue (agQueue ag)
         if nocapacity
         then handleOverflow agg
-        else atomically $ TBQ.writeTBQueue (agQueue ag) $! Just item
+        else labelledAtomically $ TBQ.writeTBQueue (agQueue ag) $! Just item
 
     handleOverflow _ = TIO.hPutStrLn stderr "Notice: Aggregation's queue full, dropping log items!"
 \end{code}
@@ -112,7 +112,7 @@ instance FromJSON a => IsBackend Aggregation a where
 #else
         let qSize = 2048
 #endif
-        aggregationQueue <- atomically $ TBQ.newTBQueue qSize
+        aggregationQueue <- labelledAtomically $ TBQ.newTBQueue qSize
         dispatcher <- spawnDispatcher config HM.empty aggregationQueue trace
         -- link the given Async to the current thread, such that if the Async
         -- raises an exception, that exception will be re-thrown in the current
@@ -127,7 +127,7 @@ instance FromJSON a => IsBackend Aggregation a where
         (dispatcher, queue) <- withMVar (getAg aggregation) (\ag ->
                             return (agDispatch ag, agQueue ag))
         -- send terminating item to the queue
-        atomically $ TBQ.writeTBQueue queue Nothing
+        labelledAtomically $ TBQ.writeTBQueue queue Nothing
         -- wait for the dispatcher to exit
         -- TODO add a timeout to waitCatch in order
         -- to be sure that it will finish

@@ -57,6 +57,7 @@ library
                        Cardano.BM.Data.Tracer
                        Cardano.BM.Data.Transformers
                        Cardano.BM.Internal.ElidingTracer
+                       Cardano.BM.Internal.STM
                        Cardano.BM.Tracing
 
                        Cardano.BM.Backend.Log
@@ -108,6 +109,7 @@ library
                        containers,
                        contravariant,
                        directory,
+                       exceptions,
                        filepath,
                        katip,
                        mtl,

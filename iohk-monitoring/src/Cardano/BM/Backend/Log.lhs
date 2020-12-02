@@ -50,7 +50,6 @@ import qualified Data.Text.Lazy.IO as TIO
 import           Data.Time (diffUTCTime)
 import           Data.Time.Clock (UTCTime, getCurrentTime)
 import           Data.Time.Format (defaultTimeLocale, formatTime)
-import           GHC.Conc (atomically)
 import           GHC.IO.Handle (hDuplicate)
 import           System.Directory (createDirectoryIfMissing)
 import           System.FilePath (takeDirectory)
@@ -69,6 +68,7 @@ import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.Output
 import           Cardano.BM.Data.Rotation (RotationParameters (..))
 import           Cardano.BM.Data.Severity
+import           Cardano.BM.Internal.STM
 import           Cardano.BM.Rotator (cleanupRotator, evalRotator,
                      initializeRotator, prtoutException)
 
@@ -286,7 +286,7 @@ passStrx backend katip (LogObject loname lometa loitem) = do
                                 , _itemNamespace = KC._logEnvApp env <> K.Namespace localname
                                 , _itemLoc       = Nothing
                                 }
-                        void $ atomically $ KC.tryWriteTBQueue shChan (KC.NewItem itemKatip)
+                        void $ labelledAtomically $ KC.tryWriteTBQueue shChan (KC.NewItem itemKatip)
 \end{code}
 
 \subsubsection{Entering textual log item into katip's queue}\label{code:passText}
@@ -338,7 +338,7 @@ passText backend katip (LogObject loname lometa loitem) = do
                                 , _itemNamespace = KC._logEnvApp env <> K.Namespace localname
                                 , _itemLoc       = Nothing
                                 }
-                        void $ atomically $ KC.tryWriteTBQueue shChan (KC.NewItem itemKatip)
+                        void $ labelledAtomically $ KC.tryWriteTBQueue shChan (KC.NewItem itemKatip)
 \end{code}
 
 \subsubsection{Scribes}
