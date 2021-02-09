@@ -22,9 +22,12 @@ jobs:
     - name: Select build directory
       run: echo "CABAL_BUILDDIR=dist" >> $GITHUB_ENV
 
+    - name: Add build script path
+      run: echo "$(pwd)/.github/bin" >> $GITHUB_PATH
+
     - name: Install pkgconfiglite
       if: matrix.os == 'windows-latest'
-      run: choco install -y pkgconfiglite
+      run: retry 3 choco install -y pkgconfiglite
 
     - uses: actions/setup-haskell@v1
       id: setup-haskell
@@ -48,10 +51,10 @@ jobs:
         sudo apt-get -y autoremove
 
     - name: Cabal update
-      run: cabal update
+      run: retry 3 cabal update
 
     - name: Cabal Configure
-      run: cabal configure --builddir="$CABAL_BUILDDIR" --enable-tests --enable-benchmarks --write-ghc-environment-files=always
+      run: retry 3 cabal configure --builddir="$CABAL_BUILDDIR" --enable-tests --enable-benchmarks --write-ghc-environment-files=always
 
     - uses: actions/cache@v2
       name: Cache cabal store
@@ -61,10 +64,10 @@ jobs:
         restore-keys: cache-${{ runner.os }}-${{ matrix.ghc }}-v1-${{ hashFiles('cabal-cache.cabal') }}-
 
     - name: Install dependencies
-      run: cabal build all --builddir="$CABAL_BUILDDIR" --only-dependencies
+      run: retry 3 cabal build all --builddir="$CABAL_BUILDDIR" --only-dependencies
 
     - name: Build
-      run: cabal build all --builddir="$CABAL_BUILDDIR"
+      run: retry 3 cabal build all --builddir="$CABAL_BUILDDIR"
 
     - name: Run tests
       run: TMPDIR="${{ runner.temp }}" TMP="${{ runner.temp }}" cabal test --builddir="$CABAL_BUILDDIR" all
