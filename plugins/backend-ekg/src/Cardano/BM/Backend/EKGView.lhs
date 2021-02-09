@@ -68,9 +68,11 @@ plugin :: (IsEffectuator s a, ToJSON a, FromJSON a)
        => Configuration -> Trace.Trace IO a -> s a -> IO (Plugin a)
 plugin config trace sb = do
     be :: Cardano.BM.Backend.EKGView.EKGView a <- realizefrom config trace sb
-    return $ BackendPlugin
+    ekgInt <- readMVar (getEV be)
+    return $ EKGPlugin
                (MkBackend { bEffectuate = effectuate be, bUnrealize = unrealize be })
                (bekind be)
+               (evServer ekgInt)
 \end{code}
 
 \subsubsection{Structure of EKGView}\label{code:EKGView}\index{EKGView}
