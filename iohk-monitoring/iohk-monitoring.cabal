@@ -109,6 +109,7 @@ library
                        contravariant,
                        directory,
                        filepath,
+                       ekg,
                        katip,
                        mtl,
                        network,

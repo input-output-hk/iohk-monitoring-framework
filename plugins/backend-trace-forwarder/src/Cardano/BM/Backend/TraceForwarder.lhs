@@ -7,6 +7,7 @@
 {-# LANGUAGE CPP                   #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE MultiWayIf            #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TypeFamilies          #-}
@@ -22,12 +23,12 @@ module Cardano.BM.Backend.TraceForwarder
     ) where
 
 import           Control.Exception
-import           Control.Monad (forever, when)
+import           Control.Monad (forever, mapM_, void, when)
 import           Control.Concurrent (threadDelay)
 import qualified Control.Concurrent.Async as Async
-import           Control.Concurrent.MVar (MVar, modifyMVar_, newMVar, readMVar)
 import           Control.Concurrent.STM (atomically)
 import qualified Control.Concurrent.STM.TBQueue as TBQ
+import           Control.Concurrent.STM.TVar (TVar, modifyTVar', newTVarIO, readTVarIO)
 import           Data.Aeson (FromJSON, ToJSON, encode)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Char8 as BSC
@@ -69,6 +70,15 @@ The callback 'getStateDigest' is used as a source of |LogObject|s
 that should be sent additionally, only once after the connection is
 re\-established. The application that uses 'lobemo-backend-trace-forwarder'
 plugin provides this callback.
+
+Note [Handle and GC]
+~~~~~~~~~~~~~~~~~~~~
+'tfHandle' contains |Maybe| |Handle| which will be updated periodically:
+the main reason of it is a reconnection with 'TraceAcceptorBK' plugin in other process.
+Once the current value of 'tfHandle' is replaced by |Nothing|, later it will be
+cleaned up by GC, please see the documentation:
+https://hackage.haskell.org/package/base-4.14.0.0/docs/System-IO.html#t:Handle
+
 \subsubsection{Plugin definition}
 \begin{code}
 plugin :: forall a s . (IsEffectuator s a, ToJSON a, FromJSON a)
@@ -85,12 +95,12 @@ plugin config _trace _sb tfid getStateDigest = do
                    Just sevtext -> fromMaybe Debug (readMaybe $ unpack sevtext)
     be :: Cardano.BM.Backend.TraceForwarder.TraceForwarder a <- realize config
     dispatcherThr <- spawnDispatcher config (getTF be)
-    modifyMVar_ (getTF be) $ \initialBE ->
-      return $ initialBE
-                 { tfFilter         = minsev
-                 , tfDispatcher     = Just dispatcherThr
-                 , tfGetStateDigest = getStateDigest
-                 }
+    atomically $ modifyTVar' (getTF be) $ \initialBE ->
+      initialBE
+        { tfFilter         = minsev
+        , tfDispatcher     = Just dispatcherThr
+        , tfGetStateDigest = getStateDigest
+        }
     return $ BackendPlugin
                (MkBackend { bEffectuate = effectuate be, bUnrealize = unrealize be })
                (bekind be)
@@ -101,9 +111,9 @@ plugin config _trace _sb tfid getStateDigest = do
 Contains the handler to the pipe or to the socket.
 \begin{code}
 newtype TraceForwarder a = TraceForwarder
-    { getTF :: TraceForwarderMVar a }
+    { getTF :: TraceForwarderTVar a }
 
-type TraceForwarderMVar a = MVar (TraceForwarderInternal a)
+type TraceForwarderTVar a = TVar (TraceForwarderInternal a)
 
 data TraceForwarderInternal a = TraceForwarderInternal
     { tfQueue            :: TBQ.TBQueue (LogObject a)
@@ -122,17 +132,16 @@ Every |LogObject| before being written to the given handler is converted to
 \begin{code}
 instance (ToJSON a) => IsEffectuator TraceForwarder a where
     effectuate tf lo = do
-        let currentMVar = getTF tf
-        currentTF <- readMVar currentMVar
-        -- Severity filter allows to ignore LogObjects with too low severity.
-        -- However, errors and metrics should be forwarded in any case,
-        -- regardless their severity.
-        if isError
-          then writeMessageToQueue currentTF
-          else case loContent lo of
-                 LogValue _ _ -> writeMessageToQueue currentTF
-                 _            -> when (severity (loMeta lo) >= tfFilter currentTF) $
-                                   writeMessageToQueue currentTF
+      currentTF <- readTVarIO $ getTF tf
+      -- Severity filter allows to ignore LogObjects with too low severity.
+      -- However, errors and metrics should be forwarded in any case,
+      -- regardless their severity.
+      if isError
+        then writeMessageToQueue currentTF
+        else case loContent lo of
+               LogValue _ _ -> writeMessageToQueue currentTF
+               _            -> when (severity (loMeta lo) >= tfFilter currentTF) $
+                                 writeMessageToQueue currentTF
      where
       isError = errByConstr || errBySev
        where
@@ -144,16 +153,32 @@ instance (ToJSON a) => IsEffectuator TraceForwarder a where
 
       writeMessageToQueue currentTF' = do
         let queue = tfQueue currentTF'
-        noCapacity <- atomically $ TBQ.isFullTBQueue queue
-        if noCapacity
-          then do
-            let counterIORef = tfQueueFullCounter currentTF'
-            overflowed <- atomicModifyIORef' counterIORef $ \counter ->
-              if counter >= overflowCriticalNum
-                then (1, True)
-                else (counter + 1, False)
-            when overflowed $ handleOverflow tf
-          else atomically $ TBQ.writeTBQueue queue lo
+        (,) currentQueueSize noCapacity <- atomically $
+            (,) <$> TBQ.lengthTBQueue queue
+                <*> TBQ.isFullTBQueue queue
+        if | noCapacity -> do
+             let counterIORef = tfQueueFullCounter currentTF'
+             overflowed <- atomicModifyIORef' counterIORef $ \counter ->
+               if counter >= overflowCriticalNum
+                 then (1, True)
+                 else (counter + 1, False)
+             when overflowed $ handleOverflow tf
+           | queueIsAlmostFull currentQueueSize -> do
+             -- Since the queue is almost full, it probably means that
+             -- the connection with acceptor is broken or too slow.
+             -- Remove current tfHandle, please see Note [Handle and GC].
+             atomically $ modifyTVar' (getTF tf) $ \be -> be { tfHandle = Nothing }
+             -- Spawn new thread to establish new connection.
+             void $ Async.async $ establishConnection (getTF tf)
+             -- Since the queue is not full yet, write |LogObject| in it.
+             atomically $ TBQ.writeTBQueue queue lo
+           | otherwise ->
+             atomically $ TBQ.writeTBQueue queue lo
+
+      queueIsAlmostFull queueSize = queueSize >= round almostFullSize
+       where
+        almostFullSize :: Float
+        almostFullSize = 0.8 * fromIntegral queueMaxSize
 
     handleOverflow _ = TIO.hPutStrLn stderr $ "Notice: TraceForwarder's queue is full, "
                                               <> pack (show overflowCriticalNum)
@@ -179,19 +204,20 @@ instance (FromJSON a, ToJSON a) => IsBackend TraceForwarder a where
       Just addr -> do
         queue <- atomically $ TBQ.newTBQueue queueMaxSize
         counter <- newIORef 0
-        tfMVar <- newMVar $ TraceForwarderInternal
-                              { tfQueue            = queue
-                              , tfHandle           = Nothing
-                              , tfRemoteAddr       = addr
-                              , tfFilter           = Debug
-                              , tfDispatcher       = Nothing
-                              , tfQueueFullCounter = counter
-                              , tfGetStateDigest   = return []
-                              }
-        return $ TraceForwarder tfMVar
+        tfTVar <- newTVarIO $
+          TraceForwarderInternal
+            { tfQueue            = queue
+            , tfHandle           = Nothing
+            , tfRemoteAddr       = addr
+            , tfFilter           = Debug
+            , tfDispatcher       = Nothing
+            , tfQueueFullCounter = counter
+            , tfGetStateDigest   = return []
+            }
+        return $ TraceForwarder tfTVar
 
     unrealize tf = do
-      currentTF <- readMVar (getTF tf)
+      currentTF <- readTVarIO (getTF tf)
       -- Cancel dispatcher thread.
       case tfDispatcher currentTF of
         Nothing  -> return ()
@@ -232,8 +258,8 @@ instance Exception TraceForwarderBackendFailure
 
 \subsubsection{Asynchronously reading log items from the queue and sending them to an acceptor.}
 \begin{code}
-spawnDispatcher :: ToJSON a => Configuration -> TraceForwarderMVar a -> IO (Async.Async ())
-spawnDispatcher config tfMVar = do
+spawnDispatcher :: ToJSON a => Configuration -> TraceForwarderTVar a -> IO (Async.Async ())
+spawnDispatcher config tfTVar = do
   -- To reduce network traffic it's possible to send log items not one by one,
   -- but collect them in the queue and periodically send this list as one ByteString.
   forwardDelay <- getForwardDelay config >>= \case
@@ -248,48 +274,48 @@ spawnDispatcher config tfMVar = do
   processQueue :: Word -> IO ()
   processQueue delayInMs = forever $ do
     threadDelay $ fromIntegral delayInMs * 1000
-    currentTF <- readMVar tfMVar
-    let getStateDigest = tfGetStateDigest currentTF
-    itemsList <- atomically $ TBQ.flushTBQueue (tfQueue currentTF)
-    -- Try to write it to the handle. If there's a problem with connection,
-    -- this thread will initiate re\-establishing of the connection and
-    -- will wait until it's established.
-    sendItems config tfMVar itemsList getStateDigest
+    -- First of all, check if tfHandle contains an actual handle.
+    currentTF <- readTVarIO tfTVar
+    case tfHandle currentTF of
+      Nothing ->
+        -- There's no handle. It means that connection isn't established yet,
+        -- so there's no need to read items from the queue, just try to establish
+        -- the new connection.
+        void $ Async.async $ establishConnection tfTVar
+      Just h -> do
+        -- The handle is here: the connection is established and probably alive,
+        -- so read items from the queue and try to write them in the handle.
+        itemsList <- atomically $ TBQ.flushTBQueue (tfQueue currentTF)
+        sendItems config tfTVar h itemsList
 
 -- Try to send log items to the handle.
 sendItems :: ToJSON a
           => Configuration
-          -> TraceForwarderMVar a
+          -> TraceForwarderTVar a
+          -> Handle
           -> [LogObject a]
-          -> IO [LogObject a]
           -> IO ()
-sendItems _ _ [] _ = return ()
-sendItems config tfMVar items@(lo:_) getStateDigest =
-  tfHandle <$> readMVar tfMVar >>= \case
-    Nothing -> do
-      -- There's no handle, initiate the connection.
-      establishConnection 1 1 tfMVar
-      -- Connection is re\-established, try to send log item.
-      -- Since the connection is re\-established, add state digest items as well.
-      additionalItems <- getStateDigest
-      let allItems = additionalItems ++ items
-      sendItems config tfMVar allItems getStateDigest
-    Just h ->
-      try (BSC.hPutStrLn h $! encodedHostname) >>= \case
+sendItems _ _ _ [] = return ()
+sendItems config tfTVar h items@(lo:_) =
+  try (BSC.hPutStrLn h $! encodedHostname) >>= \case
+    Right _ ->
+      -- Hostname was written to the handler successfully,
+      -- try to write serialized list of LogObjects.
+      try (BSC.hPutStrLn h $! bs) >>= \case
         Right _ ->
-          -- Hostname was written to the handler successfully,
-          -- try to write serialized list of LogObjects.
-          try (BSC.hPutStrLn h $! bs) >>= \case
-            Right _ ->
-              return () -- Everything is ok, LogObjects were written to the handler.
-            Left (_e :: IOException) -> do
-              reConnectIfQueueIsAlmostFull
-              threadDelay 10000
-              sendItems config tfMVar items getStateDigest
+          return () -- Everything is ok, LogObjects were written to the handler.
         Left (_e :: IOException) -> do
-          reConnectIfQueueIsAlmostFull
-          threadDelay 10000
-          sendItems config tfMVar items getStateDigest
+          -- Handle is bad, it looks like the connection is already broken.
+          -- Remove bad handle to initiate reconnection, please see Note [Handle and GC].
+          atomically $ modifyTVar' tfTVar $ \be -> be { tfHandle = Nothing }
+          -- Spawn new thread to establish new connection.
+          void $ Async.async $ establishConnection tfTVar
+    Left (_e :: IOException) -> do
+      -- Handle is bad, it looks like the connection is already broken.
+      -- Remove bad handle, please see Note [Handle and GC].
+      atomically $ modifyTVar' tfTVar $ \be -> be { tfHandle = Nothing }
+      -- Spawn new thread to establish new connection.
+      void $ Async.async $ establishConnection tfTVar
  where
   encodedHostname = encodeUtf8 (hostname . loMeta $ lo)
 
@@ -300,42 +326,41 @@ sendItems config tfMVar items@(lo:_) getStateDigest =
     let bs' = BL.toStrict $ encode a
     in (BS.length bs', bs')
 
-  -- Handle is bad, it looks like the connection is broken.
-  -- Check if the queue is almost full.
-  reConnectIfQueueIsAlmostFull = do
-    currentTF <- readMVar tfMVar
-    currentQueueSize <- atomically $ TBQ.lengthTBQueue (tfQueue currentTF)
-    when (queueIsAlmostFull currentQueueSize) $ do
-      -- The queue is almost full, it means that log items will be dropped soon.
-      -- Initiate re-establishing of connection.
-      closeHandle $ tfHandle currentTF
-      modifyMVar_ tfMVar $ \be -> return $ be { tfHandle = Nothing }
-
-  -- When the queue is almost full (80 percent of its max size)
-  -- we initiate re-establishing of connection.
-  queueIsAlmostFull queueSize = queueSize >= round almostFullSize
-   where
-    almostFullSize :: Float
-    almostFullSize = 0.8 * fromIntegral queueMaxSize
-
 queueMaxSize :: Natural
 queueMaxSize = 2500
 
-establishConnection :: Int -> Int -> TraceForwarderMVar a -> IO ()
-establishConnection delayInSec delayInSec' tfMVar = withIOManager $ \iomgr -> do
-  addr <- tfRemoteAddr <$> readMVar tfMVar
+establishConnection :: TraceForwarderTVar a -> IO ()
+establishConnection tfTVar = do
+  currentTF <- readTVarIO tfTVar
+  case tfHandle currentTF of
+    Nothing -> do
+      -- Ok, there's no handle yet, as we expected, so try to establish the connection.
+      doEstablishConnection 1 1 tfTVar
+      -- So, the connection is established, so get the digest objects and put them into the queue.
+      stateItems <- tfGetStateDigest currentTF
+      atomically $ mapM_ (TBQ.writeTBQueue (tfQueue currentTF)) stateItems
+    Just _ ->
+      -- The handle is already here, which means that this function
+      -- was called from other thread and already established the connection,
+      -- do nothing in this case.
+      return ()
+
+doEstablishConnection :: Int -> Int -> TraceForwarderTVar a -> IO ()
+doEstablishConnection delayInSec delayInSec' tfTVar = withIOManager $ \iomgr -> do
+  addr <- tfRemoteAddr <$> readTVarIO tfTVar
   try (connectForwarder iomgr addr) >>= \case
     Right h ->
-      modifyMVar_ tfMVar $ \be -> return $ be { tfHandle = Just h }
-    Left (e :: IOException) -> do
+      -- Connection is established, update tfHandle.
+      atomically $ modifyTVar' tfTVar $ \be -> be { tfHandle = Just h }
+    Left (_e :: IOException) -> do
       -- Cannot establish it, let's try again..
       threadDelay $ 1000000 * delayInSec'
       if delayInSec' < 60
         then
           -- Next attempt to re-establish the connection will be perform after Fibonacci-calculated delay.
-          establishConnection delayInSec' (delayInSec + delayInSec') tfMVar
+          doEstablishConnection delayInSec' (delayInSec + delayInSec') tfTVar
         else
           -- Next attempt to re-establish the connection will be perform after fixed delay (1 minute).
-          establishConnection 1 60 tfMVar
+          doEstablishConnection 1 60 tfTVar
 
 \end{code}

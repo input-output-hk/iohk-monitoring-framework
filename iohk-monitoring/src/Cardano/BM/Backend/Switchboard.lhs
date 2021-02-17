@@ -14,6 +14,8 @@
 module Cardano.BM.Backend.Switchboard
     (
       Switchboard
+    , setSbEKGServer
+    , getSbEKGServer
     , mainTraceConditionally
     , readLogBuffer
     , effectuate
@@ -44,6 +46,7 @@ import qualified Data.Text.IO as TIO
 import           GHC.IO.Exception (BlockedIndefinitelyOnSTM)
 import qualified Katip as K
 import           System.IO (stderr)
+import           System.Remote.Monitoring (Server)
 
 import           Cardano.BM.Configuration (Configuration)
 import qualified Cardano.BM.Configuration as Config
@@ -71,7 +74,7 @@ the switchboard before it is completely setup.
 type SwitchboardMVar a = MVar (SwitchboardInternal a)
 
 newtype Switchboard a = Switchboard
-    { getSB :: SwitchboardMVar a 
+    { getSB :: SwitchboardMVar a
     }
 
 data SwitchboardInternal a = SwitchboardInternal
@@ -81,7 +84,17 @@ data SwitchboardInternal a = SwitchboardInternal
     , sbLogBE     :: !(Cardano.BM.Backend.Log.Log a)
     , sbBackends  :: NamedBackends a
     , sbRunning   :: !SwitchboardStatus
+    , sbEKGServer :: Maybe Server
     }
+
+setSbEKGServer :: Maybe Server -> Switchboard a -> IO ()
+setSbEKGServer condSrv (Switchboard sbv) =
+    modifyMVar_ sbv (\sb -> pure $ sb {sbEKGServer = condSrv})
+
+getSbEKGServer :: Switchboard a -> IO (Maybe Server)
+getSbEKGServer (Switchboard sbv) = do
+    sbi <- readMVar sbv
+    pure (sbEKGServer sbi)
 
 type NamedBackends a = [(BackendKind, Backend a)]
 
@@ -142,7 +155,7 @@ instance IsEffectuator Switchboard a where
         if (sbRunning sb) == SwitchboardRunning
             then writequeue (sbQueue sb) item
             else TIO.hPutStrLn stderr "Error: Switchboard is not running, dropping log items!"
-        
+
     handleOverflow _ = TIO.hPutStrLn stderr "Error: Switchboard's queue full, dropping log items!"
 
 \end{code}
@@ -252,15 +265,15 @@ realizeSwitchboard cfg = do
 
     -- Modify the internal state of the switchboard, the switchboard
     -- is now running.
-    putMVar sbref $ SwitchboardInternal 
+    putMVar sbref $ SwitchboardInternal
         { sbQueue = q
         , sbDispatch = dispatcher
         , sbLogBuffer = logbuf
         , sbLogBE = katipBE
         , sbBackends = bs
         , sbRunning = SwitchboardRunning
+        , sbEKGServer = Nothing
         }
-
     return sb
 
 
@@ -278,7 +291,7 @@ unrealizeSwitchboard switchboard = do
         lo <- LogObject <$> pure "kill.switchboard"
                         <*> (mkLOMeta Warning Confidential)
                         <*> pure KillPill
-    
+
         -- Send terminating item to the queue.
         atomically $ TBQ.writeTBQueue queue lo
 
