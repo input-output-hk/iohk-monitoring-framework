@@ -105,7 +105,7 @@ spawnPrometheus ekg host port prometheusOutput = Async.async $
         <> charUtf8 ' '
         <> bld
         <> charUtf8 '\n'
-    prepareName nm = encodeUtf8 $ T.replace " " "_" $ T.replace "-" "_" $ T.replace "." "_" $ T.replace "," "" nm
+    prepareName nm = encodeUtf8 $ T.filter (flip elem (['a'..'z']++['A'..'Z']++['_'])) $ T.replace " " "_" $ T.replace "-" "_" $ T.replace "." "_" nm
     isFloat v = case double v of
         Right (_n, "") -> True  -- only floating point number parsed, no leftover
         _ -> False
