@@ -70,15 +70,6 @@ The callback 'getStateDigest' is used as a source of |LogObject|s
 that should be sent additionally, only once after the connection is
 re\-established. The application that uses 'lobemo-backend-trace-forwarder'
 plugin provides this callback.
-
-Note [Handle and GC]
-~~~~~~~~~~~~~~~~~~~~
-'tfHandle' contains |Maybe| |Handle| which will be updated periodically:
-the main reason of it is a reconnection with 'TraceAcceptorBK' plugin in other process.
-Once the current value of 'tfHandle' is replaced by |Nothing|, later it will be
-cleaned up by GC, please see the documentation:
-https://hackage.haskell.org/package/base-4.14.0.0/docs/System-IO.html#t:Handle
-
 \subsubsection{Plugin definition}
 \begin{code}
 plugin :: forall a s . (IsEffectuator s a, ToJSON a, FromJSON a)
@@ -166,12 +157,11 @@ instance (ToJSON a) => IsEffectuator TraceForwarder a where
            | queueIsAlmostFull currentQueueSize -> do
              -- Since the queue is almost full, it probably means that
              -- the connection with acceptor is broken or too slow.
-             -- Remove current tfHandle, please see Note [Handle and GC].
+             -- Remove current tfHandle to initiate establishing of
+             -- the new connection.
              atomically $ modifyTVar' (getTF tf) $ \be -> be { tfHandle = Nothing }
              -- Spawn new thread to establish new connection.
              void $ Async.async $ establishConnection (getTF tf)
-             -- Since the queue is not full yet, write |LogObject| in it.
-             atomically $ TBQ.writeTBQueue queue lo
            | otherwise ->
              atomically $ TBQ.writeTBQueue queue lo
 
@@ -204,16 +194,15 @@ instance (FromJSON a, ToJSON a) => IsBackend TraceForwarder a where
       Just addr -> do
         queue <- atomically $ TBQ.newTBQueue queueMaxSize
         counter <- newIORef 0
-        tfTVar <- newTVarIO $
-          TraceForwarderInternal
-            { tfQueue            = queue
-            , tfHandle           = Nothing
-            , tfRemoteAddr       = addr
-            , tfFilter           = Debug
-            , tfDispatcher       = Nothing
-            , tfQueueFullCounter = counter
-            , tfGetStateDigest   = return []
-            }
+        tfTVar <- newTVarIO $ TraceForwarderInternal
+                                { tfQueue            = queue
+                                , tfHandle           = Nothing
+                                , tfRemoteAddr       = addr
+                                , tfFilter           = Debug
+                                , tfDispatcher       = Nothing
+                                , tfQueueFullCounter = counter
+                                , tfGetStateDigest   = return []
+                                }
         return $ TraceForwarder tfTVar
 
     unrealize tf = do
@@ -306,13 +295,15 @@ sendItems config tfTVar h items@(lo:_) =
           return () -- Everything is ok, LogObjects were written to the handler.
         Left (_e :: IOException) -> do
           -- Handle is bad, it looks like the connection is already broken.
-          -- Remove bad handle to initiate reconnection, please see Note [Handle and GC].
+          -- Remove bad handle to initiate reconnection.
+          -- Old handle will be removed later by GC.
           atomically $ modifyTVar' tfTVar $ \be -> be { tfHandle = Nothing }
           -- Spawn new thread to establish new connection.
           void $ Async.async $ establishConnection tfTVar
     Left (_e :: IOException) -> do
       -- Handle is bad, it looks like the connection is already broken.
-      -- Remove bad handle, please see Note [Handle and GC].
+      -- Remove bad handle to initiate reconnection.
+      -- Old handle will be removed later by GC.
       atomically $ modifyTVar' tfTVar $ \be -> be { tfHandle = Nothing }
       -- Spawn new thread to establish new connection.
       void $ Async.async $ establishConnection tfTVar
