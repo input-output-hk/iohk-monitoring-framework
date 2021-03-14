@@ -144,9 +144,8 @@ instance (ToJSON a) => IsEffectuator TraceForwarder a where
 
       writeMessageToQueue currentTF' = do
         let queue = tfQueue currentTF'
-        (,) currentQueueSize noCapacity <- atomically $
-            (,) <$> TBQ.lengthTBQueue queue
-                <*> TBQ.isFullTBQueue queue
+        currentQueueSize <- atomically $ TBQ.lengthTBQueue queue
+        noCapacity <- atomically $ TBQ.isFullTBQueue queue
         if | noCapacity -> do
              let counterIORef = tfQueueFullCounter currentTF'
              overflowed <- atomicModifyIORef' counterIORef $ \counter ->
