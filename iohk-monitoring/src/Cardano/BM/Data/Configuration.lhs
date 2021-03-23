@@ -27,7 +27,7 @@ module Cardano.BM.Data.Configuration
   where
 
 import           Control.Exception (throwIO)
-import           Data.Aeson.Types (typeMismatch)
+import           Data.Aeson.Types (genericParseJSON, defaultOptions, typeMismatch)
 import           Data.ByteString.Char8 (ByteString)
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.HashMap.Strict as HM
@@ -107,7 +107,10 @@ data Representation = Representation
     , traceAcceptAt   :: Maybe [RemoteAddrNamed]
     , options         :: HM.HashMap Text Value
     }
-    deriving (Generic, Show, ToJSON, FromJSON)
+    deriving (Eq, Generic, Show, ToJSON)
+
+instance FromJSON Representation where
+  parseJSON value = implicit_fill_representation <$> genericParseJSON defaultOptions value
 
 data RemoteAddr
   = RemotePipe FilePath
@@ -125,15 +128,15 @@ data RemoteAddrNamed = RemoteAddrNamed
 \begin{code}
 readRepresentation :: FilePath -> IO Representation
 readRepresentation fp =
-    either throwIO pure =<< parseRepresentation <$> BS.readFile fp
+    either throwIO pure =<< decodeEither' <$> BS.readFile fp
 
 \end{code}
 
 \subsubsection{parseRepresentation}\label{code:parseRepresentation}\index{parseRepresentation}
 \begin{code}
+{-# DEPRECATED parseRepresentation "Use decodeEither' instead" #-}
 parseRepresentation :: ByteString -> Either ParseException Representation
-parseRepresentation =
-    fmap implicit_fill_representation . decodeEither'
+parseRepresentation = decodeEither'
 
 \end{code}
 
