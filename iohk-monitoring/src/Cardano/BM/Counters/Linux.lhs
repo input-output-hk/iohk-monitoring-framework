@@ -62,6 +62,7 @@ readResourceStats = do
        , rGcsMinor   = fromIntegral $ GhcStats.gcs rts - GhcStats.major_gcs rts
        , rAlloc      = GhcStats.allocated_bytes rts
        , rLive       = GhcStats.gcdetails_live_bytes $ GhcStats.gc rts
+       , rHeap       = GhcStats.gcdetails_mem_in_use_bytes $ GhcStats.gc rts
        , rRSS        = rss * 4096 -- TODO:  this is really PAGE_SIZE.
        , rCentiBlkIO = blkio
        , rThreads    = threads

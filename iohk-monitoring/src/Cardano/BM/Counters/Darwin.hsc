@@ -415,6 +415,7 @@ readResourceStats = getProcessID >>= \pid -> do
     , rGcsMinor   = fromIntegral $ GhcStats.gcs rts - GhcStats.major_gcs rts
     , rAlloc      = GhcStats.allocated_bytes rts
     , rLive       = GhcStats.gcdetails_live_bytes $ GhcStats.gc rts
+    , rHeap       = GhcStats.gcdetails_mem_in_use_bytes $ GhcStats.gc rts
     , rRSS        = fromIntegral (_resident_size mem)
     , rCentiBlkIO = 0
     , rThreads    = 0
