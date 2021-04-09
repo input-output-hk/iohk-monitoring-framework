@@ -27,6 +27,7 @@ data Resources a
       , rGcsMinor   :: !a
       , rAlloc      :: !a
       , rLive       :: !a
+      , rHeap       :: !a
       , rRSS        :: !a
       , rCentiBlkIO :: !a
       , rThreads    :: !a
@@ -34,7 +35,7 @@ data Resources a
   deriving (Functor, Generic, Show)
 
 instance Applicative Resources where
-  pure a = Resources a a a a a a a a a a
+  pure a = Resources a a a a a a a a a a a
   f <*> x =
     Resources
     { rCentiCpu   = rCentiCpu   f (rCentiCpu   x)
@@ -44,6 +45,7 @@ instance Applicative Resources where
     , rGcsMinor   = rGcsMinor   f (rGcsMinor   x)
     , rAlloc      = rAlloc      f (rAlloc      x)
     , rLive       = rLive       f (rLive       x)
+    , rHeap       = rHeap       f (rHeap       x)
     , rRSS        = rRSS        f (rRSS        x)
     , rCentiBlkIO = rCentiBlkIO f (rCentiBlkIO x)
     , rThreads    = rThreads    f (rThreads    x)
