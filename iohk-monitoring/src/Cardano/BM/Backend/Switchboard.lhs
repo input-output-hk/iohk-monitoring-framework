@@ -13,7 +13,8 @@
 
 module Cardano.BM.Backend.Switchboard
     (
-      Switchboard
+      Switchboard(..)
+    , SwitchboardInternal (..)
     , setSbEKGServer
     , getSbEKGServer
     , mainTraceConditionally
