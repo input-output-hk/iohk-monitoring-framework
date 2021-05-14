@@ -35,7 +35,7 @@ import           Control.Concurrent.MVar (MVar, modifyMVar_, readMVar,
 import           Control.Exception.Safe (catchIO)
 import           Control.Monad (foldM, forM_, unless, when, void)
 import           Data.Aeson (FromJSON, ToJSON, Result (Success), Value (..),
-                     encode, fromJSON, toJSON)
+                     encode, fromJSON)
 import           Data.Aeson.Text (encodeToLazyText)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Map as Map
@@ -69,6 +69,7 @@ import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.Output
 import           Cardano.BM.Data.Rotation (RotationParameters (..))
 import           Cardano.BM.Data.Severity
+import           Cardano.BM.Data.Tracer (ToObject (..), TracingVerbosity(..))
 import           Cardano.BM.Rotator (cleanupRotator, evalRotator,
                      initializeRotator, prtoutException)
 
@@ -89,7 +90,7 @@ data LogInternal = LogInternal
 
 \subsubsection{Log implements |effectuate|}\index{Log!instance of IsEffectuator}
 \begin{code}
-instance ToJSON a => IsEffectuator Log a where
+instance (ToJSON a, ToObject a) => IsEffectuator Log a where
     effectuate katip item = do
         let logMVar = getK katip
         -- TODO cache scribe lists, update every n minutes
@@ -125,7 +126,7 @@ instance ToJSON a => IsEffectuator Log a where
 
 \subsubsection{Log implements backend functions}\index{Log!instance of IsBackend}
 \begin{code}
-instance (ToJSON a, FromJSON a) => IsBackend Log a where
+instance (ToJSON a, FromJSON a, ToObject a) => IsBackend Log a where
     bekind _ = KatipBK
 
     realize config = do
@@ -291,7 +292,7 @@ passStrx backend katip (LogObject loname lometa loitem) = do
 
 \subsubsection{Entering textual log item into katip's queue}\label{code:passText}
 \begin{code}
-passText :: forall a. ToJSON a => ScribeId -> Log a -> LogObject a -> IO ()
+passText :: forall a. (ToJSON a, ToObject a) => ScribeId -> Log a -> LogObject a -> IO ()
 passText backend katip (LogObject loname lometa loitem) = do
     env <- kLogEnv <$> readMVar (getK katip)
     forM_ (Map.toList $ K._logEnvScribes env) $
@@ -301,9 +302,7 @@ passText backend katip (LogObject loname lometa loitem) = do
                     let sev = severity lometa
                         msg :: Text
                         msg = case loitem of
-                                (LogMessage logItem) -> case toJSON logItem of
-                                            (String m)  -> m
-                                            m           -> TL.toStrict $ encodeToLazyText m
+                                (LogMessage logItem) -> textTransformer logItem (toObject MaximalVerbosity logItem)
                                 (LogError m) -> m
                                 (LogStructured o) -> TL.toStrict (encodeToLazyText o)
                                 (LogStructuredText _o m) -> m
