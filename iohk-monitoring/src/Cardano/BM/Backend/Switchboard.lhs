@@ -58,7 +58,7 @@ import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.SubTrace (SubTrace (..))
 import           Cardano.BM.Data.Trace (Trace)
-import           Cardano.BM.Data.Tracer (Tracer (..))
+import           Cardano.BM.Data.Tracer (Tracer (..), ToObject(..))
 import qualified Cardano.BM.Backend.Log
 import qualified Cardano.BM.Backend.LogBuffer
 
@@ -165,14 +165,14 @@ instance IsEffectuator Switchboard a where
 
 |Switchboard| is an |IsBackend|
 \begin{code}
-instance (FromJSON a, ToJSON a) => IsBackend Switchboard a where
+instance (FromJSON a, ToJSON a, ToObject a) => IsBackend Switchboard a where
     bekind _ = SwitchboardBK
 
     realize cfg = realizeSwitchboard cfg
     unrealize switchboard = unrealizeSwitchboard switchboard
 
 
-realizeSwitchboard :: (FromJSON a, ToJSON a) => Configuration -> IO (Switchboard a)
+realizeSwitchboard :: (FromJSON a, ToJSON a, ToObject a) => Configuration -> IO (Switchboard a)
 realizeSwitchboard cfg = do
     -- we setup |LogBuffer| explicitly so we can access it as a |Backend| and as |LogBuffer|
     logbuf :: Cardano.BM.Backend.LogBuffer.LogBuffer a <- Cardano.BM.Backend.LogBuffer.realize cfg

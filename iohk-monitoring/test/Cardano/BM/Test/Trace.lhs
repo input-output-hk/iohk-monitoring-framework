@@ -5,6 +5,8 @@
 %if style == newcode
 \begin{code}
 {-# LANGUAGE CPP                        #-}
+{-# LANGUAGE DeriveAnyClass             #-}
+{-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE GeneralisedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase                 #-}
@@ -25,13 +27,16 @@ import           Control.Concurrent (threadDelay)
 import qualified Control.Concurrent.Async as Async
 import           Control.Monad (forM, forM_)
 import           Control.Monad.IO.Class (liftIO)
+import           Data.Aeson (ToJSON, FromJSON)
 import           Data.Either (isLeft, isRight)
 import           Data.Map (fromListWith, lookup)
 import           Data.Text (Text, append, pack)
 import qualified Data.Text as T
+import qualified Data.Text.IO as TIO
 #ifdef ENABLE_OBSERVABLES
 import qualified Control.Monad.STM as STM
 #endif
+import           GHC.Generics (Generic)
 import           System.Directory (getTemporaryDirectory, removeFile)
 import           System.Mem (performMajorGC)
 import           System.FilePath ((</>))
@@ -60,6 +65,7 @@ import qualified Cardano.BM.Setup as Setup
 import           Cardano.BM.Trace (Trace, appendName, logDebug, logInfo,
                      logInfoS, logNotice, logWarning, logError, logCritical,
                      logAlert, logEmergency)
+import           Cardano.BM.Data.Tracer (ToObject (..))
 import           Cardano.BM.Test.Mock (MockSwitchboard (..), traceMock)
 
 import           Cardano.BM.Arbitrary ()
@@ -81,6 +87,7 @@ tests = testGroup "Testing Trace" [
       , testCase "demonstrate capturing of counters" demoObservableSubtrace
 #endif
       , testCaseInfo "demonstrating logging" simpleDemo
+      , testCase "uses the ToObject instance, when provided" usesToObjectInstance
       , testCaseInfo "demonstrating nested named context logging" exampleWithNamedContexts
       , testCase "major GC doesn't cause an exception for lost traces" unitShutdown
       ]
@@ -169,6 +176,67 @@ simpleDemo = do
 
     return ""
 
+\end{code}
+
+\subsubsection{Logging custom types via ToObject}\label{code:usesToObjectInstance}
+Here we demonstrate that, when it's defined, the custom `ToObject`  typeclass
+is used to log the respective object (and it isn't logged as it's pure
+`toJSON` String representation).
+
+Note that, because of Aeson, the logged representation of a datatype with one
+constructor is `"{}"`, so just to be clear, we make a dummy constructor and
+check that we get `"{\"string\":\"X\"}"` when it's logged.
+
+\begin{code}
+data X = X | X' deriving (Generic, ToJSON, FromJSON, ToObject)
+data Y = Y deriving (Generic, ToJSON, FromJSON)
+
+instance ToObject Y where
+  textTransformer _ _ = "ToObject version of Y"
+
+usesToObjectInstance :: Assertion
+usesToObjectInstance = do
+  -- NOTE: We can't use 'withSystemTempFile' here because that locks the
+  -- file for writing aisde from via the handle, but the scribe definition
+  -- wants to write to a filepath.
+
+  tmpDir <- getTemporaryDirectory
+  let file = tmpDir </> "output.log"
+
+  conf <- empty
+  setDefaultBackends conf [KatipBK]
+  setSetupBackends   conf [KatipBK]
+  setDefaultScribes  conf [ "FileSK::" <> pack file ]
+  setSetupScribes    conf [ ScribeDefinition
+                            { scKind     = FileSK
+                            , scFormat   = ScText
+                            , scName     = pack file
+                            , scPrivacy  = ScPrivate
+                            , scMinSev   = minBound
+                            , scMaxSev   = maxBound
+                            , scRotation = Nothing
+                            }
+                          ]
+
+  Setup.withTrace conf "test" $ \trace -> do
+      logInfo trace Y
+
+  contentY <- TIO.readFile file
+
+  Setup.withTrace conf "test" $ \trace -> do
+      logInfo trace X
+
+  contentX <- TIO.readFile file
+
+  removeFile file
+
+  assertBool
+    "Log written with ToObject instance of Y"
+    ("ToObject version of Y" `T.isInfixOf` contentY)
+
+  assertBool
+    "Log written with ToJSON instance of X"
+    ("{\"string\":\"X\"}" `T.isInfixOf` contentX)
 \end{code}
 
 \subsubsection{Example of using named contexts with |Trace|}\label{code:exampleWithNamedContexts}
