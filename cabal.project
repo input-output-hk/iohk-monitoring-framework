@@ -8,6 +8,7 @@ packages:
   plugins/backend-editor
   plugins/backend-ekg
   plugins/backend-graylog
+  plugins/backend-kafka
   plugins/backend-monitoring
   plugins/backend-trace-acceptor
   plugins/backend-trace-forwarder
