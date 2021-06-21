@@ -1,0 +1,28 @@
+cabal-version:       2.0
+name:                lobemo-backend-kafka
+version:             0.1.0.0
+synopsis:            provides a backend implementation to Kafka
+homepage:            https://github.com/input-output-hk/iohk-monitoring-framework
+license:             Apache-2.0
+license-files:       LICENSE, NOTICE
+author:              Alexander Diemand
+maintainer:          operations@iohk.io
+copyright:           2021 IOHK
+category:            Benchmarking
+build-type:          Simple
+extra-source-files:  README.md
+
+library
+  exposed-modules:     Cardano.BM.Backend.Kafka
+  default-extensions:  OverloadedStrings
+  build-depends:       base >=4.11,
+                       iohk-monitoring,
+                       aeson,
+                       async,
+                       bytestring,
+                       hw-kafka-client,
+                       safe-exceptions,
+                       stm,
+                       text
+  hs-source-dirs:      src
+  default-language:    Haskell2010
