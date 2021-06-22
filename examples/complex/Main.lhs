@@ -20,7 +20,8 @@
 #define RUN_ProcCounterOutput
 
 -- if defined loads the Kafka plugin and outputs metrics to topic 'test'
-#define OUT_KafkaStream
+-- also needs changes to cabal and nix files, stack.yaml
+#undef OUT_KafkaStream
 
 module Main
   ( main )

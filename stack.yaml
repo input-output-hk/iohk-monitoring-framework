@@ -14,7 +14,7 @@ packages:
   - plugins/backend-editor
   - plugins/backend-ekg
   - plugins/backend-graylog
-  - plugins/backend-kafka
+  #- plugins/backend-kafka
   - plugins/backend-monitoring
   - plugins/backend-trace-acceptor
   - plugins/backend-trace-forwarder
@@ -49,7 +49,7 @@ nix:
             , openssl.dev, openssl.out
             , libsodium.dev, libsodium.out
             , haskell.compiler.ghc8104
-            , rdkafka
+            #, rdkafka
             , pkg-config
             , systemd.dev
             ]
