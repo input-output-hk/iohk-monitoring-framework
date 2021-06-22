@@ -19,6 +19,10 @@
 #define RUN_ProcBufferDump
 #define RUN_ProcCounterOutput
 
+-- if defined loads the Kafka plugin and outputs metrics to topic 'test'
+-- also needs changes to cabal and nix files, stack.yaml
+#undef OUT_KafkaStream
+
 module Main
   ( main )
   where
@@ -47,6 +51,9 @@ import           System.Random
 import           Cardano.BM.Backend.Aggregation
 import           Cardano.BM.Backend.Editor
 import           Cardano.BM.Backend.EKGView
+#if defined(OUT_KafkaStream)
+import           Cardano.BM.Backend.Kafka
+#endif
 import           Cardano.BM.Backend.Monitoring
 import           Cardano.BM.Backend.Switchboard (Switchboard, readLogBuffer)
 import           Cardano.BM.Backend.TraceForwarder
@@ -258,6 +265,9 @@ prepare_configuration = do
     CM.setBackends c "complex.#aggregation.complex.monitoring" (Just [MonitoringBK])
     CM.setBackends c "complex.#aggregation.complex.observeIO" (Just [EKGViewBK])
 
+#if defined(OUT_KafkaStream)
+    CM.setBackends c "complex.counters" (Just [KatipBK, UserDefinedBK "KafkaStream" ])
+#endif
     CM.setScribes c "complex.counters" (Just ["StdoutSK::stdout","FileSK::logs/out.json"])
 
     CM.setEKGBindAddr c $ Just (Endpoint ("localhost", 12790))
@@ -276,6 +286,10 @@ output could also be forwarded using a pipe:
     CM.setTextOption c "forwarderMinSeverity" "Warning"  -- sets min severity filter in forwarder
     CM.setTextOption c "prometheusOutput" "json"  -- Prometheus' output in JSON-format
 
+#if defined(OUT_KafkaStream)
+    CM.setTextOption c "kafka_servers" "192.168.11.42:9092,localhost:9092"  -- Kafka servers to try
+    CM.setTextOption c "kafka_topic" "test"  -- output to Kafka topic 'test'
+#endif
     CM.setForwardDelay c (Just 1000)
 
     CM.setMonitors c $ HM.fromList
@@ -517,6 +531,10 @@ main = do
       >>= loadPlugin sb
     Cardano.BM.Backend.Monitoring.plugin c tr sb
       >>= loadPlugin sb
+#if defined(OUT_KafkaStream)
+    Cardano.BM.Backend.Kafka.plugin c tr sb
+      >>= loadPlugin sb
+#endif
 #ifdef LINUX
     -- inspect logs with 'journalctl -t example-complex'
     Cardano.BM.Scribe.Systemd.plugin c tr sb "example-complex"

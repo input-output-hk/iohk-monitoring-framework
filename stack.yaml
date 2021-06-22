@@ -1,10 +1,10 @@
   # GHC 8.6.5
-resolver: lts-14.27
-compiler: ghc-8.6.5
+#resolver: lts-14.27
+#compiler: ghc-8.6.5
 
-  # GHC 8.10.2
-#resolver: nightly-2020-08-26
-#compiler: ghc-8.10.2
+  # GHC 8.10.4
+resolver: lts-17.13
+compiler: ghc-8.10.4
 
 packages:
   - contra-tracer
@@ -14,6 +14,7 @@ packages:
   - plugins/backend-editor
   - plugins/backend-ekg
   - plugins/backend-graylog
+  #- plugins/backend-kafka
   - plugins/backend-monitoring
   - plugins/backend-trace-acceptor
   - plugins/backend-trace-forwarder
@@ -23,19 +24,18 @@ packages:
 allow-newer: false
 
 extra-deps:
-  # needed for GHC 8.10.2
-  #- async-timer-0.2.0.0
+  # needed for GHC 8.10.4
+  - async-timer-0.2.0.0
+  - unliftio-core-0.1.2.0
+
   - network-3.1.1.1
-  - snap-core-1.0.4.1
-  - snap-server-1.1.1.1
+  - snap-server-1.1.2.0
 
-  - time-units-1.0.0
-  - katip-0.8.4.0
+  #- time-units-1.0.0
+  #- katip-0.8.4.0
 
-  - git: https://github.com/input-output-hk/ouroboros-network
-    commit: a09f209bb6bbb1a1a9a5b31d671da0189001e175
-    subdirs:
-        - Win32-network
+  - git: https://github.com/input-output-hk/Win32-network
+    commit: 94153b676617f8f33abe8d8182c37377d2784bd1
 
   - git: https://github.com/CodiePP/libsystemd-journal
     commit: 49ad111e668e0d6e06e759a13d8de311bc91e149
@@ -48,7 +48,8 @@ nix:
   packages: [ zlib.dev, zlib.out
             , openssl.dev, openssl.out
             , libsodium.dev, libsodium.out
-            , haskell.compiler.ghc8102
+            , haskell.compiler.ghc8104
+            #, rdkafka
             , pkg-config
             , systemd.dev
             ]

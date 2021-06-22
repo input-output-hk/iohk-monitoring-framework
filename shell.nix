@@ -22,6 +22,7 @@ let
       lobemo-backend-editor
       lobemo-backend-ekg
       lobemo-backend-graylog
+      #lobemo-backend-kafka
       lobemo-backend-monitoring
       lobemo-backend-trace-acceptor
       lobemo-backend-trace-forwarder

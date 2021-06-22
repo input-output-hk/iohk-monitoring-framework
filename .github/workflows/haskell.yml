@@ -42,13 +42,18 @@ jobs:
           's|C:/GitLabRunner/builds/2WeHDSFP/0/ghc/ghc/inplace/mingw/bin/ld.exe|C:/ProgramData/chocolatey/lib/ghc.8.10.2/tools/ghc-8.10.2/mingw/bin/ld.exe|g' \
           C:/ProgramData/chocolatey/lib/ghc.8.10.2/tools/ghc-8.10.2/lib/settings
 
-    - name: Install build environment
+    - name: Install build environment (Ubuntu)
       if: matrix.os == 'ubuntu-latest'
       run: |
         sudo apt-get update
+        #sudo apt-get -y install libsystemd0 libsystemd-dev librdkafka-dev
         sudo apt-get -y install libsystemd0 libsystemd-dev
         sudo apt-get -y remove --purge software-properties-common
         sudo apt-get -y autoremove
+
+    #- name: Install build environment (Mac OSX)
+    #  if: matrix.os == 'macos-latest'
+    #  run: HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_INSTALL_CLEANUP=1 brew install librdkafka
 
     - name: Cabal update
       run: retry 3 cabal update
