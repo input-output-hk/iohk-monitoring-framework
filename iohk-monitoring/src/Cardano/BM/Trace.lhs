@@ -33,6 +33,7 @@ module Cardano.BM.Trace
 
 import           Control.Concurrent.MVar (MVar, newMVar, withMVar)
 import qualified Control.Concurrent.STM.TVar as STM
+import           Cardano.BM.Internal.STM
 import           Control.Monad.IO.Class (MonadIO, liftIO)
 import qualified Control.Monad.STM as STM
 import           Data.Aeson.Text (encodeToLazyText)
@@ -142,7 +143,7 @@ traceInTVar tvar = Tracer $ \a -> STM.modifyTVar tvar ((:) a)
 
 traceInTVarIO :: STM.TVar [a] -> Tracer IO a
 traceInTVarIO tvar = Tracer $ \a ->
-                         STM.atomically $ STM.modifyTVar tvar ((:) a)
+                         labelledAtomically $ STM.modifyTVar tvar ((:) a)
 
 \end{code}
 

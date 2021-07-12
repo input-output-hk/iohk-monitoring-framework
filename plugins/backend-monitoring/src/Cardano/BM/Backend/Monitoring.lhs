@@ -24,7 +24,6 @@ module Cardano.BM.Backend.Monitoring
 import qualified Control.Concurrent.Async as Async
 import           Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar,
                      readMVar, tryReadMVar, tryTakeMVar, withMVar)
-import           Control.Concurrent.STM (atomically)
 import qualified Control.Concurrent.STM.TBQueue as TBQ
 import           Control.Exception.Safe (throwM)
 import           Control.Monad (void)
@@ -36,6 +35,7 @@ import qualified Data.Text.IO as TIO
 import           GHC.Clock (getMonotonicTimeNSec)
 import           System.IO (stderr)
 
+import           Cardano.BM.Internal.STM
 import           Cardano.BM.Backend.LogBuffer
 import           Cardano.BM.Backend.ProcessQueue (processQueue)
 import           Cardano.BM.Configuration.Model (Configuration, getMonitors)
@@ -96,10 +96,10 @@ instance IsEffectuator Monitor a where
     effectuate monitor item = do
         mon <- readMVar (getMon monitor)
         effectuate (monBuffer mon) item
-        nocapacity <- atomically $ TBQ.isFullTBQueue (monQueue mon)
+        nocapacity <- labelledAtomically $ TBQ.isFullTBQueue (monQueue mon)
         if nocapacity
         then handleOverflow monitor
-        else atomically $ TBQ.writeTBQueue (monQueue mon) $ Just item
+        else labelledAtomically $ TBQ.writeTBQueue (monQueue mon) $ Just item
 
     handleOverflow _ = TIO.hPutStrLn stderr "Notice: Monitor's queue full, dropping log items!\n"
 
@@ -122,7 +122,7 @@ instance FromJSON a => IsBackend Monitor a where
 #else
         let qSize = 512
 #endif
-        queue <- atomically $ TBQ.newTBQueue qSize
+        queue <- labelledAtomically $ TBQ.newTBQueue qSize
         dispatcher <- spawnDispatcher queue config sbtrace monitor
         monbuf :: Cardano.BM.Backend.LogBuffer.LogBuffer a <- Cardano.BM.Backend.LogBuffer.realize config
         -- link the given Async to the current thread, such that if the Async
@@ -143,7 +143,7 @@ instance FromJSON a => IsBackend Monitor a where
         (dispatcher, queue) <- withMVar (getMon monitoring) (\mon ->
                                 return (monDispatch mon, monQueue mon))
         -- send terminating item to the queue
-        atomically $ TBQ.writeTBQueue queue Nothing
+        labelledAtomically $ TBQ.writeTBQueue queue Nothing
         -- wait for the dispatcher to exit
         res <- Async.waitCatch dispatcher
         either throwM return res

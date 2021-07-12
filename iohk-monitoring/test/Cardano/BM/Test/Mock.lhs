@@ -21,7 +21,7 @@ module Cardano.BM.Test.Mock
     , traceMock
     ) where
 
-import           Control.Concurrent.STM (TVar, atomically, modifyTVar)
+import           Control.Concurrent.STM (TVar, modifyTVar)
 import           Data.Maybe (fromMaybe)
 
 import           Cardano.BM.Backend.Switchboard (mainTraceConditionally)
@@ -31,6 +31,7 @@ import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.SubTrace (SubTrace (..))
 import           Cardano.BM.Data.Trace (Trace)
 import           Cardano.BM.Data.Tracer (Tracer (..), traceWith)
+import           Cardano.BM.Internal.STM
 
 \end{code}
 %endif
@@ -43,7 +44,7 @@ to be output in a list.
 newtype MockSwitchboard a = MockSB (TVar [LogObject a])
 
 instance IsEffectuator MockSwitchboard a where
-    effectuate (MockSB tvar) item = atomically $ modifyTVar tvar ((:) item)
+    effectuate (MockSB tvar) item = labelledAtomically $ modifyTVar tvar ((:) item)
     handleOverflow _ = pure ()
 
 \end{code}

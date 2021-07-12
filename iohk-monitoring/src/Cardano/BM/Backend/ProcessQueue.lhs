@@ -10,11 +10,12 @@ module Cardano.BM.Backend.ProcessQueue
     ( processQueue
     ) where
 
-import           Control.Concurrent.STM (atomically, retry)
+import           Control.Concurrent.STM (retry)
 import qualified Control.Concurrent.STM.TBQueue as TBQ
 import           Control.Monad (when)
 
 import           Cardano.BM.Data.LogItem
+import           Cardano.BM.Internal.STM
 
 \end{code}
 %endif
@@ -29,7 +30,7 @@ processQueue
     -> (b -> IO ())                -- termination function
     -> IO ()
 processQueue tbqueue proc state terminate = do
-    items <- atomically $ do
+    items <- labelledAtomically $ do
                 list <- TBQ.flushTBQueue tbqueue
                 when (null list) retry
                 return list

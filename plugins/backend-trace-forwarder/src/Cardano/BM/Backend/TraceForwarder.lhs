@@ -26,7 +26,6 @@ import           Control.Monad (forever, when)
 import           Control.Concurrent (threadDelay)
 import qualified Control.Concurrent.Async as Async
 import           Control.Concurrent.MVar (MVar, modifyMVar_, newMVar, readMVar)
-import           Control.Concurrent.STM (atomically)
 import qualified Control.Concurrent.STM.TBQueue as TBQ
 import           Data.Aeson (FromJSON, ToJSON, encode)
 import qualified Data.ByteString as BS
@@ -49,6 +48,7 @@ import           Cardano.BM.Data.Backend
 import           Cardano.BM.Data.Configuration (RemoteAddr(..))
 import           Cardano.BM.Data.LogItem (LOContent (..), LOMeta (..), LogObject (..))
 import           Cardano.BM.Data.Severity (Severity (..))
+import           Cardano.BM.Internal.STM
 import           Cardano.BM.IOManager
 import           Cardano.BM.Plugin
 import qualified Cardano.BM.Snocket as Snocket
@@ -144,7 +144,7 @@ instance (ToJSON a) => IsEffectuator TraceForwarder a where
 
       writeMessageToQueue currentTF' = do
         let queue = tfQueue currentTF'
-        noCapacity <- atomically $ TBQ.isFullTBQueue queue
+        noCapacity <- labelledAtomically $ TBQ.isFullTBQueue queue
         if noCapacity
           then do
             let counterIORef = tfQueueFullCounter currentTF'
@@ -153,7 +153,7 @@ instance (ToJSON a) => IsEffectuator TraceForwarder a where
                 then (1, True)
                 else (counter + 1, False)
             when overflowed $ handleOverflow tf
-          else atomically $ TBQ.writeTBQueue queue lo
+          else labelledAtomically $ TBQ.writeTBQueue queue lo
 
     handleOverflow _ = TIO.hPutStrLn stderr $ "Notice: TraceForwarder's queue is full, "
                                               <> pack (show overflowCriticalNum)
@@ -177,7 +177,7 @@ instance (FromJSON a, ToJSON a) => IsBackend TraceForwarder a where
     realize cfg = getForwardTo cfg >>= \case
       Nothing -> fail "Trace forwarder not configured:  option 'forwardTo'"
       Just addr -> do
-        queue <- atomically $ TBQ.newTBQueue queueMaxSize
+        queue <- labelledAtomically $ TBQ.newTBQueue queueMaxSize
         counter <- newIORef 0
         tfMVar <- newMVar $ TraceForwarderInternal
                               { tfQueue            = queue
@@ -250,7 +250,7 @@ spawnDispatcher config tfMVar = do
     threadDelay $ fromIntegral delayInMs * 1000
     currentTF <- readMVar tfMVar
     let getStateDigest = tfGetStateDigest currentTF
-    itemsList <- atomically $ TBQ.flushTBQueue (tfQueue currentTF)
+    itemsList <- labelledAtomically $ TBQ.flushTBQueue (tfQueue currentTF)
     -- Try to write it to the handle. If there's a problem with connection,
     -- this thread will initiate re\-establishing of the connection and
     -- will wait until it's established.
@@ -304,7 +304,7 @@ sendItems config tfMVar items@(lo:_) getStateDigest =
   -- Check if the queue is almost full.
   reConnectIfQueueIsAlmostFull = do
     currentTF <- readMVar tfMVar
-    currentQueueSize <- atomically $ TBQ.lengthTBQueue (tfQueue currentTF)
+    currentQueueSize <- labelledAtomically $ TBQ.lengthTBQueue (tfQueue currentTF)
     when (queueIsAlmostFull currentQueueSize) $ do
       -- The queue is almost full, it means that log items will be dropped soon.
       -- Initiate re-establishing of connection.
