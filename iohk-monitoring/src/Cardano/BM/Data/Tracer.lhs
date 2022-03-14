@@ -74,6 +74,7 @@ import           Cardano.BM.Data.LogItem (LoggerName,
 import           Cardano.BM.Data.Severity (Severity (..))
 import           Cardano.BM.Data.Trace
 import           Control.Tracer
+import qualified Data.Aeson.KeyMap as KeyMap
 
 \end{code}
 %endif
@@ -216,7 +217,7 @@ class ToObject a where
     default toObject :: ToJSON a => TracingVerbosity -> a -> Object
     toObject _ v = case toJSON v of
         Object o     -> o
-        s@(String _) -> HM.singleton "string" s
+        s@(String _) -> KeyMap.singleton "string" s
         _            -> mempty
     textTransformer :: a -> Object -> Text
     default textTransformer :: a -> Object -> Text

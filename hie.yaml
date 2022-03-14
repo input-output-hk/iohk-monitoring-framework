@@ -1,2 +1,7 @@
-cradle: {cabal: {component: "lib:iohk-monitoring"}}
+cradle:
+  cabal:
+    - path: "iohk-monitoring/src"
+      component: "lib:iohk-monitoring"
 
+    - path: "iohk-monitoring/test"
+      component: "iohk-monitoring:test:tests"
