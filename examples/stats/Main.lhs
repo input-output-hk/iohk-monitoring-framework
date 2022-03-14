@@ -16,7 +16,7 @@ import           Control.Concurrent (threadDelay)
 import qualified Control.Concurrent.Async as Async
 import           Control.Monad (forever)
 
-import           Cardano.BM.Data.Tracer (trStructured, mkObject)
+import           Cardano.BM.Data.Tracer (trStructured)
 import           Cardano.BM.Setup (setupTrace_, shutdown)
 import           Cardano.BM.Stats (readResourceStats)
 import           Cardano.BM.Stats.Resources
@@ -33,7 +33,7 @@ instance HasSeverityAnnotation ResourceStats where
 
 instance ToObject ResourceStats where
     toObject _ sts =
-        mkObject [ "stats" .= toJSON sts ]
+        "stats" .= toJSON sts
 
 instance Transformable Text IO ResourceStats where
     trTransformer verb tr = trStructured verb tr

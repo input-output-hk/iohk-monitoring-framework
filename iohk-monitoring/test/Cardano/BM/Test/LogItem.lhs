@@ -11,7 +11,6 @@ module Cardano.BM.Test.LogItem (
   ) where
 
 import           Data.Aeson (Value(..), encode, decode, eitherDecode)
-import           Data.HashMap.Lazy (singleton)
 import           Data.Text (Text)
 
 import           Cardano.BM.Data.Aggregated
@@ -22,6 +21,7 @@ import           Cardano.BM.Data.Severity
 
 import           Test.Tasty (TestTree, testGroup)
 import           Test.Tasty.HUnit (Assertion , assertEqual, testCase)
+import qualified Data.Aeson.KeyMap as KeyMap
 
 \end{code}
 %endif
@@ -74,7 +74,7 @@ testLogStructured :: Assertion
 testLogStructured = do
     meta <- mkLOMeta Info Public
     let m :: LogObject Text = LogObject "test" meta . LogStructured $
-          singleton "foo" (String "bar")
+          KeyMap.singleton "foo" (String "bar")
     let encoded = encode m
     let decoded = eitherDecode encoded :: Either String (LogObject Text)
     assertEqual "unequal" (Right m) decoded

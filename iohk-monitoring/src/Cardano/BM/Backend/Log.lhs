@@ -37,7 +37,6 @@ import           Control.Monad (foldM, forM_, unless, when, void)
 import           Data.Aeson (FromJSON, ToJSON, Result (Success), Value (..),
                      encode, fromJSON, toJSON)
 import           Data.Aeson.Text (encodeToLazyText)
-import qualified Data.HashMap.Strict as HM
 import qualified Data.Map as Map
 import           Data.List (find)
 import           Data.Maybe (isNothing)
@@ -71,6 +70,8 @@ import           Cardano.BM.Data.Rotation (RotationParameters (..))
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Rotator (cleanupRotator, evalRotator,
                      initializeRotator, prtoutException)
+import qualified Data.Aeson.KeyMap as KeyMap
+import Data.Functor.Identity
 
 \end{code}
 %endif
@@ -421,8 +422,8 @@ renderJsonMsg r =
 
 -- keep only two digits for the fraction of seconds
 trimTime :: Value -> Value
-trimTime (Object o) = Object $ HM.adjust
-                                keep2Decimals
+trimTime (Object o) = Object . runIdentity $ KeyMap.alterF
+                                (\a -> Identity $ keep2Decimals <$> a)
                                 "at"
                                 o
   where
