@@ -26,7 +26,8 @@ module Main
 import           Control.Concurrent (threadDelay)
 import qualified Control.Concurrent.Async as Async
 import           Control.Monad (forM_, when)
-import           Data.Aeson (ToJSON (..), Value (..), (.=))
+import           Data.Aeson (ToJSON (..), Key, Value (..))
+import qualified Data.Aeson.KeyMap as KeyMap
 import qualified Data.HashMap.Strict as HM
 import           Data.Maybe (isJust)
 import           Data.Text (Text, pack)
@@ -68,7 +69,7 @@ import           Cardano.BM.Data.Rotation
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.SubTrace
 import           Cardano.BM.Data.Trace
-import           Cardano.BM.Data.Tracer
+import           Cardano.BM.Data.Tracer hiding(mkObject)
 #ifdef ENABLE_OBSERVABLES
 import           Cardano.BM.Configuration
 import           Cardano.BM.Data.Observable
@@ -432,14 +433,17 @@ observeDownload config trace = do
 data Pet = Pet { name :: Text, age :: Int}
            deriving (Show)
 
+mkObject :: [(Key, v)] -> KeyMap.KeyMap v
+mkObject = KeyMap.fromList
+
 instance ToObject Pet where
-    toObject MinimalVerbosity _ = emptyObject -- do not log
+    toObject MinimalVerbosity _ = KeyMap.empty -- do not log
     toObject NormalVerbosity (Pet _ _) =
-        mkObject [ "kind" .= String "Pet"]
+        mkObject [ ("kind", String "Pet") ]
     toObject MaximalVerbosity (Pet n a) =
-        mkObject [ "kind" .= String "Pet"
-                 , "name" .= toJSON n
-                 , "age" .= toJSON a ]
+        mkObject [ ("kind", String "Pet")
+                 , ("name", toJSON n)
+                 , ("age", toJSON a) ]
 instance HasTextFormatter Pet where
     formatText pet _o = "Pet " <> name pet <> " is " <> pack (show (age pet)) <> " years old."
 instance Transformable Text IO Pet where
