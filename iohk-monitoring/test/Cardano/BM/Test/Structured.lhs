@@ -27,6 +27,7 @@ import           Cardano.BM.Test.Mock (MockSwitchboard (..))
 import           Cardano.BM.Test.Trace (TraceConfiguration (..), setupTrace)
 import           Test.Tasty (TestTree, testGroup)
 import           Test.Tasty.HUnit (Assertion , assertBool, testCase)
+import qualified Data.Aeson.KeyMap as KeyMap
 
 \end{code}
 %endif
@@ -72,13 +73,13 @@ data Pet = Pet { name :: Text, age :: Int}
            deriving (Show)
 
 instance ToObject Pet where
-    toObject MinimalVerbosity _ = emptyObject -- do not log
+    toObject MinimalVerbosity _ = KeyMap.empty -- do not log
     toObject NormalVerbosity (Pet _ _) =
-        mkObject [ "kind" .= String "Pet"]
+         "kind" .= String "Pet"
     toObject MaximalVerbosity (Pet n a) =
-        mkObject [ "kind" .= String "Pet"
-                 , "name" .= toJSON n
-                 , "age" .= toJSON a ]
+        mconcat [ "kind" .= String "Pet"
+                , "name" .= toJSON n
+                , "age" .= toJSON a ]
 
 instance Transformable Text IO Pet where
     -- transform to JSON Object
@@ -150,14 +151,14 @@ data Material = Material { description :: Text, weight :: Int}
            deriving (Show)
 
 instance ToObject Material where
-    toObject MinimalVerbosity _ = emptyObject -- do not log
+    toObject MinimalVerbosity _ = KeyMap.empty -- do not log
     toObject NormalVerbosity (Material d _) =
-        mkObject [ "kind" .= String "Material"
-                 , "description" .= toJSON d ]
+        mconcat [ "kind" .= String "Material"
+                , "description" .= toJSON d ]
     toObject MaximalVerbosity (Material d w) =
-        mkObject [ "kind" .= String "Material"
-                 , "description" .= toJSON d
-                 , "weight" .= toJSON w ]
+        mconcat [ "kind" .= String "Material"
+                , "description" .= toJSON d
+                , "weight" .= toJSON w ]
 
 instance Transformable Text IO Material where
     -- transform to JSON Object

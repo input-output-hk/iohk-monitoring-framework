@@ -23,12 +23,11 @@ instance Arbitrary Severity where
   arbitrary = elements $ enumFromTo minBound maxBound
 
 instance Arbitrary PrivacyAnnotation where
-  arbitrary = elements $ [Confidential, Public]
+  arbitrary = elements [Confidential, Public]
 
 instance Arbitrary LOMeta where
-  arbitrary = LOMeta
-    <$> pure (posixSecondsToUTCTime $ fromIntegral (1 :: Int))
-     -- ^ Not a very good choice for an arbitary timestamp.
+  arbitrary = pure (LOMeta (posixSecondsToUTCTime $ fromIntegral (1 :: Int)))
+     -- Not a very good choice for an arbitary timestamp.
     <*> elements ["thread", "of", "conscience"]
     <*> pure "localhost"
     <*> arbitrary

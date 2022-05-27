@@ -1,4 +1,4 @@
-index-state: 2021-03-15T00:00:00Z
+index-state: 2022-02-18T00:00:00Z
 
 packages:
   contra-tracer
@@ -17,7 +17,15 @@ packages:
 package iohk-monitoring
   tests: True
 
-allow-newer: libsystemd-journal:base
+allow-newer:
+  libsystemd-journal:base,
+  ekg:aeson
+
+source-repository-package
+  type: git
+  location: https://github.com/vshabanov/ekg-json
+  tag: 00ebe7211c981686e65730b7144fbf5350462608
+  --sha256: sha256-VT8Ur585TCn03P2TVi6t92v2Z6tl8vKijICjse6ocv8=
 
 source-repository-package
   type: git

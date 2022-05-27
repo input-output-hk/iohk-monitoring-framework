@@ -1,5 +1,5 @@
 name:                 iohk-monitoring
-version:              0.1.10.1
+version:              0.1.11.0
 synopsis:             logging, benchmarking and monitoring framework
 -- description:
 license:              Apache-2.0
@@ -95,38 +95,40 @@ library
   default-extensions:  OverloadedStrings
   other-extensions:    OverloadedStrings
   build-depends:       base >= 4.11,
-                       contra-tracer,
                        aeson >= 1.4.2,
                        array,
-                       async,
                        async-timer,
+                       async,
                        attoparsec,
                        auto-update,
                        base64-bytestring,
                        bytestring,
                        clock,
                        containers,
+                       contra-tracer,
                        contravariant,
                        directory,
-                       filepath,
                        ekg,
+                       filepath,
                        katip,
+                       libyaml,
                        mtl,
                        network,
-                       safe,
                        safe-exceptions,
+                       safe,
                        scientific,
                        stm,
                        template-haskell,
                        text,
-                       time,
                        time-units,
+                       time,
                        tracer-transformers,
                        transformers,
                        unordered-containers,
                        vector,
                        Win32-network,
-                       yaml, libyaml
+                       yaml
+
 
   if os(windows)
      build-depends:    Win32

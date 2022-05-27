@@ -88,6 +88,7 @@ import           Cardano.BM.Data.Output (ScribeDefinition (..), ScribeId,
 import           Cardano.BM.Data.Rotation (RotationParameters (..))
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.SubTrace
+import qualified Data.Aeson.KeyMap as KeyMap
 
 \end{code}
 %endif
@@ -484,7 +485,7 @@ parseMonitors (Just hmv) = HM.mapMaybe mkMonitor hmv
 
 setupFromRepresentation :: R.Representation -> IO Configuration
 setupFromRepresentation r = do
-    let getMap             = getMapOption' (R.options r)
+    let getMap             = fmap KeyMap.toHashMapText . getMapOption' (R.options r)
         mapscribes         = parseScribeMap $ getMap "mapScribes"
         defRotation        = R.rotation r
 
@@ -628,7 +629,7 @@ toRepresentation (Configuration c) = do
         createOption name f hashmap =
           if null hashmap
           then HM.empty
-          else HM.singleton name $ Object (HM.map f hashmap)
+          else HM.singleton name $ Object (KeyMap.fromHashMapText $ HM.map f hashmap)
         toString :: Show a => a -> Value
         toString = String . pack . show
         toObject :: (MEvPreCond, MEvExpr, [MEvAction]) -> Value
