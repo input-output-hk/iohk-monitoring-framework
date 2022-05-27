@@ -1,5 +1,4 @@
 status = [
-  "buildkite/iohk-monitoring-framework",
   "ci/hydra:Cardano:iohk-monitoring:required",
 ]
 timeout_sec = 7200
