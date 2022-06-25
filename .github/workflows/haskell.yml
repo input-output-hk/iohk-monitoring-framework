@@ -29,7 +29,7 @@ jobs:
       if: matrix.os == 'windows-latest'
       run: retry 3 choco install -y pkgconfiglite
 
-    - uses: actions/setup-haskell@v1
+    - uses: haskell/actions/setup@v1
       id: setup-haskell
       with:
         ghc-version: ${{ matrix.ghc }}
