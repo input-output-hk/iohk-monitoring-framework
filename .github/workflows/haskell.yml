@@ -35,6 +35,13 @@ jobs:
         ghc-version: ${{ matrix.ghc }}
         cabal-version: '3.4.0.0'
 
+    - name: Patch GHC 8.10.7 linker
+      if: matrix.os == 'windows-latest' && matrix.ghc == '8.10.7'
+      run: |
+         sed -i \
+           's|C:/GitLabRunner/builds/2WeHDSFP/0/ghc/ghc/inplace/mingw/bin/ld.exe|C:/ProgramData/chocolatey/lib/ghc.8.10.2/tools/ghc-8.10.2/mingw/bin/ld.exe|g' \
+           C:/ProgramData/chocolatey/lib/ghc.8.10.7/tools/ghc-8.10.7/lib/settings
+
     - name: Install build environment
       if: matrix.os == 'ubuntu-latest'
       run: |
