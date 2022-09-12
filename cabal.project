@@ -23,6 +23,7 @@ allow-newer:
   ekg:base,
   ekg:time,
   Win32-network:base,
+  Win32-network:bytestring,
   ekg-core:base,
   ekg-core:ghc-prim,
   snap-server:attoparsec,
