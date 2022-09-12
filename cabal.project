@@ -24,7 +24,8 @@ allow-newer:
   ekg:time,
   Win32-network:base,
   ekg-core:base,
-  ekg-core:ghc-prim
+  ekg-core:ghc-prim,
+  snap-server:attoparsec
 
 source-repository-package
   type: git
