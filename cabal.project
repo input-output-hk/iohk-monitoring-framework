@@ -20,6 +20,7 @@ package iohk-monitoring
 allow-newer:
   libsystemd-journal:base,
   ekg:aeson,
+  ekg:base,
   Win32-network:base,
   ekg-core:base,
   ekg-core:ghc-prim
