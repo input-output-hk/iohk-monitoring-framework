@@ -19,7 +19,9 @@ package iohk-monitoring
 
 allow-newer:
   libsystemd-journal:base,
-  ekg:aeson
+  ekg:aeson,
+  Win32-network:base,
+  ekg-core:base
 
 source-repository-package
   type: git
