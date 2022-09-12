@@ -1,3 +1,5 @@
+-- GHC 9.2 will choke on the defaultTaggedObject
+{-# OPTIONS_GHC -Wno-incomplete-record-updates #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DeriveGeneric #-}
 
