@@ -28,6 +28,7 @@ allow-newer:
   snap-server:attoparsec,
   snap-server:vector-algorithms,
   snap-server:base,
+  snap-server:bytestring,
   snap-server:enumerator,
   enumerator:base
 
