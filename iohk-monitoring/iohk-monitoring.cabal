@@ -77,7 +77,7 @@ library
     exposed-modules:   Cardano.BM.Observer.Monadic
                        Cardano.BM.Observer.STM
 
-  if os(linux)
+  if os(linux) || os(android)
     exposed-modules:   Cardano.BM.Counters.Linux
   if os(windows)
     exposed-modules:   Cardano.BM.Counters.Windows
