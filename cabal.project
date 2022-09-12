@@ -31,7 +31,8 @@ allow-newer:
   snap-server:bytestring,
   snap-server:enumerator,
   snap-server:time,
-  enumerator:base
+  enumerator:base,
+  websockets-snap:bytestring
 
 source-repository-package
   type: git
