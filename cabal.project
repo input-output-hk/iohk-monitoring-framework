@@ -21,6 +21,7 @@ allow-newer:
   libsystemd-journal:base,
   ekg:aeson,
   ekg:base,
+  ekg:time,
   Win32-network:base,
   ekg-core:base,
   ekg-core:ghc-prim
