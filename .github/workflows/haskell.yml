@@ -29,18 +29,11 @@ jobs:
       if: matrix.os == 'windows-latest'
       run: retry 3 choco install -y pkgconfiglite
 
-    - uses: actions/setup-haskell@v1
+    - uses: haskell/actions/setup@v1
       id: setup-haskell
       with:
         ghc-version: ${{ matrix.ghc }}
-        cabal-version: '3.4.0.0'
-
-    - name: Patch GHC 8.10.2 linker
-      if: matrix.os == 'windows-latest' && matrix.ghc == '8.10.2'
-      run: |
-        sed -i \
-          's|C:/GitLabRunner/builds/2WeHDSFP/0/ghc/ghc/inplace/mingw/bin/ld.exe|C:/ProgramData/chocolatey/lib/ghc.8.10.2/tools/ghc-8.10.2/mingw/bin/ld.exe|g' \
-          C:/ProgramData/chocolatey/lib/ghc.8.10.2/tools/ghc-8.10.2/lib/settings
+        cabal-version: '3.8.0.0'
 
     - name: Install build environment
       if: matrix.os == 'ubuntu-latest'
