@@ -30,6 +30,7 @@ allow-newer:
   snap-server:base,
   snap-server:bytestring,
   snap-server:enumerator,
+  snap-server:time,
   enumerator:base
 
 source-repository-package
