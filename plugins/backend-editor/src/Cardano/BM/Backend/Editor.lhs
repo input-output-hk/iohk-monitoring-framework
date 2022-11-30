@@ -16,14 +16,14 @@ module Cardano.BM.Backend.Editor
     , plugin
     ) where
 
-import           Prelude hiding (lookup)
+import           Prelude
 import qualified Control.Concurrent.Async as Async
 import           Control.Concurrent.MVar (MVar, newEmptyMVar, putMVar, swapMVar, readMVar, withMVar)
-import           Control.Exception.Safe (IOException, SomeException, catch)
+import           Control.Exception.Safe (IOException, SomeException, catch, handle)
 import           Control.Monad  (void, when, forM_)
 import           Data.Aeson (FromJSON, ToJSON, encode)
 import qualified Data.ByteString.Lazy.Char8 as BS8
-import qualified Data.HashMap.Strict as HM
+import qualified Data.HashMap.Strict as HashMap
 import qualified Data.List as List
 import qualified Data.Text as Text
 import qualified Data.Text.IO as Text
@@ -76,7 +76,7 @@ plugin :: (IsEffectuator s a, ToJSON a, FromJSON a)
        => Configuration -> Trace IO a -> s a -> IO (Plugin a)
 plugin config trace sb = do
     be :: Cardano.BM.Backend.Editor.Editor a <- realizefrom config trace sb
-    return $ BackendPlugin
+    pure $ BackendPlugin
                (MkBackend { bEffectuate = effectuate be, bUnrealize = unrealize be })
                (bekind be)
 \end{code}
@@ -114,25 +114,25 @@ instance (ToJSON a, FromJSON a) => IsBackend Editor a where
         logbuf :: Cardano.BM.Backend.LogBuffer.LogBuffer a <- Cardano.BM.Backend.LogBuffer.realize config
 
         thd <- Async.async $ do
-            Threepenny.startGUI Threepenny.defaultConfig
+                Threepenny.startGUI Threepenny.defaultConfig
                                    { Threepenny.jsPort       = Just port
                                    , Threepenny.jsAddr       = Just "127.0.0.1"
                                    , Threepenny.jsStatic     = Just "iohk-monitoring/static"
                                    , Threepenny.jsCustomHTML = Just "configuration-editor.html"
                                    } $ prepare gui config
-          `catch` nullSetup sbtrace gref
-                       EditorInternal
-                        { edSBtrace = nullTracer
-                        , edThread = thd
-                        , edBuffer = logbuf
-                        }
+                `catch` nullSetup sbtrace gref
+                            EditorInternal
+                              { edSBtrace = nullTracer
+                              , edThread = thd
+                              , edBuffer = logbuf
+                              }
         Async.link thd
         putMVar gref $ EditorInternal
                         { edSBtrace = sbtrace
                         , edThread = thd
                         , edBuffer = logbuf
                         }
-        return gui
+        pure gui
      where
        nullSetup
          :: Trace IO a
@@ -171,284 +171,23 @@ instance IsEffectuator Editor a where
 data Cmd = Backends | Scribes | Severities | SubTrace | Aggregation | Buffer | ExportConfiguration
            deriving (Enum, Eq, Show, Read)
 
-prepare :: ToJSON a => Editor a -> Configuration -> Window -> UI ()
-prepare editor config window = void $ do
-    let commands = [Backends .. ]
-
+prepare :: forall a. ToJSON a => Editor a -> Configuration -> Window -> UI ()
+prepare editor config window =
+  void $ do
     inputKey   <- Threepenny.input #. "w3-input w3-border" # Threepenny.set Threepenny.size "34"
     inputValue <- Threepenny.input #. "w3-input w3-border" # Threepenny.set Threepenny.size "60"
     outputMsg  <- Threepenny.input #. "w3-input w3-border"
 
     currentCmd <- Threepenny.p #. "current-cmd"
 
-    let performActionOnId anId action =
-            Threepenny.getElementById window anId >>= \case
-                Nothing        -> return ()
-                Just anElement -> action anElement
-
-    let turn       anElement toState   = void $ Threepenny.element anElement # Threepenny.set Threepenny.enabled toState
-    let setValueOf anElement aValue    = void $ Threepenny.element anElement # Threepenny.set Threepenny.value   aValue
-    let setClasses classes   anElement = void $ Threepenny.element anElement # Threepenny.set Threepenny.class_  classes
-
-    let setError   m = setValueOf outputMsg ("ERROR: " ++ m)
-    let setMessage m = setValueOf outputMsg m
-
-    let enable  anElement = turn anElement True
-    let disable anElement = turn anElement False
-    let clean   anElement = setValueOf anElement ""
-    let cleanAndDisable anElement = clean anElement >> disable anElement
-
-    let rememberCurrent cmd = setValueOf currentCmd $ show cmd
-
-    let removeItem Backends    k = CM.setBackends       config k Nothing
-        removeItem Severities  k = CM.setSeverity       config k Nothing
-        removeItem Scribes     k = CM.setScribes        config k Nothing
-        removeItem SubTrace    k = CM.setSubTrace       config k Nothing
-        removeItem Aggregation k = CM.setAggregatedKind config k Nothing
-        removeItem _           _ = pure ()
-
-    let updateItem Backends    k v = case (readMay v :: Maybe [BackendKind]) of
-                                         Nothing -> setError "parse error on backend list"
-                                         Just v' -> Threepenny.liftIO $ CM.setBackends config k $ Just v'
-        updateItem Severities  k v = case (readMay v :: Maybe Severity) of
-                                         Nothing -> setError "parse error on severity"
-                                         Just v' -> Threepenny.liftIO $ CM.setSeverity config k $ Just v'
-        updateItem Scribes     k v = case (readMay v :: Maybe [ScribeId]) of
-                                         Nothing -> setError "parse error on scribe list"
-                                         Just v' -> Threepenny.liftIO $ CM.setScribes config k $ Just v'
-        updateItem SubTrace    k v = case (readMay v :: Maybe SubTrace) of
-                                         Nothing -> setError "parse error on subtrace"
-                                         Just v' -> Threepenny.liftIO $ CM.setSubTrace config k $ Just v'
-        updateItem Aggregation k v = case (readMay v :: Maybe AggregatedKind) of
-                                         Nothing -> setError "parse error on aggregated kind"
-                                         Just v' -> Threepenny.liftIO $ CM.setAggregatedKind config k $ Just v'
-        updateItem _           _ _ = pure ()
-
     disable inputKey
     disable inputValue
     disable outputMsg
 
-    let saveItemButtonId       = "save-item-button"
-    let cancelSaveItemButtonId = "cancel-save-item-button"
-    let addItemButtonId        = "add-item-button"
-    let outputTableId          = "output-table"
+    preprareCurrent editor config window inputKey inputValue outputMsg currentCmd
 
-    let addItemButton          = performActionOnId addItemButtonId
-    let saveItemButton         = performActionOnId saveItemButtonId
-    let cancelSaveItemButton   = performActionOnId cancelSaveItemButtonId
-    let cleanOutputTable       = performActionOnId outputTableId $ \t -> void $ Threepenny.element t # Threepenny.set Threepenny.children []
-
-    let mkLinkToFile :: String -> FilePath -> UI Element
-        mkLinkToFile str file = Threepenny.anchor # Threepenny.set (Threepenny.attr "href") file
-                                          # Threepenny.set (Threepenny.attr "target") "_blank"
-                                          #+ [ Threepenny.string str ]
-    let mkSimpleRow :: ToJSON a => LoggerName -> LogObject a -> UI Element
-        mkSimpleRow n lo@(LogObject _lonm _lometa _lov) = Threepenny.tr #. "itemrow" #+
-            [ Threepenny.td #+ [ Threepenny.string (Text.unpack n) ]
-            , Threepenny.td #+ [ Threepenny.string $ BS8.unpack $ encode lo ]
-            ]
-    let mkTableRow :: Show t => Cmd -> LoggerName -> t -> UI Element
-        mkTableRow cmd n v = Threepenny.tr #. "itemrow" #+
-            [ Threepenny.td #+ [ Threepenny.string (Text.unpack n) ]
-            , Threepenny.td #+ [ Threepenny.string (show v) ]
-            , Threepenny.td #+
-                  [ do
-                      b <- Threepenny.button #. "w3-small w3-btn w3-ripple w3-orange edit-item-button"
-                                     #+ [ Threepenny.bold #+ [ Threepenny.string "Edit" ] ]
-                      Threepenny.on Threepenny.click b $ const $ do
-                          saveItemButton enable
-                          cancelSaveItemButton enable
-                          clean outputMsg
-                          enable inputKey
-                          enable inputValue
-                          setValueOf inputKey (Text.unpack n)
-                          setValueOf inputValue (show v)
-                          rememberCurrent cmd
-                      return b
-                  , Threepenny.span # Threepenny.set Threepenny.html "&nbsp;&nbsp;&nbsp;"
-                  , do
-                      b <- Threepenny.button #. "w3-small w3-btn w3-ripple w3-red"
-                                     #+ [ Threepenny.bold #+ [ Threepenny.string "Delete" ] ]
-                      Threepenny.on Threepenny.click b $ const $ do
-                          Threepenny.liftIO $ removeItem cmd n
-                          cleanAndDisable inputKey
-                          cleanAndDisable inputValue
-                          -- Initiate a click to current menu to update the items list after deleting.
-                          performActionOnId (show cmd) $ Threepenny.runFunction . Threepenny.ffi "$(%1).click()"
-                      return b
-                  ]
-            ]
-
-    let showCurrentTab cmd = do
-            let baseClasses = "w3-bar-item w3-button"
-                classesForCurrentTab = baseClasses <> " " <> "w3-light-grey"
-            performActionOnId (show cmd) $ setClasses classesForCurrentTab
-            let otherTabs = List.delete cmd commands
-            forM_ otherTabs $ \tabName ->
-                performActionOnId (show tabName) $ setClasses baseClasses
-
-    let displayItems cmd sel = do
-            showCurrentTab cmd
-            rememberCurrent cmd
-            saveItemButton disable
-            cancelSaveItemButton disable
-            addItemButton enable
-            cleanOutputTable
-            performActionOnId outputTableId $
-                \t -> void $ Threepenny.element t #+
-                    [ Threepenny.tr #+
-                        [ Threepenny.th #+ [ Threepenny.string "LoggerName" ]
-                        , Threepenny.th #+ [ Threepenny.string $ show cmd <> " value" ]
-                        , Threepenny.th #+ [ Threepenny.string "" ]
-                        ]
-                    ]
-            cg <- Threepenny.liftIO $ readMVar (CM.getCG config)
-            forM_ (HM.toList $ sel cg) $
-                \(n,v) -> performActionOnId outputTableId $
-                    \t -> void $ Threepenny.element t #+ [ mkTableRow cmd n v ]
-
-    let displayBuffer :: ToJSON a => Cmd -> [(LoggerName, LogObject a)] -> UI ()
-        displayBuffer cmd sel = do
-            showCurrentTab cmd
-            rememberCurrent cmd
-            saveItemButton disable
-            cancelSaveItemButton disable
-            addItemButton disable
-            cleanOutputTable
-            performActionOnId outputTableId $
-                \t -> void $ Threepenny.element t #+
-                    [ Threepenny.tr #+
-                        [ Threepenny.th #+ [ Threepenny.string "LoggerName" ]
-                        , Threepenny.th #+ [ Threepenny.string $ show cmd <> " value" ]
-                        , Threepenny.th #+ [ Threepenny.string "" ]
-                        ]
-                    ]
-            forM_ sel $
-                \(n,v) -> performActionOnId outputTableId $
-                    \t -> void $ Threepenny.element t #+ [ mkSimpleRow n v ]
-
-    let accessBufferMap = do
-            ed <- Threepenny.liftIO $ readMVar (getEd editor)
-            Threepenny.liftIO $ readBuffer $ edBuffer ed
-
-    let exportConfiguration = do
-            currentDir <- Threepenny.liftIO getCurrentDirectory
-            let dir = currentDir </> "iohk-monitoring/static/conf"
-            Threepenny.liftIO $ createDirectoryIfMissing True dir
-            tsnow <- formatTime defaultTimeLocale tsformat <$> Threepenny.liftIO getCurrentTime
-            let filename = "config.yaml" ++ "-" ++ tsnow
-                filepath = dir </> filename
-            res <- Threepenny.liftIO $ catch
-                (CM.exportConfiguration config filepath >>
-                    return ("Configuration was exported to the file: " ++ filepath))
-                (\(e :: IOException) -> return $ show e)
-            setMessage res
-            performActionOnId outputTableId $
-                \t -> void $ Threepenny.element t #+ [ mkLinkToFile
-                                                "Link to configuration file"
-                                                ("/static/conf" </> filename)
-                                            ]
-
-    let displayExport cmd = do
-            showCurrentTab cmd
-            rememberCurrent cmd
-            saveItemButton disable
-            cancelSaveItemButton disable
-            addItemButton disable
-            cleanOutputTable
-            exportConfiguration
-
-    let switchToTab c@Backends            = displayItems c CM.cgMapBackend
-        switchToTab c@Severities          = displayItems c CM.cgMapSeverity
-        switchToTab c@Scribes             = displayItems c CM.cgMapScribe
-        switchToTab c@SubTrace            = displayItems c CM.cgMapSubtrace
-        switchToTab c@Aggregation         = displayItems c CM.cgMapAggregatedKind
-        switchToTab c@Buffer              = accessBufferMap >>= displayBuffer c
-        switchToTab c@ExportConfiguration = displayExport c
-
-    let mkEditInputs =
-            Threepenny.row [ Threepenny.element inputKey
-                , Threepenny.span #. "key-value-separator" #+ [Threepenny.string ":"]
-                , Threepenny.element inputValue
-                , Threepenny.span #. "key-value-separator" #+ [Threepenny.string ""]
-                , do
-                    b <- Threepenny.button #. "w3-btn w3-ripple w3-green save-item-button"
-                                   #  Threepenny.set (Threepenny.attr "id") addItemButtonId
-                                   #  Threepenny.set Threepenny.enabled False
-                                   #+ [Threepenny.bold #+ [Threepenny.string "New"]]
-                    Threepenny.on Threepenny.click b $ const $ do
-                        enable inputKey
-                        enable inputValue
-                        saveItemButton enable
-                        cancelSaveItemButton enable
-                    return b
-                , Threepenny.span #. "key-value-separator" #+ [Threepenny.string ""]
-                , do
-                    b <- Threepenny.button #. "w3-btn w3-ripple w3-lime save-item-button"
-                                   #  Threepenny.set (Threepenny.attr "id") saveItemButtonId
-                                   #  Threepenny.set Threepenny.enabled False
-                                   #+ [Threepenny.bold #+ [Threepenny.string "Save"]]
-                    Threepenny.on Threepenny.click b $ const $ do
-                        k <- inputKey   # Threepenny.get Threepenny.value
-                        v <- inputValue # Threepenny.get Threepenny.value
-                        m <- currentCmd # Threepenny.get Threepenny.value
-                        case (readMay m :: Maybe Cmd) of
-                            Nothing -> setError "parse error on cmd"
-                            Just c  -> do
-                                cleanAndDisable inputKey
-                                cleanAndDisable inputValue
-                                saveItemButton disable
-                                cancelSaveItemButton disable
-                                setMessage $ "Setting '" ++ k ++ "' to '" ++ v ++ "' in " ++ m
-                                updateItem c (Text.pack k) v
-                                switchToTab c
-                    return b
-                , Threepenny.span #. "key-value-separator" #+ [Threepenny.string ""]
-                , do
-                    b <- Threepenny.button #. "w3-btn w3-ripple w3-white"
-                                   #  Threepenny.set (Threepenny.attr "id") cancelSaveItemButtonId
-                                   #  Threepenny.set Threepenny.enabled False
-                                   #+ [Threepenny.bold #+ [Threepenny.string "Cancel"]]
-                    Threepenny.on Threepenny.click b $ const $ do
-                        cleanAndDisable inputKey
-                        cleanAndDisable inputValue
-                        saveItemButton disable
-                        cancelSaveItemButton disable
-                    return b
-                ]
-
-    let minimumSeveritySelection = do
-            confMinSev <- Threepenny.liftIO $ minSeverity config
-            let setMinSev _el Nothing    = pure ()
-                setMinSev _el (Just sev) = Threepenny.liftIO $
-                    setMinSeverity config (toEnum sev :: Severity)
-
-                mkSevOption sev = Threepenny.option # Threepenny.set Threepenny.text (show sev)
-                                            # Threepenny.set Threepenny.value (show sev)
-                                            # if confMinSev == sev then Threepenny.set Threepenny.selected True else id
-
-            minsev <- Threepenny.select #. "minsevfield" #+
-                         map mkSevOption (enumFrom Debug)
-
-            Threepenny.on Threepenny.selectionChange minsev $ setMinSev minsev
-
-            Threepenny.row [ Threepenny.string "Set minimum severity to:"
-                , Threepenny.span # Threepenny.set Threepenny.html "&nbsp;"
-                , Threepenny.span #. "severity-dropdown big" #+ [ Threepenny.element minsev ]
-                ]
-
-    let commandTabs =
-            Threepenny.row $ flip map commands $ \cmd -> do
-                   b <- Threepenny.button #. "w3-bar-item w3-button w3-grey"
-                                  #  Threepenny.set (Threepenny.attr "id") (show cmd)
-                                  #+ [ Threepenny.bold #+ [ Threepenny.string (show cmd) ] ]
-                   Threepenny.on Threepenny.click b $ const $ do
-                       cleanAndDisable inputKey
-                       cleanAndDisable inputValue
-                       clean outputMsg
-                       switchToTab cmd
-                   return b
-
+preprareCurrent :: forall a. ToJSON a => Editor a -> Configuration -> Window -> Element ->  Element ->  Element -> Element ->  UI ()
+preprareCurrent editor config window inputKey inputValue outputMsg currentCmd = do
     Threepenny.getElementById window "main-section" >>= \case
         Nothing -> pure ()
         Just mainSection -> void $ Threepenny.element mainSection #+
@@ -464,5 +203,331 @@ prepare editor config window = void $ do
                     ]
                 ]
             ]
+  where
+    accessBufferMap :: UI [(LoggerName, LogObject a)]
+    accessBufferMap = Threepenny.liftIO $ readBuffer =<< edBuffer <$> readMVar (getEd editor)
+
+    addItemButton :: (Element -> UI ()) -> UI ()
+    addItemButton = performActionOnId addItemButtonId
+
+    cancelSaveItemButton :: (Element -> UI ()) -> UI ()
+    cancelSaveItemButton = performActionOnId cancelSaveItemButtonId
+
+    cleanOutputTable :: UI ()
+    cleanOutputTable =
+      performActionOnId outputTableId $ \t ->
+        void $ Threepenny.element t # Threepenny.set Threepenny.children []
+
+    commands :: [Cmd]
+    commands = [Backends .. ]
+
+    commandTabs :: UI Element
+    commandTabs =
+      Threepenny.row $ flip map commands $ \cmd -> do
+        b <- Threepenny.button #. "w3-bar-item w3-button w3-grey"
+                            #  Threepenny.set (Threepenny.attr "id") (show cmd)
+                            #+ [ Threepenny.bold #+ [ Threepenny.string (show cmd) ] ]
+        Threepenny.on Threepenny.click b $ const $ do
+            cleanAndDisable inputKey
+            cleanAndDisable inputValue
+            clean outputMsg
+            switchToTab cmd
+        pure b
+
+    displayBuffer :: ToJSON a => Cmd -> [(LoggerName, LogObject a)] -> UI ()
+    displayBuffer cmd sel = do
+      showCurrentTab cmd
+      rememberCurrent cmd
+      saveItemButton disable
+      cancelSaveItemButton disable
+      addItemButton disable
+      cleanOutputTable
+      performActionOnId outputTableId $
+        \t -> void $ Threepenny.element t #+
+                [ Threepenny.tr #+
+                    [ Threepenny.th #+ [ Threepenny.string "LoggerName" ]
+                    , Threepenny.th #+ [ Threepenny.string $ show cmd <> " value" ]
+                    , Threepenny.th #+ [ Threepenny.string "" ]
+                    ]
+                ]
+      forM_ sel $
+        \(n,v) -> performActionOnId outputTableId $
+          \t -> void $ Threepenny.element t #+ [ mkSimpleRow n v ]
+
+    displayExport :: Cmd -> UI ()
+    displayExport cmd = do
+      showCurrentTab cmd
+      rememberCurrent cmd
+      saveItemButton disable
+      cancelSaveItemButton disable
+      addItemButton disable
+      cleanOutputTable
+      exportConfiguration
+
+    displayItems :: forall b. Show b => Cmd -> (CM.ConfigurationInternal -> HashMap.HashMap LoggerName b) -> UI ()
+    displayItems cmd sel = do
+      showCurrentTab cmd
+      rememberCurrent cmd
+      saveItemButton disable
+      cancelSaveItemButton disable
+      addItemButton enable
+      cleanOutputTable
+      performActionOnId outputTableId $
+        \t -> void $ Threepenny.element t #+
+                [ Threepenny.tr #+
+                    [ Threepenny.th #+ [ Threepenny.string "LoggerName" ]
+                    , Threepenny.th #+ [ Threepenny.string $ show cmd <> " value" ]
+                    , Threepenny.th #+ [ Threepenny.string "" ]
+                    ]
+                ]
+      cg <- Threepenny.liftIO $ readMVar (CM.getCG config)
+      forM_ (HashMap.toList $ sel cg) $
+            \(n,v) -> performActionOnId outputTableId $
+                \t -> void $ Threepenny.element t #+ [ mkTableRow cmd n v ]
+
+    exportConfiguration :: UI ()
+    exportConfiguration = do
+      currentDir <- Threepenny.liftIO getCurrentDirectory
+      let dir = currentDir </> "iohk-monitoring/static/conf"
+      Threepenny.liftIO $ createDirectoryIfMissing True dir
+      tsnow <- formatTime defaultTimeLocale tsformat <$> Threepenny.liftIO getCurrentTime
+      let filename = "config.yaml" ++ "-" ++ tsnow
+          filepath = dir </> filename
+      res <- Threepenny.liftIO $
+                handle (\(e :: IOException) -> pure $ show e) $ do
+                  CM.exportConfiguration config filepath
+                  pure ("Configuration was exported to the file: " ++ filepath)
+      setMessage res
+      performActionOnId outputTableId $
+          \t -> void $ Threepenny.element t #+
+                        [ mkLinkToFile "Link to configuration file" ("/static/conf" </> filename) ]
+
+    minimumSeveritySelection :: UI Element
+    minimumSeveritySelection = do
+      minsev <- Threepenny.select #. "minsevfield" #+ map mkSevOption (enumFrom Debug)
+
+      Threepenny.on Threepenny.selectionChange minsev $ setMinSev minsev
+
+      Threepenny.row
+            [ Threepenny.string "Set minimum severity to:"
+            , Threepenny.span # Threepenny.set Threepenny.html "&nbsp;"
+            , Threepenny.span #. "severity-dropdown big" #+ [ Threepenny.element minsev ]
+            ]
+
+    mkEditInputs :: UI Element
+    mkEditInputs =
+      Threepenny.row
+          [ Threepenny.element inputKey
+          , Threepenny.span #. "key-value-separator" #+ [Threepenny.string ":"]
+          , Threepenny.element inputValue
+          , Threepenny.span #. "key-value-separator" #+ [Threepenny.string ""]
+          , saveItemHandler
+          , Threepenny.span #. "key-value-separator" #+ [Threepenny.string ""]
+          , do
+              b <- Threepenny.button #. "w3-btn w3-ripple w3-lime save-item-button"
+                             #  Threepenny.set (Threepenny.attr "id") saveItemButtonId
+                             #  Threepenny.set Threepenny.enabled False
+                             #+ [Threepenny.bold #+ [Threepenny.string "Save"]]
+              Threepenny.on Threepenny.click b $ const $ do
+                  k <- inputKey   # Threepenny.get Threepenny.value
+                  v <- inputValue # Threepenny.get Threepenny.value
+                  m <- currentCmd # Threepenny.get Threepenny.value
+                  case (readMay m :: Maybe Cmd) of
+                      Nothing -> setError "parse error on cmd"
+                      Just c  -> do
+                          cleanAndDisable inputKey
+                          cleanAndDisable inputValue
+                          saveItemButton disable
+                          cancelSaveItemButton disable
+                          setMessage $ "Setting '" ++ k ++ "' to '" ++ v ++ "' in " ++ m
+                          updateItem c (Text.pack k) v
+                          switchToTab c
+              pure b
+          , Threepenny.span #. "key-value-separator" #+ [Threepenny.string ""]
+          , do
+              b <- Threepenny.button #. "w3-btn w3-ripple w3-white"
+                             #  Threepenny.set (Threepenny.attr "id") cancelSaveItemButtonId
+                             #  Threepenny.set Threepenny.enabled False
+                             #+ [Threepenny.bold #+ [Threepenny.string "Cancel"]]
+              Threepenny.on Threepenny.click b $ const $ do
+                  cleanAndDisable inputKey
+                  cleanAndDisable inputValue
+                  saveItemButton disable
+                  cancelSaveItemButton disable
+              pure b
+          ]
+
+    mkSevOption :: Severity -> UI Element
+    mkSevOption sev = do
+      confMinSev <- Threepenny.liftIO $ minSeverity config
+      Threepenny.option # Threepenny.set Threepenny.text (show sev)
+                        # Threepenny.set Threepenny.value (show sev)
+                        # if confMinSev == sev then Threepenny.set Threepenny.selected True else id
+
+    mkTableRow :: Show t => Cmd -> LoggerName -> t -> UI Element
+    mkTableRow cmd n v =
+      Threepenny.tr #. "itemrow" #+
+        [ Threepenny.td #+ [ Threepenny.string (Text.unpack n) ]
+        , Threepenny.td #+ [ Threepenny.string (show v) ]
+        , Threepenny.td #+
+            [ do
+                b <- Threepenny.button #. "w3-small w3-btn w3-ripple w3-orange edit-item-button"
+                                     #+ [ Threepenny.bold #+ [ Threepenny.string "Edit" ] ]
+                Threepenny.on Threepenny.click b $ const $ do
+                  saveItemButton enable
+                  cancelSaveItemButton enable
+                  clean outputMsg
+                  enable inputKey
+                  enable inputValue
+                  setValueOf inputKey (Text.unpack n)
+                  setValueOf inputValue (show v)
+                  rememberCurrent cmd
+                pure b
+            , Threepenny.span # Threepenny.set Threepenny.html "&nbsp;&nbsp;&nbsp;"
+            , do
+                b <- Threepenny.button #. "w3-small w3-btn w3-ripple w3-red"
+                                     #+ [ Threepenny.bold #+ [ Threepenny.string "Delete" ] ]
+                Threepenny.on Threepenny.click b $ const $ do
+                  Threepenny.liftIO $ removeItem cmd n
+                  cleanAndDisable inputKey
+                  cleanAndDisable inputValue
+                  -- Initiate a click to current menu to update the items list after deleting.
+                  performActionOnId (show cmd) $ Threepenny.runFunction . Threepenny.ffi "$(%1).click()"
+                pure b
+            ]
+        ]
+
+    performActionOnId :: String -> (Element -> UI ()) -> UI ()
+    performActionOnId anId action =
+      Threepenny.getElementById window anId >>= maybe (pure ()) action
+
+    rememberCurrent :: Cmd -> UI ()
+    rememberCurrent cmd = setValueOf currentCmd $ show cmd
+
+    saveItemButton :: (Element -> UI ()) -> UI ()
+    saveItemButton = performActionOnId saveItemButtonId
+
+    setMinSev :: b -> Maybe Int -> UI ()
+    setMinSev _el mi =
+      maybe (pure ()) (\sev -> Threepenny.liftIO $ setMinSeverity config (toEnum sev :: Severity)) mi
+
+    switchToTab :: Cmd -> UI ()
+    switchToTab c =
+      case c of
+        Backends            -> displayItems c CM.cgMapBackend
+        Severities          -> displayItems c CM.cgMapSeverity
+        Scribes             -> displayItems c CM.cgMapScribe
+        SubTrace            -> displayItems c CM.cgMapSubtrace
+        Aggregation         -> displayItems c CM.cgMapAggregatedKind
+        Buffer              -> accessBufferMap >>= displayBuffer c
+        ExportConfiguration -> displayExport c
+
+    removeItem :: Cmd -> LoggerName -> IO ()
+    removeItem cmd name =
+      case cmd of
+        Backends    -> CM.setBackends       config name Nothing
+        Severities  -> CM.setSeverity       config name Nothing
+        Scribes     -> CM.setScribes        config name Nothing
+        SubTrace    -> CM.setSubTrace       config name Nothing
+        Aggregation -> CM.setAggregatedKind config name Nothing
+        _otherwise  -> pure ()
+
+    saveItemHandler :: UI Element
+    saveItemHandler = do
+      b <- Threepenny.button #. "w3-btn w3-ripple w3-green save-item-button"
+                            #  Threepenny.set (Threepenny.attr "id") addItemButtonId
+                            #  Threepenny.set Threepenny.enabled False
+                            #+ [Threepenny.bold #+ [Threepenny.string "New"]]
+      Threepenny.on Threepenny.click b $ const $ do
+        enable inputKey
+        enable inputValue
+        saveItemButton enable
+        cancelSaveItemButton enable
+      pure b
+
+    setError :: String -> UI ()
+    setError m = setValueOf outputMsg ("ERROR: " ++ m)
+
+    setMessage :: String -> UI ()
+    setMessage m = setValueOf outputMsg m
+
+    showCurrentTab :: Cmd -> UI ()
+    showCurrentTab cmd = do
+      let baseClasses = "w3-bar-item w3-button"
+          classesForCurrentTab = baseClasses <> " " <> "w3-light-grey"
+      performActionOnId (show cmd) $ setClasses classesForCurrentTab
+      let otherTabs = List.delete cmd commands
+      forM_ otherTabs $ \tabName ->
+        performActionOnId (show tabName) $ setClasses baseClasses
+
+
+    updateItem :: Cmd -> LoggerName -> String -> UI ()
+    updateItem cmd k v =
+      case cmd of
+        Backends ->
+          case (readMay v :: Maybe [BackendKind]) of
+            Nothing -> setError "parse error on backend list"
+            Just v' -> Threepenny.liftIO $ CM.setBackends config k $ Just v'
+        Severities ->
+          case (readMay v :: Maybe Severity) of
+            Nothing -> setError "parse error on severity"
+            Just v' -> Threepenny.liftIO $ CM.setSeverity config k $ Just v'
+        Scribes ->
+          case (readMay v :: Maybe [ScribeId]) of
+            Nothing -> setError "parse error on scribe list"
+            Just v' -> Threepenny.liftIO $ CM.setScribes config k $ Just v'
+        SubTrace ->
+          case (readMay v :: Maybe SubTrace) of
+            Nothing -> setError "parse error on subtrace"
+            Just v' -> Threepenny.liftIO $ CM.setSubTrace config k $ Just v'
+        Aggregation ->
+          case (readMay v :: Maybe AggregatedKind) of
+            Nothing -> setError "parse error on aggregated kind"
+            Just v' -> Threepenny.liftIO $ CM.setAggregatedKind config k $ Just v'
+        _otherwise -> pure ()
+
+
+-- ---------------------------------------------- ---------------------------------------------------
+
+addItemButtonId, cancelSaveItemButtonId, saveItemButtonId, outputTableId :: String
+addItemButtonId = "add-item-button"
+cancelSaveItemButtonId = "cancel-save-item-button"
+saveItemButtonId = "save-item-button"
+outputTableId = "output-table"
+
+clean   anElement = setValueOf anElement ""
+
+cleanAndDisable anElement = clean anElement >> disable anElement
+
+enable :: Element -> UI ()
+enable  anElement = turn anElement True
+
+disable :: Element -> UI ()
+disable anElement = turn anElement False
+
+mkLinkToFile :: String -> FilePath -> UI Element
+mkLinkToFile str file =
+  Threepenny.anchor # Threepenny.set (Threepenny.attr "href") file
+                    # Threepenny.set (Threepenny.attr "target") "_blank"
+                    #+ [ Threepenny.string str ]
+
+mkSimpleRow :: ToJSON a => LoggerName -> LogObject a -> UI Element
+mkSimpleRow n lo@(LogObject _lonm _lometa _lov) =
+  Threepenny.tr #. "itemrow" #+
+    [ Threepenny.td #+ [ Threepenny.string (Text.unpack n) ]
+    , Threepenny.td #+ [ Threepenny.string $ BS8.unpack $ encode lo ]
+    ]
+
+setClasses :: String -> Element -> UI ()
+setClasses classes anElement =
+  void $ Threepenny.element anElement # Threepenny.set Threepenny.class_  classes
+
+setValueOf :: Element -> String -> UI ()
+setValueOf anElement aValue =
+  void $ Threepenny.element anElement # Threepenny.set Threepenny.value aValue
+
+turn :: Element -> Bool -> UI ()
+turn anElement toState =
+  void $ Threepenny.element anElement # Threepenny.set Threepenny.enabled toState
 
 \end{code}
