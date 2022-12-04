@@ -54,5 +54,5 @@ package comonad
 source-repository-package
   type: git
   location: https://github.com/input-output-hk/threepenny-gui
-  tag: c24c7effe8b2df011a31397bb409e560f3afb4ab
-  --sha256: 171r3wznd9d0qqgpn5zb5qcqisg6hcriqab2f5f5pc68gpi07xh7
+  tag: 15e501ae2d02799e5c7227f3007779d1cf53a71c
+  --sha256: 0j7bjdpqbja2n02k7n7k5m3vwjdj6a8a70g1ra6zxdr4fih5f8nm
