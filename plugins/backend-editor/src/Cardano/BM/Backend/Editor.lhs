@@ -37,6 +37,7 @@ import           System.IO (stderr)
 import qualified Graphics.UI.Threepenny as Threepenny
 import           Graphics.UI.Threepenny.Core (Element, UI, Window, (#), (#+), (#.))
 import qualified Graphics.UI.Threepenny.Core as Threepenny
+import           Foreign.JavaScript (ConfigSSL (..))
 
 import           Cardano.BM.Configuration
 import qualified Cardano.BM.Configuration.Model as CM
@@ -119,6 +120,15 @@ instance (ToJSON a, FromJSON a) => IsBackend Editor a where
                                    , Threepenny.jsAddr       = Just "127.0.0.1"
                                    , Threepenny.jsStatic     = Just "iohk-monitoring/static"
                                    , Threepenny.jsCustomHTML = Just "configuration-editor.html"
+                                   , Threepenny.jsUseSSL     =
+                                       Just $ ConfigSSL
+                                        { jsSSLBind = "0.0.0.0"
+                                        , jsSSLPort = 443
+                                        , jsSSLCert = error "cert.pem"
+                                        , jsSSLKey = "key.pem"
+                                        , jsSSLChainCert = False
+                                        }
+
                                    } $ prepare gui config
                 `catch` nullSetup sbtrace gref
                             EditorInternal
@@ -146,6 +156,7 @@ instance (ToJSON a, FromJSON a) => IsBackend Editor a where
            LogError $ "Editor backend disabled due to initialisation error: " <> (Text.pack $ show e))
          _ <- swapMVar mvar nullEditor
          pure ()
+
 
     unrealize editor =
         withMVar (getEd editor) $ \ed ->

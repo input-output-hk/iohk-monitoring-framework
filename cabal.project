@@ -12,8 +12,8 @@ repository cardano-haskell-packages
 
 -- See CONTRIBUTING for information about these, including some Nix commands
 -- you need to run if you change them
-index-state: 2022-11-30T00:00:00Z
-index-state: cardano-haskell-packages 2022-11-14T13:56:33Z
+index-state: 2022-12-01T17:54:11Z
+index-state: cardano-haskell-packages 2022-12-11T03:05:42Z
 
 packages:
   contra-tracer
@@ -48,11 +48,3 @@ allow-newer:
 
 package comonad
   flags: -test-doctests
-
--- This is an IOG custom version with some hacks to force it to only provide HTTPS
--- connections. In talks with upstream on how to fix this.
-source-repository-package
-  type: git
-  location: https://github.com/input-output-hk/threepenny-gui
-  tag: c24c7effe8b2df011a31397bb409e560f3afb4ab
-  --sha256: 171r3wznd9d0qqgpn5zb5qcqisg6hcriqab2f5f5pc68gpi07xh7
