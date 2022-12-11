@@ -1,6 +1,6 @@
 cabal-version:       2.0
 name:                lobemo-backend-aggregation
-version:             0.1.0.0
+version:             0.1.0.1
 synopsis:            provides a backend implementation to aggregate traced values
 -- description:
 homepage:            https://github.com/input-output-hk/iohk-monitoring-framework
