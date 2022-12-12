@@ -4,6 +4,11 @@
 
 %if style == newcode
 \begin{code}
+
+-- Acceptable only because this is test code and because it is in code that will
+-- be deprecated in the future.
+{-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
+
 module Cardano.BM.Test.Aggregated (
     tests
     ,prop_Aggregation_comm

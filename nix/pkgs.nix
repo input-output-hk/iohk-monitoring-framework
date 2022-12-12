@@ -7,5 +7,6 @@ pkgs: _: with pkgs; {
       haskell-nix
       buildPackages
       ;
+    inherit (commonLib.sources) CHaP;
   };
 }

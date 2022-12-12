@@ -1,6 +1,6 @@
 cabal-version:       2.0
 name:                lobemo-backend-trace-forwarder
-version:             0.1.0.0
+version:             0.1.0.1
 synopsis:            this backend forwards log items to a trace acceptor
 -- description:
 homepage:            https://github.com/input-output-hk/iohk-monitoring-framework

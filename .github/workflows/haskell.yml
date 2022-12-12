@@ -1,49 +1,110 @@
 name: Haskell CI
 
-on: [push]
+on:
+  push:
+  workflow_dispatch:
+    inputs:
+      tests:
+        description: 'Tests'
+        required: false
+        default: 'some'
+        options:
+        - some
+        - all
+  create:
 
 jobs:
   build:
     runs-on: ${{ matrix.os }}
 
-    defaults:
-      run:
-        shell: bash
-
     strategy:
       fail-fast: false
       matrix:
-        ghc: ["8.10.2"]
+        # Add more elements to this list to run multiple instances of the build in CI.  Increasing the
+        # number instances is a good way to trigger flaky build failures
+        n: [1]
+
+        ghc: ["8.10.7", "9.2.4"]
         os: [ubuntu-latest, macos-latest, windows-latest]
 
     steps:
-    - uses: actions/checkout@v1
+    - name: "WIN: Install System Dependencies via pacman (msys2)"
+      if: runner.os == 'Windows'
+      run: |
+         # ghcup should be installed on current GHA Windows runners. Let's use ghcup to run
+         # pacman, to install the necessary dependencies, ...
+         ghcup run -- pacman --noconfirm -S `
+            mingw-w64-x86_64-pkg-config `
+            mingw-w64-x86_64-libsodium `
+            mingw-w64-x86_64-openssl `
+            base-devel `
+            autoconf-wrapper `
+            autoconf `
+            automake `
+            libtool `
+            make
 
-    - name: Select build directory
-      run: echo "CABAL_BUILDDIR=dist" >> $GITHUB_ENV
+     # this seems to break something. It _must_ come after the pacman setup
+     # above. It appears as if PATHEXT is set _after_ ghcup install ghc/cabal, and
+     # as such we'd need pacman.exe instead.
+    - name: Setup Haskell
+      run: |
+        # Use GHCUP to manage ghc/cabal
+        ghcup install ghc --set ${{ matrix.ghc }}
+        ghcup install cabal --set 3.6.2.0
 
-    - name: Add build script path
+        ghc --version
+        cabal --version
+
+    - name: "WIN: fixup cabal config"
+      if: runner.os == 'Windows'
+      run: |
+        # make sure cabal knows about msys64, and mingw64 tools. Not clear why C:/cabal/config is empty
+        # and C:/cabal doesn't even exist.  The ghcup bootstrap file should have create it in the image:
+        # See https://github.com/haskell/ghcup-hs/blob/787edc17af4907dbc51c85e25c490edd8d68b80b/scripts/bootstrap/bootstrap-haskell#L591
+        # So we'll do it by hand here for now.
+        #
+        # We'll _not_ add extra-include-dirs, or extra-lib-dirs, and rely on what's shipped with GHC.
+        # https://github.com/msys2/MINGW-packages/issues/10837#issuecomment-1047105402
+        # https://gitlab.haskell.org/ghc/ghc/-/issues/21111
+        # if we _do_ want them, this would be the lines to add below
+
+        $ghcMingwDir = Join-Path -Path $(ghc --print-libdir) `
+                                 -ChildPath ../mingw/x86_64-*-mingw32/lib/ `
+                                 -Resolve
+
+        cabal user-config -a "extra-prog-path: C:/msys64/mingw64/bin, C:/msys64/usr/bin" `
+                          -a "extra-include-dirs: C:/msys64/mingw64/include" `
+                          -a ("extra-lib-dirs: {0}, C:/msys64/mingw64/lib" -f $ghcMingwDir) `
+                          -f init
+
+    - name: "OUTPUT Record cabal-store (Linux)"
+      id: lin-setup-haskell
+      if: runner.os != 'Windows'
+      run: echo "cabal-store=/home/runner/.cabal/store" >> $GITHUB_OUTPUT
+
+    - name: "OUTPUT Record cabal-store (Windows)"
+      id: win-setup-haskell
+      if: runner.os == 'Windows'
+      shell: bash
+      run: echo "cabal-store=C:\\cabal\\store" >> $GITHUB_OUTPUT
+
+    - name: Set cache version
+      run: echo "CACHE_VERSION=grFfw7r" >> $GITHUB_ENV
+
+    - uses: actions/checkout@v2
+
+    - name: "[PowerShell] Add build script path"
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: Add-Content $env:GITHUB_PATH "$(pwd)/.github/bin"
+
+    - name: "[Bash] Add build script path"
+      if: runner.os != 'Windows'
       run: echo "$(pwd)/.github/bin" >> $GITHUB_PATH
 
-    - name: Install pkgconfiglite
-      if: matrix.os == 'windows-latest'
-      run: retry 3 choco install -y pkgconfiglite
-
-    - uses: actions/setup-haskell@v1
-      id: setup-haskell
-      with:
-        ghc-version: ${{ matrix.ghc }}
-        cabal-version: '3.4.0.0'
-
-    - name: Patch GHC 8.10.2 linker
-      if: matrix.os == 'windows-latest' && matrix.ghc == '8.10.2'
-      run: |
-        sed -i \
-          's|C:/GitLabRunner/builds/2WeHDSFP/0/ghc/ghc/inplace/mingw/bin/ld.exe|C:/ProgramData/chocolatey/lib/ghc.8.10.2/tools/ghc-8.10.2/mingw/bin/ld.exe|g' \
-          C:/ProgramData/chocolatey/lib/ghc.8.10.2/tools/ghc-8.10.2/lib/settings
-
-    - name: Install build environment
-      if: matrix.os == 'ubuntu-latest'
+    - name: "LINUX: Install build environment (apt-get)"
+      if: runner.os == 'Linux'
       run: |
         sudo apt-get update
         sudo apt-get -y install libsystemd0 libsystemd-dev
@@ -51,23 +112,67 @@ jobs:
         sudo apt-get -y autoremove
 
     - name: Cabal update
-      run: retry 3 cabal update
+      run: cabal update
 
-    - name: Cabal Configure
-      run: retry 3 cabal configure --enable-tests --enable-benchmarks --write-ghc-environment-files=always
+    - name: Configure build
+      shell: bash
+      run: |
+        if [ "${{github.event.inputs.tests}}" == "all" ]; then
+          echo "Reconfigure cabal projects to run tests for all dependencies"
+          sed -i 's|tests: False|tests: True|g' cabal.project
+        fi
+
+    - name: Record dependencies
+      id: record-deps
+      run: |
+        cabal build all --dry-run
+        cat dist-newstyle/cache/plan.json | jq -r '."install-plan"[].id' | sort | uniq > dependencies.txt
+
+    - name: "OUTPUT Record weeknum"
+      shell: bash
+      run: echo "weeknum=$(/usr/bin/date -u "+%W")" >> $GITHUB_OUTPUT
+
+    - name: Cache Cabal store
+      uses: actions/cache@v2
+      with:
+        path: ${{ runner.os == 'Windows' && steps.win-setup-haskell.outputs.cabal-store || steps.lin-setup-haskell.outputs.cabal-store }}
+        key: cache-${{ env.CACHE_VERSION }}-${{ runner.os }}-${{ matrix.ghc }}-${{ hashFiles('dependencies.txt') }}-${{ hashFiles('date.txt') }}
+        restore-keys: |
+          cache-${{ env.CACHE_VERSION }}-${{ runner.os }}-${{ matrix.ghc }}-${{ hashFiles('dependencies.txt') }}
+          cache-${{ env.CACHE_VERSION }}-${{ runner.os }}-${{ matrix.ghc }}
 
     - uses: actions/cache@v2
-      name: Cache cabal store
+      name: "Cache `dist-newstyle`"
       with:
-        path: ${{ steps.setup-haskell.outputs.cabal-store }}
-        key: cache-${{ runner.os }}-${{ matrix.ghc }}-v1-${{ hashFiles('cabal-cache.cabal') }}-${{ github.sha }}
-        restore-keys: cache-${{ runner.os }}-${{ matrix.ghc }}-v1-${{ hashFiles('cabal-cache.cabal') }}-
-
-    - name: Install dependencies
-      run: retry 3 cabal build all --only-dependencies
+        path: |
+          dist-newstyle
+          !dist-newstyle/**/.git
+        key: cache-dist-${{ env.CACHE_VERSION }}-${{ runner.os }}-${{ matrix.ghc }}-${{ steps.record-deps.outputs.weeknum }}
+        restore-keys: cache-dist-${{ env.CACHE_VERSION }}-${{ runner.os }}-${{ matrix.ghc }}
 
     - name: Build
-      run: retry 3 cabal build all
+      run: cabal build all
+
+    - name: Run tests (all)
+      if: github.event.inputs.tests == 'all'
+      env:
+        TMPDIR: ${{ runner.temp }}
+        TMP: ${{ runner.temp }}
+        KEEP_WORKSPACE: 1
+      run: |
+        # The tests call out to msys2 commands. We generally do not want to mix toolchains, so
+        # we are very deliberate about only adding msys64 to the path where absolutely necessary.
+        ${{ (runner.os == 'Windows' && '$env:PATH=("C:\msys64\mingw64\bin;{0}" -f $env:PATH)') || '' }}
+        cabal test all
 
     - name: Run tests
-      run: TMPDIR="${{ runner.temp }}" TMP="${{ runner.temp }}" cabal test all
+      if: github.event.inputs.tests != 'all'
+      env:
+        TMPDIR: ${{ runner.temp }}
+        TMP: ${{ runner.temp }}
+        KEEP_WORKSPACE: 1
+      run: |
+        # The tests call out to msys2 commands. We generally do not want to mix toolchains, so
+        # we are very deliberate about only adding msys64 to the path where absolutely necessary.
+        ${{ (runner.os == 'Windows' && '$env:PATH=("C:\msys64\mingw64\bin;{0}" -f $env:PATH)') || '' }}
+        cabal test all

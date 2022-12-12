@@ -23,6 +23,7 @@ module Cardano.BM.Data.Backend
 
 import           Control.Exception (Exception)
 import           Data.Aeson (FromJSON)
+import           Data.Kind (Type)
 import           Data.Text (Text)
 
 import           Cardano.BM.Data.BackendKind
@@ -59,7 +60,7 @@ class ( IsEffectuator t a
       , FromJSON a
       , Exception (BackendFailure t)
       ) => IsBackend t a where
-    type BackendFailure t :: *
+    type BackendFailure t :: Type
     type BackendFailure t = GenericBackendFailure
     bekind      :: t a -> BackendKind
     realize     :: Configuration -> IO (t a)

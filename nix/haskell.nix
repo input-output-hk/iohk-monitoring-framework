@@ -10,6 +10,7 @@
 , compiler ? config.haskellNix.compiler or "ghc8107"
 # Enable profiling
 , profiling ? config.haskellNix.profiling or false
+, CHaP
 }:
 let
 
@@ -23,6 +24,7 @@ let
   pkgSet = haskell-nix.cabalProject {
     inherit src;
     compiler-nix-name = compiler;
+    inputMap = { "https://input-output-hk.github.io/cardano-haskell-packages" = CHaP; };
     #ghc = buildPackages.haskell-nix.compiler.${compiler};
     modules = [
 

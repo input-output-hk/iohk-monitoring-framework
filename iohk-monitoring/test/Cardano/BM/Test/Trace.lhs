@@ -10,6 +10,10 @@
 {-# LANGUAGE LambdaCase                 #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
 
+-- Acceptable only because this is test code and because it is in code that will
+-- be deprecated in the future.
+{-# OPTIONS_GHC -Wno-incomplete-uni-patterns #-}
+
 module Cardano.BM.Test.Trace (
     TraceConfiguration (..)
   , setupTrace
@@ -414,7 +418,7 @@ unitNamedMinSeverity = do
     let trace = appendName "sev-change" basetrace
     logInfo trace "Message #1"
 
-    -- lower the minimum severity to Info 
+    -- lower the minimum severity to Info
     setSeverity cfg "test-named-severity.sev-change" (Just Info)
     msev <- Cardano.BM.Configuration.inspectSeverity cfg "test-named-severity.sev-change"
     assertBool ("min severity should be Info, but is " ++ (show msev))

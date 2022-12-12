@@ -8,8 +8,9 @@ module Cardano.BM.Stats.Resources
   )
 where
 
-import           Data.Aeson
-import           Data.Word
+import           Data.Aeson (FromJSON (..), Options (..), SumEncoding (..), ToJSON (..),
+                   defaultOptions, genericParseJSON, genericToEncoding, genericToJSON)
+import           Data.Word (Word64)
 import           GHC.Generics (Generic)
 
 -- | Concrete data provided by 'readResourceStats'.
@@ -58,9 +59,13 @@ encodingOptions = defaultOptions
   { fieldLabelModifier     = drop 1
   , tagSingleConstructors  = True
   , sumEncoding =
-    defaultTaggedObject
-    { tagFieldName      = "kind"
-    }
+      -- This is a copy of defaultTaggedObject in the `aeson` library, but using that generates a
+      -- pattern match error with `ghc-9.2` but is accepted by `ghc-8.10`.
+      -- https://gitlab.haskell.org/ghc/ghc/-/issues/15656
+      TaggedObject
+       { tagFieldName = "kind"
+       , contentsFieldName = "contents"
+       }
   }
 
 instance FromJSON a => FromJSON (Resources a) where
