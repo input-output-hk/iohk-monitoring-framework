@@ -1,4 +1,4 @@
-name:                contra-tracer
+name:                iog-contra-tracer
 version:             0.1.0.1
 synopsis:            A simple interface for logging, tracing or monitoring.
 -- description:
