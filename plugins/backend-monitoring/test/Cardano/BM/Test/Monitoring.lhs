@@ -10,23 +10,29 @@ module Cardano.BM.Test.Monitoring (
 
 #if ! defined(mingw32_HOST_OS)
 import qualified Control.Concurrent.Async as Async
-#endif
 import           Control.Concurrent (threadDelay)
+#endif
 import qualified Data.HashMap.Strict as HM
 import           Data.Text (Text)
 
+#if ! defined(mingw32_HOST_OS)
 import           Cardano.BM.Backend.Monitoring
 import           Cardano.BM.Configuration (Configuration)
 import qualified Cardano.BM.Configuration.Model as CM
+#endif
 import           Cardano.BM.Data.Aggregated
+#if ! defined(mingw32_HOST_OS)
 import           Cardano.BM.Data.BackendKind
 import           Cardano.BM.Data.LogItem
+#endif
 import           Cardano.BM.Data.MonitoringEval
+#if ! defined(mingw32_HOST_OS)
 import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.SubTrace
 import           Cardano.BM.Plugin
 import           Cardano.BM.Setup
 import           Cardano.BM.Trace
+#endif
 
 import           Test.Tasty
 import           Test.Tasty.HUnit
@@ -39,7 +45,9 @@ import           Test.Tasty.HUnit
 tests :: TestTree
 tests = testGroup "Monitoring tests" [
               unitTests
+#if ! defined(mingw32_HOST_OS)
             , actionsTests
+#endif
         ]
 
 unitTests :: TestTree
@@ -172,18 +180,18 @@ unitTests = testGroup "Unit tests" [
                                                         ]
             ]
 
+#if ! defined(mingw32_HOST_OS)
 actionsTests :: TestTree
 actionsTests = testGroup "Actions tests" [
-#if ! defined(mingw32_HOST_OS)
                      testCase
                          "test SetGlobalMinimalSeverity"
                          testSetGlobalMinimalSeverity
                    ,
-#endif
                      testCase
                          "test AlterSeverity"
                          testAlterSeverity
                ]
+#endif
 \end{code}
 
 \subsubsection{Unit tests}
@@ -203,6 +211,7 @@ parseEvalExpression t res env =
 \subsubsection{Actions tests}
 
 \begin{code}
+#if ! defined(mingw32_HOST_OS)
 startupTraceWithPlugin :: Configuration -> Text -> IO (Trace IO Text)
 startupTraceWithPlugin c nm = do
     (tr, sb) <- setupTrace_ c nm
@@ -210,7 +219,6 @@ startupTraceWithPlugin c nm = do
       >>= loadPlugin sb
     return tr
 
-#if ! defined(mingw32_HOST_OS)
 monitoringThr :: Trace IO Text -> IO (Async.Async ())
 monitoringThr trace = do
     let trace' = appendName "monitoring" trace
@@ -251,7 +259,6 @@ testSetGlobalMinimalSeverity = do
     currentGlobalSeverity <- CM.minSeverity c
     assertBool "Global minimal severity didn't change!" $
         currentGlobalSeverity == targetGlobalSeverity
-#endif
 
 testAlterSeverity :: Assertion
 testAlterSeverity = do
@@ -288,5 +295,6 @@ testAlterSeverity = do
     threadDelay 10000  -- 10 ms
     Just currentSeverity <- CM.inspectSeverity c "complex.monitoring.monitMe"
     assertBool ("Severity didn't change! " ++ show currentSeverity) $ targetSeverity == currentSeverity
+#endif
 
 \end{code}

@@ -46,7 +46,7 @@ import           Network.Download (openURI)
 import           System.Random
 
 import           Cardano.BM.Backend.Aggregation
-import           Cardano.BM.Backend.Editor
+--import           Cardano.BM.Backend.Editor
 import           Cardano.BM.Backend.EKGView
 import           Cardano.BM.Backend.Monitoring
 import           Cardano.BM.Backend.Switchboard (Switchboard, readLogBuffer)
@@ -509,8 +509,8 @@ main = do
     (tr :: Trace IO Text, sb) <- setupTrace_ c "complex"
 
     -- load plugins
-    Cardano.BM.Backend.Editor.plugin c tr sb
-      >>= loadPlugin sb
+{-    Cardano.BM.Backend.Editor.plugin c tr sb
+      >>= loadPlugin sb -}
     Cardano.BM.Backend.EKGView.plugin c tr sb
       >>= loadPlugin sb
     forwardTo <- CM.getForwardTo c
