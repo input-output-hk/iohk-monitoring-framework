@@ -1,5 +1,5 @@
 name:                iog-contra-tracer
-version:             0.1.0.1
+version:             0.1.0.2
 synopsis:            A simple interface for logging, tracing or monitoring.
 -- description:
 license:             Apache-2.0
