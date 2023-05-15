@@ -45,7 +45,7 @@ test-suite tests
   default-language:    Haskell2010
   default-extensions:  OverloadedStrings
   build-depends:       base,
-                       iog-contra-tracer,
+                       contra-tracer,
                        iohk-monitoring,
                        lobemo-backend-monitoring,
                        aeson,
