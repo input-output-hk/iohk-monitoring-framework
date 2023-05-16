@@ -22,7 +22,7 @@ library
   default-extensions:  OverloadedStrings
   default-language:    Haskell2010
   build-depends:       base
-                     , iog-contra-tracer
+                     , contra-tracer
                      , time
                      , safe-exceptions
   if impl(ghc < 8.5)
@@ -35,7 +35,7 @@ executable tracer-transfomers-example1
   -- other-modules:
   -- other-extensions:
   build-depends:       base
-                     , iog-contra-tracer
+                     , contra-tracer
                      , time
                      , tracer-transformers
   default-extensions:  OverloadedStrings
@@ -47,7 +47,7 @@ executable tracer-transfomers-example2
   -- other-modules:
   -- other-extensions:
   build-depends:       base
-                     , iog-contra-tracer
+                     , contra-tracer
                      , text
                      , tracer-transformers
   default-extensions:  OverloadedStrings

@@ -131,7 +131,7 @@ executable example-acceptor
                        -fno-warn-unticked-promoted-constructors
 
   build-depends:       base
-                     , iog-contra-tracer
+                     , contra-tracer
                      , iohk-monitoring
                      , lobemo-backend-trace-acceptor
 
