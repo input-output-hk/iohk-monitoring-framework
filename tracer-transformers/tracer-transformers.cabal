@@ -1,6 +1,6 @@
 cabal-version:       >=1.10
 name:                tracer-transformers
-version:             0.1.0.3
+version:             0.1.0.4
 synopsis:            tracer transformers and examples showing their use
 -- description:
 -- bug-reports:
