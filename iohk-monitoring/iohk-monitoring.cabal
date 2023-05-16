@@ -105,7 +105,8 @@ library
                        bytestring,
                        clock,
                        containers,
-                       contra-tracer,
+                       -- Make sure to use the IOG package instead of the one on Hackage.
+                       contra-tracer < 0.2,
                        contravariant,
                        directory,
                        ekg,
