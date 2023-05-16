@@ -47,7 +47,8 @@ executable tracer-transfomers-example2
   -- other-modules:
   -- other-extensions:
   build-depends:       base
-                     , contra-tracer
+                       -- Make sure to use the IOG package instead of the one on Hackage.
+                     , contra-tracer < 0.2
                      , text
                      , tracer-transformers
   default-extensions:  OverloadedStrings
