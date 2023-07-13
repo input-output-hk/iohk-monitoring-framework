@@ -53,6 +53,38 @@ defaultConfigStdout = do
 
 \end{code}
 
+\subsubsection{Default configuration outputting on |stderr|}
+\begin{code}
+defaultConfigStderr :: IO CM.Configuration
+defaultConfigStderr = do
+    c <- CM.empty
+    CM.setMinSeverity c Debug
+    CM.setSetupBackends c [KatipBK]
+    CM.setDefaultBackends c [KatipBK]
+    CM.setSetupScribes c [ ScribeDefinition {
+                              scName = "text"
+                            , scFormat = ScText
+                            , scKind = StderrSK
+                            , scPrivacy = ScPublic
+                            , scRotation = Nothing
+                            , scMinSev = minBound
+                            , scMaxSev = maxBound
+                            }
+                         ,  ScribeDefinition {
+                              scName = "json"
+                            , scFormat = ScJson
+                            , scKind = StderrSK
+                            , scPrivacy = ScPublic
+                            , scRotation = Nothing
+                            , scMinSev = minBound
+                            , scMaxSev = maxBound
+                            }
+                         ]
+    CM.setDefaultScribes c ["StderrSK::text"]
+    return c
+
+\end{code}
+
 \subsubsection{Default configuration for testing}
 \begin{code}
 defaultConfigTesting :: IO CM.Configuration
