@@ -9,7 +9,8 @@
 
 module Cardano.BM.Configuration.Static
     (
-      defaultConfigStdout
+      defaultConfigStderr
+    , defaultConfigStdout
     , defaultConfigTesting
     ) where
 
