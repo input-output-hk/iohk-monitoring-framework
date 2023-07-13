@@ -18,6 +18,7 @@ module Cardano.BM.Internal.ElidingTracer
     (
       ElidingTracer (..)
     , defaultelidedreporting
+    , elideToLogObjectWithMinSeverity
     ) where
 
 import           Control.Concurrent.MVar (MVar, newMVar, modifyMVar_)
@@ -26,6 +27,7 @@ import           Control.Monad (when)
 import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.Aggregated (Measurable(PureI))
 import           Cardano.BM.Data.Trace
+import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.Tracer
 import           Cardano.BM.Trace (traceNamedObject)
 
@@ -146,6 +148,19 @@ the main logic of eliding messages.
       else
         stopeliding tverb tr ev s
 
+\end{code}
+
+\subsection{Elision but ignoring messages under some severity}
+
+\begin{code}
+elideToLogObjectWithMinSeverity ::
+  (ElidingTracer (WithSeverity a), ToObject t, Transformable t IO a)
+  => Severity
+  -> TracingVerbosity
+  -> MVar (Maybe (WithSeverity a), Integer)
+  -> Trace IO t -> Tracer IO (WithSeverity a)
+elideToLogObjectWithMinSeverity sev tverb mvar tr = Tracer $ \ev@(WithSeverity s _) ->
+  when (sev <= s) $ traceWith (elideToLogObject tverb mvar tr) ev
 \end{code}
 
 \subsubsection{Tracing a summary messages after eliding}
