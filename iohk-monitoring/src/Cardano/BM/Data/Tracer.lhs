@@ -59,7 +59,7 @@ module Cardano.BM.Data.Tracer
 import           Control.Monad (when)
 import           Control.Monad.IO.Class (MonadIO (..))
 
-import           Data.Aeson (Object, ToJSON (..), Value (..))
+import           Data.Aeson (Object, ToJSON (..), Value (..), FromJSON(..))
 import           Data.Aeson.Text (encodeToLazyText)
 import qualified Data.HashMap.Strict as HM
 import           Data.Text (Text)
@@ -190,8 +190,17 @@ The tracing verbosity will be passed to instances of |ToObject| for rendering
 the traced item accordingly.
 \begin{code}
 data TracingVerbosity = MinimalVerbosity | NormalVerbosity | MaximalVerbosity
-                        deriving (Eq, Read, Ord)
+                        deriving (Eq, Read, Ord, Show)
 
+instance FromJSON TracingVerbosity where
+  parseJSON (String str) = case str of
+    "MinimalVerbosity" -> pure MinimalVerbosity
+    "MaximalVerbosity" -> pure MaximalVerbosity
+    "NormalVerbosity" -> pure NormalVerbosity
+    err -> fail $ "Parsing of TracingVerbosity failed, "
+                <> T.unpack err <> " is not a valid TracingVerbosity"
+  parseJSON invalid  = fail $ "Parsing of TracingVerbosity failed due to type mismatch. "
+                           <> "Encountered: " <> show invalid
 \end{code}
 
 \subsubsection{ToObject - transforms a logged item to a JSON Object}
