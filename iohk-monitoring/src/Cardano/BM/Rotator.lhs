@@ -10,6 +10,10 @@ Monitor log files for max age and max size. This test only works on POSIX platfo
 
 {-# LANGUAGE CPP             #-}
 
+#if __GLASGOW_HASKELL__ >= 908
+{-# OPTIONS_GHC -Wno-x-partial #-}
+#endif
+
 #if !defined(mingw32_HOST_OS)
 #define POSIX
 #endif

@@ -1,5 +1,5 @@
 name:                 iohk-monitoring
-version:              0.1.11.3
+version:              0.1.11.4
 synopsis:             logging, benchmarking and monitoring framework
 -- description:
 license:              Apache-2.0
