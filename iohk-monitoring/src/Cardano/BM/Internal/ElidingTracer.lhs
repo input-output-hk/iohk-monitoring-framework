@@ -10,6 +10,7 @@ of traced values.
 
 %if style == newcode
 \begin{code}
+{-# LANGUAGE ConstrainedClassMethods #-}
 {-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE LambdaCase        #-}
@@ -25,6 +26,7 @@ import           Control.Monad (when)
 
 import           Cardano.BM.Data.LogItem
 import           Cardano.BM.Data.Aggregated (Measurable(PureI))
+import           Cardano.BM.Data.Severity
 import           Cardano.BM.Data.Trace
 import           Cardano.BM.Data.Tracer
 import           Cardano.BM.Trace (traceNamedObject)
@@ -146,6 +148,16 @@ the main logic of eliding messages.
       else
         stopeliding tverb tr ev s
 
+  elideToLogObject'
+      :: (ToObject t, Transformable t IO a, HasSeverityAnnotation a)
+      => Severity -> TracingVerbosity -> MVar (Maybe a, Integer)
+      -> Trace IO t -> Tracer IO a
+  default elideToLogObject'
+      :: (ToObject t, Transformable t IO a, HasSeverityAnnotation a)
+      => Severity -> TracingVerbosity -> MVar (Maybe a, Integer)
+      -> Trace IO t -> Tracer IO a
+  elideToLogObject' minSev tverb mvar tr =
+    filterSeverity (const $ pure minSev) $ elideToLogObject tverb mvar tr
 \end{code}
 
 \subsubsection{Tracing a summary messages after eliding}
