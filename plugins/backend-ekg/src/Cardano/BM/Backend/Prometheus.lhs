@@ -33,6 +33,8 @@ import           Snap.Http.Server (Config, ConfigLog (..), defaultConfig, setAcc
 import           System.Metrics (Value (..), sampleAll)
 import qualified System.Remote.Monitoring as EKG
 
+import           Debug.Trace
+
 \end{code}
 %endif
 
@@ -50,12 +52,14 @@ data Metric
     | Metric
         { mName  :: !Text
         , mType  :: !Text
-        , mValue :: !Number
+        , mLabel :: !(Maybe Text)
+        , mNumber :: !Number
         }
 
 instance A.ToJSON Metric where
     toJSON NoMetric = A.Null
-    toJSON (Metric n t v) = A.object ["name" .= n, "type" .= t, "value" .= v]
+    toJSON (Metric n t Nothing v) = A.object ["name" .= n, "type" .= t, "value" .= v]
+    toJSON (Metric n t (Just l) v) = A.object ["name" .= n, "type" .= t, "label" .= l, "value" .= v]
 
 data Number
     = NumberInt Integer
@@ -94,16 +98,27 @@ spawnPrometheus ekg host port prometheusOutput = Async.async $
         [ case sv of
             Counter c -> renderNamedValue sk (int64Dec c)
             Gauge g -> renderNamedValue sk (int64Dec g)
-            Label l -> if isFloat l
-                         then renderNamedValue sk (byteString $ encodeUtf8 l)
-                         else mempty
+            Label l -> trace ("renderSamples " <> T.unpack l) $
+                        if "{" `T.isPrefixOf` l
+                            then renderLabel sk l
+                            else renderNamedValue sk (byteString $ encodeUtf8 l)
             _ -> mempty
         | (sk,sv) <- samples ]
+
     renderNamedValue :: Text -> Builder -> Builder
     renderNamedValue nm bld =
         (byteString $ prepareName nm)
         <> charUtf8 ' '
         <> bld
+        <> charUtf8 '\n'
+
+    renderLabel :: Text -> Text -> Builder
+    renderLabel nm l = trace "renderLabel" $
+        (byteString $ prepareName nm)
+        <> charUtf8 ' '
+        <> byteString (textToUtf8ByteString l)
+        <> charUtf8 ' '
+        <> charUtf8 '1'
         <> charUtf8 '\n'
     prepareName nm = encodeUtf8 $ T.filter (flip elem (['a'..'z']++['A'..'Z']++['_'])) $ T.replace " " "_" $ T.replace "-" "_" $ T.replace "." "_" nm
     isFloat v = case double v of
@@ -136,7 +151,8 @@ spawnPrometheus ekg host port prometheusOutput = Async.async $
         intMetric sk v =
             Metric { mName  = maybe "" id $ T.stripPrefix (ns <> ".") sk
                    , mType  = "int" -- All values are Int64.
-                   , mValue = NumberInt (fromIntegral v)
+                   , mLabel = Nothing
+                   , mNumber = NumberInt (fromIntegral v)
                    }
 
     -- We cannot make any assumptions about the format of 'sk' in other samples,
@@ -146,19 +162,23 @@ spawnPrometheus ekg host port prometheusOutput = Async.async $
         { namespace = "common"
         , metrics =
             [ case sv of
-                Counter c -> mkMetric sk $ NumberInt (fromIntegral c)
-                Gauge g   -> mkMetric sk $ NumberInt (fromIntegral g)
+                Counter c -> mkMetric sk Nothing $ NumberInt (fromIntegral c)
+                Gauge g   -> mkMetric sk Nothing $ NumberInt (fromIntegral g)
                 Label l   -> case double l of
-                                 Left _       -> NoMetric
-                                 Right (r, _) -> mkMetric sk $ NumberReal r
+                                 Right (r, _) ->
+                                    mkMetric sk Nothing $ NumberReal r
+                                 Left _       ->
+                                    case T.uncons l of
+                                        Just ('{', _) -> mkMetric sk (Just l) (NumberInt 1)
+                                        _ -> NoMetric
                 _         -> NoMetric
             | (sk, sv) <- samples
             ]
         }
       where
-        mkMetric sk number =
+        mkMetric sk condTxt number =
             let (withoutType, typeSuffix) = stripTypeSuffix sk number
-            in Metric { mName = withoutType, mType = typeSuffix, mValue = number }
+            in Metric { mName = withoutType, mType = typeSuffix, mLabel = condTxt, mNumber = number }
         stripTypeSuffix sk number =
             let types = ["us", "ns", "s", "B", "int", "real"]
                 parts = T.splitOn "." sk
@@ -166,6 +186,10 @@ spawnPrometheus ekg host port prometheusOutput = Async.async $
             in if typeSuffix `elem` types
                    then (fromJust $ T.stripSuffix ("." <> typeSuffix) sk, typeSuffix)
                    else case number of
-                            NumberInt _  -> (sk, "int")
-                            NumberReal _ -> (sk, "real")
+                            NumberInt _   -> (sk, "int")
+                            NumberReal _  -> (sk, "real")
+
+textToUtf8ByteString :: Text -> ByteString
+textToUtf8ByteString txt = encodeUtf8 txt
+
 \end{code}
