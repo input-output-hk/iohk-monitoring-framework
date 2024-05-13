@@ -33,8 +33,6 @@ import           Snap.Http.Server (Config, ConfigLog (..), defaultConfig, setAcc
 import           System.Metrics (Value (..), sampleAll)
 import qualified System.Remote.Monitoring as EKG
 
-import           Debug.Trace
-
 \end{code}
 %endif
 
@@ -98,10 +96,11 @@ spawnPrometheus ekg host port prometheusOutput = Async.async $
         [ case sv of
             Counter c -> renderNamedValue sk (int64Dec c)
             Gauge g -> renderNamedValue sk (int64Dec g)
-            Label l -> trace ("renderSamples " <> T.unpack l) $
-                        if "{" `T.isPrefixOf` l
+            Label l -> if "{" `T.isPrefixOf` l
                             then renderLabel sk l
-                            else renderNamedValue sk (byteString $ encodeUtf8 l)
+                            else if (isFloat l)
+                                then renderNamedValue sk (byteString $ encodeUtf8 l)
+                                else mempty
             _ -> mempty
         | (sk,sv) <- samples ]
 
@@ -113,7 +112,7 @@ spawnPrometheus ekg host port prometheusOutput = Async.async $
         <> charUtf8 '\n'
 
     renderLabel :: Text -> Text -> Builder
-    renderLabel nm l = trace "renderLabel" $
+    renderLabel nm l =
         (byteString $ prepareName nm)
         <> charUtf8 ' '
         <> byteString (textToUtf8ByteString l)
