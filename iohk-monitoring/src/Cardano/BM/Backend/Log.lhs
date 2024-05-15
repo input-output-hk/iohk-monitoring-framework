@@ -420,20 +420,20 @@ renderJsonMsg r =
         m' = encodeToLazyText $ trimTime $ K.itemJson (verbosity r) li'
     in (fromIntegral $ TL.length m', m')
 
--- keep only two digits for the fraction of seconds
+-- keep only three digits for the fraction of seconds
 trimTime :: Value -> Value
 trimTime (Object o) = Object . runIdentity $ KeyMap.alterF
-                                (\a -> Identity $ keep2Decimals <$> a)
+                                (\a -> Identity $ keep3Decimals <$> a)
                                 "at"
                                 o
   where
-    keep2Decimals :: Value -> Value
-    keep2Decimals v = case fromJSON v of
+    keep3Decimals :: Value -> Value
+    keep3Decimals v = case fromJSON v of
                         Success (utct :: UTCTime) ->
                             String $ pack $ formatTime defaultTimeLocale jformat utct
                         _ -> v
     jformat :: String
-    jformat = "%FT%T%2QZ"
+    jformat = "%FT%T%3QZ"
 trimTime v = v
 
 mkFileScribe
