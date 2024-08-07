@@ -30,7 +30,7 @@ library
                        safe-exceptions,
                        text,
                        time,
-                       threepenny-gui,
+                       threepenny-gui >= 0.9,
                        unordered-containers
   if os(windows)
      build-depends:    Win32
