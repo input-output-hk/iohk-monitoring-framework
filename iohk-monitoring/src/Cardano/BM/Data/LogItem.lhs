@@ -36,7 +36,7 @@ import           Data.Aeson (FromJSON (..), ToJSON (..), Value (..), (.=),
                      (.:), object, withText, withObject)
 import           Data.Aeson.Types (Object, Parser)
 import           Data.Function (on)
-import           Data.List (foldl')
+import           Data.List as List (foldl')
 import           Data.Maybe (fromMaybe)
 import qualified Data.Text as T
 import           Data.Text (Text, pack, stripPrefix)
@@ -401,5 +401,5 @@ loContentEq = (==) `on` loContent
 \label{code:loname2text}\index{loname2text}
 \begin{code}
 loname2text :: [LoggerName] -> Text
-loname2text nms = T.init $ foldl' (\el acc -> acc <> "." <> el) "" nms
+loname2text nms = T.init $ List.foldl' (\el acc -> acc <> "." <> el) "" nms
 \end{code}
