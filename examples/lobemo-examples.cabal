@@ -103,7 +103,7 @@ executable example-complex
      build-depends:    unix
 
   if os(linux)
-     build-depends:    download
+     build-depends:    download >= 0.3
 
 
 executable example-performance
