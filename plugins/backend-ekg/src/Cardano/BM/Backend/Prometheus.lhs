@@ -20,18 +20,21 @@ import qualified Data.Aeson as A
 import           Data.Aeson ((.=))
 import           Data.ByteString.Builder
 import           Data.ByteString.Char8 (ByteString)
+import qualified Data.ByteString.Char8 as BS
+import qualified Data.ByteString.Lazy as LBS
 import           Data.List (find, partition)
 import           Data.Maybe (fromJust)
+import           Data.String (IsString)
 import           Data.Text (Text)
 import qualified Data.Text as T
 import           Data.Text.Encoding (encodeUtf8)
 import           Data.Text.Read (double)
 import           GHC.Generics
-import           Snap.Core (Snap, route, writeLBS)
-import           Snap.Http.Server (Config, ConfigLog (..), defaultConfig, setAccessLog,
-                     setBind, setErrorLog, setPort, simpleHttpServe)
+import           Network.HTTP.Types (status200)
+import qualified Network.Wai as Wai
+import qualified Network.Wai.Handler.Warp as Warp
 import           System.Metrics (Value (..), sampleAll)
-import qualified System.Remote.Monitoring as EKG
+import qualified System.Remote.Monitoring.Wai as Wai
 
 \end{code}
 %endif
@@ -67,29 +70,28 @@ instance A.ToJSON Number where
     toJSON (NumberInt i)  = A.Number $ fromInteger i
     toJSON (NumberReal r) = A.Number $ fromRational (toRational r)
 
-spawnPrometheus :: EKG.Server -> ByteString -> Int -> Maybe Text -> IO (Async.Async ())
-spawnPrometheus ekg host port prometheusOutput = Async.async $
-    simpleHttpServe config site
+spawnPrometheus :: Wai.Server -> Warp.HostPreference -> Int -> Maybe Text -> IO (Async.Async ())
+spawnPrometheus ekg host port prometheusOutput =
+    Async.async $ Warp.runSettings settings site
+    
   where
-    config :: Config Snap a
-    config = setPort port . setBind host . setAccessLog lg . setErrorLog lg $ defaultConfig
-    lg = ConfigNoLog
-    site :: Snap ()
-    site = route [ ("/metrics/", webhandler ekg) ]
-    webhandler :: EKG.Server -> Snap ()
-    webhandler srv = do
-        samples <- liftIO $ sampleAll $ EKG.serverMetricStore srv
+    settings :: Warp.Settings
+    settings = Warp.setPort port . Warp.setHost host $ Warp.defaultSettings
+    
+    site :: Wai.Application
+    site _request respond = do
+        -- We ignore the request and simple respond with the data.
+        samples <- sampleAll $ Wai.serverMetricStore ekg
         let output = case prometheusOutput of
-                         Nothing     -> renderSimpleOutput samples
                          Just "json" -> renderJSONOutput samples
-                         Just _      -> renderSimpleOutput samples
-        writeLBS output
-        pure ()
+                         _other -> renderSimpleOutput samples
+        respond $ Wai.responseLBS status200 [] output
 
-    -- Simple output: key value.
-
-    renderSimpleOutput = toLazyByteString . renderSamples . HM.toList
-
+-- Simple output: key value.
+renderSimpleOutput :: HM.HashMap Text Value -> LBS.ByteString
+renderSimpleOutput =
+    toLazyByteString . renderSamples . HM.toList
+  where
     renderSamples :: [(Text, Value)] -> Builder
     renderSamples [] = mempty
     renderSamples samples = mconcat
@@ -124,15 +126,16 @@ spawnPrometheus ekg host port prometheusOutput = Async.async $
         Right (_n, "") -> True  -- only floating point number parsed, no leftover
         _ -> False
 
-    -- JSON output
+-- JSON output
+renderJSONOutput :: HM.HashMap Text Value -> LBS.ByteString
+renderJSONOutput samples =
+    let rtsNamespace = "rts.gc"
+        (rtsSamples, otherSamples) = partition (\(sk, _) -> rtsNamespace `T.isPrefixOf` sk) $ HM.toList samples
+        rtsMetrics = extractRtsGcMetrics rtsNamespace rtsSamples
+        otherMetrics = extractOtherMetrics otherSamples
+    in A.encode [rtsMetrics, otherMetrics]
 
-    renderJSONOutput samples =
-        let rtsNamespace = "rts.gc"
-            (rtsSamples, otherSamples) = partition (\(sk, _) -> rtsNamespace `T.isPrefixOf` sk) $ HM.toList samples
-            rtsMetrics = extractRtsGcMetrics rtsNamespace rtsSamples
-            otherMetrics = extractOtherMetrics otherSamples
-        in A.encode [rtsMetrics, otherMetrics]
-
+  where
     -- rts.gc metrics are always here because they are predefined in ekg-core,
     -- so we can group them.
     extractRtsGcMetrics :: Text -> [(Text, Value)] -> MetricsGroup

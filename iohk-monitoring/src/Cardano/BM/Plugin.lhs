@@ -11,7 +11,7 @@ module Cardano.BM.Plugin
   )
   where
 
-import           System.Remote.Monitoring (Server)
+import           System.Remote.Monitoring.Wai (Server)
 
 import           Cardano.BM.Backend.Log (Scribe)
 import           Cardano.BM.Backend.Switchboard (Switchboard,
