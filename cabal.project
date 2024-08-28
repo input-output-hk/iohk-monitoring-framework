@@ -45,3 +45,8 @@ allow-newer:
 
 package comonad
   flags: -test-doctests
+
+if os(windows)
+  -- Avoid `unknown symbol __cpu_model` when cross compilation runs TH code
+  package bitvec
+    flags: -simd
