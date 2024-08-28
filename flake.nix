@@ -70,9 +70,9 @@
             }
             // lib.optionalAttrs (config.compiler-nix-name == defaultCompiler) {
               # tools that work only with default compiler
-              stylish-haskell = "0.14.4.0";
-              hlint = "3.5";
-              haskell-language-server = "2.0.0.0";
+              stylish-haskell = "0.14.6.0";
+              hlint = "3.8";
+              haskell-language-server.src = nixpkgs.haskell-nix.sources."hls-2.9";
             };
           # and from nixpkgs or other inputs
           shell.nativeBuildInputs = with nixpkgs; [ gh jq yq-go ];
