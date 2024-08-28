@@ -88,6 +88,8 @@
                packages.crypton-x509-system.postPatch = ''
                   substituteInPlace crypton-x509-system.cabal --replace 'Crypt32' 'crypt32'
                '';
+               # Disable `cabal-doctest` for `xml-conduit`
+               packages.xml-conduit.package.buildType = lib.mkForce "Simple";
             }
           ];
         });
