@@ -40,7 +40,7 @@ import           Data.Version (showVersion)
 import           System.IO (stderr)
 import qualified System.Metrics.Gauge as Gauge
 import qualified System.Metrics.Label as Label
-import           System.Remote.Monitoring (Server, forkServer,
+import           System.Remote.Monitoring.Wai (Server, forkServer,
                      getGauge, getLabel, serverThreadId)
 
 import           Paths_iohk_monitoring (version)

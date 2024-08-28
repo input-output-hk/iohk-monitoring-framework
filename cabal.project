@@ -13,8 +13,8 @@ repository cardano-haskell-packages
 -- See CONTRIBUTING for information about these, including some Nix commands
 -- you need to run if you change them
 index-state:
-  , hackage.haskell.org 2024-08-20T21:35:22Z
-  , cardano-haskell-packages 2024-08-18T22:35:14Z
+  , hackage.haskell.org 2024-08-25T21:36:13Z
+  , cardano-haskell-packages 2024-08-25T15:05:06Z
 
 packages:
   contra-tracer
@@ -40,11 +40,13 @@ constraints:
   , text >= 2.0
 
 allow-newer:
-  , ekg:base
-  , ekg-core:base
-  , ekg-json:base
   , feed:base
   , snap-server:base
 
 package comonad
   flags: -test-doctests
+
+if os(windows)
+  -- Avoid `unknown symbol __cpu_model` when cross compilation runs TH code
+  package bitvec
+    flags: -simd

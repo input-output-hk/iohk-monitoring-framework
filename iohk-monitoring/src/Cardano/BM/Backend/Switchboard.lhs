@@ -47,7 +47,7 @@ import qualified Data.Text.IO as TIO
 import           GHC.IO.Exception (BlockedIndefinitelyOnSTM)
 import qualified Katip as K
 import           System.IO (stderr)
-import           System.Remote.Monitoring (Server)
+import           System.Remote.Monitoring.Wai (Server)
 
 import           Cardano.BM.Configuration (Configuration)
 import qualified Cardano.BM.Configuration as Config
