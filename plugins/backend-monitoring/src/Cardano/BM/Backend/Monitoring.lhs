@@ -34,6 +34,7 @@ import           Data.Maybe (catMaybes)
 import           Data.Text (Text, pack)
 import qualified Data.Text.IO as TIO
 import           GHC.Clock (getMonotonicTimeNSec)
+import           GHC.Conc (labelThread, myThreadId)
 import           System.IO (stderr)
 
 import           Cardano.BM.Backend.LogBuffer
@@ -159,7 +160,9 @@ spawnDispatcher :: TBQ.TBQueue (Maybe (LogObject a))
                 -> Monitor a
                 -> IO (Async.Async ())
 spawnDispatcher mqueue config sbtrace monitor =
-    Async.async (initMap >>= qProc)
+    Async.async (do
+                    myThreadId >>= flip labelThread "Monitoring dispatcher (lobemo-backend-monitoring)"
+                    initMap >>= qProc)
   where
     {-@ lazy qProc @-}
     qProc state =

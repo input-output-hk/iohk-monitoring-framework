@@ -31,6 +31,7 @@ import           Data.Aeson (FromJSON, ToJSON)
 import qualified Data.HashMap.Strict as HM
 import           Data.Text (Text, pack)
 import qualified Data.Text.IO as TIO
+import           GHC.Conc (labelThread, myThreadId)
 import           System.IO (stderr)
 
 import           Cardano.BM.Backend.ProcessQueue (processQueue)
@@ -147,7 +148,9 @@ spawnDispatcher :: Configuration
 spawnDispatcher conf aggMap aggregationQueue basetrace =
     let trace = Trace.appendName "#aggregation" basetrace
     in
-    Async.async $ qProc trace aggMap
+    Async.async $ do
+      myThreadId >>= flip labelThread "Aggregation dispatcher (lobemo-backend-aggregation)"
+      qProc trace aggMap
   where
     {-@ lazy qProc @-}
     qProc trace aggregatedMap =
