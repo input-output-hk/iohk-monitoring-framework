@@ -28,8 +28,8 @@ import qualified Control.Concurrent.Async as Async
 import           Control.Exception
 import           Control.Monad (forM, unless)
 import           Data.Aeson (FromJSON, ToJSON, eitherDecodeStrict)
-import qualified Data.ByteString as BS
-import           Data.Text (pack)
+import qualified Data.ByteString.Char8 as BS
+import qualified Data.Text as Text
 import           Data.Text.Encoding (decodeUtf8)
 import           Data.Typeable (Typeable)
 import qualified Network.Socket as Socket
@@ -198,6 +198,6 @@ clientThread _config sbtrace h = handleError TraceAcceptorClientThreadError pPro
                   lometa = lometa0 { hostname = hname }
               Trace.traceNamedObject trace =<<
                   (,) <$> pure lometa
-                      <*> pure (LogError $ "Could not parse external log objects: " <> pack e)
+                      <*> pure (LogError $ "Could not parse external log objects: " <> Text.pack e)
         pProc
 \end{code}

@@ -129,17 +129,17 @@ bracketObserveIO config trace severity name action = do
         mCountersid <- observeOpen subtrace sev logTrace
 
         -- run action; if an exception is caught it will be logged and rethrown.
-        t <- act `catch` (\(e :: SomeException) -> (Text.hPutStrLn stderr (Text.show e) >> throwM e))
+        t <- act `catch` (\(e :: SomeException) -> (Text.hPutStrLn stderr (textShow e) >> throwM e))
 
         case mCountersid of
             Left openException ->
                 -- since observeOpen faced an exception there is no reason to call observeClose
                 -- however the result of the action is returned
-                Text.hPutStrLn stderr ("ObserveOpen: " <> Text.show openException)
+                Text.hPutStrLn stderr ("ObserveOpen: " <> textShow openException)
             Right countersid -> do
                     res <- observeClose subtrace sev logTrace countersid []
                     case res of
-                        Left ex -> Text.hPutStrLn stderr ("ObserveClose: " <> Text.show ex)
+                        Left ex -> Text.hPutStrLn stderr ("ObserveClose: " <> textShow ex)
                         _ -> pure ()
         pure t
 
@@ -159,17 +159,17 @@ bracketObserveM config trace severity name action = do
         mCountersid <- observeOpen subtrace sev logTrace
 
         -- run action; if an exception is caught it will be logged and rethrown.
-        t <- act `catch` (\(e :: SomeException) -> liftIO (Text.hPutStrLn stderr (Text.show e) >> throwM e))
+        t <- act `catch` (\(e :: SomeException) -> liftIO (Text.hPutStrLn stderr (textShow e) >> throwM e))
 
         case mCountersid of
             Left openException ->
                 -- since observeOpen faced an exception there is no reason to call observeClose
                 -- however the result of the action is returned
-                liftIO $ Text.hPutStrLn stderr ("ObserveOpen: " <> Text.show openException)
+                liftIO $ Text.hPutStrLn stderr ("ObserveOpen: " <> textShow openException)
             Right countersid -> do
                     res <- observeClose subtrace sev logTrace countersid []
                     case res of
-                        Left ex -> liftIO (Text.hPutStrLn stderr ("ObserveClose: " <> Text.show ex))
+                        Left ex -> liftIO (Text.hPutStrLn stderr ("ObserveClose: " <> textShow ex))
                         _ -> pure ()
         pure t
 
@@ -252,4 +252,13 @@ observeClose0 subtrace sev logTrace initState logObjects = do
     forM_ logObjects $ traceNamedObject logTrace
     return ()
 
+\end{code}
+
+\subsubsection{textShow}\label{textShow}
+\begin{code}
+-- The text package version 2.1.2 and later has the function Text.show, but we cannot
+-- use that because ghc-8.10 cannot build text-2.1.2. As soon as ghc8.10 can be 
+-- dropped, we should switch to `Text.show`.
+textShow :: Show a => a -> Text
+textShow = Text.pack . show
 \end{code}
