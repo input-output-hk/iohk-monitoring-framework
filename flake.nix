@@ -95,6 +95,12 @@
                   substituteInPlace crypton-x509-system.cabal --replace 'Crypt32' 'crypt32'
                '';
             }
+            # On Windows cross-compile a `basement` hsc2hs file generates a pointer to int
+            # conversion error.
+            ({pkgs, ...}: lib.mkIf pkgs.stdenv.hostPlatform.isWindows {
+              packages.basement.configureFlags = [ "--hsc2hs-option=--cflag=-Wno-int-conversion" ];
+            })
+
           ];
         });
         # ... and construct a flake from the cabal project
