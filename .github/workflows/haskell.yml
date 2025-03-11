@@ -11,7 +11,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        ghc: ["8.10.7", "9.6", "9.8", "9.10"]
+        ghc: ["8.10.7", "9.6", "9.8", "9.10", "9.12"]
         os: [ubuntu-latest, macos-13, windows-latest]
 
     env:
@@ -71,12 +71,6 @@ jobs:
         MSYS2_PATH_TYPE: inherit
         MSYSTEM: MINGW64
       run: cabal test all --enable-tests --test-show-details=direct -j1
-
-    - uses: actions/upload-artifact@v3
-      with:
-        name: Build & test logs
-        path: |
-          dist-newstyle/**/*.log
 
     # - name: Run benchmarks
     #   run: cabal bench all --enable-tests

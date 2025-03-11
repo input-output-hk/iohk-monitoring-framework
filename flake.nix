@@ -2,8 +2,14 @@
   description = "iohk-monitoring-framework";
 
   inputs = {
-    haskellNix.url = "github:input-output-hk/haskell.nix";
+
     nixpkgs.follows = "haskellNix/nixpkgs-unstable";
+    hostNixpkgs.follows = "nixpkgs";
+    haskellNix = {
+      url = "github:input-output-hk/haskell.nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     iohkNix.url = "github:input-output-hk/iohk-nix";
     incl.url = "github:divnix/incl";
     flake-utils.url = "github:hamishmack/flake-utils/hkm/nested-hydraJobs";
@@ -52,7 +58,7 @@
           # we also want cross compilation to windows on linux (and only with default compiler).
           crossPlatforms = p:
             lib.optional (system == "x86_64-linux" && config.compiler-nix-name == defaultCompiler)
-            p.mingwW64;
+            p.ucrt64;
 
           # CHaP input map, so we can find CHaP packages (needs to be more
           # recent than the index-state we set!). Can be updated with
@@ -88,9 +94,13 @@
                packages.crypton-x509-system.postPatch = ''
                   substituteInPlace crypton-x509-system.cabal --replace 'Crypt32' 'crypt32'
                '';
-               # Disable `cabal-doctest` for `xml-conduit`
-               packages.xml-conduit.package.buildType = lib.mkForce "Simple";
             }
+            # On Windows cross-compile a `basement` hsc2hs file generates a pointer to int
+            # conversion error.
+            ({pkgs, ...}: lib.mkIf pkgs.stdenv.hostPlatform.isWindows {
+              packages.basement.configureFlags = [ "--hsc2hs-option=--cflag=-Wno-int-conversion" ];
+            })
+
           ];
         });
         # ... and construct a flake from the cabal project
