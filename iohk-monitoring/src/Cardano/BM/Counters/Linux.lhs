@@ -14,15 +14,17 @@ module Cardano.BM.Counters.Linux
 
 #ifdef ENABLE_OBSERVABLES
 import           Data.Foldable (foldrM)
-import           Data.Maybe (catMaybes)
-import           Data.Text (Text, pack)
+import           Data.Maybe (catMaybes, fromMaybe)
+import           Data.Text (Text)
 import qualified GHC.Stats as GhcStats
 import           System.FilePath.Posix ((</>))
 import           System.Posix.Files (getFileStatus,fileMode,ownerReadMode,
                      intersectFileModes)
 import           System.Posix.Process (getProcessID)
 import           System.Posix.Types (ProcessID)
-import           Text.Read (readMaybe)
+import qualified Data.Text as T
+import qualified Data.Text.IO as T (readFile)
+import qualified Data.Text.Read as T (decimal)
 #endif
 
 #ifdef ENABLE_OBSERVABLES
@@ -131,8 +133,8 @@ readProcList fp = do
     fs <- getFileStatus fp
     if readable fs
     then do
-        cs <- readFile fp
-        return $ map (\s -> maybe 0 id $ (readMaybe s :: Maybe Integer)) (words cs)
+        cs <- T.readFile fp
+        return $ map (fromMaybe 0 . readMaybeText) (T.words cs)
     else
         return []
   where
@@ -544,17 +546,26 @@ IpExt: 0 0 20053 8977 2437 23 3163525943 196480057 2426648 1491754 394285 5523 0
 #ifdef ENABLE_OBSERVABLES
 readProcNet :: ProcessID -> IO [Counter]
 readProcNet pid = do
-    ipexts0 <- words <$> lastline <$> lines <$> readFile (pathProcNet pid)
-    let ipexts1 = map (\i -> readMaybe i :: Maybe Integer) ipexts0
-    return $
-      if length ipexts1 >= 9  -- enough fields available
-      then mkCounters [("IpExt:InOctets", ipexts1 !! 7), ("IpExt:OutOctets", ipexts1 !! 8)]
-      else []
+  fields <- T.words . fourthLine . T.lines <$> T.readFile (pathProcNet pid)
+  case -- We're only interested in 'InOctets' & 'OutOctets':
+    fmap readMaybeText . take 2 . drop 7 $ fields of
+      [Just netIn, Just netOut] -> return $ [ Counter NetCounter "IpExt:InOctets"  (Bytes netIn)
+                                            , Counter NetCounter "IpExt:OutOctets" (Bytes netOut) ]
+      _ -> pure []
   where
-    lastline ls | length ls == 4 = last ls -- ensures we read the fourth line
-                | otherwise = []
-    mkCounters = catMaybes . map (\(n,c) -> mkCounter n c)
-    mkCounter _n Nothing = Nothing
-    mkCounter n (Just i) = Just (Counter NetCounter (pack n) (Bytes $ fromInteger i))
+    -- Assumption: 'IpExt:' values are on the fourth line of how the kernel displays the buffer
+    fourthLine ls = case drop 3 ls of
+      l:_ -> l
+      _   -> T.empty
+#endif
+\end{code}
+
+\begin{code}
+#ifdef ENABLE_OBSERVABLES
+readMaybeText :: Integral a => T.Text -> Maybe a
+readMaybeText t =
+  case T.decimal t of
+    Right (v, _)  -> Just v
+    _             -> Nothing
 #endif
 \end{code}
