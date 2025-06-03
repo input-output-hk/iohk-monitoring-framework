@@ -44,6 +44,7 @@ import           Data.Aeson (FromJSON, ToJSON)
 import           Data.Maybe (isJust)
 import           Data.Text (Text)
 import qualified Data.Text.IO as TIO
+import           GHC.Conc (labelThread, myThreadId)
 import           GHC.IO.Exception (BlockedIndefinitelyOnSTM)
 import qualified Katip as K
 import           System.IO (stderr)
@@ -234,7 +235,9 @@ realizeSwitchboard cfg = do
                     res <- mapM processItem nlis
                     when (and res) $ qProc
             in
-            Async.async qProc
+            Async.async $ do
+              myThreadId >>= flip labelThread "Switchboard dispatcher (iohk-monitoring)"
+              qProc
 
 #ifdef PERFORMANCE_TEST_QUEUE
     let qSize = 1000000

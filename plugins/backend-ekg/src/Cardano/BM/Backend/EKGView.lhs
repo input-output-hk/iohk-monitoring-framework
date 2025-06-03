@@ -36,6 +36,7 @@ import           Data.String (fromString)
 import           Data.Text (Text, pack, stripPrefix)
 import qualified Data.Text.IO as TIO
 import           Data.Version (showVersion)
+import           GHC.Conc (labelThread, myThreadId)
 
 import           System.IO (stderr)
 import qualified System.Metrics.Gauge as Gauge
@@ -344,7 +345,9 @@ spawnDispatcher :: Configuration
                 -> Trace.Trace IO a
                 -> IO (Async.Async ())
 spawnDispatcher config evqueue _sbtrace ekgtrace =
-    Async.async $ qProc
+    Async.async $ do
+      myThreadId >>= flip labelThread "Dispatcher EKGView (lobemo-backend-ekg)"
+      qProc
   where
     {-@ lazy qProc @-}
     qProc :: IO ()
