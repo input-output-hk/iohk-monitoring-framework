@@ -29,6 +29,7 @@ import           Data.Text (Text)
 import qualified Data.Text as T
 import           Data.Text.Encoding (encodeUtf8)
 import           Data.Text.Read (double)
+import           GHC.Conc (labelThread, myThreadId)
 import           GHC.Generics
 import           Network.HTTP.Types (status200)
 import qualified Network.Wai as Wai
@@ -72,12 +73,14 @@ instance A.ToJSON Number where
 
 spawnPrometheus :: Wai.Server -> Warp.HostPreference -> Int -> Maybe Text -> IO (Async.Async ())
 spawnPrometheus ekg host port prometheusOutput =
-    Async.async $ Warp.runSettings settings site
-    
+    Async.async $ do
+      myThreadId >>= flip labelThread "Prometheus (lobemo-backend-ekg)"
+      Warp.runSettings settings site
+
   where
     settings :: Warp.Settings
     settings = Warp.setPort port . Warp.setHost host $ Warp.defaultSettings
-    
+
     site :: Wai.Application
     site _request respond = do
         -- We ignore the request and simple respond with the data.
