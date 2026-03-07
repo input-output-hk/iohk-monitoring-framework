@@ -4,6 +4,7 @@
 %if style == newcode
 \begin{code}
 {-# LANGUAGE RankNTypes #-}
+{-# OPTIONS_GHC -Wno-redundant-constraints #-}
 {-|
 Module: Control.Tracer
 
@@ -26,6 +27,8 @@ module Control.Tracer
     , condTracing
     , condTracingM
     , natTracer
+    -- * Compatibility with `contra-tracer` from Hackage
+    , emit
     ) where
 
 import           Control.Monad (when, (>=>))
@@ -260,3 +263,13 @@ debugTracer :: (Applicative m) => Tracer m String
 debugTracer = Tracer Debug.Trace.traceM
 
 \end{code}
+
+\section{Compatibility with |Tracer| from Hackage}
+
+%if style == newcode
+\begin{code}
+emit :: forall a m. Applicative m => (a -> m ()) -> (a -> m ())
+emit = id
+{-# INLINE emit #-}
+\end{code}
+
